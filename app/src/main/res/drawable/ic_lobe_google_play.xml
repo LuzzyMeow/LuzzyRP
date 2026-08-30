@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 由 tools/icon_pipeline.py 从 lobe-ui-master lucideExtra 机械转换生成 —— 禁止手改 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4 3.712V20.292C4 20.414 4.032 20.535 4.094 20.641 4.155 20.748 4.244 20.836 4.35 20.898 4.457 20.959 4.577 20.991 4.7 20.991 4.823 20.991 4.944 20.959 5.05 20.898L19.672 12.478C19.756 12.429 19.825 12.36 19.874 12.276 19.922 12.193 19.947 12.098 19.947 12.001 19.947 11.904 19.922 11.81 19.874 11.726 19.825 11.642 19.756 11.573 19.672 11.525L5.05 3.106C4.944 3.044 4.823 3.012 4.7 3.012 4.577 3.012 4.456 3.044 4.35 3.106 4.243 3.167 4.155 3.256 4.093 3.362 4.032 3.469 4 3.589 4 3.712ZM15 9 4.5 20.5M4.5 3.5 15 15"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillType="nonZero" />
+</vector>

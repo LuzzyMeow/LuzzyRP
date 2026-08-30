@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 由 tools/icon_pipeline.py 从 lobe-ui-master lucideExtra 机械转换生成 —— 禁止手改 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M11 17.5V11H11.5L15.5 17H16V10.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillType="nonZero" />
+    <path
+        android:pathData="M19.077 20.071 7.547 20.958C7.379 20.971 7.211 20.941 7.058 20.871 6.905 20.802 6.772 20.695 6.671 20.561L4.2 17.267C4.07 17.094 4 16.883 4 16.667V5.926C4 5.674 4.095 5.431 4.266 5.246 4.437 5.062 4.672 4.948 4.923 4.929L16.312 4.053C16.758 4.019 17.202 4.135 17.574 4.383L19.109 5.406C19.383 5.588 19.608 5.836 19.763 6.126 19.919 6.416 20 6.74 20 7.07V19.074C20 19.326 19.905 19.568 19.734 19.753 19.563 19.938 19.328 20.051 19.077 20.071ZM4.5 5.5 7 8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillType="nonZero" />
+    <path
+        android:pathData="M20 7L7 8V20.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillType="nonZero" />
+</vector>

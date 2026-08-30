@@ -1,0 +1,101 @@
+// ============================================================
+// 本文件由 tools/icon_pipeline.py 自动生成 —— 禁止手改
+// LuzzyIcons：UI 层语义别名（UI 代码只允许从这里取图标）
+// 重新生成：python tools/icon_pipeline.py
+// ============================================================
+package com.luzzymeow.luzzyrp.ui.icons
+
+object LuzzyIcons {
+    val Send: GameIcon = GameIcons.zhi_fei_ji // 原名「纸飞机」
+    val NewChat: GameIcon = GameIcons.gang_bi // 原名「钢笔」
+    val History: GameIcon = GameIcons.shi_jian // 原名「时间」
+    val Star: GameIcon = GameIcons.wu_jiao_xing // 原名「五角星」
+    val StarFilled: GameIcon = GameIcons.shu_qian // 原名「书签」
+    val Settings: GameIcon = GameIcons.she_zhi // 原名「设置」
+    val Delete: GameIcon = GameIcons.la_ji_tong // 原名「垃圾桶」
+    val Edit: GameIcon = GameIcons.qian_bi // 原名「铅笔」
+    val Search: GameIcon = GameIcons.sou_suo // 原名「搜索」
+    val Copy: GameIcon = GameIcons.fu_zhi // 原名「复制」
+    val Share: GameIcon = GameIcons.fen_xiang // 原名「分享」
+    val Close: GameIcon = GameIcons.cha_hao // 原名「叉号」
+    val Back: GameIcon = GameIcons.xiang_zuo_xuan_zhuan // 原名「向左旋转」
+    val Refresh: GameIcon = GameIcons.shua_xin // 原名「刷新」
+    val Lock: GameIcon = GameIcons.shang_suo // 原名「上锁」
+    val Unlock: GameIcon = GameIcons.jie_suo // 原名「解锁」
+    val Info: GameIcon = GameIcons.xin_xi // 原名「信息」
+    val Book: GameIcon = GameIcons.shu // 原名「书」
+    val Map: GameIcon = GameIcons.di_tu // 原名「地图」
+    val Sword: GameIcon = GameIcons.jian // 原名「剑」
+    val Dice: GameIcon = GameIcons.liu_mian_tou_zi // 原名「六面骰子」
+    val Brain: GameIcon = GameIcons.dian_nao_zhu_ji // 原名「电脑主机」
+    val Memory: GameIcon = GameIcons.bi_ji_ben // 原名「笔记本」
+    val Stop: GameIcon = GameIcons.ting_zhi // 原名「停止」
+    val Play: GameIcon = GameIcons.bo_fang // 原名「播放」
+    val Pause: GameIcon = GameIcons.zan_ting // 原名「暂停」
+    val Plus: GameIcon = GameIcons.jia_hao // 原名「加号」
+    val Minus: GameIcon = GameIcons.jian_hao // 原名「减号」
+    val Check: GameIcon = GameIcons.dui_gou // 原名「对勾」
+    val Warning: GameIcon = GameIcons.shuang_gan_tan_hao // 原名「双感叹号」
+    val User: GameIcon = GameIcons.yong_hu // 原名「用户」
+    val Users: GameIcon = GameIcons.shan_chu_yong_hu // 原名「删除用户」
+    val Menu: GameIcon = GameIcons.cai_dan // 原名「菜单」
+    val Download: GameIcon = GameIcons.xia_zai // 原名「下载」
+    val Upload: GameIcon = GameIcons.shang_chuan // 原名「上传」
+    val Image: GameIcon = GameIcons.tu_xiang // 原名「图像」
+    val Camera: GameIcon = GameIcons.xiang_ji // 原名「相机」
+    val Mic: GameIcon = GameIcons.mai_ke_feng // 原名「麦克风」
+    val Volume: GameIcon = GameIcons.yin_liang // 原名「音量」
+    val Moon: GameIcon = GameIcons.ye_wan // 原名「夜晚」
+    val Sun: GameIcon = GameIcons.tai_yang // 原名「太阳」
+    val Home: GameIcon = GameIcons.fang_zi // 原名「房子」
+    val Chat: GameIcon = GameIcons.xiao_xi // 原名「消息」
+    val More: GameIcon = GameIcons.cai_dan // 原名「菜单」
+    val Expand: GameIcon = GameIcons.zhan_kai // 原名「展开」
+    val Collapse: GameIcon = GameIcons.jian_tou_shang // 原名「箭头上」
+    val Pin: GameIcon = GameIcons.tu_ding // 原名「图钉」
+    val Eye: GameIcon = GameIcons.ke_jian // 原名「可见」
+    val EyeOff: GameIcon = GameIcons.bu_ke_jian // 原名「不可见」
+    val Trophy: GameIcon = GameIcons.jiang_bei // 原名「奖杯」
+    val Save: GameIcon = GameIcons.bao_cun // 原名「保存」
+    val Bag: GameIcon = GameIcons.bei_bao // 原名「背包」
+    val Clock: GameIcon = GameIcons.shi_jian // 原名「时间」
+    val Calendar: GameIcon = GameIcons.ri_li // 原名「日历」
+    val Globe: GameIcon = GameIcons.di_qiu // 原名「地球」
+    val Fire: GameIcon = GameIcons.huo // 原名「火」
+    val Heart: GameIcon = GameIcons.ai_xin // 原名「爱心」
+    val Shield: GameIcon = GameIcons.dun // 原名「盾」
+    val Wand: GameIcon = GameIcons.mo_zhang // 原名「魔杖」
+    val Crown: GameIcon = GameIcons.wang_guan // 原名「王冠」
+    val Flag: GameIcon = GameIcons.qi // 原名「旗」
+    val Lightning: GameIcon = GameIcons.lei_dian // 原名「雷电」
+    val Scroll: GameIcon = GameIcons.zhi // 原名「纸」
+    val Quill: GameIcon = GameIcons.gang_bi // 原名「钢笔」
+    val Robot: GameIcon = GameIcons.dian_nao_zhu_ji // 原名「电脑主机」
+    val Sparkle: GameIcon = GameIcons.wei_xian_bao_jing_shan_guang_deng // 原名「危险报警闪光灯」
+    val Filter: GameIcon = GameIcons.lou_dou // 原名「漏斗」
+    val Sort: GameIcon = GameIcons.pai_xu // 原名「排序」
+    val Trash: GameIcon = GameIcons.la_ji_tong // 原名「垃圾桶」
+    val Translate: GameIcon = GameIcons.di_qiu // 原名「地球」
+    val Palette: GameIcon = GameIcons.hua_bi // 原名「画笔」
+    val Font: GameIcon = GameIcons.zi_ti // 原名「字体」
+    val Link: GameIcon = GameIcons.lian_jie_2 // 原名「链接」
+    val Key: GameIcon = GameIcons.yao_shi // 原名「钥匙」
+    val Cloud: GameIcon = GameIcons.yun // 原名「云」
+    val Database: GameIcon = GameIcons.xin_pian // 原名「芯片」
+    val Code: GameIcon = GameIcons.dai_ma // 原名「代码」
+    val Terminal: GameIcon = GameIcons.jian_pan // 原名「键盘」
+    val Gift: GameIcon = GameIcons.xiang_zi // 原名「箱子」
+    val Coin: GameIcon = GameIcons.yuan_bao // 原名「元宝」
+    val Gem: GameIcon = GameIcons.zuan_shi // 原名「钻石」
+    val Potion: GameIcon = GameIcons.yao_shui // 原名「药水」
+    val ScrollUp: GameIcon = GameIcons.jian_tou_shang_02 // 原名「箭头上-02」
+    val Cat: GameIcon = GameIcons.mao_2 // 原名「猫」
+    val Fox: GameIcon = GameIcons.hu_li // 原名「狐狸」
+    val Wolf: GameIcon = GameIcons.lang // 原名「狼」
+    val Ghost: GameIcon = GameIcons.gui_hun // 原名「鬼魂」
+    val Skull: GameIcon = GameIcons.ku_lou_tou // 原名「骷髅头」
+    val BotPrompt: GameIcon = LobeIcons.bot_prompt // 原名「BotPrompt」
+    val CreateBot: GameIcon = LobeIcons.create_bot // 原名「CreateBot」
+    val GroupBot: GameIcon = LobeIcons.group_bot // 原名「GroupBot」
+    val ProviderIcon: GameIcon = LobeIcons.provider // 原名「Provider」
+}

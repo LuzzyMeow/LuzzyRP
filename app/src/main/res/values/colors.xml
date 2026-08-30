@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 自适应启动图标背景色（AuroraPink 同源的深粉底） -->
+    <color name="ic_launcher_background">#2A0E22</color>
+</resources>

@@ -1,0 +1,43 @@
+# ===== LuzzyRP .gitignore =====
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystore（签名密钥严禁入库）
+*.jks
+*.keystore
+!debug.keystore
+keystore.properties
+docs/RELEASE-KEY.md
+
+# 本地参考归档（旧仓库源码备份，不入库）
+docs/archive/
+
+# 运行日志与临时文件
+*.log
+logs/
+.DS_Store
+Thumbs.db
+
+# Kotlin/Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Room schema 导出目录中的临时文件（schemas 本身需要入库）
+*.bak

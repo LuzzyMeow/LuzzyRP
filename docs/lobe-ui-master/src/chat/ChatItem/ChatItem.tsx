@@ -1,0 +1,219 @@
+'use client';
+
+import { cx, useResponsive } from 'antd-style';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+
+import { Flexbox } from '@/Flex';
+import chatMessages from '@/i18n/resources/en/chat';
+import { useTranslation } from '@/i18n/useTranslation';
+
+import Actions from './components/Actions';
+import Avatar from './components/Avatar';
+import BorderSpacing from './components/BorderSpacing';
+import ErrorContent from './components/ErrorContent';
+import MessageContent from './components/MessageContent';
+import Title from './components/Title';
+import { styles } from './style';
+import type { ChatItemProps } from './type';
+
+const MOBILE_AVATAR_SIZE = 32;
+
+const ChatItem = memo<ChatItemProps>(
+  ({
+    avatarAddon,
+    onAvatarClick,
+    avatarProps,
+    actions,
+    className,
+    primary,
+    loading,
+    message,
+    placeholderMessage,
+    placement = 'left',
+    variant = 'bubble',
+    avatar,
+    error,
+    showTitle,
+    time,
+    editing,
+    onChange,
+    onEditingChange,
+    messageExtra,
+    renderMessage,
+    text,
+    errorMessage,
+    onDoubleClick,
+    fontSize,
+    aboveMessage,
+    belowMessage,
+    markdownProps,
+    actionsWrapWidth = 54,
+    showAvatar = true,
+    titleAddon,
+    ...rest
+  }) => {
+    const { mobile } = useResponsive();
+    const { t } = useTranslation(chatMessages);
+
+    const avatarSize = mobile ? MOBILE_AVATAR_SIZE : avatarProps?.size || 40;
+    const cssVariables = useMemo<Record<string, string>>(
+      () => ({
+        '--chat-item-avatar-size': `${avatarSize}px`,
+      }),
+      [avatarSize],
+    );
+
+    const hasTime = Boolean(time);
+    const placeholderText = placeholderMessage ?? t('chat.placeholder');
+    const avatarAlt = avatarProps?.alt || avatar.title || t('chat.avatar');
+
+    // 在 ChatItem 组件中添加
+    const contentRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [layoutMode, setLayoutMode] = useState<'horizontal' | 'vertical'>(
+      variant === 'bubble' ? 'horizontal' : 'vertical',
+    );
+
+    // 使用 ResizeObserver 监控内容和容器尺寸
+    useEffect(() => {
+      if (variant === 'docs') {
+        setLayoutMode('vertical');
+        return;
+      }
+
+      if (!contentRef.current || !containerRef.current) return;
+
+      const observer = new ResizeObserver(() => {
+        if (!contentRef.current || !containerRef.current) return;
+
+        const containerWidth = containerRef.current.clientWidth;
+        const contentWidth = contentRef.current.scrollWidth; // 使用scrollWidth获取实际内容宽度
+
+        // 预留给Actions的最小空间 (根据实际Actions大小调整)
+
+        // 只有当内容宽度 + Actions最小宽度 > 容器宽度时才切换布局
+        setLayoutMode(contentWidth + actionsWrapWidth > containerWidth ? 'vertical' : 'horizontal');
+      });
+
+      observer.observe(contentRef.current);
+      observer.observe(containerRef.current);
+
+      return () => observer.disconnect();
+    }, [variant, actionsWrapWidth]);
+
+    const containerClassName = cx(
+      variant === 'docs' ? styles.containerDocs : styles.container,
+      className,
+    );
+
+    const messageContainerClassName = useMemo(() => {
+      if (editing) {
+        return hasTime ? styles.messageContainerEditingWithTime : styles.messageContainerEditing;
+      }
+      return hasTime ? styles.messageContainerWithTime : styles.messageContainer;
+    }, [editing, hasTime]);
+
+    const messageContentClassName = useMemo(() => {
+      return editing ? styles.messageContentEditing : styles.messageContent;
+    }, [editing]);
+
+    return (
+      <Flexbox
+        className={containerClassName}
+        direction={placement === 'left' ? 'horizontal' : 'horizontal-reverse'}
+        gap={mobile ? 6 : 12}
+        style={cssVariables}
+        {...rest}
+      >
+        {showAvatar && (
+          <Avatar
+            {...avatarProps}
+            addon={avatarAddon}
+            alt={avatarAlt}
+            avatar={avatar}
+            loading={loading}
+            placement={placement}
+            size={avatarSize}
+            style={{
+              marginTop: showTitle ? -12 : 6,
+              ...avatarProps?.style,
+            }}
+            onClick={onAvatarClick}
+          />
+        )}
+        <Flexbox
+          align={placement === 'left' ? 'flex-start' : 'flex-end'}
+          className={messageContainerClassName}
+          ref={containerRef}
+        >
+          <Title
+            avatar={avatar}
+            placement={placement}
+            showTitle={showTitle}
+            time={time}
+            titleAddon={titleAddon}
+          />
+          {aboveMessage}
+          <Flexbox
+            align={placement === 'left' ? 'flex-start' : 'flex-end'}
+            className={messageContentClassName}
+            data-layout={layoutMode} // 添加数据属性以方便样式选择
+            gap={8}
+            direction={
+              layoutMode === 'horizontal'
+                ? placement === 'left'
+                  ? 'horizontal'
+                  : 'horizontal-reverse'
+                : 'vertical'
+            }
+          >
+            <Flexbox ref={contentRef} width={'100%'}>
+              {error && (message === placeholderText || !message) ? (
+                <ErrorContent error={error} message={errorMessage} placement={placement} />
+              ) : (
+                <MessageContent
+                  editing={editing}
+                  fontSize={fontSize}
+                  markdownProps={markdownProps}
+                  message={message}
+                  placement={placement}
+                  primary={primary}
+                  renderMessage={renderMessage}
+                  text={text}
+                  variant={variant}
+                  messageExtra={
+                    <>
+                      {error && (
+                        <ErrorContent error={error} message={errorMessage} placement={placement} />
+                      )}
+                      {messageExtra}
+                    </>
+                  }
+                  onChange={onChange}
+                  onDoubleClick={onDoubleClick}
+                  onEditingChange={onEditingChange}
+                />
+              )}
+            </Flexbox>
+            {actions && (
+              <Actions
+                actions={actions}
+                editing={editing}
+                placement={placement}
+                variant={variant}
+              />
+            )}
+          </Flexbox>
+          {belowMessage}
+        </Flexbox>
+        {mobile && variant === 'bubble' && showAvatar && (
+          <BorderSpacing borderSpacing={MOBILE_AVATAR_SIZE} />
+        )}
+      </Flexbox>
+    );
+  },
+);
+
+export default ChatItem;
+
+export type { ChatItemProps } from './type';

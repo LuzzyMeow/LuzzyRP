@@ -85,5 +85,33 @@ LuzzyRP 的第一个正式版本。全新代码库，以 rikkahub 已验证的�
 - NSFW 提示词块为占位状态，由用户手动填写（`NsfwBlock.kt`），项目本身不做任何内容过滤。
 
 构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 1
-
 ---
+
+### v0.3.0 — Aurora v2 主题重制 · 三态动效体系 · 图层设计
+
+以 4 项设计 SKILL 为方法论本体完成的**可见视觉全面重制**（ui-ux-pro-max 检索基线 + huashu 动效纪律 + open-design DESIGN.md 契约 + awesome-design-md 结构范式）。
+
+**主题重制（主题令牌系统 v2）**
+
+- **AuroraColor v2**：Material3 方案完整落位——surfaceContainer 全族五档色阶、outline/outlineVariant、inverse 系、scrim、surfaceDim/Bright；亮/暗/**AMOLED** 三套独立方案（AMOLED 纯黑非暗色微调）。
+- **极光渐变系统（AuroraBrush）**：Pink→Violet 主渐变 / 反向渐变 / 画布顶部氛围微渐变——发送按钮、品牌标题、主行动统一取用（渐变为品牌资产，禁止业务自拼）。
+- **LuzzyElevation 图层令牌**：五层深度体系（画布→卡片 2dp→悬浮 6dp→弹窗 12dp+scrim45%→Toast 16dp）。
+- **LuzzyIconSize / LuzzyCorner 令牌**：图标 16/20/24/32 四级语义尺寸、圆角五档——全项目统一，禁止随机值。
+- **MotionTokens v2**：场景化动效规格（页面 slide¼+fade 300/195 快出慢入、弹窗 scale 0.92 spring、Sheet、列表 stagger 20ms、按压 scale 0.98 布局不跳动、展开 195）+ reduced-motion 替代规格。
+- **Typography/Shapes v2**：字阶微调 + LuzzyCorner 接入 Material Shapes。
+
+**组件库 v2**
+
+- **AuroraTopBar**：统一顶栏（56dp 高/图标 24dp/单行省略/操作位规范），聊天/世界书/预设/预设编辑/用户档案/记忆 全部换装；新增 TopBarAction 规范按钮。
+- **LuzzyDialog**：统一弹窗（scale+fade 三态进出、Layer3、正文左对齐、danger 变体）。
+- **EmptyState**：统一空态（Hero 图标+标题+引导，spring 入场）。
+- **AuroraSurface v2**：按压缩放 0.98（布局不跳动）+ 色彩过渡 + 阴影抬升三态。
+
+**逐页重制**
+
+- **聊天页**：背景图层正确分层（卡背景>头像，透明度直调）；气泡 v2（用户=极光淡染渐变 / AI=纸面卡 Layer1 阴影+描边）；输入栏渐变发送键；顶栏半透明融合。
+- **首页**：时段问候 + 极光渐变品牌标题；会话空态引导。
+- **页面转场 v2**：fade+slide 六分之一屏、缓动曲线化（快出慢入不对称节奏）。
+
+构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 4
+

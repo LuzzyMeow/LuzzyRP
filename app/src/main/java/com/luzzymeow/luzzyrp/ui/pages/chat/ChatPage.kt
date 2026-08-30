@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,7 @@ import com.luzzymeow.luzzyrp.ui.components.MarkdownText
 import com.luzzymeow.luzzyrp.ui.components.ThinkingCard
 import com.luzzymeow.luzzyrp.ui.components.ToolCard
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
+import com.luzzymeow.luzzyrp.ui.theme.LuzzyCorner
 import com.luzzymeow.luzzyrp.ui.theme.LocalExtendColors
 import com.luzzymeow.luzzyrp.ui.theme.LuzzySpacing
 import com.luzzymeow.luzzyrp.ui.theme.MotionTokens
@@ -93,44 +96,49 @@ fun ChatPage(
         }
     }
 
+    // 卡片背景数据（5.4：聊天背景 > 头像 > 无；透明度 0-100）
+    val card by viewModel.card.collectAsState()
+    val backgroundPath = card?.chatBackground?.path ?: card?.avatarPath
+    val backgroundAlpha = (card?.chatBackground?.opacity ?: 45) / 100f
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        // —— 图层 0：背景 ——
+        if (backgroundPath != null && java.io.File(backgroundPath).exists()) {
+            coil3.compose.AsyncImage(
+                model = java.io.File(backgroundPath),
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                alpha = backgroundAlpha,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .imePadding(),
     ) {
-        // —— 顶栏 ——
-        Surface(color = MaterialTheme.colorScheme.background, shadowElevation = 1.dp) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = LuzzySpacing.XS, vertical = LuzzySpacing.SM),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(painterResource(LuzzyIcons.Back.res), contentDescription = "返回",
-                        tint = MaterialTheme.colorScheme.onSurface)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = conversation?.title?.ifBlank { "对话" } ?: "对话",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                IconButton(onClick = { viewModel.regenerate() }) {
-                    Icon(painterResource(LuzzyIcons.Refresh.res), contentDescription = "重新生成",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = { showHistory = true }) {
-                    Icon(painterResource(LuzzyIcons.History.res), contentDescription = "历史会话",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = { showSearch = true }) {
-                    Icon(painterResource(LuzzyIcons.Search.res), contentDescription = "搜索",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+        // —— 顶栏（AuroraTopBar v2）——
+        Surface(
+            color = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+            shadowElevation = 1.dp,
+        ) {
+            com.luzzymeow.luzzyrp.ui.components.AuroraTopBar(
+                title = conversation?.title?.ifBlank { "对话" } ?: "对话",
+                onBack = onBack,
+                actions = {
+                    com.luzzymeow.luzzyrp.ui.components.TopBarAction(
+                        LuzzyIcons.Refresh.res, "重新生成", onClick = { viewModel.regenerate() },
+                        tint = MaterialTheme.colorScheme.primary)
+                    com.luzzymeow.luzzyrp.ui.components.TopBarAction(
+                        LuzzyIcons.History.res, "历史会话", onClick = { showHistory = true })
+                    com.luzzymeow.luzzyrp.ui.components.TopBarAction(
+                        LuzzyIcons.Search.res, "搜索", onClick = { showSearch = true })
+                },
+            )
         }
 
         // —— 历史会话面板（4.1）——
@@ -287,6 +295,7 @@ fun ChatPage(
             onStop = viewModel::stop,
         )
     }
+    }
 }
 
 @Composable
@@ -322,25 +331,45 @@ private fun MessageItem(
             Spacer(Modifier.size(LuzzySpacing.XS))
         }
 
-        // 正文气泡
+        // 正文气泡（v2：用户=极光淡染渐变；AI=纸面卡+描边）
         if (visual.textContent.isNotBlank()) {
-            val bubbleColor = if (isUser) extend.userBubble else extend.aiBubble
-            val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            val bubbleShape = RoundedCornerShape(
+                topStart = if (isUser) LuzzySpacing.MD else LuzzyCorner.Small,
+                topEnd = LuzzySpacing.MD,
+                bottomStart = LuzzySpacing.MD,
+                bottomEnd = if (isUser) LuzzyCorner.Small else LuzzySpacing.MD,
+            )
+            val textColor = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface
             Surface(
-                color = bubbleColor,
-                shape = RoundedCornerShape(
-                    topStart = if (isUser) LuzzySpacing.MD else LuzzySpacing.XS,
-                    topEnd = LuzzySpacing.MD,
-                    bottomStart = LuzzySpacing.MD,
-                    bottomEnd = if (isUser) LuzzySpacing.XS else LuzzySpacing.MD,
-                ),
+                color = Color.Transparent,
+                shape = bubbleShape,
+                shadowElevation = if (isUser) 0.dp else com.luzzymeow.luzzyrp.ui.theme.LuzzyElevation.Card,
+                border = if (isUser) null
+                else androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 modifier = Modifier.widthIn(max = 320.dp),
             ) {
-                MarkdownText(
-                    text = visual.textContent,
-                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor),
-                    modifier = Modifier.padding(horizontal = LuzzySpacing.LG, vertical = LuzzySpacing.SM),
-                )
+                Box(
+                    modifier = if (isUser) {
+                        Modifier.background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(
+                                    extend.userBubble.copy(alpha = 0.9f),
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                                ),
+                            ),
+                        )
+                    } else {
+                        Modifier.background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    },
+                ) {
+                    MarkdownText(
+                        text = visual.textContent,
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+                        modifier = Modifier.padding(horizontal = LuzzySpacing.LG, vertical = LuzzySpacing.SM),
+                    )
+                }
             }
         }
     }
@@ -386,8 +415,8 @@ private fun ChatInputBar(
                     .size(52.dp)
                     .clip(CircleShape)
                     .background(
-                        if (generating) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
+                        if (generating) androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.error)
+                        else com.luzzymeow.luzzyrp.ui.theme.AuroraBrush.primary
                     ),
             ) {
                 IconButton(onClick = { if (generating) onStop() else { onSend(input); input = "" } }) {

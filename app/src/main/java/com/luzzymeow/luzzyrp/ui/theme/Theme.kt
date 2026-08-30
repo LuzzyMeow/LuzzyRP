@@ -4,23 +4,29 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 /**
- * [INVARIANT-THEME] LuzzyRP 全局主题（Aurora Dual）
+ * [INVARIANT-THEME] LuzzyRP 全局主题 v2（Aurora Dual · DESIGN.md 为真源）
  *
- * - 颜色唯一来源为 [AuroraColor]；本文件只做「令牌 → Material3 方案」的装配。
- * - 使用 MaterialExpressiveTheme + MotionScheme.expressive()（规定 6 的动画基线）。
- * - 扩展语义色经 [LocalExtendColors] 注入，UI 层禁止绕过主题直接写色值。
+ * v2 重制点：
+ *   - 完整 Material3 方案：surfaceContainer 全族 / outline / outlineVariant /
+ *     inverseSurface / scrim / surfaceDim / surfaceBright 全部落位；
+ *   - Shapes 令牌（LuzzyCorner）接入主题；
+ *   - 扩展语义色经 [LocalExtendColors] 注入；
+ *   - AMOLED 独立方案（纯黑，非暗色微调）。
  */
 
-private fun luzzyLightScheme(): ColorScheme = lightColorScheme(
+private val LightScheme: ColorScheme = lightColorScheme(
     primary = AuroraColor.PrimaryLight,
     onPrimary = AuroraColor.OnPrimaryLight,
     primaryContainer = AuroraColor.PrimaryContainerLight,
@@ -30,17 +36,35 @@ private fun luzzyLightScheme(): ColorScheme = lightColorScheme(
     secondaryContainer = AuroraColor.SecondaryContainerLight,
     onSecondaryContainer = AuroraColor.OnSecondaryContainerLight,
     tertiary = AuroraColor.TertiaryLight,
+    tertiaryContainer = Color(0xFFC4F1EC),
+    onTertiaryContainer = Color(0xFF003733),
     surface = AuroraColor.SurfaceLight,
     onSurface = AuroraColor.OnSurfaceLight,
     surfaceVariant = AuroraColor.SurfaceVariantLight,
     onSurfaceVariant = AuroraColor.OnSurfaceVariantLight,
+    // surfaceContainer 全族（Layer 色阶：Layer1→3 逐级抬升）
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFDFAF6),
+    surfaceContainer = Color(0xFFF9F4F0),
+    surfaceContainerHigh = Color(0xFFF3EEEA),
+    surfaceContainerHighest = Color(0xFFEDE8E4),
+    surfaceDim = Color(0xFFE2D9D4),
+    surfaceBright = Color(0xFFFFF8F3),
     outline = AuroraColor.OutlineLight,
+    outlineVariant = Color(0xFFE9DCD7),
+    inverseSurface = Color(0xFF362F2C),
+    inverseOnSurface = Color(0xFFFBEFEA),
+    inversePrimary = AuroraColor.PrimaryDark,
     error = AuroraColor.ErrorLight,
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    scrim = Color(0xFF000000),
     background = AuroraColor.CanvasLight,
     onBackground = AuroraColor.OnSurfaceLight,
 )
 
-private fun luzzyDarkScheme(amoled: Boolean = false): ColorScheme = darkColorScheme(
+private val DarkScheme: ColorScheme = darkColorScheme(
     primary = AuroraColor.PrimaryDark,
     onPrimary = AuroraColor.OnPrimaryDark,
     primaryContainer = AuroraColor.PrimaryContainerDark,
@@ -50,20 +74,55 @@ private fun luzzyDarkScheme(amoled: Boolean = false): ColorScheme = darkColorSch
     secondaryContainer = AuroraColor.SecondaryContainerDark,
     onSecondaryContainer = AuroraColor.OnSecondaryContainerDark,
     tertiary = AuroraColor.TertiaryDark,
-    surface = if (amoled) AuroraColor.SurfaceAmoled else AuroraColor.SurfaceDark,
+    tertiaryContainer = Color(0xFF00504A),
+    onTertiaryContainer = Color(0xFF9CF1E7),
+    surface = AuroraColor.SurfaceDark,
     onSurface = AuroraColor.OnSurfaceDark,
     surfaceVariant = AuroraColor.SurfaceVariantDark,
     onSurfaceVariant = AuroraColor.OnSurfaceVariantDark,
+    surfaceContainerLowest = Color(0xFF110D0A),
+    surfaceContainerLow = Color(0xFF1B1613),
+    surfaceContainer = Color(0xFF201A17),
+    surfaceContainerHigh = Color(0xFF2B2421),
+    surfaceContainerHighest = Color(0xFF362F2C),
+    surfaceDim = Color(0xFF0E1116),
+    surfaceBright = Color(0xFF3B3431),
     outline = AuroraColor.OutlineDark,
+    outlineVariant = Color(0xFF3E3230),
+    inverseSurface = Color(0xFFEBE0DB),
+    inverseOnSurface = Color(0xFF362F2C),
+    inversePrimary = AuroraColor.PrimaryLight,
     error = AuroraColor.ErrorDark,
-    background = if (amoled) AuroraColor.CanvasAmoled else AuroraColor.CanvasDark,
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    scrim = Color(0xFF000000),
+    background = AuroraColor.CanvasDark,
     onBackground = AuroraColor.OnSurfaceDark,
 )
 
-/**
- * 扩展语义色：Material3 色彩体系之外、LuzzyRP 特有的语义色。
- * 通过 CompositionLocal 注入（见 [LocalExtendColors]），UI 层统一取值。
- */
+private val AmoledScheme: ColorScheme = DarkScheme.copy(
+    surface = AuroraColor.SurfaceAmoled,
+    background = AuroraColor.CanvasAmoled,
+    surfaceContainerLowest = Color(0xFF000000),
+    surfaceContainerLow = Color(0xFF0C0C0C),
+    surfaceContainer = Color(0xFF111111),
+    surfaceContainerHigh = Color(0xFF1A1A1A),
+    surfaceContainerHighest = Color(0xFF242424),
+    surfaceDim = AuroraColor.CanvasAmoled,
+    surfaceBright = Color(0xFF1E1E1E),
+)
+
+/** v2 形状令牌（LuzzyCorner → Material Shapes）。 */
+private val LuzzyShapes: Shapes = Shapes(
+    extraSmall = RoundedCornerShape(LuzzyCorner.ExtraSmall),
+    small = RoundedCornerShape(LuzzyCorner.Small),
+    medium = RoundedCornerShape(LuzzyCorner.Medium),
+    large = RoundedCornerShape(LuzzyCorner.Large),
+    extraLarge = RoundedCornerShape(LuzzyCorner.Large),
+)
+
+/** 扩展语义色：Material3 体系之外、LuzzyRP 特有的语义色。 */
 @Immutable
 data class ExtendColors(
     // 用户气泡底色（暖粉调）
@@ -76,7 +135,7 @@ data class ExtendColors(
     val thinkingPulse: Color,
     // 工具卡片底色
     val toolCard: Color,
-    // 引用高亮底色（会话中 "…" 引用文本）
+    // 引用高亮底色
     val quoteHighlight: Color,
     // 代码块底色
     val codeBlock: Color,
@@ -113,7 +172,7 @@ private val extendDark = ExtendColors(
 val LocalExtendColors = staticCompositionLocalOf { extendLight }
 
 /**
- * LuzzyRP 主题入口。
+ * LuzzyRP 主题入口 v2。
  *
  * @param mode 主题模式偏好（系统/亮/暗/AMOLED）
  */
@@ -122,20 +181,26 @@ fun LuzzyTheme(
     mode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit,
 ) {
+    val systemDark = isSystemInDarkTheme()
     val dark = when (mode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.AMOLED -> true
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.SYSTEM -> systemDark
     }
     val amoled = mode == ThemeMode.AMOLED
-    val colorScheme = if (dark) luzzyDarkScheme(amoled) else luzzyLightScheme()
+    val colorScheme = when {
+        amoled -> AmoledScheme
+        dark -> DarkScheme
+        else -> LightScheme
+    }
 
     CompositionLocalProvider(LocalExtendColors provides if (dark) extendDark else extendLight) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             typography = luzzyTypography(),
             motionScheme = MotionScheme.expressive(),
+            shapes = LuzzyShapes,
             content = content,
         )
     }

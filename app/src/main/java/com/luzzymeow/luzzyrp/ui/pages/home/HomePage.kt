@@ -144,26 +144,36 @@ private fun HomePageContent(onOpenChat: (String) -> Unit, onOpenRoute: (Route) -
                 .background(MaterialTheme.colorScheme.background),
         ) {
             // —— 顶栏 ——
+            // 问候区（DESIGN.md v2：时段问候 + 极光渐变标题）
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = LuzzySpacing.XS, vertical = LuzzySpacing.SM),
+                    .padding(horizontal = LuzzySpacing.LG, vertical = LuzzySpacing.SM),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val scope = androidx.compose.runtime.rememberCoroutineScope()
                 IconButton(onClick = { scope.launch { drawerState.open() } }) {
                     Icon(painterResource(LuzzyIcons.Menu.res), contentDescription = "菜单",
-                        tint = MaterialTheme.colorScheme.onSurface)
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(com.luzzymeow.luzzyrp.ui.theme.LuzzyIconSize.Emphasis))
                 }
-                Text(
-                    "LuzzyRP",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        greetingText(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "LuzzyRP",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            brush = com.luzzymeow.luzzyrp.ui.theme.AuroraBrush.primary,
+                        ),
+                    )
+                }
                 IconButton(onClick = { viewModel.newConversation(onReady = onOpenChat) }) {
                     Icon(painterResource(LuzzyIcons.NewChat.res), contentDescription = "聊天",
-                        tint = MaterialTheme.colorScheme.primary)
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(com.luzzymeow.luzzyrp.ui.theme.LuzzyIconSize.Emphasis))
                 }
             }
 
@@ -184,6 +194,13 @@ private fun HomePageContent(onOpenChat: (String) -> Unit, onOpenRoute: (Route) -
             Spacer(Modifier.size(LuzzySpacing.SM))
 
             // —— 会话列表（进入 stagger 动画）——
+            if (conversations.isEmpty()) {
+                com.luzzymeow.luzzyrp.ui.components.EmptyState(
+                    iconRes = LuzzyIcons.Quill.res,
+                    title = "故事从这里开始",
+                    hint = "点击右上角羽毛笔，与鹿溪开始第一段对话。",
+                )
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(LuzzySpacing.LG),
@@ -303,5 +320,17 @@ private fun DrawerItem(iconRes: Int, label: String, onCloseDrawer: () -> Unit) {
             Spacer(Modifier.width(LuzzySpacing.MD))
             Text(label, style = MaterialTheme.typography.bodyLarge)
         }
+    }
+}
+
+/** 时段问候（DESIGN.md v2「HomePage 问候区」）。 */
+private fun greetingText(): String {
+    val hour = java.time.LocalTime.now().hour
+    return when (hour) {
+        in 5..10 -> "早上好"
+        in 11..13 -> "午安"
+        in 14..17 -> "下午好"
+        in 18..22 -> "晚上好"
+        else -> "夜深了"
     }
 }

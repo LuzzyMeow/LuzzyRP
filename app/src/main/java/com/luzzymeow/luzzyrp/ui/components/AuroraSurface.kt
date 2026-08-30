@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
@@ -55,11 +56,19 @@ fun AuroraSurface(
         animationSpec = MotionTokens.interact(),
         label = "auroraSurfaceShadow",
     )
+    // v2 按压：scale 0.98（graphicsLayer，布局不跳动——pro-rules「Stable Interaction States」）
+    val pressScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = MotionTokens.springPress(),
+        label = "auroraSurfacePressScale",
+    )
 
     Surface(
         onClick = onClick ?: {},
         enabled = onClick != null,
-        modifier = modifier.shadow(animatedShadow, shape),
+        modifier = modifier
+            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+            .shadow(animatedShadow, shape),
         shape = shape,
         color = animatedColor,
         contentColor = contentColor,

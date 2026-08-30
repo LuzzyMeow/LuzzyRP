@@ -113,12 +113,10 @@ fun ProfilePage(onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = LuzzySpacing.XS, vertical = LuzzySpacing.SM),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(LuzzyIcons.Back.res), contentDescription = "返回",
-                    tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Text("用户档案", style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            com.luzzymeow.luzzyrp.ui.components.AuroraTopBar(
+                title = "用户档案",
+                onBack = onBack,
+            )
         }
 
         Column(Modifier.padding(LuzzySpacing.LG), horizontalAlignment = Alignment.CenterHorizontally) {

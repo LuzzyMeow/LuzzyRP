@@ -117,12 +117,10 @@ fun PresetDetailPage(presetId: String, onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = LuzzySpacing.XS, vertical = LuzzySpacing.SM),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(LuzzyIcons.Back.res), contentDescription = "返回",
-                    tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Text("编辑预设", style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            com.luzzymeow.luzzyrp.ui.components.AuroraTopBar(
+                title = "编辑预设",
+                onBack = onBack,
+            )
             IconButton(onClick = viewModel::addEntry) {
                 Icon(painterResource(LuzzyIcons.Plus.res), contentDescription = "添加条目",
                     tint = MaterialTheme.colorScheme.primary)

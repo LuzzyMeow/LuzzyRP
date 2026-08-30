@@ -120,20 +120,24 @@ private fun LuzzyAppShell() {
             backStack = backStack,
             onBack = { backStack.removeLastOrNull() },
             transitionSpec = {
-                // 进入：右滑入 + 淡入（300ms）；退出：左滑出（195ms）—— MotionTokens
-                (slideInHorizontally(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_ENTER)) { it / 4 } +
-                    fadeIn(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_ENTER)))
+                // 转场 v2：fade 常驻（避免滑动残影），位移交由共享轴感 slide¼
+                val enterT = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_ENTER
+                val exitT = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_EXIT
+                (fadeIn(tween(enterT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingEnter)) +
+                    slideInHorizontally(tween(enterT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingEnter)) { it / 6 })
                     .togetherWith(
-                        slideOutHorizontally(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_EXIT)) { -it / 6 } +
-                            fadeOut(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_EXIT))
+                        fadeOut(tween(exitT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingExit)) +
+                            slideOutHorizontally(tween(exitT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingExit)) { -it / 8 }
                     )
             },
             popTransitionSpec = {
-                (slideInHorizontally(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_ENTER)) { -it / 6 } +
-                    fadeIn(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_ENTER)))
+                val enterT = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_ENTER
+                val exitT = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_EXIT
+                (fadeIn(tween(enterT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingEnter)) +
+                    slideInHorizontally(tween(enterT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingEnter)) { -it / 8 })
                     .togetherWith(
-                        slideOutHorizontally(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_EXIT)) { it / 4 } +
-                            fadeOut(tween(com.luzzymeow.luzzyrp.ui.theme.MotionTokens.DURATION_EXIT))
+                        fadeOut(tween(exitT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingExit)) +
+                            slideOutHorizontally(tween(exitT, easing = com.luzzymeow.luzzyrp.ui.theme.MotionTokens.EasingExit)) { it / 6 }
                     )
             },
             entryProvider = entryProvider {

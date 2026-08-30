@@ -67,12 +67,10 @@ fun MemoryPage(onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = LuzzySpacing.XS, vertical = LuzzySpacing.SM),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(LuzzyIcons.Back.res), contentDescription = "返回",
-                    tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Text("长期记忆", style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            com.luzzymeow.luzzyrp.ui.components.AuroraTopBar(
+                title = "长期记忆",
+                onBack = onBack,
+            )
             Text("${memories.size} 条", style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(end = LuzzySpacing.LG))

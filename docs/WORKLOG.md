@@ -140,3 +140,28 @@
 
 ### 下一步
 - 聊天背景图层 + 记忆滑条 + 用户头像菜单展示 → 视觉打磨轮。
+
+---
+
+## 2026-08-30 · 会话 7：v0.3.0 主题/UI/UX 完全重制
+
+### 完成（对上轮缺口的补救）
+- **Phase 0**：ui-ux-pro-max 检索实操（design-system 基线 + 回退规则）；huashu 动效纪律提炼。
+- **Phase 1 主题令牌 v2**：AuroraColor 完整 M3 方案（surfaceContainer 全族/inverse/scrim/AMOLED 独立方案）；AuroraBrush 渐变系统；LuzzyElevation 五层；LuzzyIconSize 四级；LuzzyCorner 五档；MotionTokens v2 场景化。
+- **Phase 2 组件 v2**：AuroraTopBar+TopBarAction、LuzzyDialog（三态进出）、EmptyState、AuroraSurface v2（scale 0.98 按压）。
+- **Phase 3 逐页重制**：ChatPage（背景分层 Box/气泡 v2 极光淡染 vs 纸面卡描边/渐变发送键/顶栏半透明）；首页（时段问候+渐变标题+空态）；五页顶栏换装；RouteActivity 转场 v2（缓动曲线化+fade 常驻）。
+- **Phase 4**：模拟器亮色主题巡检（渐变按钮/纸面气泡/顶栏 v2 可见生效）；单测+构建绿。
+- **Phase 5 发版**：v0.3.0 / versionCode 4；CHANGELOG 专章；tag+Release+桌面交付。
+
+### 决策
+1. ui-ux-pro-max CSV 无极光系匹配 → 按其规则回退 DESIGN.md 品牌契约色，采用其结构（令牌/对比度/动效分层）。
+2. 转场位移降到 1/6-1/8 屏且 fade 常驻（消除滑动残影，huashu「少即是多」）。
+3. 按压反馈统一 scale 0.98 + graphicsLayer（不动布局，pro-rules「Stable Interaction States」）。
+
+### 遗留
+- 暗色/AMOLED 主题截图巡检（方案已实现，截图待补）。
+- LuzzyIconSize 全项目替换尚有残留硬编码 dp（重点页面已换）。
+- 用户档案头像在抽屉头部展示；聊天背景透明度实时预览。
+
+### 下一步
+- 暗色巡检 + 图标尺寸全量替换 + 弹窗统一替换 AlertDialog 调用点。

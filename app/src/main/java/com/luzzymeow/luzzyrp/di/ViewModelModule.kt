@@ -7,10 +7,14 @@ import com.luzzymeow.luzzyrp.ui.pages.favorites.FavoritesViewModel
 import com.luzzymeow.luzzyrp.ui.pages.history.HistoryViewModel
 import com.luzzymeow.luzzyrp.ui.pages.home.HomeViewModel
 import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryViewModel
+import com.luzzymeow.luzzyrp.ui.pages.presets.PresetDetailViewModel
+import com.luzzymeow.luzzyrp.ui.pages.presets.PresetsViewModel
+import com.luzzymeow.luzzyrp.ui.pages.profile.ProfileViewModel
 import com.luzzymeow.luzzyrp.ui.pages.settings.SettingsViewModel
 import com.luzzymeow.luzzyrp.ui.pages.worldbook.WorldbookViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
+import org.koin.android.ext.koin.androidApplication
 import org.koin.dsl.module
 
 /**
@@ -25,6 +29,7 @@ val viewModelModule = module {
             conversationId = conversationId,
             chatService = get(),
             conversationRepository = get(),
+            cardRepository = get(),
             settingsStore = get(),
         )
     }
@@ -34,12 +39,15 @@ val viewModelModule = module {
     viewModelOf(::CharactersViewModel)
 
     viewModel { (cardId: String) ->
-        CharacterDetailViewModel(cardId = cardId, cardRepository = get())
+        CharacterDetailViewModel(androidApplication(), cardId = cardId, cardRepository = get())
     }
 
-    viewModelOf(::WorldbookViewModel)
     viewModelOf(::MemoryViewModel)
     viewModelOf(::FavoritesViewModel)
     viewModelOf(::HistoryViewModel)
     viewModelOf(::SettingsViewModel)
+
+    viewModel { ProfileViewModel(androidApplication(), get()) }
+    viewModelOf(::PresetsViewModel)
+    viewModel { (presetId: String) -> PresetDetailViewModel(presetId, get(), get()) }
 }

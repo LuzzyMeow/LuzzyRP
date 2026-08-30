@@ -18,9 +18,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,10 +103,10 @@ fun SettingsPage(onBack: () -> Unit, onOpenRoute: (Route) -> Unit) {
 }
 
 private val SETTING_SECTIONS = listOf(
-    Tuple4(LuzzyIcons.Key.res, "供应商与模型", "API Key、端点与模型管理", Route.SettingsProviders as Route),
-    Tuple4(LuzzyIcons.Sparkle.res, "生成参数", "温度、思考深度与上下文策略", Route.SettingsGeneration),
+    Tuple4(LuzzyIcons.Key.res, "供应商与模型", "API Key、模型管理、生成参数与思考深度", Route.SettingsProviders as Route),
+    Tuple4(LuzzyIcons.Brain.res, "记忆设置", "长期记忆（ACE）与三级摘要", Route.MemorySettings),
     Tuple4(LuzzyIcons.Palette.res, "外观", "主题模式与显示偏好", Route.SettingsAppearance),
-    Tuple4(LuzzyIcons.Info.res, "关于", "版本信息与开源许可", Route.SettingsAbout),
+    Tuple4(LuzzyIcons.Info.res, "关于", "版本信息、更新日志与日志导出", Route.SettingsAbout),
 )
 
 private data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
@@ -132,6 +135,20 @@ fun SettingsProvidersPage(onBack: () -> Unit, onOpenDetail: (String) -> Unit) {
             }
             Text("供应商", style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            IconButton(onClick = {
+                viewModel.update { s ->
+                    val newId = "custom_" + java.util.UUID.randomUUID().toString().take(8)
+                    s.copy(
+                        providers = s.providers + com.luzzymeow.luzzyrp.core.model.ProviderSetting(
+                            id = newId, name = "新供应商",
+                            baseUrl = "https://", apiKey = "",
+                        ),
+                    )
+                }
+            }) {
+                Icon(painterResource(LuzzyIcons.Plus.res), contentDescription = "新增供应商",
+                    tint = MaterialTheme.colorScheme.primary)
+            }
         }
 
         LazyColumn(
@@ -208,7 +225,13 @@ fun SettingsProviderDetailPage(providerId: String, onBack: () -> Unit) {
         LuzzyTextField(apiKey, { apiKey = it }, placeholder = "API Key", modifier = Modifier.fillMaxWidth())
 
         Spacer(Modifier.size(LuzzySpacing.LG))
-        Text("模型", style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("模型", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            androidx.compose.material3.TextButton(onClick = {
+                viewModel.update { st -> st.copy(providers = st.providers.filterNot { it.id == providerId }) }
+                onBack()
+            }) { Text("删除供应商", color = MaterialTheme.colorScheme.error) }
+        }
         Spacer(Modifier.size(LuzzySpacing.SM))
         provider?.models?.forEach { model ->
             AuroraSurface(
@@ -238,7 +261,56 @@ fun SettingsProviderDetailPage(providerId: String, onBack: () -> Unit) {
                         Icon(painterResource(LuzzyIcons.Check.res), contentDescription = "当前",
                             tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     }
+                    IconButton(onClick = {
+                        viewModel.update { st ->
+                            st.copy(providers = st.providers.map {
+                                if (it.id == providerId) it.copy(models = it.models.filterNot { m -> m.id == model.id })
+                                else it
+                            })
+                        }
+                    }) {
+                        Icon(painterResource(LuzzyIcons.Trash.res), contentDescription = "删除模型",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    }
                 }
+            }
+        }
+
+        ProviderModelEditor(onSave = { model ->
+            viewModel.update { st ->
+                st.copy(providers = st.providers.map {
+                    if (it.id == providerId) it.copy(models = it.models + model) else it
+                })
+            }
+        })
+
+        // —— 生成参数并入（6.1）：全局温度与思考深度 ——
+        Spacer(Modifier.size(LuzzySpacing.LG))
+        Text("生成参数（全局）", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.size(LuzzySpacing.SM))
+        settings?.let { st ->
+            Text("温度：" + (st.temperature ?: 1.0), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            androidx.compose.material3.Slider(
+                value = (st.temperature ?: 1.0).toFloat(),
+                onValueChange = { v -> viewModel.update { it.copy(temperature = v.toDouble()) } },
+                valueRange = 0f..2f,
+            )
+            Text("思考深度（按模型 id 自适配档位）", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(LuzzySpacing.XS)) {
+                listOf("默认" to null, "关闭" to "OFF", "低" to "LOW", "高" to "HIGH", "最高" to "MAX")
+                    .forEach { (label, depthName) ->
+                        AuroraSurface(
+                            onClick = { viewModel.update { it.copy(thinkingDepth = depthName) } },
+                            containerColor = if (st.thinkingDepth == depthName) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = LuzzySpacing.SM, vertical = LuzzySpacing.XS),
+                        ) {
+                            Text(label, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
             }
         }
 
@@ -409,16 +481,34 @@ fun SettingsAppearancePage(onBack: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------
-// 关于
+// 关于（6.6：CHANGELOG 同步渲染 + 应用日志查看/导出/分享）
 // ---------------------------------------------------------------------------
 
 @Composable
 fun SettingsAboutPage(onBack: () -> Unit) {
+    val logger = org.koin.compose.koinInject<com.luzzymeow.luzzyrp.data.logger.AppLogger>()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val logs by logger.recent.collectAsState()
+    var changelog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        // CHANGELOG.md 打包为 assets，随版本同步（发版流程保证）
+        changelog = runCatching {
+            context.assets.open("CHANGELOG.md").bufferedReader().readText()
+        }.getOrDefault("（未找到更新日志）")
+    }
+
+    // 导出：SAF 建文档 + 系统分享
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { uriSnapshot -> kotlinx.coroutines.MainScope().launch {
+        logger.exportTo(uriSnapshot)
+    } } }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState()),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = LuzzySpacing.XS, vertical = LuzzySpacing.SM),
@@ -432,31 +522,94 @@ fun SettingsAboutPage(onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
         }
 
-        Column(Modifier.padding(LuzzySpacing.LG), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.size(LuzzySpacing.LG))
-            androidx.compose.foundation.Image(
-                painter = painterResource(com.luzzymeow.luzzyrp.R.drawable.luzzy_logo),
-                contentDescription = null,
-                modifier = Modifier.size(88.dp),
-            )
-            Spacer(Modifier.size(LuzzySpacing.MD))
-            Text("LuzzyRP", style = MaterialTheme.typography.headlineSmall)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(LuzzySpacing.LG),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(com.luzzymeow.luzzyrp.R.drawable.luzzy_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                )
+                Spacer(Modifier.size(LuzzySpacing.MD))
+                Column {
+                    Text("LuzzyRP", style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        "v" + com.luzzymeow.luzzyrp.BuildConfig.VERSION_NAME + " · versionCode " + com.luzzymeow.luzzyrp.BuildConfig.VERSION_CODE,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.size(LazyListSpacing2()))
+
+            // —— 应用日志（6.6）——
+            AuroraSurface(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("应用日志", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        Text("内存 ${logs.size} 条 · 保留 3 天", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.size(LuzzySpacing.SM))
+                    // 最近日志（倒序，最多显示 50 条）
+                    Column {
+                        logs.takeLast(50).reversed().forEach { entry ->
+                            Text(
+                                java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                                    .format(java.util.Date(entry.ts)) + " [${entry.category}] ${entry.message}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                        if (logs.isEmpty()) {
+                            Text("暂无日志", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Spacer(Modifier.size(LazyListSpacing2()))
+                    Row {
+                        TextButton(onClick = {
+                            val formatter = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                            exportLauncher.launch("luzzy-logs-" + formatter.format(java.util.Date()) + ".json")
+                        }) { Text("导出 JSON") }
+                        TextButton(onClick = {
+                            kotlinx.coroutines.MainScope().launch {
+                                val file = logger.exportToCache() ?: return@launch
+                                val share = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/json"
+                                    putExtra(android.content.Intent.EXTRA_STREAM,
+                                        androidx.core.content.FileProvider.getUriForFile(
+                                            context, context.packageName + ".fileprovider", file))
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(share, "分享日志"))
+                            }
+                        }) { Text("分享") }
+                        TextButton(onClick = logger::clearInMemory) { Text("清空显示") }
+                    }
+                }
+            }
+
+            Spacer(Modifier.size(LazyListSpacing2()))
+            Text("更新日志（CHANGELOG.md，随版本同步）", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.size(LuzzySpacing.SM))
             Text(
-                "v" + com.luzzymeow.luzzyrp.BuildConfig.VERSION_NAME + " · versionCode " + com.luzzymeow.luzzyrp.BuildConfig.VERSION_CODE,
-                style = MaterialTheme.typography.labelMedium,
+                changelog,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.size(LuzzySpacing.MD))
-            Text("每次对话，都像一本有你的小说。", style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.size(LuzzySpacing.LG))
-            Text(
-                "技术栈：Kotlin 2.4 · Jetpack Compose · Material 3 Expressive\n" +
-                    "许可证：CC BY-NC 4.0\n" +
-                    "github.com/LuzzyMeow/LuzzyRP",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(Modifier.size(LazyListSpacing2()))
+            Text("技术栈：Kotlin 2.4 · Jetpack Compose · Material 3 Expressive", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("许可证：CC BY-NC 4.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("github.com/LuzzyMeow/LuzzyRP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.size(LuzzySpacing.XXXL))
         }
     }
 }
+
+private fun LazyListSpacing2() = LuzzySpacing.LG

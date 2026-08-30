@@ -68,6 +68,7 @@ import org.koin.core.parameter.parametersOf
 fun ChatPage(
     conversationId: String,
     onBack: () -> Unit,
+    onSwitchChat: (String) -> Unit = {},
 ) {
     val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId) }
     val conversation by viewModel.conversation.collectAsState()
@@ -82,6 +83,8 @@ fun ChatPage(
         derivedStateOf { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
     }
     val atBottom = remember { derivedStateOf { lastVisible >= visuals.lastIndex.coerceAtLeast(0) } }
+    var showHistory by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
 
     // 流式跟随：内容增长且用户在底部 → 平滑滚动到底
     LaunchedEffect(visuals.size, visuals.lastOrNull()?.textContent?.length) {
@@ -118,6 +121,90 @@ fun ChatPage(
                 IconButton(onClick = { viewModel.regenerate() }) {
                     Icon(painterResource(LuzzyIcons.Refresh.res), contentDescription = "重新生成",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { showHistory = true }) {
+                    Icon(painterResource(LuzzyIcons.History.res), contentDescription = "历史会话",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { showSearch = true }) {
+                    Icon(painterResource(LuzzyIcons.Search.res), contentDescription = "搜索",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // —— 历史会话面板（4.1）——
+        if (showHistory) {
+            val allConversations by viewModel.allConversations.collectAsState()
+            androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showHistory = false }) {
+                Column(Modifier.padding(horizontal = LuzzySpacing.LG)) {
+                    Text("历史会话", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(LuzzySpacing.MD))
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(LuzzySpacing.XS),
+                        modifier = Modifier.heightIn(max = 480.dp),
+                    ) {
+                        items(allConversations, key = { it.id }) { c ->
+                            Surface(
+                                onClick = { showHistory = false; onSwitchChat(c.id) },
+                                color = if (c.id == conversationId) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(LuzzySpacing.MD),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    c.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(LuzzySpacing.MD),
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.size(LuzzySpacing.XL))
+                }
+            }
+        }
+
+        // —— 搜索面板（4.4）：会话标题 + 当前会话消息内容 ——
+        if (showSearch) {
+            var query by remember { mutableStateOf("") }
+            val hits = remember(query, visuals) {
+                if (query.isBlank()) emptyList()
+                else visuals.filter { it.textContent.contains(query, ignoreCase = true) }
+                    .take(20)
+            }
+            androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSearch = false }) {
+                Column(Modifier.padding(horizontal = LuzzySpacing.LG)) {
+                    Text("在本会话中搜索", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(LuzzySpacing.MD))
+                    com.luzzymeow.luzzyrp.ui.components.LuzzyTextField(
+                        query, { query = it },
+                        placeholder = "输入关键词…",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.size(LuzzySpacing.MD))
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(LuzzySpacing.XS),
+                        modifier = Modifier.heightIn(max = 420.dp),
+                    ) {
+                        items(hits.size) { idx ->
+                            val hit = hits[idx]
+                            Surface(
+                                onClick = { showSearch = false },
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(LuzzySpacing.MD),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    (if (hit.isUser) "你：" else "角色：") + hit.textContent.take(120),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    modifier = Modifier.padding(LuzzySpacing.MD),
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.size(LuzzySpacing.XL))
                 }
             }
         }

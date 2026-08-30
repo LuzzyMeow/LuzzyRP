@@ -6,10 +6,13 @@ import kotlinx.serialization.Serializable
 /**
  * LuzzyRP 路由表（Navigation3 `entry<T>` 模式，typed NavKey）。
  * 转场动效统一走 MotionTokens（进入 300ms / 退出 195ms）。
+ *
+ * v0.2.0 菜单重构（4.1-4.7）：移除收藏/历史/搜索/世界书/记忆独立入口；
+ * 历史+搜索并入聊天页，世界书并入角色卡，记忆并入设置，新增 预设/用户档案。
  */
 sealed interface Route : NavKey {
 
-    /** 首页：会话列表 + 抽屉。 */
+    /** 聊天首页：会话列表（原「新对话」）。 */
     @Serializable
     data object Home : Route
 
@@ -17,7 +20,7 @@ sealed interface Route : NavKey {
     @Serializable
     data class Chat(val conversationId: String) : Route
 
-    /** 角色卡库。 */
+    /** 角色卡（原「角色卡库」）。 */
     @Serializable
     data object Characters : Route
 
@@ -25,21 +28,25 @@ sealed interface Route : NavKey {
     @Serializable
     data class CharacterDetail(val cardId: String) : Route
 
-    /** 世界书管理。 */
+    /** 角色卡的世界书二级页（4.6/5.4）。 */
     @Serializable
-    data object Worldbooks : Route
+    data class Worldbook(val cardId: String) : Route
 
-    /** 记忆管理。 */
+    /** 提示词预设列表（7.2）。 */
     @Serializable
-    data object Memory : Route
+    data object Presets : Route
 
-    /** 收藏。 */
+    /** 预设编辑。 */
     @Serializable
-    data object Favorites : Route
+    data class PresetDetail(val presetId: String) : Route
 
-    /** 历史会话（归档）。 */
+    /** 用户档案（7.1）。 */
     @Serializable
-    data object History : Route
+    data object Profile : Route
+
+    /** 记忆设置（长期记忆 + 三级摘要，6.5）。 */
+    @Serializable
+    data object MemorySettings : Route
 
     /** 设置族。 */
     @Serializable

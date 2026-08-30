@@ -49,6 +49,101 @@ class CharacterCardRepository(
         return updated
     }
 
+    /** 手动新建空白卡（5.2：name 必填）。 */
+    suspend fun createBlank(name: String): CharacterCard {
+        val now = System.currentTimeMillis()
+        val card = CharacterCard(
+            id = UUID.randomUUID().toString(),
+            name = name.ifBlank { "新角色" },
+            source = CardSource.CREATED,
+            createdAt = now,
+            updatedAt = now,
+        )
+        cardDao.upsert(card.toEntity())
+        return card
+    }
+
+    /** 保存用户选择的头像（1:1 裁剪 + 缩放，5.4；与聊天背景互不影响）。 */
+    suspend fun saveAvatarFromFile(cardId: String, source: File): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val bytes = source.readBytes()
+            saveAvatarFromPng(bytes, cardId)?.also { path ->
+                cardDao.getById(cardId)?.let { cardDao.upsert(it.copy(avatarPath = path, updatedAt = System.currentTimeMillis())) }
+            }
+        }.getOrNull()
+    }
+
+    /** 保存聊天背景图（5.4：默认使用头像；独立文件，透明度在 UI 调）。 */
+    suspend fun saveChatBackground(cardId: String, source: File): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val dir = File(context.filesDir, "backgrounds").apply { mkdirs() }
+            val dest = File(dir, "$cardId.png")
+            source.copyTo(dest, overwrite = true)
+            cardDao.getById(cardId)?.let {
+                cardDao.upsert(it.copy(backgroundPath = dest.absolutePath, updatedAt = System.currentTimeMillis()))
+            }
+            dest.absolutePath
+        }.getOrNull()
+    }
+
+    /** 从 URI 导入 SillyTavern 世界书 JSON 到指定世界书（条目默认启用）。 */
+    suspend fun importWorldbookJson(bookId: String, uri: android.net.Uri): Int = withContext(Dispatchers.IO) {
+        val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+            ?: error("无法读取文件")
+        val root = json.parseToJsonElement(text).jsonObject
+        // SillyTavern lorebook: {"entries": {"0": {...}}}
+        val entries = root["entries"]?.let { it as? kotlinx.serialization.json.JsonObject } ?: error("缺少 entries")
+        var count = 0
+        for ((_, el) in entries) {
+            val obj = el as? kotlinx.serialization.json.JsonObject ?: continue
+            val content = (obj["content"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: continue
+            val comment = (obj["comment"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+            val keys = (obj["key"] as? kotlinx.serialization.json.JsonArray)
+                ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }.orEmpty()
+            val disable = (obj["disable"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+            val positionRaw = (obj["position"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            val position = when (positionRaw) {
+                "0" -> "before_char"; "1" -> "after_char"
+                "2", "3" -> "after_example"; "4" -> "at_depth"
+                else -> "before_char"
+            }
+            worldbookDao.upsertEntry(
+                com.luzzymeow.luzzyrp.data.db.entity.WorldbookEntryEntity(
+                    id = UUID.randomUUID().toString(),
+                    worldbookId = bookId,
+                    comment = comment,
+                    content = content,
+                    enabled = !disable, // 5.4：默认导入外部作者设定即启用
+                    keysJson = kotlinx.serialization.json.Json.encodeToString(
+                        kotlinx.serialization.builtins.ListSerializer(String.serializer()), keys),
+                    position = position,
+                    probability = ((obj["probability"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()) ?: 100,
+                    depth = ((obj["depth"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()) ?: 4,
+                )
+            )
+            count++
+        }
+        count
+    }
+
+    /** 新建空世界书。 */
+    suspend fun createWorldbook(name: String, cardId: String?): String {
+        val id = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        worldbookDao.upsert(
+            com.luzzymeow.luzzyrp.data.db.entity.WorldbookEntity(
+                id = id, name = name, enabled = true, cardId = cardId,
+                createdAt = now, updatedAt = now,
+            )
+        )
+        return id
+    }
+
+    /** 删除世界书（级联条目由 FK 处理）。 */
+    suspend fun deleteWorldbook(bookId: String) {
+        worldbookDao.delete(bookId)
+    }
+
     /** 卡片删除级联：绑定世界书与（确认后的）会话由调用方处理；此处仅删卡。 */
     suspend fun delete(card: CharacterCard) {
         check(!card.readonly) { "内置卡只读，禁止删除" }

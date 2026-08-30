@@ -162,7 +162,7 @@ private fun HomePageContent(onOpenChat: (String) -> Unit, onOpenRoute: (Route) -
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = { viewModel.newConversation(onReady = onOpenChat) }) {
-                    Icon(painterResource(LuzzyIcons.NewChat.res), contentDescription = "新对话",
+                    Icon(painterResource(LuzzyIcons.NewChat.res), contentDescription = "聊天",
                         tint = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -280,22 +280,20 @@ private fun DrawerMenu(onOpenRoute: (Route) -> Unit) {
             }
         }
         Spacer(Modifier.size(LuzzySpacing.XL))
-        DrawerItem(LuzzyIcons.Chat.res, "新对话") { /* 首页处理 */ }
-        DrawerItem(LuzzyIcons.History.res, "历史会话") { onOpenRoute(Route.History) }
-        DrawerItem(LuzzyIcons.Star.res, "收藏") { onOpenRoute(Route.Favorites) }
-        DrawerItem(LuzzyIcons.Search.res, "搜索") { onOpenRoute(Route.Home) }
-        DrawerItem(LuzzyIcons.User.res, "角色卡库") { onOpenRoute(Route.Characters) }
-        DrawerItem(LuzzyIcons.Book.res, "世界书") { onOpenRoute(Route.Worldbooks) }
-        DrawerItem(LuzzyIcons.Brain.res, "长期记忆") { onOpenRoute(Route.Memory) }
+        // 菜单（v0.2.0 重构：4.1-4.7）
+        DrawerItem(LuzzyIcons.Chat.res, "聊天", onCloseDrawer = { /* 已在聊天首页 */ })
+        DrawerItem(LuzzyIcons.User.res, "角色卡", onCloseDrawer = { onOpenRoute(Route.Characters) })
+        DrawerItem(LuzzyIcons.Quill.res, "预设", onCloseDrawer = { onOpenRoute(Route.Presets) })
+        DrawerItem(LuzzyIcons.Sparkle.res, "用户档案", onCloseDrawer = { onOpenRoute(Route.Profile) })
         Spacer(Modifier.size(LuzzySpacing.MD))
-        DrawerItem(LuzzyIcons.Settings.res, "设置") { onOpenRoute(Route.Settings) }
+        DrawerItem(LuzzyIcons.Settings.res, "设置", onCloseDrawer = { onOpenRoute(Route.Settings) })
     }
 }
 
 @Composable
-private fun DrawerItem(iconRes: Int, label: String, onClick: () -> Unit) {
+private fun DrawerItem(iconRes: Int, label: String, onCloseDrawer: () -> Unit) {
     AuroraSurface(
-        onClick = onClick,
+        onClick = onCloseDrawer,
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
     ) {

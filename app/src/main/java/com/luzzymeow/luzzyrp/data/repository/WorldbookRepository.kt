@@ -23,6 +23,11 @@ class WorldbookRepository(
     private val vectorIndex: VectorIndex,
 ) {
 
+    /** 删除世界书（条目经 FK 级联）。 */
+    suspend fun delete(id: String) {
+        worldbookDao.delete(id)
+    }
+
     fun observeAll(): Flow<List<Worldbook>> = worldbookDao.observeAll().map { list ->
         list.map { book -> book.toDomain(worldbookDao.getEntries(book.id).map { it.toDomain() }) }
     }

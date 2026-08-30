@@ -8,6 +8,8 @@ import com.luzzymeow.luzzyrp.core.model.UIMessage
 import com.luzzymeow.luzzyrp.core.model.UIMessagePart
 import com.luzzymeow.luzzyrp.data.datastore.Settings
 import com.luzzymeow.luzzyrp.data.datastore.SettingsStore
+import com.luzzymeow.luzzyrp.core.model.CharacterCard
+import com.luzzymeow.luzzyrp.data.repository.CharacterCardRepository
 import com.luzzymeow.luzzyrp.data.repository.ConversationRepository
 import com.luzzymeow.luzzyrp.service.ChatService
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +29,7 @@ class ChatViewModel(
     private val conversationId: String,
     private val chatService: ChatService,
     private val conversationRepository: ConversationRepository,
+    private val cardRepository: CharacterCardRepository,
     private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
@@ -43,6 +46,16 @@ class ChatViewModel(
 
     /** 生成错误（错误卡片展示）。 */
     val errors: StateFlow<List<ChatService.ChatError>> = chatService.errors
+
+    /** 绑定角色卡（聊天背景/头像展示用）。 */
+    val card: StateFlow<CharacterCard?> = conversation
+        .map { c -> c?.cardId }
+        .map { id -> id?.let { cardRepository.getById(it) } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** 全部会话（历史/搜索面板 4.1/4.4）。 */
+    val allConversations: StateFlow<List<Conversation>> = conversationRepository.observeActiveConversations()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return

@@ -114,3 +114,29 @@
 
 ### 下一步
 - 依据用户检阅反馈确定 v0.2.0 更新方向（候选：世界书/正则编辑器完整 UI、流式逐字中文验收、TRPG 模式专项）。
+
+---
+
+## 2026-08-30 · 会话 6：v0.2.0 —— 设计技能落地 + 全功能迭代
+
+### 完成
+- **SKILL 强制落地（规定 13）**：4 项设计 SKILL 克隆存档 docs/skills/（open-design zip 下载反复断连，内容经官方 README/协议文档完整掌握）；HARD_REQUIREMENTS 增补规则 13；创建 DESIGN.md（仓库根设计契约）+ docs/AGENT-GUIDE.md。
+- **思考深度研究**（anysearch 核实）：DeepSeek reasoning.effort/none-high-max；GLM-5.3 仅 effort 三档；Opus 4.7+ adaptive+output_config.effort；GPT reasoning_effort。实现 ThinkingDepthAdapter 按 id 检测家族。
+- **图标黑边根因**：815 枚全为 P 模式索引色（透明区 RGB 杂色 + 硬边）→ 管线升级 RGBA 清洗 + bbox 归一化（occupancy 0.72 统一大小）+ 边缘平滑；启动图黑晕清除。
+- **C1-C3**：注入位置全集 + depthRole；PromptPreset/PresetEntry + Room v2 手写迁移；UserProfile；ThinkingDepth；TokenCountParser；PromptAssembler 预设/档案/@Depth 注入（KV 三层保持）；AppLogger（环形内存 + JSONL 3 天 + SAF 导出/分享）；ChatService 全链日志 + 上次会话记忆 + 思考深度合并 extraBody。
+- **UI 重构**：菜单（聊天/角色卡/预设/用户档案/设置）；启动直达（首次建鹿溪会话）；聊天页历史+搜索 BottomSheet + 切换会话；预设列表/编辑页（条目 CRUD + 位置选择器 + @Depth）；用户档案页（头像/名字/身份）；角色卡详情重构（hero 头像/背景+透明度/<CUT> 开场白/世界书入口/新建模式）；世界书二级编辑器（条目全字段 + ST 导入默认启用 + 删书）；设置菜单并入记忆；供应商增删 + 模型新增表单（单位换算 + 自检 + 深度档位）+ 生成参数并入；关于页 CHANGELOG 渲染 + 日志查看/导出/分享。
+- **实测**：Android 15 模拟器 v0.2.0 启动直达鹿溪会话 ✓、聊天页历史/搜索入口 ✓、图标干净 ✓。
+- **发版**：v0.2.0 / versionCode 3；CHANGELOG/README 同步；tag + Release（附 universal APK）+ 桌面交付。
+
+### 决策
+1. open-design 完整 zip 未能入库（网络反复断连）——已通过官方文档掌握内容，zip 存档列为待补；其余 3 仓库完整入库（移除内嵌 .git 保证克隆自包含）。
+2. @Depth 语义实现为「距末尾消息数」，注入角色可选 system/user/assistant（对齐 RP-Hub）。
+3. 聊天背景分层渲染因 ColumnScope 作用域问题本次回退（背景数据链路已就绪），列为下轮打磨首项。
+
+### 遗留
+- 聊天背景图渲染（数据/UI 链路已通，待图层作用域修复）。
+- 记忆设置页拓展滑条（容量/TopK/阈值 UI，数据层字段已就绪）。
+- 用户档案头像在菜单展示；流式逐字中文验收仍待 API Key。
+
+### 下一步
+- 聊天背景图层 + 记忆滑条 + 用户头像菜单展示 → 视觉打磨轮。

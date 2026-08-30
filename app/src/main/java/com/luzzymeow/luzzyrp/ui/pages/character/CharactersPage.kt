@@ -70,6 +70,14 @@ class CharactersViewModel(
         }
     }
 
+    fun createBlank(onReady: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching { cardRepository.createBlank("新角色") }
+                .onSuccess { onReady(it.id) }
+                .onFailure { importMessage.value = "创建失败：${it.message}" }
+        }
+    }
+
     fun clearMessage() { importMessage.value = null }
 }
 
@@ -105,6 +113,10 @@ fun CharactersPage(
             }
             Text("角色卡库", style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            IconButton(onClick = { onOpenDetail("new") }) {
+                Icon(painterResource(com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons.Plus.res),
+                    contentDescription = "新建角色卡", tint = MaterialTheme.colorScheme.tertiary)
+            }
             IconButton(onClick = { jsonPicker.launch("application/json") }) {
                 Icon(painterResource(com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons.Code.res),
                     contentDescription = "导入 JSON", tint = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -9,6 +9,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +68,13 @@ class MainActivity : ComponentActivity() {
 private fun LuzzyAppShell() {
     val backStack = rememberNavBackStack(Route.Home as NavKey)
 
+    // 全局系统栏留白：内容不与状态栏/导航栏重叠（edge-to-edge 下必需）
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .systemBarsPadding(),
+    ) {
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
@@ -126,5 +139,6 @@ private fun LuzzyAppShell() {
             entry<Route.SettingsAppearance> { SettingsAppearancePage(onBack = { backStack.removeLastOrNull() }) }
             entry<Route.SettingsAbout> { SettingsAboutPage(onBack = { backStack.removeLastOrNull() }) }
         },
-    )
+        )
+    }
 }

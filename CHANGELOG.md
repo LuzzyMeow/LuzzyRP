@@ -2,8 +2,24 @@
 
 > LuzzyRP 遵循语义化版本（`MAJOR.MINOR.PATCH`）；`x.y.0` 视为稳定版并附 APK。
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
-
 ---
+
+### v0.1.1 — 首航热修：模拟器实测三缺陷修复
+
+v0.1.0 在 Android 15 模拟器全流程实测（安装 → 启动 → 新建会话 → 开场白渲染 → 发送/错误路径）后发现并修复 3 个缺陷。
+
+**修复**
+
+- **启动崩溃**：`painterResource(R.mipmap.ic_launcher)` 无法加载自适应图标（AdaptiveIconDrawable 既非 Vector 亦非位图，首帧即抛 IllegalArgumentException）→ 品牌 logo 以 PNG 资源（`luzzy_logo`）入 drawable，全部 Compose 引用替换。
+- **顶栏遮挡**：edge-to-edge 下未处理 WindowInsets，首页/聊天页顶栏切入状态栏 → 全局 Shell 增加 `systemBarsPadding()`。
+- **种子数据缺失**：内置角色卡「鹿溪」/ 其世界书 / 正则内置预设的 `ensure*()` 从未被调用 → 应用启动时幂等初始化（新建会话现在正确显示「与鹿溪 的故事」并携带完整开场白）。
+
+**优化**
+
+- 发送后无可用供应商时以错误条提示（errorContainer），不再静默。
+
+构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 2
+
 
 ### v0.1.0 — 首航：全新引擎 · 全新起点
 

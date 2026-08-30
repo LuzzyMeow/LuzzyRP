@@ -435,7 +435,7 @@ fun SettingsAboutPage(onBack: () -> Unit) {
         Column(Modifier.padding(LuzzySpacing.LG), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.size(LuzzySpacing.LG))
             androidx.compose.foundation.Image(
-                painter = painterResource(com.luzzymeow.luzzyrp.R.mipmap.ic_launcher),
+                painter = painterResource(com.luzzymeow.luzzyrp.R.drawable.luzzy_logo),
                 contentDescription = null,
                 modifier = Modifier.size(88.dp),
             )

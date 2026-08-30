@@ -262,7 +262,7 @@ private fun DrawerMenu(onOpenRoute: (Route) -> Unit) {
         Spacer(Modifier.size(LuzzySpacing.LG))
         Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.foundation.Image(
-                painter = painterResource(com.luzzymeow.luzzyrp.R.mipmap.ic_launcher),
+                painter = painterResource(com.luzzymeow.luzzyrp.R.drawable.luzzy_logo),
                 contentDescription = null,
                 modifier = Modifier.size(44.dp).clip(CircleShape),
             )

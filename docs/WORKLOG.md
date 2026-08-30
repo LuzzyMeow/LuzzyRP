@@ -79,3 +79,24 @@
 
 ### 下一步
 - 真机/模拟器实测流式逐字 → 世界书/正则编辑器 UI → v0.2.0（TRPG 模式专项）。
+
+---
+
+## 2026-08-30 · 会话 4：模拟器工具链搭建 + 全流程实测 + v0.1.1 热修
+
+### 完成
+- **模拟器工具链**（用户禁用 USB 真机 A9210，真机上的应用已卸载清理）：sdkmanager 安装 emulator + system-images;android-35;default;x86_64 → 创建 AVD `LuzzyRP_Test`（pixel_6）→ 启动 Android 15 模拟器（emulator-5554）。
+- **全流程实测**：安装 → 启动 → 首页（Aurora 主题/图标/搜索框渲染 ✓）→ 新建对话 → 聊天页（鹿溪开场白完整渲染 ✓）→ 注入文本发送 → 错误条优雅提示（无 Key 场景 ✓）。UI 自动化走无障碍树（contentDescription 可寻址）。
+- **实测发现并修复 3 缺陷**：① AdaptiveIcon 不可 painterResource（启动崩溃，改 luzzy_logo.png 资源）；② WindowInsets 未处理（顶栏入状态栏，加 systemBarsPadding）；③ 种子数据未接线（ensureBuiltinCard/Worldbook/Presets 在 LuzzyApp 启动时幂等初始化）。
+- **v0.1.1 发版**：versionCode 2，CHANGELOG 条目，tag + Release 替换修复版 APK。
+
+### 决策
+1. `input text` 不支持中文注入（系统限制），ASCII 文本完成流程验证；中文流式验收待用户提供 API Key 后真机/模拟器手测。
+2. 模拟器保持运行（LuzzyRP_Test @ emulator-5554），供后续迭代连续测试。
+
+### 遗留
+- 旧仓库删除仍阻塞（delete_repo scope）。
+- 流式逐字验收待 API Key。
+
+### 下一步
+- 世界书/正则编辑器 UI → v0.2.0（TRPG 专项）。

@@ -11,6 +11,7 @@ import com.luzzymeow.luzzyrp.data.db.entity.ConversationEntity
 import com.luzzymeow.luzzyrp.data.db.entity.FavoriteEntity
 import com.luzzymeow.luzzyrp.data.db.entity.MemoryEntity
 import com.luzzymeow.luzzyrp.data.db.entity.MessageNodeEntity
+import com.luzzymeow.luzzyrp.data.db.entity.PromptPresetEntity
 import com.luzzymeow.luzzyrp.data.db.entity.RegexScriptEntity
 import com.luzzymeow.luzzyrp.data.db.entity.SummaryEntity
 import com.luzzymeow.luzzyrp.data.db.entity.WorldbookEntity
@@ -223,6 +224,25 @@ interface SummaryDao {
 
     @Query("DELETE FROM summaries WHERE conversationId = :conversationId AND level = :level AND roundIndex IN (:rounds)")
     suspend fun deleteByRounds(conversationId: String, level: String, rounds: List<Int>)
+}
+
+@Dao
+interface PromptPresetDao {
+
+    @Query("SELECT * FROM prompt_presets ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<com.luzzymeow.luzzyrp.data.db.entity.PromptPresetEntity>>
+
+    @Query("SELECT * FROM prompt_presets WHERE id = :id")
+    suspend fun getById(id: String): com.luzzymeow.luzzyrp.data.db.entity.PromptPresetEntity?
+
+    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun upsert(preset: com.luzzymeow.luzzyrp.data.db.entity.PromptPresetEntity)
+
+    @androidx.room.Query("DELETE FROM prompt_presets WHERE id = :id AND readonly = 0")
+    suspend fun delete(id: String)
+
+    @androidx.room.Query("SELECT COUNT(*) FROM prompt_presets")
+    suspend fun count(): Int
 }
 
 @Dao

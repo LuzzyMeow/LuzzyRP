@@ -55,6 +55,22 @@ private fun deepMerge(base: JsonObject, extra: JsonObject): JsonObject {
     return JsonObject(result)
 }
 
+/**
+ * 深合并多个 JSON 对象字符串（后覆盖前，嵌套 JsonObject 递归合并）。
+ * 任意一段非法/为空则跳过；全部非法返回空对象字符串。
+ */
+fun mergeJsonBodies(vararg bodies: String): String {
+    var acc: JsonObject = JsonObject(emptyMap())
+    for (body in bodies) {
+        if (body.isBlank()) continue
+        runCatching {
+            val obj = AiJson.parseToJsonElement(body)
+            if (obj is JsonObject) acc = deepMerge(acc, obj)
+        }
+    }
+    return AiJson.encodeToString(JsonObject.serializer(), acc)
+}
+
 /** 安全读取响应体（失败返回 null 而非抛异常）。 */
 fun Response.stringSafe(): String? = try {
     body?.string()

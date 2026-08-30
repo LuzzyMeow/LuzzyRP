@@ -84,8 +84,14 @@ class HomeViewModel(
             val settings = settingsStore.settingsFlow.first()
             val cardId = settings.defaultCardId.ifBlank { CharacterCardRepository.BUILTIN_CARD_ID }
             val card = cardRepository.getById(cardId)
-            val greeting = card?.firstMes?.takeIf { it.isNotBlank() }?.let {
-                listOf(UIMessage(role = Role.ASSISTANT, parts = listOf(UIMessagePart.Text(it))))
+            // <CUT> 分割多条开场白（5.4：一角色多气泡输出）
+            val greeting = card?.firstMes?.takeIf { it.isNotBlank() }?.let { firstMes ->
+                firstMes.split("<CUT>")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .map { segment ->
+                        UIMessage(role = Role.ASSISTANT, parts = listOf(UIMessagePart.Text(segment)))
+                    }
             } ?: emptyList()
             val conversation = Conversation(
                 id = UUID.randomUUID().toString(),

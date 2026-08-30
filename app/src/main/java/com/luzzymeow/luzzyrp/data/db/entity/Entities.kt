@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -143,9 +144,12 @@ data class WorldbookEntryEntity(
     val useRegex: Boolean = false,
     val recursion: Boolean = false,
     val probability: Int = 100,
-    /** before_char / after_char / at_depth。 */
+    /** before_char / after_char / before_example / after_example / at_depth。 */
     val position: String = "before_char",
     val depth: Int = 4,
+    /** at_depth 注入角色：system / user / assistant（v2 新增列）。 */
+    @ColumnInfo(defaultValue = "SYSTEM")
+    val depthRole: String = "SYSTEM",
     val order: Int = 100,
     val vectorIndexed: Boolean = false,
     /** 向量召回相似度阈值。 */
@@ -210,6 +214,19 @@ data class SummaryEntity(
     val roundIndex: Int,
     val content: String,
     val createdAt: Long = 0,
+)
+
+/** 提示词预设表（v2 新增：预设 = 名称 + 条目列表 JSON）。 */
+@Entity(tableName = "prompt_presets")
+data class PromptPresetEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    /** List<PresetEntry> JSON。 */
+    val entriesJson: String = "[]",
+    val builtin: Boolean = false,
+    val readonly: Boolean = false,
+    val createdAt: Long = 0,
+    val updatedAt: Long = 0,
 )
 
 /** 收藏表。 */

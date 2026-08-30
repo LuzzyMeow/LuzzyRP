@@ -4,6 +4,11 @@ import com.luzzymeow.luzzyrp.core.ai.params.TextGenerationParams
 import com.luzzymeow.luzzyrp.core.ai.params.ThinkingConfig
 import com.luzzymeow.luzzyrp.core.ai.provider.ProviderGateway
 import com.luzzymeow.luzzyrp.core.model.Model
+import com.luzzymeow.luzzyrp.core.model.PromptPreset
+import com.luzzymeow.luzzyrp.core.model.ThinkingDepth
+import com.luzzymeow.luzzyrp.core.model.ThinkingDepthAdapter
+import com.luzzymeow.luzzyrp.data.logger.AppLogger
+import com.luzzymeow.luzzyrp.data.repository.PromptPresetRepository
 import com.luzzymeow.luzzyrp.core.model.ProviderSetting
 import com.luzzymeow.luzzyrp.core.model.Role
 import com.luzzymeow.luzzyrp.core.model.Conversation
@@ -31,9 +36,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -59,6 +64,8 @@ class ChatService(
     private val settingsStore: SettingsStore,
     private val providerManager: ProviderGateway,
     private val promptAssembler: PromptAssembler,
+    private val presetRepository: PromptPresetRepository,
+    private val logger: AppLogger,
 ) {
 
     /** 每会话单一真源。 */
@@ -113,8 +120,10 @@ class ChatService(
     fun sendMessage(conversationId: String, text: String) {
         if (generationJobs[conversationId]?.isActive == true) return  // 生成中忽略重复发送
         val userMessage = UIMessage(role = Role.USER, parts = listOf(UIMessagePart.Text(text)))
+        logger.info(AppLogger.CAT_USER, "发送消息", "会话=$conversationId 长度=${text.length}")
 
         appScope.launch(exceptionHandler) {
+            rememberLastConversation(conversationId)
             // 追加用户消息到当前节点（存储 + Flow）
             conversationRepository.appendMessageToCurrentNode(conversationId, userMessage)
             sessionFlow(conversationId).value = conversationRepository.getConversation(conversationId)
@@ -216,6 +225,8 @@ class ChatService(
             memoryRepository = memoryRepository,
             bookIdsProvider = { conversation.worldbookIds + listOfNotNull(card?.worldbookId) },
         )
+        val preset = settings.activePresetId.takeIf { it.isNotBlank() }
+            ?.let { runCatching { presetRepository.getById(it) }.getOrNull() }
         val assembled = promptAssembler.assemble(
             card = card,
             toolRegistry = toolRegistry,
@@ -225,20 +236,32 @@ class ChatService(
             summariesA = summariesA,
             memories = memoryItems.map { it.content },
             recall = recall,
-            historyMessages = history,
+            preset = preset,
+            userProfile = settings.userProfile,
         )
         val requestMessages = promptAssembler.buildMessages(assembled, history, currentInput = null)
 
+        // 思考深度：模型级覆盖 > 全局设置；按模型 id 自适配档位（[INVARIANT-AGENTIC] 规定 2 参数面）
+        val depth = (model.thinkingDepth ?: settings.thinkingDepth)
+            ?.let { stored -> runCatching { enumValueOf<ThinkingDepth>(stored) }.getOrNull() }
+        val depthFragment = ThinkingDepthAdapter.requestBodyFragment(model.id, depth)
+        val mergedExtraBody = com.luzzymeow.luzzyrp.core.ai.util.mergeJsonBodies(
+            provider.extraBodyJson,
+            depthFragment.toString(),
+        )
+
         val params = TextGenerationParams(
             model = model,
-            temperature = settings.temperature,
+            temperature = model.temperature ?: settings.temperature,
             topP = settings.topP,
             maxTokens = settings.maxTokens,
             tools = emptyList(),   // Handler 按阶段填充
             toolChoice = com.luzzymeow.luzzyrp.core.ai.params.ToolChoice.AUTO,  // [INVARIANT-AGENTIC] A5
             thinking = ThinkingConfig(enabled = settings.thinkingEnabled, effort = settings.thinkingEffort),
-            customBody = provider.extraBodyJson,
+            customBody = mergedExtraBody,
         )
+        logger.info(AppLogger.CAT_MODEL, "请求组装",
+            "模型=${model.id} 思考深度=$depth 消息数=${requestMessages.size} 温度=${params.temperature}")
 
         // —— 生成循环 ——
         val handler = GenerationHandler(providerManager)
@@ -268,6 +291,7 @@ class ChatService(
                 }
 
                 is GenerationHandler.GenerationEvent.ToolRound -> {
+                    logger.info(AppLogger.CAT_TOOL, "工具轮次完成", "round=${event.round}")
                     persistToDb(conversationId, fromNodeId, event.messages)
                 }
 
@@ -277,11 +301,14 @@ class ChatService(
 
                 is GenerationHandler.GenerationEvent.Completed -> {
                     completed = true
+                    logger.info(AppLogger.CAT_MODEL, "生成完成",
+                        "finish=${event.finishReason} 消息数=${event.messages.size}")
                     persistToDb(conversationId, fromNodeId, event.messages)
                     postTurn(conversationId, event.messages.filter { it.role != Role.SYSTEM }, settings)
                 }
 
                 is GenerationHandler.GenerationEvent.Failed -> {
+                    logger.error(AppLogger.CAT_MODEL, "生成失败", event.error.stackTraceToString().take(4000))
                     pushError(conversationId, event.error.message ?: "生成失败：${event.error.javaClass.simpleName}")
                 }
             }
@@ -355,6 +382,13 @@ class ChatService(
 
     private suspend fun nodeDaoUpdateIfChanged(conversationId: String, nodeId: String, messages: List<UIMessage>) {
         conversationRepository.updateNodeMessages(conversationId, nodeId, messages)
+    }
+
+    private var lastRememberedId = ""
+    private suspend fun rememberLastConversation(conversationId: String) {
+        if (lastRememberedId == conversationId) return
+        lastRememberedId = conversationId
+        runCatching { settingsStore.update { it.copy(lastConversationId = conversationId) } }
     }
 
     private fun currentProvider(settings: Settings): ProviderSetting? =

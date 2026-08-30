@@ -21,17 +21,39 @@ enum class RecallStrategy {
     @SerialName("vector") VECTOR,
 }
 
-/** 注入位置（与 SillyTavern position 语义对齐）。 */
+/**
+ * 注入位置（与 SillyTavern position 全集语义对齐）：
+ *   ↑Char（角色定义前）/ ↓Char（角色定义后）/
+ *   ↑Example Messages（对话示例前）/ ↓Example Messages（对话示例后）/
+ *   @Depth（指定深度，配合 [WorldbookEntry.depthRole] 指定注入角色）。
+ */
 @Serializable
 enum class InjectionPosition {
-    /** 角色设定之前（系统提示稳定前缀内）。 */
+    /** ↑Char：角色定义前（稳定前缀）。 */
     @SerialName("before_char") BEFORE_CHAR,
 
-    /** 角色设定之后（系统提示稳定前缀内）。 */
+    /** ↓Char：角色定义后（稳定前缀）。 */
     @SerialName("after_char") AFTER_CHAR,
 
-    /** 按深度插入对话尾部（动态尾段，depth 指定距末尾消息数）。 */
+    /** ↑Example Messages：对话示例前（稳定前缀）。 */
+    @SerialName("before_example") BEFORE_EXAMPLE,
+
+    /** ↓Example Messages：对话示例后（稳定前缀）。 */
+    @SerialName("after_example") AFTER_EXAMPLE,
+
+    /** @Depth：距末尾 depth 条消息处注入（动态层）。 */
     @SerialName("at_depth") AT_DEPTH,
+}
+
+/**
+ * @Depth 注入的消息角色（system / user / assistant）。
+ * 世界书与预设条目的 @Depth 位置共用本枚举。
+ */
+@Serializable
+enum class PromptRole {
+    @SerialName("system") SYSTEM,
+    @SerialName("user") USER,
+    @SerialName("assistant") ASSISTANT,
 }
 
 @Serializable
@@ -63,6 +85,8 @@ data class WorldbookEntry(
     val position: InjectionPosition = InjectionPosition.BEFORE_CHAR,
     /** at_depth 时的深度（距末尾消息数）。 */
     val depth: Int = 4,
+    /** at_depth 时的注入角色（system/user/assistant）。 */
+    val depthRole: PromptRole = PromptRole.SYSTEM,
     /** 同位置内排序（小者先注入）。 */
     val order: Int = 100,
     // —— 向量策略参数 ——

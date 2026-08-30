@@ -39,6 +39,7 @@ val dataSourceModule = module {
     single<MemoryDao> { get<AppDatabase>().memoryDao() }
     single<SummaryDao> { get<AppDatabase>().summaryDao() }
     single<FavoriteDao> { get<AppDatabase>().favoriteDao() }
+    single { get<AppDatabase>().promptPresetDao() }
 
     /** 向量索引：以可写库句柄为后端（sqlite-vec 虚表见 AppDatabase.VectorTables）。 */
     single {
@@ -55,4 +56,5 @@ val dataSourceModule = module {
     single { SummaryRepository(get(), get()) }
     single { RegexRepository(get()) }
     single { FavoriteRepository(get()) }
+    single { com.luzzymeow.luzzyrp.data.repository.PromptPresetRepository(get()) }
 }

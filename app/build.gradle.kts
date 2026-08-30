@@ -98,6 +98,11 @@ kotlin {
     }
 }
 
+// Room schema 导出（供后续 AutoMigration 生成与版本审查）
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     // 核心模块
     implementation(project(":core:model"))

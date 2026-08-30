@@ -17,6 +17,7 @@ import com.luzzymeow.luzzyrp.data.db.entity.ConversationEntity
 import com.luzzymeow.luzzyrp.data.db.entity.FavoriteEntity
 import com.luzzymeow.luzzyrp.data.db.entity.MemoryEntity
 import com.luzzymeow.luzzyrp.data.db.entity.MessageNodeEntity
+import com.luzzymeow.luzzyrp.data.db.entity.PromptPresetEntity
 import com.luzzymeow.luzzyrp.data.db.entity.RegexScriptEntity
 import com.luzzymeow.luzzyrp.data.db.entity.SummaryEntity
 import com.luzzymeow.luzzyrp.data.db.entity.WorldbookEntity
@@ -32,10 +33,11 @@ import com.luzzymeow.luzzyrp.data.db.entity.WorldbookEntryEntity
  *   以 raw SQL 创建（Room 不映射虚表），见 [VectorTables]。
  */
 @Database(
-    version = 1,
+    version = 2,
     exportSchema = true,
     entities = [
         ConversationEntity::class,
+        PromptPresetEntity::class,
         MessageNodeEntity::class,
         CharacterCardEntity::class,
         WorldbookEntity::class,
@@ -56,12 +58,36 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun memoryDao(): MemoryDao
     abstract fun summaryDao(): SummaryDao
     abstract fun favoriteDao(): FavoriteDao
+    abstract fun promptPresetDao(): com.luzzymeow.luzzyrp.data.db.dao.PromptPresetDao
 
     companion object {
+
+        /**
+         * v1 → v2（2026-08-30）：
+         *   - worldbook_entries 增列 depthRole（@Depth 注入角色，默认 SYSTEM）
+         *   - 新表 prompt_presets（提示词预设）
+         * v1 发布于 v0.1.x，schema JSON 未曾导出，故手写 SQL 迁移（不破坏用户数据）。
+         */
+        private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE worldbook_entries ADD COLUMN depthRole TEXT NOT NULL DEFAULT 'SYSTEM'")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS prompt_presets (" +
+                        "id TEXT NOT NULL PRIMARY KEY, " +
+                        "name TEXT NOT NULL, " +
+                        "entriesJson TEXT NOT NULL, " +
+                        "builtin INTEGER NOT NULL, " +
+                        "readonly INTEGER NOT NULL, " +
+                        "createdAt INTEGER NOT NULL, " +
+                        "updatedAt INTEGER NOT NULL)"
+                )
+            }
+        }
 
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "luzzy.db")
                 .setJournalMode(androidx.room.RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(VectorTables.callback())
                 .build()
     }

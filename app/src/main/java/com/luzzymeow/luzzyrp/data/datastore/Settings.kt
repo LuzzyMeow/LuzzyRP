@@ -2,6 +2,7 @@ package com.luzzymeow.luzzyrp.data.datastore
 
 import com.luzzymeow.luzzyrp.core.model.ContextConfig
 import com.luzzymeow.luzzyrp.core.model.ProviderSetting
+import com.luzzymeow.luzzyrp.core.model.UserProfile
 import com.luzzymeow.luzzyrp.ui.theme.ThemeMode
 import kotlinx.serialization.Serializable
 
@@ -28,6 +29,8 @@ data class Settings(
     /** 思考深度：null=模型默认；off=关闭；其余为 effort（low/medium/high/max）。 */
     val thinkingEffort: String? = null,
     val thinkingEnabled: Boolean? = null,
+    /** 思考深度统一档位（v0.2.0：ThinkingDepth 序列名；按模型 id 自适配字段）。 */
+    val thinkingDepth: String? = null,
 
     // —— 上下文 ——
     val contextConfig: ContextConfig = ContextConfig(),
@@ -56,4 +59,16 @@ data class Settings(
     val defaultCardId: String = "",
     /** 用户在 RP 中的自称。 */
     val personaName: String = "我",
+
+    // —— v0.2.0 新增 ——
+    /** 启动的提示词预设 id（注入 system；空 = 不注入）。 */
+    val activePresetId: String = "",
+    /** 用户档案（7.1：头像/名字/身份，注入 system 稳定前缀）。 */
+    val userProfile: UserProfile = UserProfile(),
+    /** 上次打开的会话（3：启动直达；首次为空 → 默认鹿溪）。 */
+    val lastConversationId: String = "",
+    /** 是否记录详细日志（6.6；默认开）。 */
+    val loggingEnabled: Boolean = true,
+    /** 对话注入的世界书（会话级已覆盖；此为全局兜底，可空）。 */
+    val globalWorldbookIds: List<String> = emptyList(),
 )

@@ -25,6 +25,11 @@ val generationModule = module {
     single { PromptAssembler(get()) }
 
     single {
+        val settingsStore: com.luzzymeow.luzzyrp.data.datastore.SettingsStore = get()
+        com.luzzymeow.luzzyrp.data.logger.AppLogger(androidApplication()) { settingsStore.cached.loggingEnabled }
+    }
+
+    single {
         val app = androidApplication()
         val appScope = CoroutineScope(
             kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default +
@@ -42,6 +47,8 @@ val generationModule = module {
             settingsStore = get(),
             providerManager = get(),
             promptAssembler = get(),
+            presetRepository = get(),
+            logger = get(),
         )
     }
 }

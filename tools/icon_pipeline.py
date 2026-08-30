@@ -79,6 +79,61 @@ def sanitize_pinyin_prefix(s: str) -> str:
     return s or "icon"
 
 
+
+# ---------------------------------------------------------------------------
+# 图标清理（v0.2.0）：修复"黑边"问题
+# 源 PNG 为 P 模式（索引色）：透明区 RGB 残留杂色、边缘硬锯齿，部分渲染器
+# 将透明区渲为黑底。清理流程：P→RGBA → 透明区 RGB 归零 → 字形 bbox 提取 →
+# 归一化居中（统一视觉大小，占比 TARGET_OCCUPANCY）→ 轻度抗锯齿边缘。
+# ---------------------------------------------------------------------------
+
+TARGET_OCCUPANCY = 0.72   # 字形占画布边长比例（大小统一的核心参数）
+CANVAS = 256
+
+
+def clean_icon(im: Image.Image) -> Image.Image:
+    """索引色/任意模式 → 清理后的 RGBA 方形画布，字形归一化居中。"""
+    im = im.convert("RGBA")
+    # 透明区 RGB 归零（防止杂色渗透）
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                px[x, y] = (0, 0, 0, 0)
+    # 字形 bbox（alpha > 8 视为可见）
+    alpha = im.split()[3]
+    bbox = alpha.point(lambda v: 255 if v > 8 else 0).getbbox()
+    if not bbox:
+        return Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    glyph = im.crop(bbox)
+    # 归一化：长边缩放到 TARGET_OCCUPANCY * CANVAS（仅缩小或温和放大）
+    target = int(CANVAS * TARGET_OCCUPANCY)
+    scale = target / max(glyph.width, glyph.height)
+    new_w = max(1, round(glyph.width * scale))
+    new_h = max(1, round(glyph.height * scale))
+    glyph = glyph.resize((new_w, new_h), Image.LANCZOS)
+    # 透明边缘轻度平滑：低 alpha 压零，去除索引色硬边
+    a = glyph.split()[3].point(lambda v: 0 if v < 24 else v)
+    glyph.putalpha(a)
+    # 居中放置
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    canvas.alpha_composite(glyph, ((CANVAS - new_w) // 2, (CANVAS - new_h) // 2))
+    return canvas
+
+
+def clean_logo(im: Image.Image) -> Image.Image:
+    """品牌 logo 清理：去除暗色柔光晕（低 alpha 且偏黑的像素压零）。"""
+    im = im.convert("RGBA")
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a < 40 and (r + g + b) < 220:  # 低透明度且偏暗 → 黑晕
+                px[x, y] = (0, 0, 0, 0)
+    return im
+
+
 # ---------------------------------------------------------------------------
 # 第 1+2 步：扫描 game-icon-pack 并生成资源与 GameIcons.kt
 # ---------------------------------------------------------------------------
@@ -109,7 +164,8 @@ def build_game_icons() -> list[dict]:
                 res_name = f"{base}_{n}"
                 n += 1
             used_names.add(res_name)
-            shutil.copyfile(png, DRAWABLE_DIR / f"{res_name}.png")
+            cleaned = clean_icon(Image.open(png))
+            cleaned.save(DRAWABLE_DIR / f"{res_name}.png")
             records.append({
                 "res": res_name, "original": stem,
                 "category": cat_prefix, "category_cn": cat_dir.name,
@@ -457,7 +513,7 @@ def build_launcher_icons(records: list[dict]) -> None:
     if not BRAND.exists():
         print(f"品牌 logo 缺失：{BRAND}")
         return
-    logo = Image.open(BRAND).convert("RGBA")
+    logo = clean_logo(Image.open(BRAND).convert("RGBA"))
 
     mipmap = RES_DIR / "mipmap-anydpi-v26"
     mipmap.mkdir(parents=True, exist_ok=True)

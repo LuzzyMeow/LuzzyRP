@@ -31,8 +31,12 @@ data class Model(
     val capabilities: ModelCapability = ModelCapability(),
     /** 上下文长度（tokens）。 */
     val contextLength: Long = 128_000,
-    /** 最大输出（tokens）。 */
-    val maxOutputTokens: Long = 8_192,
+    /** 最大输出（tokens）；0 或未填 = 与上下文长度一致（6.1 规则）。 */
+    val maxOutputTokens: Long = 0,
+    /** 模型级温度覆盖（null = 跟随全局生成参数）。 */
+    val temperature: Double? = null,
+    /** 思考深度（ThinkingDepth 序列名；null = DEFAULT）。按模型 id 自适配档位（ThinkingDepthAdapter）。 */
+    val thinkingDepth: String? = null,
 ) {
     fun displayNameOrId(): String = displayName.ifBlank { id }
 }

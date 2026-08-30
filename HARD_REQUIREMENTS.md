@@ -65,6 +65,21 @@
 ### 规定 12 · 发布流程
 `android` 目录资源同步最新构建产物确认可编译后，编译新版本 APK，随后提交推送远程仓库；按仓库旧版本 release 排版格式编写新的、美观且极其详细的 release 内容推送（**仅稳定版更新附 APK**）。
 
+### 规定 13 · 设计 SKILL 强制条款（2026-08-30 用户新增）
+
+凡涉及主题/UI/UX/前端显示效果的工作，**必须**先完全掌握并应用以下 4 项设计 SKILL（仓库已存档至 `docs/skills/`）：
+
+| # | SKILL | 仓库 | 本项目应用方式 |
+|---|-------|------|----------------|
+| 1 | huashu-design | https://github.com/alchaincyf/huashu-design | 工作室多角色设计方法论（艺术总监→视觉→动效→工程）；动效=物理学（缓动表达重量与摩擦）；pitfalls 避坑清单；三方向初稿制 |
+| 2 | open-design | https://github.com/nexu-io/open-design | DESIGN.md 作为品牌契约（仓库根 `DESIGN.md` 为唯一设计真源，所有 UI 改动必须遵循）；工件优先；交付前五维 critique 门控 |
+| 3 | awesome-design-md | https://github.com/VoltAgent/awesome-design-md | 73 份真实站点 DESIGN.md 范本库（`docs/skills/awesome-design-md-main/design-md/`），撰写/演进本项目 DESIGN.md 时参照其结构（Colors/Typography/Layout/Elevation/Shapes/Components/Motion） |
+| 4 | ui-ux-pro-max-skill | https://github.com/nextlevelbuilder/ui-ux-pro-max-skill | 可检索设计智能（styles/palettes/UX 规则/图标），`references/pro-rules.md` 原生 App 交付清单为发版必过项；`data/stacks/jetpack-compose.csv` 为 Compose 代码规约 |
+
+- 上述 4 项 SKILL 的本地存档路径：`docs/skills/{huashu-design,open-design,awesome-design-md-main,ui-ux-pro-max-skill}/`。
+- UI 交付前必须执行：ui-ux-pro-max `pro-rules.md` 的 Pre-Delivery Checklist + huashu-design `animation-pitfalls.md` 逐项对照。
+- 本条款与规定 6（图标/字体/动画令牌）并行生效；冲突时以更严格者为准。
+
 ---
 
 ## 二、真流式 6 大不变性（规定 1 的技术展开）

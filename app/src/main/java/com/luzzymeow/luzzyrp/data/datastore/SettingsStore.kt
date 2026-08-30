@@ -26,6 +26,11 @@ class SettingsStore(private val context: Context) {
         val SETTINGS = stringPreferencesKey("settings_json")
     }
 
+    /** 非挂起快照（AppLogger 等同步读取方使用；首次读到默认值）。 */
+    @Volatile
+    var cached: Settings = defaultSettings()
+        private set
+
     val settingsFlow: Flow<Settings> = context.luzzyDataStore.data
         .catch { emit(emptyPreferences()) }
         .map { prefs ->
@@ -33,6 +38,10 @@ class SettingsStore(private val context: Context) {
                 runCatching { JsonInstant.decodeFromString(Settings.serializer(), json) }
                     .getOrElse { Settings() }
             } ?: Settings()
+        }
+        .map { settings ->
+            cached = settings
+            settings
         }
 
     suspend fun update(transform: (Settings) -> Settings) {

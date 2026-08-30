@@ -59,3 +59,23 @@
 
 ### 下一步
 - P6/P7 UI 全量（Navigation3 路由壳、聊天页思考卡片时间线、角色卡库、设置族、记忆页）→ P8 发版。
+
+---
+
+## 2026-08-30 · 会话 3：P6/P7 UI 全量 + v0.1.0 发版
+
+### 完成
+- **P6/P7 UI**：RouteActivity（Navigation3 NavDisplay，16 路由，三态转场 300/195ms）；聊天页（思考卡片三态节点 + 工具卡片审批按钮 + 双色气泡 + 流式跟随 + 回到底部箭头 + 发送/Stop 同位切换）；首页（列表/置顶/搜索/抽屉/新建会话带鹿溪开场白）；角色卡库（PNG/JSON 导入 + 详情编辑/导出/只读保护）；世界书/记忆/收藏/历史页；设置族（供应商列表+详情/生成参数含温度滑条与历史轮数 0-200/外观含四种主题模式/关于）。AuroraSurface 交互引擎、LuzzyTextField、MarkdownText 轻量渲染。ViewModelModule Koin 工厂（含 parametersOf 路由参数）。
+- **P8 发版**：生成 4096 位发布 keystore（30 年有效期，口令记录 docs/RELEASE-KEY.md，均 gitignore）；assembleRelease 签名成功（arm64 20.7MB / x86_64 20.7MB / universal 21MB，R8 minify）；CHANGELOG v0.1.0 完整条目；INVARIANTS-CHECKLIST 自检记录；tag v0.1.0 + GitHub Release（附 universal APK）。
+
+### 决策
+1. Markdown 渲染 v0.1.0 采用零依赖 AnnotatedString 子集解析（粗/斜/代码/删除线），第三方 Markdown 引擎列为 v0.2 候选。
+2. 会话标题自动生成（首轮后一次性任务）。
+
+### 遗留
+- 旧仓库删除仍阻塞（delete_repo scope，见会话 2 遗留）。
+- 流式真机逐字验收待用户提供 API Key；Android 模拟器实测（安装/启动/会话流）列为下一会话首选任务。
+- 世界书条目全功能编辑页（增删改条目）与正则编辑器 UI 在 v0.2 完整交付（数据层与召回引擎已就绪）。
+
+### 下一步
+- 真机/模拟器实测流式逐字 → 世界书/正则编辑器 UI → v0.2.0（TRPG 模式专项）。

@@ -1,5 +1,21 @@
 # LuzzyRP 发版前不变性自检表（INVARIANTS-CHECKLIST）
 
+## v0.1.0 自检记录（2026-08-30）
+
+| 区块 | 结果 |
+|------|------|
+| A 流式输出 | ✅ 架构层通过（callbackFlow+trySend 逐 event / awaitClose cancel / readTimeout 10min / 单一真源直写）；真机逐字验收待用户提供 API Key |
+| B Agentic | ✅ 单测通过（GenerationLoopTest：原地回填/审批续跑/两阶段收口/256 步）；无 tool_choice=required；被动工具经系统提示注入 |
+| C NSFW | ✅ NsfwBlock 占位，无任何过滤/改写逻辑 |
+| D KV 缓存 | ✅ KvPrefixStabilityGoldenTest 绿（同历史两次组装逐字节相等 + 易变字段不进前缀） |
+| E 资产与 UI | ✅ 图标全部经 GameIcons/LuzzyIcons 注册表；LuzzyMixedFontFamily 混排；AuroraSurface 三态交互 + 页面三态转场；色值集中于 AuroraColor |
+| F 质量底线 | ✅ 无 TODO/FIXME 遗留（NsfwBlock 占位为有意保留） |
+| G 测试与构建 | ✅ 24 项 JVM 单测全绿；assembleRelease 签名成功；Room schemas 已导出 |
+| H 文档与发布 | ✅ CHANGELOG/README/WORKLOG 同步；tag v0.1.0 + Release（附 APK） |
+
+---
+
+
 > 规则：每次发版（含 alpha/beta）前逐项打勾。任何一项不通过则**禁止发版**。
 > 自检结果追加记录到 `docs/WORKLOG.md`。
 

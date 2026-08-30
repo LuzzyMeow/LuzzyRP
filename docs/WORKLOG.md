@@ -32,3 +32,30 @@
 
 ### 下一步
 - P0-3 备份旧仓库 → P0-4 创建 LuzzyMeow/LuzzyRP 并首推 → P0-5 删除旧仓库 → P0-6 Gradle 脚手架 → P0-7 资产管线 → P1 模型层。
+
+---
+
+## 2026-08-30 · 会话 2：P0-P4 主体完成
+
+### 完成
+- **P0 收口**：Gradle 9.4.1 wrapper（复用 rikkahub 启动器）+ 首次构建走通（修掉 3 个 AGP9/Kotlin2.4 兼容问题：buildconfig 属性移除、java 包名遮蔽、JVM target 不一致）；`gh repo create LuzzyMeow/LuzzyRP` 创建并首推成功（SSH）。
+- **P0-7 资产管线**：`tools/icon_pipeline.py` 生成 815 枚图标资源 + GameIcons.kt（12 类）+ LobeIcons.kt（lucideExtra 37 枚机械转 VectorDrawable）+ LuzzyIcons.kt 语义别名（92 项全解析）+ 启动图标（legacy+adaptive）+ 通知 small_icon（猫）；6 字重字体落位 res/font。
+- **P1 模型层**：UIMessage 多部件模型、ToolApprovalState 五状态、MessageChunk 合并代数（按角色合并——OpenAI delta 无稳定 id，rikkahub 同款语义）、PNG tEXt 读写器；ChunkMergeTest/PngTextChunkRoundTripTest 全绿。
+- **P2 AI 层**：OpenAI 兼容/Anthropic/Google 三协议 SSE 真流式（callbackFlow+trySend 逐 event+awaitClose cancel，[INVARIANT-STREAMING] 注释块）；主机思考参数适配（方舟/智谱/月暗 thinking.type、DeepSeek reasoning_effort、OpenRouter reasoning）；TagToolCallParser（跨 delta 切分安全、截断尽力解析、标签不上屏）；8 测试全绿。
+- **P3 数据层**：Room v1（9 实体、8 DAO、WAL、schemas 导出、vec0 虚表 onOpen 创建）；SettingsStore（DataStore JSON blob）；ConversationRepository（分支树/重roll）；CharacterCardRepository（ST v2/v3 PNG/JSON 导入导出、内置卡鹿溪）；WorldbookRepository（三策略召回）；MemoryRepository（ACE Execute/Update+余弦去重+评分淘汰）；VectorIndex（sqlite-vec 维度自适应重建）；DataSourceModule 全接线。
+- **P4 生成管线**：NsfwBlock 占位（用户手填+不可触碰警示）；AgenticProtocol 内置提示词强化（>2 轮思考、>1 次主动调用）；TaskPrompts（A/B/C 摘要+ACE 反思/提取+标题）；ToolRegistry+BuiltinTools（world_keyword_search/memory_search/current_time）；GenerationHandler（256 步、原地回填、三 break、审批续跑、标签兜底、两阶段 maxLoops=3）；PromptAssembler（KV 三层布局：稳定前缀系统消息→append-only 历史→尾部动态块）；ChatService（单一真源、流式直写、节流落库、审批续跑、后处理链：标题/摘要/ACE）；GenerationLoopTest 4 用例全绿（含原地回填断言、审批暂停续跑断言）。
+- **KV Golden**：KvPrefixStabilityGoldenTest——同历史两次组装逐字节相等 + 易变字段不进前缀断言，全绿。
+
+### 决策
+1. 合并代数按**角色**判定（delta 无稳定 id；rikkahub 同款）。
+2. RP 两阶段落地为「工具轮次上限 3」：轮次内=阶段一（思考+工具，流思考卡片/工具卡片），轮次耗尽不再提供工具=阶段二（基于结果写正文）。普通对话 UNLIMITED（仅 256 步约束）。
+3. KV 分层落位：稳定前缀=system 首消息；动态内容（A/B 摘要+记忆 Top-K+被动召回）置于历史**之后**的 system 块（保护历史前缀缓存）。
+4. sqlite-vec 虚表维度自适应：首次写入按实际维度重建；嵌入冗余 JSON 存实体列供真实余弦去重。
+5. ProviderGateway 接口抽出（Handler/ChatService 依赖抽象，测试可注入假网关）。
+
+### 遗留
+- **旧仓库删除阻塞**：gh token 无 delete_repo scope，需用户执行 `gh auth refresh -h github.com -s delete_repo`（设备码授权）后由 Agent 重试 `gh repo delete LuzzyMeow/Luzzy-RpTRPG --yes`，或用户在 Settings→Danger Zone 手动删除。备份已在 docs/archive/（gitignore）。
+- 流式真机实测待用户提供 API Key（DeepSeek/方舟）。
+
+### 下一步
+- P6/P7 UI 全量（Navigation3 路由壳、聊天页思考卡片时间线、角色卡库、设置族、记忆页）→ P8 发版。

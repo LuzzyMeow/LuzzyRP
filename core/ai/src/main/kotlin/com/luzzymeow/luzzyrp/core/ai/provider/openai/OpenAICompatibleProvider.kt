@@ -302,7 +302,8 @@ class OpenAICompatibleProvider(
      * 存储消息 → OpenAI 协议消息数组。
      * [INVARIANT-KV] 字段构造次序固定：同一历史两次组装请求体逐字节一致。
      */
-    private fun buildProtocolMessages(messages: List<UIMessage>) = buildJsonArray {
+    /** 仅供 KV 前缀稳定性测试访问（internal）；行为语义不变。 */
+    internal fun buildProtocolMessages(messages: List<UIMessage>) = buildJsonArray {
         messages.forEach { message ->
             when (message.role) {
                 Role.SYSTEM -> add(buildJsonObject {

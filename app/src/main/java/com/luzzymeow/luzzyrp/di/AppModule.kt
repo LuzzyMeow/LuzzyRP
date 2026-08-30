@@ -36,7 +36,6 @@ val infrastructureModule = module {
  */
 val appModules = listOf(
     infrastructureModule,
-    // aiModule,          // P2 里程碑接入（core:ai Provider 三协议）
-    // dataSourceModule,  // P3 里程碑接入（Room / DataStore）
-    // generationModule,  // P4 里程碑接入（GenerationHandler / ChatService）
+    dataSourceModule,
+    generationModule,
 )

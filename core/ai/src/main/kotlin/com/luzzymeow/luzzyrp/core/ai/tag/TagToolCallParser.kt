@@ -13,10 +13,13 @@ package com.luzzymeow.luzzyrp.core.ai.tag
  *
  * 流式行为（配合真流式不变性）：
  *   - 开标签之前的正文增量**立即**透传（逐字上屏）；
- *   - 检测到开标签（允许跨 delta 切分，如 "…<tool_" + "calls>"）后，
- *     后续内容进入 pending 缓冲，**不再上屏**（防止工具 JSON 闪现正文气泡）；
+ *   - 开标签（允许跨 delta 切分）之后的正文进入缓冲，**不再上屏**
+ *     （防止工具 JSON 闪现正文气泡）；
  *   - 闭合标签到达后一次性解析出全部工具调用；
  *   - 流意外结束（maxTokens 截断）时对未闭合缓冲做尽力解析。
+ *
+ * 实现：单一尾部缓冲 + 「完整分隔符命中即切分、尾部保留最长可能前缀」的标准
+ * 流式分隔符算法，任意切分粒度（含逐字符）下结果一致。
  */
 class TagToolCallParser {
 
@@ -33,122 +36,90 @@ class TagToolCallParser {
     )
 
     private var insideTag = false
-    private val pending = StringBuilder()
+    private val buf = StringBuilder()
 
     /** 喂入一个流式文本增量。 */
     fun feed(delta: String): ParseResult {
         if (delta.isEmpty()) return ParseResult("", emptyList())
+        buf.append(delta)
+
         val visible = StringBuilder()
         val toolCalls = mutableListOf<ParsedToolCall>()
-        var rest = delta
 
-        while (rest.isNotEmpty()) {
+        while (true) {
             if (!insideTag) {
-                val tagStart = findTagStart(rest)
-                when {
-                    tagStart != null -> {
-                        // 标签前正文透传；进入标签模式
-                        visible.append(rest, 0, tagStart.index)
-                        insideTag = true
-                        pending.clear()
-                        pending.append(rest.substring(tagStart.index + tagStart.matchedPrefixLength))
-                        rest = ""
-                        val closed = tryCloseTag()
-                        if (closed != null) {
-                            toolCalls += closed.first
-                            rest = closed.second + rest
-                            insideTag = false
-                        }
-                    }
-
-                    tagStart == null && mightBeTagPrefix(rest) -> {
-                        // 尾部可能是被切分的标签前缀：扣留尾部，其余透传
-                        visible.append(rest.substring(0, safePassLength(rest)))
-                        pending.append(rest.substring(safePassLength(rest)))
-                        rest = ""
-                    }
-
-                    else -> {
-                        visible.append(rest)
-                        rest = ""
-                    }
+                val openIdx = buf.indexOf(OPEN_TAG)
+                if (openIdx >= 0) {
+                    visible.append(buf, 0, openIdx)
+                    buf.delete(0, openIdx + OPEN_TAG.length)
+                    insideTag = true
+                    continue
                 }
+                // 无完整开标签：安全透传 = 缓冲长度 −（可能是开标签前缀的尾部窗口）
+                val safe = safeEmitLength(buf)
+                if (safe > 0) {
+                    visible.append(buf, 0, safe)
+                    buf.delete(0, safe)
+                }
+                break
             } else {
-                // 标签内：继续缓冲
-                pending.append(rest)
-                rest = ""
-                val closed = tryCloseTag()
-                if (closed != null) {
-                    toolCalls += closed.first
-                    rest = closed.second
+                val closeIdx = buf.indexOf(CLOSE_TAG)
+                if (closeIdx >= 0) {
+                    toolCalls += parseBody(buf.substring(0, closeIdx))
+                    buf.delete(0, closeIdx + CLOSE_TAG.length)
                     insideTag = false
+                    continue
                 }
+                // 标签内：内容不上屏，全部留在缓冲等待闭合
+                break
             }
         }
         return ParseResult(visible.toString(), toolCalls)
     }
 
-    /** 流结束时调用：未闭合标签做尽力解析。 */
+    /**
+     * 流结束时调用：未闭合标签做尽力解析。
+     * 残留缓冲若为开标签的部分前缀（流被 maxTokens 截断），直接吞掉不上屏。
+     */
     fun finish(): ParseResult {
-        if (!insideTag || pending.isBlank()) {
-            val leftover = pending.toString()
-            pending.clear()
+        val leftover = buf.toString()
+        buf.setLength(0)
+        return if (insideTag) {
             insideTag = false
-            return ParseResult(if (insideTag) "" else leftover, emptyList())
+            ParseResult("", parseBody(leftover))
+        } else {
+            // 剥离尾部半截开标签前缀
+            val stripped = leftover.dropLast(trailingPrefixLength(leftover))
+            ParseResult(stripped, emptyList())
         }
-        val calls = parseBody(pending.toString())
-        pending.clear()
-        insideTag = false
-        return ParseResult("", calls)
+    }
+
+    /** 尾部与 OPEN_TAG 前缀吻合的最大窗口长度。 */
+    private fun trailingPrefixLength(text: String): Int {
+        val maxWindow = minOf(text.length, OPEN_TAG.length - 1)
+        for (window in maxWindow downTo 1) {
+            if (text.endsWith(OPEN_TAG.substring(0, window))) return window
+        }
+        return 0
     }
 
     // —— 内部实现 ——
 
-    private data class TagHit(val index: Int, val matchedPrefixLength: Int)
-
-    /** 在文本中查找开标签 <tool_calls>（或其部分前缀匹配点）。 */
-    private fun findTagStart(text: String): TagHit? {
-        val direct = text.indexOf(OPEN_TAG)
-        if (direct >= 0) return TagHit(direct, OPEN_TAG.length)
-        // 处理跨 delta 切分的开标签
-        for (len in (OPEN_TAG.length - 1) downTo 1) {
-            if (text.length >= len && text.endsWith(OPEN_TAG.substring(0, len)) && text.length - len >= 0) {
-                // 仅当该尾部不是更长普通文本的一部分时才需扣留——endsWith 前缀判断即可
-                return TagHit(text.length - len, len)
+    /** 可安全透传的长度：扣除尾部可能是 OPEN_TAG 前缀的窗口。 */
+    private fun safeEmitLength(text: CharSequence): Int {
+        val maxWindow = minOf(text.length, OPEN_TAG.length - 1)
+        for (window in maxWindow downTo 1) {
+            val i = text.length - window
+            var isPrefix = true
+            for (j in 0 until window) {
+                if (text[i + j] != OPEN_TAG[j]) {
+                    isPrefix = false
+                    break
+                }
             }
-        }
-        return null
-    }
-
-    /** rest 尾部是否可能构成开标签前缀（用于决定扣留多少尾部）。 */
-    private fun mightBeTagPrefix(text: String): Boolean {
-        for (len in (OPEN_TAG.length - 1) downTo 1) {
-            if (text.length >= len && text.endsWith(OPEN_TAG.substring(0, len))) {
-                return true
-            }
-        }
-        return false
-    }
-
-    /** 可安全透传的长度（尾部留出标签前缀探测窗口）。 */
-    private fun safePassLength(text: String): Int {
-        for (len in (OPEN_TAG.length - 1) downTo 1) {
-            if (text.length >= len && text.endsWith(OPEN_TAG.substring(0, len))) {
-                return (text.length - len).coerceAtLeast(0)
-            }
+            if (isPrefix) return i
         }
         return text.length
-    }
-
-    /** 尝试在 pending 中找到闭合标签；命中则解析并返回（工具调用, 闭合标签之后的残余文本）。 */
-    private fun tryCloseTag(): Pair<List<ParsedToolCall>, String>? {
-        val text = pending.toString()
-        val closeIndex = text.indexOf(CLOSE_TAG)
-        if (closeIndex < 0) return null
-        val body = text.substring(0, closeIndex)
-        val after = text.substring(closeIndex + CLOSE_TAG.length)
-        val calls = parseBody(body)
-        return Pair(calls, after)
     }
 
     /**
@@ -161,12 +132,13 @@ class TagToolCallParser {
 
         if (trimmed.startsWith("[")) {
             return runCatching {
-                val arr = AiTagJson.parseToJsonElement(trimmed).let { it as? kotlinx.serialization.json.JsonArray }
+                val arr = AiTagJson.parseToJsonElement(trimmed) as? kotlinx.serialization.json.JsonArray
                 arr?.mapNotNull { el ->
                     val obj = el as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
-                    val name = (obj["name"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
-                    val args = obj["arguments"] ?: obj["args"] ?: obj["parameters"] ?: kotlinx.serialization.json.buildJsonObject { }
-                    ParsedToolCall(name, args.toString())
+                    val name = (obj["name"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        ?: return@mapNotNull null
+                    val args = obj["arguments"] ?: obj["args"] ?: obj["parameters"]
+                    ParsedToolCall(name, (args ?: kotlinx.serialization.json.buildJsonObject { }).toString())
                 }.orEmpty()
             }.getOrDefault(emptyList())
         }
@@ -181,7 +153,7 @@ class TagToolCallParser {
             if (line.isEmpty()) continue
             val sep = line.indexOf(':')
             if (sep <= 0) continue
-            val name = line.substring(0, sep).trim().trim('"', '`', '\'')
+            val name = line.substring(0, sep).trim().trim('"', '`', '\'').trim()
             if (name.isEmpty()) continue
             var args = line.substring(sep + 1).trim()
             // 花括号不配对时向下续行

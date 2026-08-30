@@ -72,6 +72,10 @@ class ChatService(
     private val _errors = MutableStateFlow<List<ChatError>>(emptyList())
     val errors: StateFlow<List<ChatError>> = _errors.asStateFlow()
 
+    /** 正在生成的会话 id 集合（响应式，输入栏 Stop/发送切换）。 */
+    private val _generatingIds = MutableStateFlow<Set<String>>(emptySet())
+    val generatingIds: StateFlow<Set<String>> = _generatingIds.asStateFlow()
+
     data class ChatError(val conversationId: String, val message: String, val at: Long = System.currentTimeMillis())
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -152,6 +156,7 @@ class ChatService(
     /** 停止生成（Stop 按钮）：取消 Job → EventSource 断流。 */
     fun stopGenerating(conversationId: String) {
         generationJobs.remove(conversationId)?.cancel()
+        _generatingIds.value = _generatingIds.value - conversationId
     }
 
     fun isGenerating(conversationId: String): Boolean = generationJobs[conversationId]?.isActive == true
@@ -165,7 +170,13 @@ class ChatService(
             runGeneration(conversationId, fromNodeId)
         }
         generationJobs[conversationId] = job
-        job.invokeOnCompletion { if (generationJobs[conversationId] == job) generationJobs.remove(conversationId) }
+        _generatingIds.value = _generatingIds.value + conversationId
+        job.invokeOnCompletion {
+            if (generationJobs[conversationId] == job) {
+                generationJobs.remove(conversationId)
+                _generatingIds.value = _generatingIds.value - conversationId
+            }
+        }
     }
 
     private suspend fun runGeneration(conversationId: String, fromNodeId: String? = null) {
@@ -283,7 +294,13 @@ class ChatService(
             runGeneration(conversationId, fromNodeId = null)
         }
         generationJobs[conversationId] = job
-        job.invokeOnCompletion { if (generationJobs[conversationId] == job) generationJobs.remove(conversationId) }
+        _generatingIds.value = _generatingIds.value + conversationId
+        job.invokeOnCompletion {
+            if (generationJobs[conversationId] == job) {
+                generationJobs.remove(conversationId)
+                _generatingIds.value = _generatingIds.value - conversationId
+            }
+        }
     }
 
     // ------------------------------------------------------------------

@@ -38,4 +38,5 @@ val appModules = listOf(
     infrastructureModule,
     dataSourceModule,
     generationModule,
+    viewModelModule,
 )

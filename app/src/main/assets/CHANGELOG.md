@@ -1,8 +1,35 @@
 # 更新日志（CHANGELOG）
 
 > LuzzyRP 遵循语义化版本（`MAJOR.MINOR.PATCH`）；`x.y.0` 视为稳定版并附 APK。
-> 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
----
+> 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。---
+
+### v0.2.0 — 设计重构 · 角色卡生态 · 预设与档案
+
+按用户检阅反馈全面迭代：4 项设计 SKILL 方法论落地（硬性规定 13）、角色卡生态补全、菜单重构与启动直达。
+
+**新增**
+
+- **设计体系落地**：4 项设计 SKILL（huashu-design / open-design / awesome-design-md / ui-ux-pro-max-skill）全部存档至 docs/skills/ 并写入硬性规定 13；新增仓库根 `DESIGN.md` 设计契约与 `docs/AGENT-GUIDE.md` 开发指南。
+- **图标黑边修复**：815 枚图标管线升级——索引色 PNG → RGBA 清洗（透明区杂色归零）+ 字形 bbox 归一化居中（全库视觉大小统一）+ 透明边缘平滑；启动图标黑晕清除、底色改 AuroraPink。
+- **启动直达**：应用启动自动打开上次会话；首次启动默认创建并进入「鹿溪」对话。
+- **角色卡生态**：手动新建角色卡；头像选择（自动 1:1 裁剪）；聊天背景图（默认回落头像）+ 透明度；`<CUT>` 分割多条开场白（多气泡输出）；世界书整体并入角色卡二级页。
+- **世界书编辑器**：条目全字段管理——条目名称/内容/激活策略（常驻+关键词，可叠加）/激活概率 0-100/注入位置（↑Char、↓Char、↑EM、↓EM、@Depth×system/user/assistant + 深度）/独立启停；SillyTavern 世界书 JSON 导入（外部条目默认启用）。
+- **提示词预设**：预设 = 名称 + 条目列表；条目独立启停/命名/角色（SYSTEM/USER/ASSISTANT）/注入位置（相对 + @Depth×3）/内容编辑；单选激活注入 system。
+- **用户档案**：头像/名字/身份，注入 system 稳定前缀。
+- **思考深度自适配**：按模型 id 检测家族自动给出正确档位与请求字段——DeepSeek（none/high/max，官方三档）、GLM（thinking.type / 5.3+ 仅 reasoning_effort）、GPT（reasoning_effort）、Opus（adaptive thinking + output_config.effort，最高 xhigh）；模型级温度/深度覆盖全局。
+- **供应商管理增强**：新增/编辑/删除供应商（含内置）；新增模型表单全字段（id/显示名/上下文长度/最大输出/温度/思考深度）；**单位换算**（1024000、1024K、1M、1024k、1m 均可填写）；字段自检（即时校验 + 错误提示）；生成参数并入供应商页。
+- **应用日志**：记录用户步骤/模型步骤（请求组装、生成完成、失败堆栈）/工具轮次，内存实时查看 + JSONL 落盘（保留 3 天）+ JSON 导出（SAF 自定义路径）+ 系统分享；关于页内嵌 CHANGELOG 渲染。
+
+**重构**
+
+- 菜单精简为：聊天 / 角色卡 / 预设 / 用户档案 / 设置；历史会话与搜索并入聊天页顶栏；世界书并入角色卡；长期记忆并入设置（记忆设置页）；移除收藏入口。
+
+**数据**
+
+- Room v1 → v2 手写迁移（worldbook_entries.depthRole 列 + prompt_presets 表），老用户数据无损升级。
+
+构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 3
+
 
 ### v0.1.1 — 首航热修：模拟器实测三缺陷修复
 
@@ -58,5 +85,33 @@ LuzzyRP 的第一个正式版本。全新代码库，以 rikkahub 已验证的�
 - NSFW 提示词块为占位状态，由用户手动填写（`NsfwBlock.kt`），项目本身不做任何内容过滤。
 
 构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 1
-
 ---
+
+### v0.3.0 — Aurora v2 主题重制 · 三态动效体系 · 图层设计
+
+以 4 项设计 SKILL 为方法论本体完成的**可见视觉全面重制**（ui-ux-pro-max 检索基线 + huashu 动效纪律 + open-design DESIGN.md 契约 + awesome-design-md 结构范式）。
+
+**主题重制（主题令牌系统 v2）**
+
+- **AuroraColor v2**：Material3 方案完整落位——surfaceContainer 全族五档色阶、outline/outlineVariant、inverse 系、scrim、surfaceDim/Bright；亮/暗/**AMOLED** 三套独立方案（AMOLED 纯黑非暗色微调）。
+- **极光渐变系统（AuroraBrush）**：Pink→Violet 主渐变 / 反向渐变 / 画布顶部氛围微渐变——发送按钮、品牌标题、主行动统一取用（渐变为品牌资产，禁止业务自拼）。
+- **LuzzyElevation 图层令牌**：五层深度体系（画布→卡片 2dp→悬浮 6dp→弹窗 12dp+scrim45%→Toast 16dp）。
+- **LuzzyIconSize / LuzzyCorner 令牌**：图标 16/20/24/32 四级语义尺寸、圆角五档——全项目统一，禁止随机值。
+- **MotionTokens v2**：场景化动效规格（页面 slide¼+fade 300/195 快出慢入、弹窗 scale 0.92 spring、Sheet、列表 stagger 20ms、按压 scale 0.98 布局不跳动、展开 195）+ reduced-motion 替代规格。
+- **Typography/Shapes v2**：字阶微调 + LuzzyCorner 接入 Material Shapes。
+
+**组件库 v2**
+
+- **AuroraTopBar**：统一顶栏（56dp 高/图标 24dp/单行省略/操作位规范），聊天/世界书/预设/预设编辑/用户档案/记忆 全部换装；新增 TopBarAction 规范按钮。
+- **LuzzyDialog**：统一弹窗（scale+fade 三态进出、Layer3、正文左对齐、danger 变体）。
+- **EmptyState**：统一空态（Hero 图标+标题+引导，spring 入场）。
+- **AuroraSurface v2**：按压缩放 0.98（布局不跳动）+ 色彩过渡 + 阴影抬升三态。
+
+**逐页重制**
+
+- **聊天页**：背景图层正确分层（卡背景>头像，透明度直调）；气泡 v2（用户=极光淡染渐变 / AI=纸面卡 Layer1 阴影+描边）；输入栏渐变发送键；顶栏半透明融合。
+- **首页**：时段问候 + 极光渐变品牌标题；会话空态引导。
+- **页面转场 v2**：fade+slide 六分之一屏、缓动曲线化（快出慢入不对称节奏）。
+
+构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 4
+

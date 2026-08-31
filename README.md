@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/brand-logos/luzzy.png" width="128" alt="LuzzyRP"/>
+<img src="app/src/main/res/drawable-nodpi/luzzy_logo.png" width="96" alt="LuzzyRP"/>
 
 # LuzzyRP
 
@@ -8,13 +8,28 @@
 
 移动端 AI 角色扮演应用 · 将 LLM 的推理能力与角色扮演（RP）规则/背景提示词深度融合
 
+</div>
+
+> [!WARNING]
+> ## ⚠️ 本项目仍在积极开发中（Work In Progress）
+>
+> **当前版本不支持正常游玩。** LuzzyRP 尚处于早期开发阶段：
+>
+> - ❌ **无法直接开箱游玩**——需要自行配置模型供应商 API Key 才能产生对话；
+> - ❌ 核心玩法链路（真流式逐字输出、Agentic 工具调用、记忆/摘要、世界书召回）**尚未经过完整实机验收**；
+> - ❌ 部分 UI 仍在重制中，存在已知未修复项（见 CHANGELOG「遗留」）；
+> - ❌ 数据格式（Room schema、Settings）**在 v1.0 前仍可能破坏性变更**，不保证旧数据兼容；
+> - ❌ **不提供任何安装包支持**——Release 不附带 APK，安装包仅供开发者自行构建（见下文「构建」）。
+>
+> **想要尝鲜？** 请自行 `git clone` 并用 Android Studio 构建 debug 包，预期遇到 bug 属正常现象。
+> 稳定可玩的首个版本会在开发完成后另行发布（届时 Release 将附 APK）。
+
+![Status](https://img.shields.io/badge/Status-WIP%20开发中-red)
 ![Android](https://img.shields.io/badge/Android-Native%20Kotlin-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202026.05.01-4285F4?logo=jetpackcompose&logoColor=white)
 ![Material 3 Expressive](https://img.shields.io/badge/Material%203-Expressive-EADDFF)
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-F5A623)
-
-</div>
 
 ---
 
@@ -26,16 +41,17 @@ LuzzyRP 是一款原生 Android AI 角色扮演应用。它不是又一个聊天
 - **Agentic**：多轮思考 + 主动工具调用 + 结果原地回填，推理过程以思考卡片时间线完整呈现。
 - **像小说**：角色卡、世界书、正则脚本、三级摘要与长期记忆共同构成连贯的长篇叙事体验。
 
-## 核心能力
+## 核心能力（开发目标 · 完成度见 CHANGELOG）
 
-| 能力 | 说明 |
-|------|------|
-| 真流式输出 | `callbackFlow` + OkHttp SSE `EventSources` + `trySend` 逐 event 零节流 + `readTimeout = 10 MINUTES`，1 字 = 1 次更新 |
-| Agentic 闭环 | `maxLoops = 3` 两阶段闭环（推理+工具规划 → 基于结果生成最终回复），工具结果原地回填保持 KV 缓存命中率，禁止 `tool_choice = required` |
-| 三级摘要 | A 级每轮生成（≤50）/ B 级每 10 轮（≤10）/ C 级每 50 轮（永久） |
-| 文本标签兜底 | `<tool_calls>tool_name:args</tool_calls>` 标签解析，为 GLM-5.2 等不支持原生 function calling 的模型兜底 |
-| 角色卡生态 | SillyTavern PNG 导入/导出、世界书三策略召回、正则脚本、UI 模板、收藏 |
-| 长期记忆 | ACE 三步循环（Execute → Reflect → Update）、向量相似度检索、嵌入去重与评分淘汰 |
+| 能力 | 说明 | 状态 |
+|------|------|------|
+| 真流式输出 | `callbackFlow` + OkHttp SSE `EventSources` + `trySend` 逐 event 零节流 + `readTimeout = 10 MINUTES`，1 字 = 1 次更新 | 架构完成，实机验收中 |
+| Agentic 闭环 | `maxLoops = 3` 两阶段闭环，工具结果原地回填，禁 `tool_choice = required` | 架构完成，单测通过 |
+| 三级摘要 | A 每轮（≤50）/ B 每 10 轮（≤10）/ C 每 50 轮（永久） | 已实现 |
+| 文本标签兜底 | `<tool_calls>` 标签解析（GLM-5.2 等无原生 FC 模型） | 已实现，单测通过 |
+| 角色卡生态 | SillyTavern PNG 导入/导出、世界书编辑器、正则脚本、UI 模板、收藏 | 部分（正则/UI 模板待 UI） |
+| 长期记忆 | ACE 三步循环、向量检索（sqlite-vec）、嵌入去重与评分淘汰 | 已实现 |
+| TRPG 模式 | D&D 5e 规则引擎、GM 工具组、世界卡设计模式 | 规划中（v0.4+） |
 
 ## 技术栈
 
@@ -47,7 +63,7 @@ LuzzyRP 是一款原生 Android AI 角色扮演应用。它不是又一个聊天
 | 导航 | Navigation3 1.1.2（`entry<T> { key -> XxxPage() }` 模式） |
 | DI | Koin 4.2.1（BOM 模式） |
 | 网络 | OkHttp 5.3.2 · okhttp-sse EventSources（真流式 SSE） |
-| 数据库 | Room 2.8.4（导出 schemas + AutoMigration 就绪）· DataStore Preferences |
+| 数据库 | Room 2.8.4（v2，手写迁移）· DataStore Preferences |
 | 向量检索 | sqlite-vec（记忆/世界书/摘要嵌入） |
 | 序列化 | kotlinx.serialization |
 | 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.9 |
@@ -57,53 +73,49 @@ LuzzyRP 是一款原生 Android AI 角色扮演应用。它不是又一个聊天
 
 ```
 LuzzyRP/
-├── app/          # 主应用：UI、ViewModel、Room、DataStore、DI、ChatService
-├── core/model/   # 纯领域模型（UIMessage / MessageChunk / 角色卡 / 世界书 / 记忆）
-├── core/ai/      # AI SDK：Provider、SSE 真流式、三协议、标签兜底解析
+├── app/          # 主应用：UI、ViewModel、Room、DataStore、DI、ChatService、AppLogger
+├── core/model/   # 纯领域模型（UIMessage / MessageChunk / 角色卡 / 世界书 / 预设）
+├── core/ai/      # AI SDK：Provider 三协议、SSE 真流式、标签兜底解析
 ├── core/common/  # 工具：HTTP 桥接、JSON 单例、PNG tEXt chunk 读写
-└── docs/         # 规划 / 工作日志 / 参考资料
+├── tools/        # 图标资产管线（icon_pipeline.py）与补丁脚本
+└── docs/         # 规划 / 工作日志 / 设计技能存档（docs/skills/）
 ```
 
-## 构建与运行
+## 构建与运行（开发者）
 
 ```bash
-# 环境要求：JDK 21 · Android SDK 37 · （首次构建会自动安装缺失的 SDK 组件）
+# 环境要求：JDK 21 · Android SDK 37
 git clone git@github.com:LuzzyMeow/LuzzyRP.git
 cd LuzzyRP
-./gradlew assembleDebug        # Debug 构建
-./gradlew assembleRelease      # Release 签名构建（需 keystore.properties）
+./gradlew assembleDebug        # Debug 构建（可直接安装尝鲜）
 ./gradlew test                 # JVM 单元测试
 ```
 
-## 下载
-
-前往 [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases) 页面：稳定版（`x.y.0`）附 APK 安装包。
-
-## 内置供应商
-
-开箱即用的预置档案（均可编辑/删除）：
-
-| 供应商 | 端点 | 模型 |
-|--------|------|------|
-| DeepSeek | api.deepseek.com | deepseek-v4-pro / deepseek-v4-flash（reasoning_effort=max） |
-| 火山方舟 CodingPlan | coding v3 端点 | glm-5.2（1024K 上下文）/ deepseek-v4-pro / doubao-embedding-vision |
-| 自定义 | 任意 OpenAI 兼容端点 | 自行配置 |
+内置供应商预置档案（需自行填 API Key）：DeepSeek / 火山方舟 CodingPlan / 自定义 OpenAI 兼容端点。
 
 ## 开发者须知
 
 **接手开发前必读**（按顺序）：
 
-1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 12 条硬性规定 + 真流式 6 不变性 + Agentic 6 不变性，**违反任何一条即为不合格交付**；
-2. [`docs/PLAN-v0.1.0.md`](docs/PLAN-v0.1.0.md) —— 架构与实施计划；
-3. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
-4. [`docs/INVARIANTS-CHECKLIST.md`](docs/INVARIANTS-CHECKLIST.md) —— 发版前逐项自检。
+1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 13 条硬性规定（含规定 13：4 项设计 SKILL 强制）+ 真流式 6 不变性 + Agentic 6 不变性，**违反任何一条即为不合格交付**；
+2. [`DESIGN.md`](DESIGN.md) —— 设计契约（唯一设计真源）；
+3. [`docs/AGENT-GUIDE.md`](docs/AGENT-GUIDE.md) —— 后续 Agent 开发指南；
+4. [`docs/PLAN-v0.1.0.md`](docs/PLAN-v0.1.0.md) —— 架构与实施计划；
+5. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
+6. [`docs/INVARIANTS-CHECKLIST.md`](docs/INVARIANTS-CHECKLIST.md) —— 发版前逐项自检。
 
-不变性落点的代码文件头部带有 `[INVARIANT-STREAMING]` / `[INVARIANT-AGENTIC]` 注释块，标明禁止修改的范围与原因——**看到该标记即视为红线**。
+不变性落点代码头部带 `[INVARIANT-*]` 注释块——**看到该标记即视为红线**。
+
+## 路线图
+
+- **v0.3.x** 暗色/AMOLED 巡检、组件统一收尾、聊天背景打磨
+- **v0.4** 稳定性验收（流式逐字实测、长会话回归）→ 首个可玩版本
+- **v0.5+** TRPG 模式专项（D&D 5e 引擎、GM 工具组、世界卡设计模式）
 
 ## 许可证
 
 本项目以 [CC BY-NC 4.0](LICENSE)（署名-非商业性使用 4.0 国际）许可开源。
 
 <div align="center">
-<sub>LuzzyRP · Built with Kotlin & Jetpack Compose</sub>
+<sub>LuzzyRP · Built with Kotlin & Jetpack Compose · WIP</sub>
 </div>

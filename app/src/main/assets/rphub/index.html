@@ -27,28 +27,28 @@
                     },
                     colors: {
                         gray: {
-                            50: '#f9fafb',
-                            100: '#f3f4f6',
-                            200: '#e5e7eb',
-                            300: '#d1d5db',
-                            400: '#9ca3af',
-                            500: '#6b7280',
-                            600: '#4b5563',
-                            700: '#374151',
-                            800: '#1f2937',
-                            900: '#111827',
+                            50: 'var(--tw-gray-50)',
+                            100: 'var(--tw-gray-100)',
+                            200: 'var(--tw-gray-200)',
+                            300: 'var(--tw-gray-300)',
+                            400: 'var(--tw-gray-400)',
+                            500: 'var(--tw-gray-500)',
+                            600: 'var(--tw-gray-600)',
+                            700: 'var(--tw-gray-700)',
+                            800: 'var(--tw-gray-800)',
+                            900: 'var(--tw-gray-900)',
                         },
                         primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
+                            50: 'var(--tw-primary-50)',
+                            100: 'var(--tw-primary-100)',
+                            200: 'var(--tw-primary-200)',
+                            300: 'var(--tw-primary-300)',
+                            400: 'var(--tw-primary-400)',
+                            500: 'var(--tw-primary-500)',
+                            600: 'var(--tw-primary-600)',
+                            700: 'var(--tw-primary-700)',
+                            800: 'var(--tw-primary-800)',
+                            900: 'var(--tw-primary-900)',
                         }
                     },
                     animation: {
@@ -1910,17 +1910,29 @@
                                     高级参数
                                 </h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <!-- Font Family Setting -->
+                                    <!-- Theme Setting (LuzzyRP 扩展：主题 + 模式 + 字体附属设置) -->
                                     <div
                                         class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">
                                         <label
-                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面字体</label>
+                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>
+                                        <custom-select v-model="settings.theme" :options="themeOptions"
+                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
+                                            menu-class="text-sm">
+                                        </custom-select>
+                                        <div v-if="settings.theme === 'luzzy'" class="mt-2 flex items-center gap-2">
+                                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">模式</label>
+                                            <custom-select v-model="settings.themeMode" :options="themeModeOptions"
+                                                button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
+                                                menu-class="text-sm">
+                                            </custom-select>
+                                        </div>
+                                        <label
+                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-3">界面字体</label>
                                         <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"
                                             button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
                                             menu-class="text-sm">
                                         </custom-select>
                                     </div>
-
                                     <!-- Font Size Setting -->
                                     <div
                                         class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">

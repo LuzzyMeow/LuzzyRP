@@ -46,3 +46,28 @@
 #     依赖安卓系统自带 Noto 字体回退（novel 页 art 字体降级为衬线）
 #   - 预期冲突点：上游改子页面依赖时需重打
 #
+# ------------------------------------------------------------
+# 008-theme-vars.patch（v2，2026-09-01 重做）
+#   - index.html tailwind.config: gray/primary 色板 hex → var(--tw-gray-*)/var(--tw-primary-*)
+#   - 对应：DESIGN.md 主题技术契约；变量定义在 ext/luzzy-theme.css（classic=原版值兜底）
+#   - 实证：Tailwind Play CDN JIT 接受 var() 色值并正常生成工具类（jsdom 复现）
+#   - 预期冲突点：上游改色板结构/新增色阶时需重打
+#
+# 009-font-options.patch（v2，2026-09-01 重做）
+#   - core-utils.js fontFamilies: 内置三项改「经典」系标签 + 新增 luzzy（Luzzy 默认）
+#   - 对应：用户指令（系统内置字体改为经典；默认字体 PuHuiTi+AlibabaSans）
+#   - 预期冲突点：上游改 fontFamilies 结构/文案时需重打
+#
+# 010-defaults.patch（v2，2026-09-01 重做）
+#   - app.js: 默认 fontFamily 'modern' → 'luzzy'；normalizeFontFamily 白名单加 luzzy
+#   - 对应：新用户默认 Luzzy 字体
+#   - 预期冲突点：上游改默认值/白名单时需重打
+#
+# 011-theme-ui.patch（v2，2026-09-01 重做）
+#   - index.html 设置页: 原「界面字体」独立卡替换为主题卡（界面主题 + 模式(仅luzzy) + 界面字体附属）
+#   - app.js: settings 加 theme/themeMode（默认 luzzy/light）+ themeOptions/themeModeOptions
+#     + applyTheme/applyThemeMode immediate watch（含 LuzzyBridge.setSystemBarStyle 联动）
+#     + setup return 暴露 + 老用户迁移（savedSettings 无 theme → classic，仅 savedSettings 存在时）
+#   - 对应：设置页主题功能 + 新用户默认新主题 + 老用户保留经典
+#   - 预期冲突点：上游改设置页结构 / fontFamily watch 区 / settings 加载块时需重打
+# ------------------------------------------------------------

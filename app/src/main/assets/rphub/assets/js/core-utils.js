@@ -979,9 +979,10 @@ window.RPHubUtils = {
             ]),
             presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
             fontFamilies: Object.freeze([
-                { value: 'modern', label: '现代通用字体' },
-                { value: 'serif', label: '衬线字体' },
-                { value: 'system', label: '系统字体' }
+                { value: 'luzzy', label: 'Luzzy 默认' },
+                { value: 'modern', label: '经典（原版）' },
+                { value: 'serif', label: '经典衬线（Lora）' },
+                { value: 'system', label: '系统' }
             ]),
             fontSizes: Object.freeze([12, 13, 14, 15, 16, 17, 18, 19, 20].map(size => ({
                 value: size,

@@ -67,13 +67,11 @@ class LuzzyBridge(private val context: Context) {
             val isDark = mode == "dark"
             val window = activity.window
             val decorView = window.decorView
+            // 状态栏区域在亮/暗两主题下都覆盖顶栏深色渐隐层 → 图标恒为浅色（白）
             @Suppress("DEPRECATION")
-            decorView.systemUiVisibility = if (isDark) {
-                decorView.systemUiVisibility and android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
-            } else {
-                decorView.systemUiVisibility or android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-            }
-            // API 26+ 导航栏图标深浅
+            decorView.systemUiVisibility = decorView.systemUiVisibility and
+                android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+            // 导航栏区域透出页面画布：亮主题（米纸浅底）→ 深图标；暗主题（暗纸深底）→ 浅图标
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 @Suppress("DEPRECATION")
                 decorView.systemUiVisibility = if (isDark) {

@@ -4,6 +4,34 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v1.0.0-rc2 — 全新主题「暖幕手记 × Claude」· 设计 SKILL 三方向硬门（上游基线 RP-Hub 1.8.9）
+
+按用户指令推翻 v1.0.0-rc1 的「暖纸书房」主题（patch 008-011 全部撤销、上游文件与参考克隆 diff 归零），依据硬性规定 9 走完 4 项设计 SKILL（huashu-design / awesome-design-md / open-design / ui-ux-pro-max）完整流程后重新设计。
+
+**新增**
+
+- **设计流程物**：三方向差异化方向板（A 锐白 Swiss Monochrome / B 午夜场 ElevenLabs 参照 / C 暖幕手记 Collins）＋共享骨架＋设计合同 spec-v2（`docs/design/boards-v2/`、`docs/design/spec-v2.md`）；用户选定「C，进一步增强 Claude 风格」，落档 `direction-approved-v2.md`。
+- **新主题「暖幕手记」**（C × Claude token 体系，DESIGN.md 真源重写）：亮色 = tinted cream 画布 #FAF9F5 + 暖表面三层（#F5F0E8/#EFE9DE/#E8E0D2）+ Claude coral #CC785C（图形）/ #A9583E（按钮，白字 4.7:1）+ ink #141413；暗色 = Claude 暗表面系（#181715/#1F1E1B/#252320）+ coral 提亮 #D97757，gray 色阶反转使上游全部工具类自动适配；名字标签走 Lora 衬线（剧作手记的文学声音）；正文对比度亮暗分别 ≥4.5:1。
+- **设置页主题卡重构**：「界面主题」卡——主题选择（暖幕手记/经典）+ 模式选择（亮/暗，仅 Luzzy 主题显示）+ 界面字体（附属设置并入主题卡）；新用户默认暖幕手记+亮色，老用户（savedSettings 无 theme 字段）迁移保留经典。
+- **字体选项改版**：上游内置字体改「经典」系命名——`经典（原版）`/`经典衬线（Lora）`/`系统`，新增 `Luzzy 默认`（AlibabaSans 拉丁 + Alibaba PuHuiTi 3.0 中文，本地打包）；新用户默认 Luzzy 字体。
+- **暗色 bg-white 校准**：暗色模式下 `bg-white`/`bg-white/*`（输入岛/工具钮/弹窗面）覆盖为暖暗表面 rgba(37,35,32,·)，消除暗色画布上的刺眼纯白块（亮色不干预）。
+- **壳层配套**：debug 构建开启 WebView 远程调试（CDP，release 不受影响）；系统栏桥接改「状态栏图标恒白（顶栏深渐隐双向可读）+ 导航栏图标随主题明暗」；windowBackground 渐变暖化为 #8B8886→#7D7A77→#FAF9F5 与 cream 画布衔接。
+
+**修复**
+
+- 旧实现的隐患修正：上游参考克隆 diff 归零验证；迁移逻辑改置于 `if (savedSettings)` 块内（避免新用户无存储时 `hasOwnProperty.call(undefined)` 抛 TypeError）。
+- Tailwind Play CDN 对 var() 色值的兼容性经 jsdom 实证**成立**（推翻 v1.0.0-rc1 移交的「CDN 拒绝 var()」根因假设）；rc1 真机「主题未生效」的真因判定为 CSS 变量未定义（透明透出 windowBackground，黑渐隐叠加色数学与实测截图吻合）。
+
+**注意**
+
+- 主题验证基线（模拟器实测，CDP 数据面）：亮 `body=#FAF9F5`、暗 `body=#181715`、经典回退 `#f9fafb`，`data-theme/data-mode/data-app-font` 全链路正确；截图存档 `docs/design/verify-v2-final-{light,dark}.png`。
+- 修改 assets 后必须卸载重装或 bump `AssetExtractor.EXTRACT_VERSION`，否则 filesDir 不会重新解压（本版验证时踩过）。
+- 上游硬编码的非 gray/primary 色（indigo/blue/pink 工具类）不在 v1 主题范围，保持原样；后续可按 DESIGN.md 扩展。
+
+构建：`assembleDebug` BUILD SUCCESSFUL · versionCode 1（debug）
+
+---
+
 ### v1.0.0 — 重建 · RP-Hub 二次开发 · 原生 WebView 壳（上游基线 RP-Hub 1.8.9）
 
 全面推翻旧 Kotlin/Compose 工程，转为对开源项目 RP-Hub（STA1N156，CC BY-NC 4.0）的二次开发：原生 WebView 壳 + 独立扩展层。旧工程备份于 git tag `legacy-v0.3.0`。

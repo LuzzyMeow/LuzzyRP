@@ -4,126 +4,136 @@
 > 任何 UI/UX 改动必须遵循本文档；修改本文档需要在 CHANGELOG 声明。
 > 方法论：huashu-design 工作室多角色流程；交付门控：ui-ux-pro-max pro-rules + open-design 五维 critique。
 > 依据硬性规定 9（设计 SKILL 强制条款）：任何涉及 UI/前端设计的工作必须先完整阅读 4 项 SKILL。
-> 方向选定：2026-09-01 用户选定「A · 暖纸书房」（见 docs/design/direction-approved.md）。
+> 方向选定：2026-09-01 用户选定「**C · 暖幕手记 × 增强 Claude 风格**」（原话与融合细节见 `docs/design/direction-approved-v2.md`）。
 
 ## Overview
 
 LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本有你的小说」。
-基于 RP-Hub 二次开发（WebView 壳），主题系统支持：**经典**（原版 RP-Hub 浅色）与 **Luzzy 新主题「暖纸书房」**（亮/暗双模式）。
+基于 RP-Hub 二次开发（WebView 壳），主题系统支持：**经典**（原版 RP-Hub 浅色，老用户默认）与
+**Luzzy 新主题「暖幕手记」**（亮/暗双模式，**新用户默认**）。
 
-**设计气质**：暖纸书房——像一本摊开在暖光下的书。米纸底 + 烤橙 accent + 暖灰文字层级，长文本阅读像翻一本暖调的书；沉浸感来自纸感底色与克制的卡片分层，而非高饱和刺激。
+**设计气质**：暖幕手记 × Claude——一本摊开在暖光下的剧作手账。tinted cream 画布 +
+珊瑚陶土 accent + 衬线标题的文学排印声音；克制的「手作记号」（荧光笔划、伞骨线、雨点点阵）
+只做情绪注脚，不做装饰堆叠。像 Anthropic 一样 deliberate warm：在满屏冷调 AI 工具里，
+我们是纸与墨的那一个。
 
-**关键体验词**：温暖（暖调色相家族）、沉浸（长读不疲劳）、克制（accent 稀缺使用）、有物理感（卡片分层如纸张堆叠）。
+**关键体验词**：温暖（cream/coral 电压对）、文学（衬线 display × 无衬线正文）、
+沉浸（长读不疲劳、夜间暗纸不刺眼）、手作（记号克制，宁少勿滥）。
 
 ## Colors
 
-### 经典主题（classic = 原版 RP-Hub 色值，默认变量）
+### 经典主题（classic = 原版 RP-Hub 色值）
 
-- gray 50-900：`#f9fafb` → `#111827`（中性灰阶）
+- gray 50-900：`#f9fafb` → `#111827`（中性冷灰阶）
 - primary 50-900：`#eff6ff` → `#1e3a8a`（蓝色系）
 - 亮色画布 `#f9fafb`；表面 `#ffffff`；文字 `#111827` 系
 
-### Luzzy 新主题「暖纸书房」（亮/暗双模式）
-
-#### 亮色
+### Luzzy「暖幕手记」· 亮色（Claude token 体系）
 
 | Token | 值 | 用途 |
 |-------|-----|------|
-| bg | `#FAF9F5` | 米纸底（画布） |
-| surface | `#F1EDE3` | 表面（次级卡） |
-| surface-2 | `#E8E0D2` | 表面强（用户气泡） |
-| card | `#FFFFFF` | 卡片（AI 气泡/设置卡） |
-| hairline | `#E6DFD8` | 描边 |
-| ink | `#2A2826` | 主文字 |
-| body | `#3D3A36` | 正文 |
-| muted | `#6C6A64` | 次级文字（≥4.5:1） |
-| accent | `#D97757` | 烤橙（图形 accent：头像/开关/标签） |
-| accent-strong | `#B85C3E` | 烤橙深（按钮底，白字 4.53:1） |
-| accent-deep | `#A8543A` | 烤橙最深（accent 文字，4.99:1） |
-| on-accent | `#FFFFFF` | accent 上文字 |
+| canvas | `#FAF9F5` | 画布底（tinted cream，gray-50） |
+| surface-soft | `#F5F0E8` | 次级表面（gray-100） |
+| surface-card | `#EFE9DE` | 卡片表面（gray-200） |
+| hairline | `#E6DFD8` | 发丝分割线（gray-300） |
+| hairline-strong | `#BEB6A8` | 强描边/禁用（gray-400） |
+| muted-soft | `#8E8B82` | 弱文字（gray-500） |
+| muted | `#6C6A64` | 次级文字（gray-600，≥4.5:1） |
+| body-strong-mid | `#52504A` | 强调次级（gray-700） |
+| body | `#3D3A36` | 正文（gray-800，≈9:1） |
+| ink | `#141413` | 主文字（gray-900，≈16:1） |
+| accent 图形 | `#CC785C` | primary-500（Claude coral：图形 accent/链接/选中） |
+| accent 按钮 | `#A9583E` | primary-600（按钮底，白字 ≈4.7:1） |
+| accent 深 | `#8F4732` / `#733626` / `#57281B` | 700/800/900 |
+| accent 浅 | `#FAF0EA`→`#DB9273` | 50-400（soft 底/边框/hover） |
+| highlight | `#F5D9A8` @ 55% | 荧光笔记号（amber 低饱和版，仅注脚） |
+| success / warning / error | `#5DB872` / `#D4A017` / `#C64545` | 语义色 |
 
-#### 暗色
+完整 10 阶 ramp（gray / primary）见 `luzzy-theme.css`，一一对应上游工具类。
+
+### Luzzy「暖幕手记」· 暗色（Claude 暗表面系，gray 色阶反转）
 
 | Token | 值 | 用途 |
 |-------|-----|------|
-| bg | `#262624` | 深暖灰底 |
-| surface | `#32302D` | 表面 |
-| surface-2 | `#3A3733` | 表面强（用户气泡） |
-| card | `#2E2C29` | 卡片 |
-| hairline | `#3F3C37` | 描边 |
-| ink | `#F5F1EA` | 主文字（暖白） |
-| body | `#D8D2C8` | 正文 |
-| muted | `#A6A29A` | 次级文字 |
-| accent | `#E08A5F` | 暖橙 accent |
-| accent-strong | `#E08A5F` | 按钮底（深字 5.75:1） |
-| accent-deep | `#E8A37C` | accent 文字亮化 |
-| on-accent | `#262624` | accent 上文字 |
+| canvas | `#181715` | 画布底（surface-dark，gray-50 最深） |
+| surface-soft | `#1F1E1B` | 次级表面（gray-100） |
+| surface-card | `#252320` | 卡片表面（gray-200，elevated） |
+| hairline | `#33312D` | 发丝线（gray-300） |
+| hairline-strong | `#4A4842` | 强描边（gray-400） |
+| muted | `#6E6B64` → `#8F8C84` | 弱→次级文字（500/600） |
+| body | `#B5B1A8` → `#D8D4CB` | 强调次级→正文（700/800） |
+| on-dark | `#FAF9F5` | 主文字（gray-900，≈15:1） |
+| accent 图形 | `#D97757` | primary-500（暗下提亮的 coral） |
+| accent 按钮 | `#B85C3E` | primary-600（按钮底，白字 ≈4.5:1） |
+| accent 浅阶 | `#2A201B`→`#8F5C42` | 50-400（暗底卡片/边框） |
+| accent 高亮 | `#E0946F`→`#F7DCC8` | 700-900（accent 文字亮化） |
 
-#### 色板纪律
-
-- **烤橙双档策略**：accent `#D97757` 仅作图形 accent（头像/开关/标签），文字与按钮用深一档 `#B85C3E`/`#A8543A`——保住品牌色同时过 4.5:1 底线（#D97757 直接做文字仅 2.96:1）。
-- **暗色暖调**：`#262624` 是暖调而非冷黑，与亮色共享同一色相家族，双模式切换无跳变。
-- 对比度验证：亮色正文 13.9:1、次级 5.1:1、accent 文字 5.0:1、按钮白字 4.5:1；暗色正文 13.5:1、次级 6.0:1、accent 5.8:1——全部 ≥4.5:1。
+暗色 gray 色阶**整体反转**（50 最深=画布 → 900 最浅=主文字），上游全部 gray-* 工具类
+自动适配，无需改上游 DOM。
 
 ## Typography
 
-- 中文：Alibaba PuHuiTi 3.0（55-Regular / 65-Medium / 85-Bold，本地打包）
-- 拉丁/数字：AlibabaSans（全 6 字重，本地打包，tabular-nums）
-- 衬线（对话正文可选）：Lora（本地打包）
-- 字体设置选项：经典（modern/serif/system）/ Luzzy 默认（PuHuiTi + AlibabaSans）
-- 新用户默认：Luzzy 默认字体
-- 字重映射：PuHuiTi 55→400 / 65→500 / 85→700
+| 层 | 字体栈 | 说明 |
+|----|--------|------|
+| display（角色名/名字标签/区块标题） | `Lora` + PuHuiTi 回退 | 本地打包衬线，对位 Claude Tiempos/Copernicus；文学声音 |
+| 正文 UI | `AlibabaSans` + `Alibaba PuHuiTi 3.0` | 拉丁/数字走 AlibabaSans，中文走 PuHuiTi（本地 @font-face） |
+| 经典（modern） | 上游 Inter 系原栈 | 经典主题与「经典（原版）」字体选项使用 |
+| 衬线正文选项 | `Lora` 本地 | 「经典衬线」字体选项 |
 
-## Layout
+- 正文 ≥14px，行高 1.55-1.7；caption ≥12px；
+- **字体设置四选项**：`Luzzy 默认`（PuHuiTi+AlibabaSans，新用户默认）/ `经典（原版）` /
+  `经典衬线（Lora）` / `系统`；
+- 禁止运行时 Google Fonts CDN（硬性规定 4，Lora 与阿里字体全部本地 woff2）。
 
-- **卡片式分层骨架**（方向 A 结构签名）：
-  - 消息气泡 = 独立悬浮卡片（AI 白卡 / 用户米卡，圆角 14px + 单侧 5px 收角，阴影 --shadow-1）
-  - 输入区 = 悬浮工具栏（18px 圆角浮卡 + 三层阴影 --shadow-3）
-  - 顶栏 = 毛玻璃（--bar-bg 半透明 + backdrop-blur）
-- 4pt 栅格（8/12/16/24/32/48）；页面水平边距 16
-- 触控目标 ≥48dp（视觉更小则扩命中区）
+## Layout & Elevation & Shapes
 
-## Elevation & Depth
+- 布局不改变上游 DOM 结构（主题=视觉层，规定 2/3）；
+- 分层：画布（cream）→ 卡片（surface-card + 发丝线）→ 浮层（白纸面 + 柔和投影）；
+- 圆角：气泡 16px / 卡片 12px / 输入岛 22px / 按钮 10-12px / pill 999px；
+- 阴影：亮 `0 2px 8px rgba(20,20,19,0.05)` 级别的纸感轻投影；暗模式以表面色阶+发丝线分层，
+  阴影收弱；
+- 手作记号规范：全屏同屏 ≤3 处；荧光笔划 = 半透明 amber 斜切块压文字底层；
+  伞骨/雨点 = 1.5-2px SVG 线稿；禁止 emoji、禁止左彩边圆角卡。
 
-- 层级 0 画布（--bg）→ 1 卡片（--shadow-1）→ 2 悬浮工具栏（--shadow-2）→ 3 弹窗/BottomSheet（--shadow-3 + scrim）→ 4 Toast
-- 阴影用暖调 rgba(42,40,38,*)（亮）/ rgba(0,0,0,*)（暗），禁冷灰阴影
-- 毛玻璃观感以「表面色 × 透明度」层叠模拟
+## Components（上游组件的主题映射）
 
-## Shapes
+| 上游组件 | Luzzy 主题处理 |
+|----------|----------------|
+| 顶栏黑色渐隐 | 保留黑渐隐结构（双向模式都可用的可读性底），参数微调 |
+| AI 气泡（玻璃） | `rgba(250,249,245,0.78)` + hairline 边 + backdrop-blur；暗= `rgba(37,35,32,0.82)` |
+| 用户气泡 | `#F1E3D9`/85% + coral-300 边；暗= coral-50 底 + coral 边 |
+| 名字标签 | Lora 衬线 + muted 色（剧作手记的角色名感） |
+| 输入岛 | 白纸面 + hairline + 轻投影；发送键 = coral 圆 |
+| 发送/强调按钮 | primary-600 底 + 白字；active = primary-700 |
+| 设置页卡片 | surface-soft 底 + hairline 边；选中态 = coral-100 底 |
 
-- 圆角令牌：小 8 / 中 12 / 大 14（气泡）/ 全圆（胶囊按钮）
-- 气泡异形角：朝向说话者一侧收 5px
-- 输入区悬浮工具栏：18px 圆角
+## Motion（动效令牌）
 
-## Components
+- 基线：进入 **200ms** / 退出 **140ms** / `cubic-bezier(0.23, 1, 0.32, 1)`（ease-out 系）；
+  禁 `scale(0)` 起步（自 `scale(0.96)+opacity:0` 起步）；尊重 `prefers-reduced-motion`；
+- **主题切换转场「纸色翻面」**：全屏遮罩以新模式底色淡入 200ms → 变量切换 → 遮罩淡出 140ms；
+  reduced-motion 下直接切换；
+- **气泡进入**：上移 8px + 淡入 200ms；退出淡出 140ms；
+- **招牌动效「荧光笔落笔」（roadmap）**：新 AI 消息落定后关键词上划过 amber 记号
+  （reduced-motion 直接显示）——v1 先实现主题转场与气泡动效，落笔动效随正则/markdown
+  管线单独迭代。
 
-- **消息气泡**：AI 白卡（--card）/ 用户米卡（--surface-2），阴影 --shadow-1，进入动画 200ms ease-out（opacity + translateY 4px）
-- **思考卡片**：--surface 底 + --hairline 描边，进行中脉冲点（--thinking-dot）
-- **输入区悬浮工具栏**：--card 底 + --shadow-3，工具按钮（发送图片/自动生图/剧情分支/切换模型）accent 色 hover
-- **发送按钮**：--accent-strong 底 + --on-accent 字，按压 scale(.96) 100ms
-- **设置卡片**：--card 底 + --hairline 描边 + 圆角 16，区块头渐变（--grad-head：accent → accent-strong）
-- **开关**：accent 色激活态
-- **空态**：插画位 + 一句引导文案（禁止裸空白）
+## Do's & Don'ts
 
-## Motion（huashu 动效纪律 + open-design 动画哲学）
+✅ coral 稀缺使用（按钮/选中/链接/头像环）；✅ 记号克制；✅ 亮暗分别过 4.5:1；
+✅ 色值只用本文件与 luzzy-theme.css 的 token，不临场发明颜色。
+❌ 紫渐变 / emoji 图标 / 左彩边圆角卡 / 均匀深蓝底+霓虹 glow（GitHub-dark 套壳）；
+❌ 裸改上游文件（规定 2）；❌ 触碰 built-in-content.js（规定 1）；❌ 字体走 CDN（规定 4）。
 
-- 令牌：进入 200ms / 退出 140ms / ease-out `cubic-bezier(0.23, 1, 0.32, 1)`
-- 按压反馈：100ms scale(.96) + opacity .75
-- 禁 `scale(0)` 起步（页面切换用 translateY(8px) 起步）
-- 主题切换转场：遮罩淡入 200ms（方案 B，见 docs/design/theme-motion-plan.md）
-- 流式正文**永不打字机动画**（RP-Hub 原生流式优先）
-- `prefers-reduced-motion` 兜底：transition/animation 时长归零
+## 主题系统技术契约
 
-## Accessibility
-
-- 正文对比度 ≥4.5:1（亮暗两套独立校验，禁止推断）
-- 触控目标 ≥48dp（Android）
-- 图标语义：装饰性图标不进无障碍树；可交互图标必须有 contentDescription
-- 支持 reduced-motion
-
-## 主题系统技术契约（见 docs/design/theme-tech-plan.md）
-
-- `data-theme`（classic / luzzy）+ `data-mode`（light / dark）双属性驱动
-- 色板变量：`--tw-gray-*` / `--tw-primary-*`（tailwind.config 改 var() 引用，patch 008）
-- 存储：扩展层独立键 `luzzy_theme` / `luzzy_theme_mode`（localStorage）
-- 新用户默认：luzzy + light；老用户保留原设置
+- 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性于 `<html>`（app.js
+  settings.theme/themeMode watch 设置，immediate）；
+- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*`（classic=上游 hex 值，
+  luzzy=上表 token），patch 008v2 将 tailwind.config 色板指向这些变量
+  （**已验证**：Tailwind Play CDN JIT 接受 `var()` 色值并正常生成工具类）；
+- 字体：`data-app-font`（luzzy/modern/serif/system）驱动 `--app-font-family`；
+- 存储：settings.theme / settings.themeMode / settings.fontFamily（上游 settings 体系，
+  IndexedDB 随 saveData 持久化；**不使用**独立 localStorage 键）；
+- 系统栏：`applyThemeMode` → `LuzzyBridge.setSystemBarStyle`（见桥接实现）；
+- 迁移：老用户（savedSettings 无 theme）→ classic；新用户默认 luzzy/light + luzzy 字体。

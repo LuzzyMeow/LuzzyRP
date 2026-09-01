@@ -457,3 +457,71 @@
 
 ### 下一步
 - 下一个 Agent：验证 Tailwind var() 支持性 → 修复主题 → 真机复测 → 补测亮暗/字体/系统栏 → CHANGELOG → 发布。
+
+---
+
+## 2026-09-01 · 重建会话 9：任务重置 + 三方向硬门 + 「暖幕手记 × Claude」主题实施完成
+
+> 用户指令：完全重新开始主题任务（含移除旧「暖纸书房」设计）；更新 AGENTS.md 硬性规定 9；
+> 启用 4 项设计 SKILL；重做主题（保留经典；新用户默认新主题）与字体设置（内置改「经典」，
+> 默认 = PuHuiTi 3 + AlibabaSans）。本次会话全流程完成，模拟器验证通过。
+
+### 完成
+1. **规定 9 文档**：HARD_REQUIREMENTS「八条」→「九条」措辞同步（规定 9 上会话已写入，本次核对一致）。
+2. **4 项设计 SKILL 完整阅读**：huashu-design SKILL.md + animation-pitfalls.md、open-design AGENTS.md
+   + CLAUDE.md、ui-ux-pro-max CLAUDE.md + SKILL.md + pro-rules.md、awesome-design-md README.md。
+3. **旧主题移除**：patch 008-011 全部撤销（index.html 色板恢复 hex、app.js/core-utils.js 与
+   rp-hub-reference 逐字节一致、luzzy-theme.css 重置、apply-patches/README 移除登记）。提交 feaa52d2。
+4. **三方向硬门**（huashu Fallback Phase 1-5）：spec-v2（≥500 字合同 + 五问）→ 共享骨架
+   boards-v2/skeleton.html（固定 RP-Hub 结构、CSS 变量暴露全部主题面）→ 3 个并行 subagent 产出
+   方向板（A 轮盘#19 Swiss Monochrome「锐白」/ B ElevenLabs 参照「午夜场」/ C Collins「暖幕手记」，
+   各含亮暗双手机屏/40 格色板/字体样张/设置预览/动效令牌）→ AskUserQuestion → **用户选
+   「选C，但进一步增强CLAUDE风格」**。提交 d978e299。
+5. **设计真源**：direction-approved-v2.md（用户原话 + C×Claude 融合细则）+ DESIGN.md 全文重写
+   （Claude token 体系：cream/coral/ink 亮暗色板、Lora×PuHuiTi 排印、动效令牌、Do/Don't、技术契约）。
+6. **实施**（patch 008-011 v2 全部重写登记 + 幂等重放 13 项 SKIP 验证）：
+   - 008v2 色板 var() 化；009v2 字体选项（经典系改名 + luzzy 新增）；010v2 默认字体 luzzy；
+   - 011v2 设置页主题卡（主题+模式+字体附属）+ theme/themeMode 字段 + immediate watch + 老用户迁移
+     （置于 if(savedSettings) 块内，规避 hasOwnProperty(undefined) TypeError）；
+   - luzzy-theme.css：classic/亮/暗三套变量 + Lora 名字标签 + 暗色 bg-white 校准（!important，
+     上游 glass 组合优先级更高，CDP 诊断后定案）；
+   - 壳层：LuzzyBridge 状态栏恒白/导航栏随主题；windowBackground 暖化；debug 开 CDP。
+7. **模拟器验证**（emulator-5554，pm clear 全新用户路径 + CDP 数据面）：
+   - 新用户默认：theme=luzzy / mode=light / appFont=luzzy，body=#FAF9F5 精确命中；
+   - 变量组：gray50=#FAF9F5、gray900=#141413、primary500=#CC785C、primary600=#A9583E 全对；
+   - 暗色：IndexedDB 持久路径 reload 后 mode=dark、body=#181715、输入岛 rgba(37,35,32,.72)；
+   - 经典回退：主题卡切换后 canvas=#f9fafb（上游原值）；字体栈 AlibabaSans+PuHuiTi 生效；
+   - 截图存档：docs/design/verify-v2-final-{light,dark}.png。
+
+### 决策
+1. **三方向共享骨架**：huashu「三版布局互异」规则对主题任务修正——宿主 DOM 固定，差异轴收窄为
+   视觉身份（色彩/材质/圆角/排印/动效），spec §5 明文声明。
+2. **主题机制沿用 var() 方案**：jsdom 实证 Tailwind Play CDN 接受 var() 色值（推翻会话 8 的
+   「CDN 拒绝 var()」假设）；会话 8 观察色 #BCBDBE/#7C7D7D = 黑渐隐叠 windowBackground 白
+   （变量未定义→transparent），真因为 CSS 变量链路未生效而非 JIT 拒绝。
+3. **暗色 bg-white 覆盖用 !important**：上游 glass/blur 组合有更高优先级声明（CDP 诊断
+   matches=true 但 computed 不变），扩展层主题覆盖以此为合法取胜手段。
+4. **系统栏**：状态栏恒白图标（顶栏深渐隐在亮暗两模式都可读），导航栏图标随主题明暗。
+5. 验证手段沉淀：debug 壳开启 CDP（setWebContentsDebuggingEnabled），adb forward + ws 驱动
+   完成填表/切主题/数据面断言——后续 WebView 壳验证的标准路径。
+
+### 踩坑记录
+- `adb shell input text` 对 WebView 输入框不生效（需 CDP evaluate + 原生 setter + input event）。
+- 模拟器同时存在 `com.luzzymeow.luzzyrp`（旧 v0.1.1 Compose 残留）与 `.debug` 后缀包，
+  launch 时曾启动错包造成长时间误判——旧包已卸载。
+- `AssetExtractor.EXTRACT_VERSION` 不 bump 则 install -r 后 filesDir 不重新解压；
+  本次用 `pm clear` 强制全新解压。**后续改 assets 必须卸载重装或 bump 版本号**。
+- app.js 为 CRLF/LF 混合行尾，node 字符串替换需行定位而非整段匹配。
+- PowerShell heredoc 经 Git Bash 传入会被截断——长 PS1 内容用 Write 工具整文件写入。
+
+### 遗留
+- 上游硬编码 indigo/blue/pink 工具类（用户设置页头部渐变、抽屉图标等）不在 gray/primary
+  ramp 内，保持原样；是否扩展主题覆盖待用户决策（DESIGN.md Do/Don't 已留口）。
+- 「荧光笔落笔」招牌动效（DESIGN.md roadmap）：需正则/markdown 管线配合，独立迭代。
+- 真机回归（用户手机）：本会话仅模拟器验证；发布前按 §6.3 走真机矩阵。
+- CHANGELOG 已更新 v1.0.0-rc2；版本号/versionCode 未动（发布流程待用户确认节奏）。
+
+### 下一步
+- 用户真机体验新主题 → 反馈微调（色板/字体/动效均可按 DESIGN.md token 快速调）。
+- 决定是否扩展上游硬编码色的主题化（indigo/pink → coral 系）。
+- v1.0.0 正式发布流程（assembleRelease + CHANGELOG 定稿 + GitHub Release）。

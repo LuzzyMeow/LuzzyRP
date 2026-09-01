@@ -167,6 +167,194 @@ foreach ($sub in $subPages) {
     }
 }
 
+# ------------------------------------------------------------------
+# Patch 008 · 主题色板 var() 化 v2（tailwind.config gray/primary → var() 引用）
+# 对应：DESIGN.md 主题技术契约（已验证 Tailwind Play CDN JIT 接受 var() 色值）
+# 预期冲突点：上游改色板结构/新增色阶时需重打
+# ------------------------------------------------------------------
+$titleContent = [System.IO.File]::ReadAllText($titlePath)
+if ($titleContent -match 'var\(--tw-gray-50\)') {
+    Write-Host "[SKIP] 008-theme-vars (已应用)"
+} else {
+    if ($titleContent -match "50: '#f9fafb'") {
+        $keys = @(50, 100, 200, 300, 400, 500, 600, 700, 800, 900)
+        $grayHex = @('#f9fafb', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827')
+        $priHex = @('#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a')
+        for ($i = 0; $i -lt 10; $i++) {
+            $titleContent = $titleContent.Replace("$($keys[$i]): '$($grayHex[$i])'", "$($keys[$i]): 'var(--tw-gray-$($keys[$i]))'")
+            $titleContent = $titleContent.Replace("$($keys[$i]): '$($priHex[$i])'", "$($keys[$i]): 'var(--tw-primary-$($keys[$i]))'")
+        }
+        [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "[ OK ] 008-theme-vars"
+    } else {
+        Write-Host "[FAIL] 008-theme-vars: 未找到原色板，上游可能已改色板结构"
+    }
+}
+
+# ------------------------------------------------------------------
+# Patch 009 · 字体选项：内置改「经典」系 + 新增 luzzy 默认（core-utils.js）
+# 对应：用户指令（系统内置字体改为经典；默认字体 = PuHuiTi + AlibabaSans）
+# 预期冲突点：上游改 fontFamilies 结构/文案时需重打
+# ------------------------------------------------------------------
+$corePath = Join-Path $RphubDir "assets\js\core-utils.js"
+$coreContent = [System.IO.File]::ReadAllText($corePath)
+if ($coreContent -match "value: 'luzzy'") {
+    Write-Host "[SKIP] 009-font-options (已应用)"
+} else {
+    $oldFF = @(
+        '            fontFamilies: Object.freeze([',
+        "                { value: 'modern', label: '现代通用字体' },",
+        "                { value: 'serif', label: '衬线字体' },",
+        "                { value: 'system', label: '系统字体' }",
+        '            ]),'
+    ) -join "`r`n"
+    $newFF = @(
+        '            fontFamilies: Object.freeze([',
+        "                { value: 'luzzy', label: 'Luzzy 默认' },",
+        "                { value: 'modern', label: '经典（原版）' },",
+        "                { value: 'serif', label: '经典衬线（Lora）' },",
+        "                { value: 'system', label: '系统' }",
+        '            ]),'
+    ) -join "`r`n"
+    if ($coreContent.Contains($oldFF)) {
+        $coreContent = $coreContent.Replace($oldFF, $newFF)
+        [System.IO.File]::WriteAllText($corePath, $coreContent, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "[ OK ] 009-font-options"
+    } else {
+        Write-Host "[FAIL] 009-font-options: fontFamilies 结构变化，请手工更新"
+    }
+}
+
+# ------------------------------------------------------------------
+# Patch 010 · 默认字体 luzzy + normalizeFontFamily 白名单（app.js）
+# 对应：新用户默认 Luzzy 字体（用户指令）
+# 预期冲突点：上游改默认值/白名单时需重打
+# ------------------------------------------------------------------
+$appPath = Join-Path $RphubDir "assets\js\app.js"
+$appContent = [System.IO.File]::ReadAllText($appPath)
+if ($appContent -match "fontFamily: 'luzzy'") {
+    Write-Host "[SKIP] 010-defaults (已应用)"
+} else {
+    $appContent = $appContent.Replace("            fontFamily: 'modern',", "            fontFamily: 'luzzy',")
+    $appContent = $appContent.Replace(
+        "const normalizeFontFamily = (value) => ['modern', 'serif', 'system'].includes(value) ? value : 'modern';",
+        "const normalizeFontFamily = (value) => ['luzzy', 'modern', 'serif', 'system'].includes(value) ? value : 'modern';")
+    [System.IO.File]::WriteAllText($appPath, $appContent, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "[ OK ] 010-defaults"
+}
+
+# ------------------------------------------------------------------
+# Patch 011 · 设置页主题卡（主题+模式+字体附属）+ theme 字段/watch/迁移
+# 对应：用户指令（设置页新增主题功能；字体为主题附属设置；新用户默认 luzzy；老用户保留经典）
+# 预期冲突点：上游改设置页结构 / fontFamily watch 区域 / settings 加载块时需重打
+# ------------------------------------------------------------------
+$titleContent = [System.IO.File]::ReadAllText($titlePath)
+if ($titleContent -match '界面主题') {
+    Write-Host "[SKIP] 011-theme-ui (已应用)"
+} else {
+    $startIdx = $titleContent.IndexOf('                                    <!-- Font Family Setting -->')
+    $endIdx = $titleContent.IndexOf('                                    <!-- Font Size Setting -->', $startIdx)
+    if ($startIdx -ge 0 -and $endIdx -gt $startIdx) {
+        $isCrlf = $titleContent.Contains("`r`n")
+        $eol = if ($isCrlf) { "`r`n" } else { "`n" }
+        $card = @(
+            '                                    <!-- Theme Setting (LuzzyRP 扩展：主题 + 模式 + 字体附属设置) -->',
+            '                                    <div',
+            '                                        class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">',
+            '                                        <label',
+            '                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>',
+            '                                        <custom-select v-model="settings.theme" :options="themeOptions"',
+            '                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"',
+            '                                            menu-class="text-sm">',
+            '                                        </custom-select>',
+            "                                        <div v-if=`"settings.theme === 'luzzy'`" class=`"mt-2 flex items-center gap-2`">",
+            '                                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">模式</label>',
+            '                                            <custom-select v-model="settings.themeMode" :options="themeModeOptions"',
+            '                                                button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"',
+            '                                                menu-class="text-sm">',
+            '                                            </custom-select>',
+            '                                        </div>',
+            '                                        <label',
+            '                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-3">界面字体</label>',
+            '                                        <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"',
+            '                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"',
+            '                                            menu-class="text-sm">',
+            '                                        </custom-select>',
+            '                                    </div>',
+            '',
+            '                                    <!-- Font Size Setting -->'
+        ) -join $eol
+        $titleContent = $titleContent.Substring(0, $startIdx) + $card + $titleContent.Substring($endIdx)
+        [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "[ OK ] 011-theme-ui"
+    } else {
+        Write-Host "[FAIL] 011-theme-ui: 未找到 Font Family Setting 锚点"
+    }
+}
+
+$appContent = [System.IO.File]::ReadAllText($appPath)
+if ($appContent -match "theme: 'luzzy'") {
+    Write-Host "[SKIP] 011b-theme-logic (已应用)"
+} else {
+    $isCrlf = $appContent.Contains("`r`n")
+    $eol = if ($isCrlf) { "`r`n" } else { "`n" }
+    # 1) settings 默认值（新用户 luzzy/light）
+    $appContent = $appContent.Replace("            fontFamily: 'luzzy',",
+        "            theme: 'luzzy',$eol            themeMode: 'light',$eol            fontFamily: 'luzzy',")
+    # 2) options 常量（} = uiOptions; 行后插入）
+    $lines = $appContent -split [regex]::Escape($eol)
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i].Trim() -eq '} = uiOptions;') {
+            $insert = @(
+                '        const themeOptions = Object.freeze([',
+                "            { value: 'luzzy', label: '暖幕手记（Luzzy）' },",
+                "            { value: 'classic', label: '经典（原版）' }",
+                '        ]);',
+                '        const themeModeOptions = Object.freeze([',
+                "            { value: 'light', label: '亮色' },",
+                "            { value: 'dark', label: '暗色' }",
+                '        ]);'
+            )
+            $lines = $lines[0..$i] + $insert + $lines[($i + 1)..($lines.Length - 1)]
+            break
+        }
+    }
+    $appContent = $lines -join $eol
+    # 3) applyTheme/applyThemeMode + immediate watch（fontFamily watch 后）
+    $watchAnchor = '        watch(() => settings.fontFamily, applyFontFamily, { immediate: true });'
+    $watchBlock = @(
+        '        watch(() => settings.fontFamily, applyFontFamily, { immediate: true });',
+        '        const applyTheme = (value) => {',
+        "            document.documentElement.dataset.theme = value === 'classic' ? 'classic' : 'luzzy';",
+        '        };',
+        '        const applyThemeMode = (value) => {',
+        "            document.documentElement.dataset.mode = value === 'dark' ? 'dark' : 'light';",
+        '            if (window.LuzzyBridge && window.LuzzyBridge.setSystemBarStyle) {',
+        "                window.LuzzyBridge.setSystemBarStyle(value === 'dark' ? 'dark' : 'light');",
+        '            }',
+        '        };',
+        '        watch(() => settings.theme, applyTheme, { immediate: true });',
+        '        watch(() => settings.themeMode, applyThemeMode, { immediate: true });'
+    ) -join $eol
+    $appContent = $appContent.Replace($watchAnchor, $watchBlock)
+    # 4) setup return 暴露
+    $appContent = $appContent.Replace('fontFamilyOptions, fontSizeOptions, availableImageStyleOptions',
+        'fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions')
+    # 5) 老用户迁移（forEach 闭合后、apiProviderId 前；仅 savedSettings 存在时执行）
+    $migBlock = @(
+        "                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'theme')) {",
+        "                        settings.theme = 'classic'; // 老用户保留经典主题",
+        '                    }',
+        "                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'themeMode')) {",
+        "                        settings.themeMode = 'light';",
+        '                    }'
+    ) -join $eol
+    $appContent = [regex]::Replace($appContent,
+        "(\}\);(\r?\n))(                    if \(!Object\.prototype\.hasOwnProperty\.call\(savedSettings, 'apiProviderId'\)\))",
+        ('$1' + $migBlock.Replace('$', '$$') + '$2'))
+    [System.IO.File]::WriteAllText($appPath, $appContent, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "[ OK ] 011b-theme-logic"
+}
 
 Write-Host "== patch 重放完成 =="
 Write-Host "提示: 重放后请执行 sync 回归清单（AGENTS.md §6.2）"

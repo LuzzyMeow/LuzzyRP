@@ -51,6 +51,10 @@ class MainActivity : ComponentActivity() {
         webView = WebView(this)
         WebViewSetup.configure(webView)
         webView.setBackgroundColor(Color.WHITE)
+        // debug 构建开启 WebView 远程调试（chrome://inspect / CDP；release 不受影响）
+        if (BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
 
         // 3) JSBridge（扩展层桥接，AGENTS.md §5）
         webView.addJavascriptInterface(LuzzyBridge(this), "LuzzyBridge")

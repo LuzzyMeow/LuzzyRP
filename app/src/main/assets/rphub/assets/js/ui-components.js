@@ -321,7 +321,7 @@
             uiTemplateRunning: Boolean,
             user: { type: Object, required: true }
         },
-        emits: ['update:current-view', 'update:collapsed', 'toggle-online', 'toggle-advanced', 'close-mobile'],
+        emits: ['update:current-view', 'update:collapsed', 'toggle-online', 'toggle-advanced', 'close-mobile', 'open-appearance'],
         setup(props, { emit }) {
             window.RPHubUpdateCheck.useUpdateCheck();
             const selectView = (view) => {
@@ -443,6 +443,12 @@
                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
+                    </button>
+
+                    <button @click="$emit('open-appearance')" title="外观"
+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', 'text-gray-600 hover:bg-gray-50 hover:text-gray-900', collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
                     </button>
                 </div>
 
@@ -828,7 +834,8 @@
             tags: { type: Array, default: () => [] },
             models: { type: Array, default: () => [] },
             currentModel: { type: String, default: '' },
-            slotModels: { type: Array, default: () => [] }
+            slotModels: { type: Array, default: () => [] },
+            formatModelText: { type: Function, default: null }
         },
         emits: ['close', 'select', 'select-slots', 'update:search-query', 'update:active-tag'],
         data() {
@@ -873,7 +880,7 @@
                                 @click="activeSlot = index"
                                 :class="['min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors', activeSlot === index ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50']">
                                 <span class="block text-xs font-bold mb-1">槽位 {{ index + 1 }}</span>
-                                <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] || '未选择' }}</span>
+                                <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] ? (formatModelText ? formatModelText(draftSlotModels[index]) : draftSlotModels[index]) : '未选择' }}</span>
                             </button>
                         </div>
                         <div class="p-4 border-b border-gray-100 flex flex-col gap-3">
@@ -904,7 +911,10 @@
                             <div class="space-y-1">
                                 <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
                                     class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-colors flex justify-between items-center group border border-transparent hover:border-gray-100 active:bg-gray-100">
-                                    <span class="text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.id }}</span>
+                                    <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                        <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
+                                        <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
+                                    </span>
                                     <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -1895,7 +1905,8 @@
             formatCount: { type: Function, required: true },
             formatTime: { type: Function, required: true },
             getTypeLabel: { type: Function, required: true },
-            getUncachedInput: { type: Function, required: true }
+            getUncachedInput: { type: Function, required: true },
+            formatModelLabel: { type: Function, default: null }
         },
         emits: [
             'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
@@ -1995,7 +2006,7 @@
                         class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                         <div class="mb-3 min-w-0">
                             <div class="flex min-w-0 items-center justify-between gap-3">
-                                <span class="min-w-0 flex-1 truncate text-sm text-gray-600" :title="record.model">{{ record.model || '未知模型' }}</span>
+                                <span class="min-w-0 flex-1 truncate text-sm text-gray-600" :title="record.model">{{ (formatModelLabel && formatModelLabel(record)) || record.model || '未知模型' }}</span>
                                  <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                             </div>
                             <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">
@@ -2054,7 +2065,8 @@
             settings: { type: Object, required: true },
             updateStatus: { type: Object, required: true },
             helpTopic: String,
-            analysisDepth: Number
+            analysisDepth: Number,
+            formatModelText: { type: Function, default: null }
         },
         emits: [
             'menu', 'export', 'import', 'create', 'update:show-settings', 'update:help-topic',
@@ -2173,7 +2185,7 @@
                                         <div class="flex gap-2">
                                             <button @click="$emit('select-model')" class="settings-model-button truncate"
                                                 :title="settings.uiTemplateModel || '未选择模型'">
-                                                <span :class="settings.uiTemplateModel ? 'text-gray-700' : 'text-gray-400'">{{ settings.uiTemplateModel || '未选择模型' }}</span>
+                                                <span :class="settings.uiTemplateModel ? 'text-gray-700' : 'text-gray-400'">{{ settings.uiTemplateModel ? (formatModelText ? formatModelText(settings.uiTemplateModel) : settings.uiTemplateModel) : '未选择模型' }}</span>
                                             </button>
                                         </div>
                                     </div>

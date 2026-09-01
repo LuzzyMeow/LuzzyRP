@@ -183,7 +183,7 @@
             :ui-template-running="uiTemplateUpdateStatus.state === 'running'" :user="user"
             @update:current-view="currentView = $event" @update:collapsed="isSidebarCollapsed = $event"
             @toggle-online="toggleOnlineNav" @toggle-advanced="toggleAdvancedNav"
-            @close-mobile="closeMobileMenu"></app-sidebar>
+            @close-mobile="closeMobileMenu" @open-appearance="showAppearancePanel = true"></app-sidebar>
 
         <div class="app-main flex-1 flex flex-col h-full overflow-hidden bg-gray-50 relative">
 
@@ -957,7 +957,7 @@
                                                         :disabled="!slot.model"
                                                         :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                         <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
-                                                        <span class="min-w-0 flex-1 truncate text-right text-xs font-mono" :title="slot.model">{{ slot.model || '未配置' }}</span>
+                                                        <span class="min-w-0 flex-1 truncate text-right text-xs font-mono" :title="slot.model ? formatModelRefText(slot.model) : ''">{{ slot.model ? formatModelRefText(slot.model) : '未配置' }}</span>
                                                     </button>
                                                 </div>
                                                 <div class="border-t border-gray-100 pt-4 space-y-5">
@@ -1635,7 +1635,7 @@
                                                         stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                 </svg>
                                             </button>
-                                            <button v-for="provider in customApiProviderOptions" :key="provider.id"
+                                            <button v-for="provider in userApiProviders" :key="provider.id"
                                                 type="button" @click="selectApiProvider(provider)"
                                                 :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                 <span
@@ -1650,7 +1650,7 @@
                                                 </span>
                                                 <span class="min-w-0 flex-1">
                                                     <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
-                                                    <span class="block text-xs text-gray-400 truncate">手动输入 API 地址</span>
+                                                    <span class="block text-xs text-gray-400 font-mono truncate">{{ provider.apiUrl }}</span>
                                                 </span>
                                                 <svg v-if="selectedApiProvider.id === provider.id"
                                                     class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
@@ -1659,9 +1659,29 @@
                                                         stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                 </svg>
                                             </button>
+                                            <button type="button" @click="openProviderManager"
+                                                class="w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all hover:bg-gray-50 text-gray-700">
+                                                <span
+                                                    class="w-8 h-8 rounded-lg bg-white border border-gray-100 shadow-sm flex items-center justify-center mr-3 shrink-0">
+                                                    <svg class="w-5 h-5 text-gray-500" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                                                        </path>
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                                                        </path>
+                                                    </svg>
+                                                </span>
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="block text-sm font-bold truncate">管理供应商…</span>
+                                                    <span class="block text-xs text-gray-400 truncate">添加 / 编辑 / 检测自定义供应商</span>
+                                                </span>
+                                            </button>
                                         </div>
                                     </div>
-                                    <div v-if="isCustomApiProvider" class="relative">
+                                    <div v-if="isCustomApiProvider || isUserApiProvider" class="relative">
                                         <div
                                             class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1732,7 +1752,7 @@
                                             </div>
                                             <div
                                                 class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
-                                                <span class="truncate mr-2 font-mono text-sm">{{ settings.visionModel || '请选择模型' }}</span>
+                                                <span class="truncate mr-2 font-mono text-sm">{{ settings.visionModel ? formatModelRefText(settings.visionModel) : '请选择模型' }}</span>
                                                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                 </svg>
@@ -1910,29 +1930,21 @@
                                     高级参数
                                 </h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <!-- Theme Setting (LuzzyRP 扩展：主题 + 模式 + 字体附属设置) -->
-                                    <div
-                                        class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">
+                                    <!-- [LuzzyRP patch 013] 主题/模式/字体已独立至侧边栏「外观」面板，此处保留入口 -->
+                                    <button type="button" @click="showAppearancePanel = true"
+                                        class="text-left bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200 active:scale-[0.99]">
                                         <label
-                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>
-                                        <custom-select v-model="settings.theme" :options="themeOptions"
-                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
-                                            menu-class="text-sm">
-                                        </custom-select>
-                                        <div v-if="settings.theme === 'luzzy'" class="mt-2 flex items-center gap-2">
-                                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">模式</label>
-                                            <custom-select v-model="settings.themeMode" :options="themeModeOptions"
-                                                button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
-                                                menu-class="text-sm">
-                                            </custom-select>
-                                        </div>
-                                        <label
-                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-3">界面字体</label>
-                                        <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"
-                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
-                                            menu-class="text-sm">
-                                        </custom-select>
-                                    </div>
+                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">外观</label>
+                                        <span class="flex items-center justify-between gap-2">
+                                            <span class="text-sm font-medium text-gray-700">主题 · 模式 · 字体</span>
+                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none"
+                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M9 5l7 7-7 7"></path>
+                                            </svg>
+                                        </span>
+                                        <span class="block text-xs text-gray-400 mt-1.5">侧边栏「外观」入口可随时打开</span>
+                                    </button>
                                     <!-- Font Size Setting -->
                                     <div
                                         class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">
@@ -2084,6 +2096,7 @@
                 :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                 :settings="settings" :update-status="uiTemplateUpdateStatus"
                 :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
+                :format-model-text="formatModelRefText"
                 @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                 @import="importUiTemplates" @create="createUiTemplate"
                 @update:show-settings="showUiTemplateSettings = $event"
@@ -2267,6 +2280,7 @@
                 :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                 :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                 :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
+                :format-model-label="formatUsageModelLabel"
                 :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                 @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                 @update:time-filter="tokenUsageTimeFilter = $event"
@@ -2426,7 +2440,7 @@
                                         :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                         <span
                                             :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
-                                            memorySettings.embeddingModel || '请选择向量嵌入模型' }}</span>
+                                            memorySettings.embeddingModel ? formatModelRefText(memorySettings.embeddingModel) : '请选择向量嵌入模型' }}</span>
                                     </button>
                                 </div>
                                 <div class="settings-field">
@@ -2458,7 +2472,7 @@
                                     class="settings-model-button truncate"
                                     :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                     <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
-                                        memorySettings.classicModel || '请选择总结模式副模型' }}</span>
+                                        memorySettings.classicModel ? formatModelRefText(memorySettings.classicModel) : '请选择总结模式副模型' }}</span>
                                 </button>
                             </div>
 
@@ -2798,10 +2812,135 @@
             :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
             :models="filteredModels"
             :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
+            :format-model-text="formatModelRefText"
             :current-model="modelSelectionTarget === 'memoryEmbeddingModel' ? memorySettings.embeddingModel : (modelSelectionTarget === 'memoryClassicModel' ? memorySettings.classicModel : settings[modelSelectionTarget])"
             @close="showModelSelector = false" @select="selectModel" @select-slots="selectQuickModels"
             @update:search-query="modelSearchQuery = $event"
             @update:active-tag="activeModelTag = $event"></model-selector-modal>
+
+        <!-- [LuzzyRP patch 012] 供应商管理器 -->
+        <transition name="fade">
+            <modal-shell v-if="showProviderManager" overlay-class="z-50 bg-black/50 backdrop-blur-sm p-4"
+                panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-xl max-h-[85vh] h-[85vh] flex flex-col shadow-2xl">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-800">管理供应商</h3>
+                    <button @click="showProviderManager = false"
+                        class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        为每个供应商分别填写 API 地址与 Key 后，即可在任意模型槽位跨商混用模型；模型列表会以
+                        <span class="font-mono">[商名] 模型id</span> 标注来源。
+                    </p>
+                    <div v-for="provider in allApiProviders" :key="provider.id"
+                        class="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
+                        <div class="flex items-center gap-2">
+                            <span class="min-w-0 flex-1 flex items-center gap-2">
+                                <input v-if="!apiProviderOptions.some(item => item.id === provider.id)"
+                                    v-model="provider.name" type="text"
+                                    class="min-w-0 flex-1 h-9 bg-white border border-gray-200 rounded-lg px-3 text-sm font-bold text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all"
+                                    placeholder="供应商名称">
+                                <span v-else class="min-w-0 flex-1 truncate text-sm font-bold text-gray-800">{{ provider.name }}</span>
+                                <span v-if="!apiProviderOptions.some(item => item.id === provider.id)"
+                                    class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">自定义</span>
+                                <span v-if="selectedApiProvider.id === provider.id"
+                                    class="flex-shrink-0 rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700">当前</span>
+                                <span class="flex-shrink-0 h-1.5 w-1.5 rounded-full"
+                                    :class="isProviderConfigured(provider) ? 'bg-emerald-500' : 'bg-gray-300'"
+                                    :title="isProviderConfigured(provider) ? '已配置 Key' : '未配置 Key'"></span>
+                            </span>
+                            <button type="button" @click="testProviderConnection(provider.id)"
+                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
+                                检测
+                            </button>
+                            <button v-if="selectedApiProvider.id !== provider.id" type="button"
+                                @click="selectApiProvider(provider); showProviderManager = false"
+                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
+                                设为当前
+                            </button>
+                            <button v-if="!apiProviderOptions.some(item => item.id === provider.id)" type="button"
+                                @click="removeUserApiProvider(provider)"
+                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-red-500 hover:border-red-200 hover:bg-red-50 transition-all active:scale-95"
+                                title="删除供应商">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div v-if="!apiProviderOptions.some(item => item.id === provider.id)">
+                            <input v-model="provider.apiUrl" type="text"
+                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all placeholder-gray-400"
+                                placeholder="https://api.example.com/v1">
+                        </div>
+                        <div v-else class="text-xs font-mono text-gray-400 truncate">{{ provider.apiUrl }}</div>
+                        <div class="flex items-center gap-2">
+                            <input :value="settings.apiProviderKeys[provider.id] || ''"
+                                @input="updateProviderKey(provider.id, $event.target.value)" type="password"
+                                class="min-w-0 flex-1 h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all placeholder-gray-400"
+                                placeholder="该供应商的 API Key（sk-...）">
+                            <span v-if="providerTestStatus[provider.id]"
+                                class="flex-shrink-0 text-xs font-medium whitespace-nowrap"
+                                :class="providerTestStatus[provider.id].status === 'ok' ? 'text-emerald-600' : (providerTestStatus[provider.id].status === 'error' ? 'text-red-500' : 'text-gray-400')">
+                                {{ providerTestStatus[provider.id].status === 'checking' ? '检测中…'
+                                    : (providerTestStatus[provider.id].status === 'ok' ? `✓ ${providerTestStatus[provider.id].count} 个模型`
+                                        : `✗ ${providerTestStatus[provider.id].message || '失败'}`) }}
+                            </span>
+                        </div>
+                    </div>
+                    <button type="button" @click="addUserApiProvider"
+                        class="w-full px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-medium text-gray-500 hover:border-teal-300 hover:text-teal-600 hover:bg-teal-50/50 transition-all active:scale-[0.99]">
+                        + 添加供应商（OpenAI 兼容）
+                    </button>
+                </div>
+            </modal-shell>
+        </transition>
+
+        <!-- [LuzzyRP patch 013] 外观设置面板（主题/模式/字体/对话字号），绑定既有 settings 字段，弹层背后实时预览 -->
+        <transition name="fade">
+            <modal-shell v-if="showAppearancePanel" overlay-class="z-50 bg-black/50 backdrop-blur-sm p-4"
+                panel-class="bg-white rounded-2xl border border-gray-200 w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-800">外观</h3>
+                    <button @click="showAppearancePanel = false"
+                        class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors" title="关闭">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-4 space-y-4 overflow-y-auto">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>
+                        <custom-select v-model="settings.theme" :options="themeOptions"
+                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
+                        </custom-select>
+                    </div>
+                    <div v-if="settings.theme === 'luzzy'">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">模式</label>
+                        <custom-select v-model="settings.themeMode" :options="themeModeOptions"
+                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
+                        </custom-select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面字体</label>
+                        <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"
+                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
+                        </custom-select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">对话字体大小</label>
+                        <custom-select v-model="settings.fontSize" :options="fontSizeOptions"
+                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
+                        </custom-select>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">修改即时生效并自动保存，弹层背后可实时预览效果。</p>
+                </div>
+            </modal-shell>
+        </transition>
 
         <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
             @create="createNewCharacter(); showAddCharacterMenu = false"

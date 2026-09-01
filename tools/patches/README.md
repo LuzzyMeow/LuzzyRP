@@ -63,11 +63,45 @@
 #   - 对应：新用户默认 Luzzy 字体
 #   - 预期冲突点：上游改默认值/白名单时需重打
 #
-# 011-theme-ui.patch（v2，2026-09-01 重做）
-#   - index.html 设置页: 原「界面字体」独立卡替换为主题卡（界面主题 + 模式(仅luzzy) + 界面字体附属）
+# 011-theme-ui.patch（v3，2026-09-02 外观面板独立）
+#   - index.html 设置页: v2 的「界面主题 + 模式 + 界面字体」卡 → 「外观」入口卡
+#     （点击打开 patch 013 的外观面板；对话字号卡保留原位）
 #   - app.js: settings 加 theme/themeMode（默认 luzzy/light）+ themeOptions/themeModeOptions
 #     + applyTheme/applyThemeMode immediate watch（含 LuzzyBridge.setSystemBarStyle 联动）
 #     + setup return 暴露 + 老用户迁移（savedSettings 无 theme → classic，仅 savedSettings 存在时）
 #   - 对应：设置页主题功能 + 新用户默认新主题 + 老用户保留经典
 #   - 预期冲突点：上游改设置页结构 / fontFamily watch 区 / settings 加载块时需重打
+#
+# ------------------------------------------------------------
+# 012-multi-provider-models.patch（2026-09-02，v1.1.0 多模型商混用）
+#   - app.js:
+#     · 模型引用体系：存储 `providerId::bareId`（首个 :: 分隔；裸 id=跟随激活商，向后兼容零迁移）
+#       + parseModelRef / formatModelRef / formatModelRefText / resolveModelRequest helpers
+#     · 供应商管理器：settings.apiProviders（任意数量用户商）+ settings.apiProvidersMigrated 迁移标记；
+#       allApiProviders/userApiProviders 统一注册表；normalizeApiProviderSettings / getApiProviderById/ByUrl
+#       扩展动态 id；老用户 custom/custom2 槽位一次性导入为用户商（原字段保留供小说工坊协议）
+#     · 模型列表：providerModels 按商缓存 + rebuildMergedAvailableModels 跨商合并视图
+#       （条目含 bareId/providerId/providerName）；fetchModels=刷新全部已配置商；
+#       启动仅拉激活商，openModelSelector 惰性补拉
+#     · 请求点接入 resolveModelRequest：主聊天 / 识图 / UI模板副模型 / 记忆总结 / 记忆嵌入
+#     · 联动防污染：usesThinkingCotTag 先 parse 取 bareId（防商名前缀误判 /deepseek/i 等正则）
+#     · 向量记忆：新分片记 embeddingProvider（embeddingModel 存 bareId）；检索按
+#       (provider, model) 分桶、每桶现算查询向量；legacy 分片跟随激活商=原行为
+#     · 用量记录加 provider 维度；iframe 同步载荷剥离商前缀；工坊激活商为用户商时映射 custom 槽位
+#     · 供应商管理弹窗状态：showProviderManager / providerTestStatus / 增删改 / testProviderConnection
+#   - ui-components.js: ModelSelectorModal 列表项/快捷槽位渲染 [商名] bareId（formatModelText prop）；
+#     TokenUsageView / UiTemplatesView 加 formatModelLabel/formatModelText 可选 prop
+#   - index.html: 供应商下拉 v-for userApiProviders + 「管理供应商…」入口；供应商管理弹窗；
+#     聊天弹层槽位 / 设置页模型入口 / 记忆模型入口显示 [商名] 前缀；选择器/用量/UiTemplates 传 formatter
+#   - 对应：用户需求「多模型商混用模型」（设置页/聊天页/记忆双模式/未提及点位一并更新）
+#   - 预期冲突点：上游改 settings 结构 / fetchModels / 请求装配 / 记忆检索管线 / ModelSelectorModal 时需重打
+#
+# 013-appearance-panel.patch（2026-09-02，v1.1.0 外观独立面板）
+#   - ui-components.js: AppSidebar 设置按钮下新增「外观」按钮（emit open-appearance）
+#   - index.html: app-sidebar 接 @open-appearance；新增外观模态面板
+#     （界面主题/模式/字体/对话字号，绑定既有 settings 字段复用 watch+deep-watch 持久化）；
+#     设置页原主题卡（patch 011 v2 区）替换为「外观」入口卡
+#   - app.js: showAppearancePanel ref + setup return 暴露
+#   - 对应：用户需求「主题、字体相关设置独立为侧边菜单栏独立入口」；视觉复用雾纸弹窗层（零新增主题适配）
+#   - 预期冲突点：上游改 AppSidebar 模板 / 全局弹窗区 / 设置页高级参数区时需重打
 # ------------------------------------------------------------

@@ -615,6 +615,8 @@ const app = createApp({
             apiProviderKeys: {},
             customApiUrl: '',
             customApiUrl2: '',
+            apiProviders: [],
+            apiProvidersMigrated: false,
             model: DEFAULT_API_CONFIG.qualityModel,
             contextSize: MAX_CONTEXT_SIZE,
             temperature: 1.0,
@@ -676,6 +678,9 @@ const app = createApp({
         watch(() => settings.theme, applyTheme, { immediate: true });
         watch(() => settings.themeMode, applyThemeMode, { immediate: true });
 
+        // [LuzzyRP patch 013] 外观独立面板（主题/模式/字体/对话字号），绑定既有 settings 字段零新机制
+        const showAppearancePanel = ref(false);
+
         const showApiProviderSelector = ref(false);
         const selectedApiProviderId = ref(DEFAULT_API_PROVIDER_ID);
         const customApiProviderOption = {
@@ -694,10 +699,81 @@ const app = createApp({
         const isCustomApiProviderId = (id) => customApiProviderOptions.some(provider => provider.id === id);
         const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
         const normalizeApiProviderUrl = (url) => String(url || '').replace(/\/+$/, '').toLowerCase();
-        const getApiProviderById = (id) => apiProviderOptions.find(provider => provider.id === id);
+        // [LuzzyRP patch 012] 多模型商混用：用户自定义供应商（任意数量）+ 统一注册表 + 模型引用解析层
+        let customProviderIdSeed = 0;
+        const createUserApiProviderId = () => `p_${Date.now().toString(36)}${(customProviderIdSeed++).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+        const normalizeUserApiProviders = (list) => {
+            if (!Array.isArray(list)) return [];
+            const seen = new Set();
+            return list.map(item => ({
+                id: String(item?.id || '').trim(),
+                name: String(item?.name || '').trim() || '未命名供应商',
+                apiUrl: String(item?.apiUrl || '').trim()
+            })).filter(item => {
+                if (!item.id || !item.apiUrl || seen.has(item.id) || isCustomApiProviderId(item.id)) return false;
+                seen.add(item.id);
+                return true;
+            });
+        };
+        const userApiProviders = computed(() => {
+            // 返回 settings.apiProviders 的原始响应式条目（管理弹窗 v-model 需要直接写回）
+            const list = Array.isArray(settings.apiProviders) ? settings.apiProviders : [];
+            const seen = new Set();
+            return list.filter(item => {
+                const id = String(item?.id || '').trim();
+                if (!id || seen.has(id) || isCustomApiProviderId(id)) return false;
+                seen.add(id);
+                return true;
+            });
+        });
+        const allApiProviders = computed(() => [...apiProviderOptions, ...userApiProviders.value]);
+        const getApiProviderById = (id) => allApiProviders.value.find(provider => provider.id === id);
         const getApiProviderByUrl = (url) => {
             const currentUrl = normalizeApiProviderUrl(url);
-            return apiProviderOptions.find(provider => normalizeApiProviderUrl(provider.apiUrl) === currentUrl);
+            return allApiProviders.value.find(provider => normalizeApiProviderUrl(provider.apiUrl) === currentUrl);
+        };
+        const isProviderConfigured = (provider) => !!provider && !!String(provider.apiUrl || '').trim()
+            && !!String((settings.apiProviderKeys || {})[provider.id] || '').trim();
+        // 模型引用：存储格式 `providerId::bareId`（首个 `::` 分隔；裸 id = 跟随当前激活商，向后兼容）
+        const parseModelRef = (modelRef) => {
+            const raw = String(modelRef || '').trim();
+            const index = raw.indexOf('::');
+            if (index > 0) {
+                const providerId = raw.slice(0, index);
+                if (getApiProviderById(providerId)) {
+                    return { providerId, bareId: raw.slice(index + 2) };
+                }
+            }
+            return { providerId: null, bareId: raw };
+        };
+        const formatModelRef = (modelRef) => {
+            const { providerId, bareId } = parseModelRef(modelRef);
+            if (!providerId) return { providerLabel: '', bareId };
+            const provider = getApiProviderById(providerId);
+            return { providerLabel: provider?.name || '未知', bareId };
+        };
+        const formatModelRefText = (modelRef) => {
+            const { providerLabel, bareId } = formatModelRef(modelRef);
+            return providerLabel ? `[${providerLabel}] ${bareId}` : bareId;
+        };
+        const formatUsageModelLabel = (record) => {
+            if (!record) return '';
+            const providerId = String(record.provider || '');
+            if (!providerId) return '';
+            const provider = getApiProviderById(providerId);
+            const label = provider?.name || '未知';
+            return `[${label}] ${record.model || ''}`;
+        };
+        const resolveModelRequest = (modelRef) => {
+            const { providerId, bareId } = parseModelRef(modelRef);
+            if (providerId) {
+                const provider = getApiProviderById(providerId);
+                const apiKey = String((settings.apiProviderKeys || {})[providerId] || '').trim();
+                if (provider?.apiUrl && apiKey) {
+                    return { url: provider.apiUrl, apiKey, model: bareId, providerId };
+                }
+            }
+            return { url: settings.apiUrl, apiKey: settings.apiKey, model: bareId, providerId: null };
         };
         const syncCurrentApiKeyToProvider = () => {
             const providerId = settings.apiProviderId || selectedApiProvider.value.id || DEFAULT_API_PROVIDER_ID;
@@ -709,15 +785,39 @@ const app = createApp({
                 settings[getCustomApiUrlKey(providerId)] = settings.apiUrl || '';
             }
         };
+        const migrateLegacyCustomProviders = () => {
+            // 老用户 custom/custom2 槽位（非空 URL）一次性导入为用户商；原字段保留（小说工坊协议仍读取）
+            if (settings.apiProvidersMigrated) return;
+            const imported = [];
+            customApiProviderOptions.forEach(slot => {
+                const url = String(settings[getCustomApiUrlKey(slot.id)] || '').trim();
+                if (!url) return;
+                const provider = {
+                    id: createUserApiProviderId(),
+                    name: slot.name,
+                    apiUrl: url
+                };
+                const legacyKey = String((settings.apiProviderKeys || {})[slot.id] || '').trim();
+                if (legacyKey) settings.apiProviderKeys[provider.id] = legacyKey;
+                if (settings.apiProviderId === slot.id) settings.apiProviderId = provider.id;
+                imported.push(provider);
+            });
+            if (imported.length > 0) {
+                settings.apiProviders = [...normalizeUserApiProviders(settings.apiProviders), ...imported];
+            }
+            settings.apiProvidersMigrated = true;
+        };
         const normalizeApiProviderSettings = () => {
             if (!settings.apiProviderKeys || typeof settings.apiProviderKeys !== 'object' || Array.isArray(settings.apiProviderKeys)) {
                 settings.apiProviderKeys = {};
             }
+            settings.apiProviders = normalizeUserApiProviders(settings.apiProviders);
             [...apiProviderOptions, ...customApiProviderOptions].forEach(provider => {
                 if (typeof settings.apiProviderKeys[provider.id] !== 'string') {
                     settings.apiProviderKeys[provider.id] = '';
                 }
             });
+            migrateLegacyCustomProviders();
 
             let provider = getApiProviderById(settings.apiProviderId);
             if (!provider && !isCustomApiProviderId(settings.apiProviderId)) {
@@ -741,22 +841,22 @@ const app = createApp({
             settings.apiKey = settings.apiProviderKeys[settings.apiProviderId] || '';
         };
         const selectedApiProvider = computed(() => {
-            const customProvider = customApiProviderOptions.find(provider => (
+            const matched = allApiProviders.value.find(provider => (
                 provider.id === settings.apiProviderId || provider.id === selectedApiProviderId.value
             ));
-            if (customProvider) return customProvider;
-            const selectedProvider = getApiProviderById(settings.apiProviderId) || getApiProviderById(selectedApiProviderId.value);
-            if (selectedProvider) return selectedProvider;
+            if (matched) return matched;
             return getApiProviderByUrl(settings.apiUrl) || customApiProviderOption;
         });
         const isCustomApiProvider = computed(() => isCustomApiProviderId(selectedApiProvider.value.id));
+        const isUserApiProvider = computed(() => userApiProviders.value.some(provider => provider.id === selectedApiProvider.value.id));
         const selectApiProvider = (provider) => {
             syncCurrentApiKeyToProvider();
             selectedApiProviderId.value = provider.id;
             settings.apiProviderId = provider.id;
+            const known = getApiProviderById(provider.id);
             settings.apiUrl = isCustomApiProviderId(provider.id)
                 ? settings[getCustomApiUrlKey(provider.id)] || ''
-                : provider.apiUrl;
+                : (known?.apiUrl || '');
             settings.apiKey = settings.apiProviderKeys[provider.id] || '';
             showApiProviderSelector.value = false;
         };
@@ -775,6 +875,21 @@ const app = createApp({
         watch(() => settings.apiUrl, (newUrl) => {
             if (isCustomApiProviderId(settings.apiProviderId)) {
                 settings[getCustomApiUrlKey(settings.apiProviderId)] = newUrl || '';
+                return;
+            }
+            // 用户自定义商：URL 在设置页直接编辑时回写注册表
+            const provider = userApiProviders.value.find(item => item.id === settings.apiProviderId);
+            if (provider && provider.apiUrl !== (newUrl || '').trim()) {
+                const entry = settings.apiProviders.find(item => item.id === provider.id);
+                if (entry) entry.apiUrl = String(newUrl || '').trim();
+            }
+        });
+
+        // 用户自定义商：注册表中 URL 被编辑（管理弹窗）时同步激活商的 apiUrl
+        watch(() => userApiProviders.value.map(provider => `${provider.id}\u0000${provider.apiUrl}`).join('|'), () => {
+            const active = userApiProviders.value.find(item => item.id === settings.apiProviderId);
+            if (active && active.apiUrl && settings.apiUrl !== active.apiUrl) {
+                settings.apiUrl = active.apiUrl;
             }
         });
 
@@ -782,9 +897,16 @@ const app = createApp({
             const iframe = document.querySelector('iframe[src*="character"]');
             if (iframe && iframe.contentWindow) {
                 try {
+                    // [LuzzyRP patch 012] 生成器语境只认裸模型 id，剥离商前缀
+                    const generatorSettings = JSON.parse(JSON.stringify(settings));
+                    ['model', 'qualityModel', 'balancedModel', 'fastModel', 'visionModel', 'uiTemplateModel'].forEach(key => {
+                        if (typeof generatorSettings[key] === 'string') {
+                            generatorSettings[key] = parseModelRef(generatorSettings[key]).bareId;
+                        }
+                    });
                     const syncData = {
                         type: 'SYNC_SETTINGS',
-                        settings: JSON.parse(JSON.stringify(settings))
+                        settings: generatorSettings
                     };
                     iframe.contentWindow.postMessage(syncData, '*');
                 } catch (e) {
@@ -812,14 +934,26 @@ const app = createApp({
                         icon: ''
                     }))
                 ];
+                // [LuzzyRP patch 012] 工坊不感知用户自定义商：激活商为用户商时映射为 custom 槽位传递
+                const workshopKeys = JSON.parse(JSON.stringify(settings.apiProviderKeys || {}));
+                let workshopProviderId = settings.apiProviderId;
+                let workshopCustomUrl = settings.customApiUrl;
+                if (!isCustomApiProviderId(settings.apiProviderId) && !apiProviderOptions.some(p => p.id === settings.apiProviderId)) {
+                    const activeUserProvider = userApiProviders.value.find(p => p.id === settings.apiProviderId);
+                    if (activeUserProvider) {
+                        workshopProviderId = 'custom';
+                        workshopCustomUrl = activeUserProvider.apiUrl;
+                        workshopKeys.custom = settings.apiKey || '';
+                    }
+                }
                 event.source.postMessage({
                     type: 'RPHUB_API_SETTINGS',
                     requestId: event.data.requestId,
                     settings: {
-                        apiProviderId: settings.apiProviderId,
-                        apiProviderKeys: JSON.parse(JSON.stringify(settings.apiProviderKeys || {})),
+                        apiProviderId: workshopProviderId,
+                        apiProviderKeys: workshopKeys,
                         apiKey: settings.apiKey,
-                        customApiUrl: settings.customApiUrl,
+                        customApiUrl: workshopCustomUrl,
                         customApiUrl2: settings.customApiUrl2
                     },
                     providers
@@ -3119,7 +3253,7 @@ const app = createApp({
             const tags = new Set();
 
             availableModels.value.forEach(m => {
-                const id = m.id.toLowerCase();
+                const id = String(m.bareId || m.id).toLowerCase();
                 let found = false;
                 for (const family of popularModelFamilies) {
                     if (id.includes(family)) {
@@ -3145,18 +3279,21 @@ const app = createApp({
             if (activeModelTag.value && activeModelTag.value !== 'all') {
                 if (activeModelTag.value === 'other') {
                     result = result.filter(m => {
-                        const id = m.id.toLowerCase();
+                        const id = String(m.bareId || m.id).toLowerCase();
                         return !popularModelFamilies.some(family => id.includes(family));
                     });
                 } else {
-                    result = result.filter(m => m.id.toLowerCase().includes(activeModelTag.value));
+                    result = result.filter(m => String(m.bareId || m.id).toLowerCase().includes(activeModelTag.value));
                 }
             }
 
             const searchQuery = modelSelectionTarget.value === 'memoryEmbeddingModel' ? 'embedding' : modelSearchQuery.value;
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
-                result = result.filter(m => m.id.toLowerCase().includes(query));
+                result = result.filter(m => (
+                    String(m.bareId || m.id).toLowerCase().includes(query)
+                    || String(m.providerName || '').toLowerCase().includes(query)
+                ));
             }
 
             return result.sort((a, b) => a.id.localeCompare(b.id));
@@ -3388,25 +3525,65 @@ const app = createApp({
         };
 
         // API & Models
+        // [LuzzyRP patch 012] 按商拉取模型 + 跨商合并视图；availableModels 条目含 bareId/providerId/providerName
+        const providerModels = ref({});
+        const rebuildMergedAvailableModels = () => {
+            const merged = [];
+            allApiProviders.value.forEach(provider => {
+                const list = providerModels.value[provider.id];
+                if (!Array.isArray(list)) return;
+                list.forEach(model => {
+                    const bareId = String(model?.id || '').trim();
+                    if (!bareId) return;
+                    merged.push({
+                        ...model,
+                        id: `${provider.id}::${bareId}`,
+                        bareId,
+                        providerId: provider.id,
+                        providerName: provider.name
+                    });
+                });
+            });
+            availableModels.value = merged;
+        };
+        const fetchModelsForProvider = async (provider) => {
+            const apiKey = String((settings.apiProviderKeys || {})[provider.id] || '').trim();
+            if (!provider?.apiUrl || !apiKey) throw new Error('未配置 API 地址或 Key');
+            const response = await fetch(buildApiEndpoint(provider.apiUrl, 'models'), {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const models = Array.isArray(data?.data) ? data.data : [];
+            providerModels.value = { ...providerModels.value, [provider.id]: models };
+            rebuildMergedAvailableModels();
+            return models.length;
+        };
+        const ensureProviderModelsLoaded = () => {
+            allApiProviders.value.filter(isProviderConfigured).forEach(provider => {
+                if (!Array.isArray(providerModels.value[provider.id])) {
+                    fetchModelsForProvider(provider).catch(() => { });
+                }
+            });
+        };
         const fetchModels = async (isManual = false) => {
-            const apiKey = String(settings.apiKey || '').trim();
-            if (!apiKey) {
-                if (isManual) showToast('请先填写当前 API 预设的 Key', 'info');
+            const targets = allApiProviders.value.filter(isProviderConfigured);
+            if (targets.length === 0) {
+                if (isManual) showToast('请先为至少一个供应商配置 API 地址与 Key', 'info');
                 return;
             }
-            try {
-                if (isManual) showToast('正在获取模型列表...', 'info');
-                const url = buildApiEndpoint(settings.apiUrl, 'models');
-                const response = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${apiKey}` }
-                });
-                if (!response.ok) throw new Error('Failed to fetch models');
-                const data = await response.json();
-                availableModels.value = data.data || [];
-                if (isManual) showToast(`成功获取 ${availableModels.value.length} 个模型`, 'success');
-            } catch (error) {
-                console.error(error);
-                showToast('获取模型失败: ' + error.message, 'error');
+            if (isManual) showToast('正在获取全部供应商的模型列表...', 'info');
+            const results = await Promise.allSettled(targets.map(provider => fetchModelsForProvider(provider)));
+            if (!isManual) return;
+            const okCount = results.filter(result => result.status === 'fulfilled').length;
+            const totalModels = results.reduce((sum, result) => sum + (result.status === 'fulfilled' ? result.value : 0), 0);
+            const failedCount = results.length - okCount;
+            if (okCount === 0) {
+                showToast('获取模型失败，请检查网络与 Key', 'error');
+            } else if (failedCount > 0) {
+                showToast(`成功 ${okCount} 个供应商共 ${totalModels} 个模型，${failedCount} 个供应商获取失败`, 'warning');
+            } else {
+                showToast(`成功获取 ${okCount} 个供应商共 ${totalModels} 个模型`, 'success');
             }
         };
 
@@ -3418,7 +3595,91 @@ const app = createApp({
             } else if (modelSearchQuery.value === 'embedding') {
                 modelSearchQuery.value = '';
             }
+            ensureProviderModelsLoaded();
             showModelSelector.value = true;
+        };
+
+        // [LuzzyRP patch 012] 供应商管理器
+        const showProviderManager = ref(false);
+        const providerTestStatus = ref({});
+        const MODEL_REF_FIELD_LABELS = Object.freeze({
+            model: '聊天模型',
+            qualityModel: '高质量槽位',
+            balancedModel: '均衡槽位',
+            fastModel: '快速槽位',
+            visionModel: '识图模型',
+            uiTemplateModel: 'UI 模板模型'
+        });
+        const collectModelRefsByProvider = (providerId) => {
+            const labels = [];
+            Object.keys(MODEL_REF_FIELD_LABELS).forEach(field => {
+                if (parseModelRef(settings[field]).providerId === providerId) labels.push(MODEL_REF_FIELD_LABELS[field]);
+            });
+            if (parseModelRef(memorySettings.embeddingModel).providerId === providerId) labels.push('向量嵌入模型');
+            if (parseModelRef(memorySettings.classicModel).providerId === providerId) labels.push('总结副模型');
+            return labels;
+        };
+        const resetModelRefsForProvider = (providerId) => {
+            Object.keys(MODEL_REF_FIELD_LABELS).forEach(field => {
+                const parsed = parseModelRef(settings[field]);
+                if (parsed.providerId === providerId) settings[field] = parsed.bareId;
+            });
+            const embeddingParsed = parseModelRef(memorySettings.embeddingModel);
+            if (embeddingParsed.providerId === providerId) memorySettings.embeddingModel = embeddingParsed.bareId;
+            const classicParsed = parseModelRef(memorySettings.classicModel);
+            if (classicParsed.providerId === providerId) memorySettings.classicModel = classicParsed.bareId;
+        };
+        const openProviderManager = () => {
+            showApiProviderSelector.value = false;
+            showProviderManager.value = true;
+        };
+        const addUserApiProvider = () => {
+            settings.apiProviders.push({
+                id: createUserApiProviderId(),
+                name: '新供应商',
+                apiUrl: ''
+            });
+        };
+        const updateProviderKey = (providerId, value) => {
+            settings.apiProviderKeys[providerId] = value || '';
+            if (settings.apiProviderId === providerId) {
+                settings.apiKey = value || '';
+            }
+        };
+        const testProviderConnection = async (providerId) => {
+            const provider = getApiProviderById(providerId);
+            if (!provider) return;
+            if (!isProviderConfigured(provider)) {
+                providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'error', count: 0, message: '未配置 Key' } };
+                return;
+            }
+            providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'checking', count: 0, message: '' } };
+            try {
+                const count = await fetchModelsForProvider(provider);
+                providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'ok', count, message: '' } };
+            } catch (error) {
+                providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'error', count: 0, message: error.message || '连接失败' } };
+            }
+        };
+        const removeUserApiProvider = (provider) => {
+            const affectedLabels = collectModelRefsByProvider(provider.id);
+            const doRemove = () => {
+                resetModelRefsForProvider(provider.id);
+                settings.apiProviders = settings.apiProviders.filter(item => item.id !== provider.id);
+                const keys = { ...settings.apiProviderKeys };
+                delete keys[provider.id];
+                settings.apiProviderKeys = keys;
+                const caches = { ...providerModels.value };
+                delete caches[provider.id];
+                providerModels.value = caches;
+                rebuildMergedAvailableModels();
+                showToast(`已删除供应商「${provider.name}」`, 'success');
+            };
+            if (affectedLabels.length > 0) {
+                confirmAction(`「${provider.name}」仍被以下槽位引用：${affectedLabels.join('、')}。删除后这些槽位将回落为跟随当前 API 预设。确定删除？`, doRemove);
+            } else {
+                confirmAction(`确定删除供应商「${provider.name}」？`, doRemove);
+            }
         };
 
         const selectQuickModels = (models) => {
@@ -3606,11 +3867,12 @@ const app = createApp({
         });
         const recognizeChatImage = async (image) => {
             const requestStartedAt = Date.now();
+            const visionResolved = resolveModelRequest(settings.visionModel);
             try {
                 const result = await requestChatCompletion({
-                url: buildApiEndpoint(settings.apiUrl, 'chat/completions'),
-                    apiKey: settings.apiKey,
-                    model: settings.visionModel,
+                url: buildApiEndpoint(visionResolved.url, 'chat/completions'),
+                    apiKey: visionResolved.apiKey,
+                    model: visionResolved.model,
                     temperature: 0.2,
                     stream: false,
                     messages: [{
@@ -3637,7 +3899,8 @@ const app = createApp({
                 target.status = 'ready';
                 recordApiUsage(result.usage, {
                     type: 'image_recognition',
-                    model: settings.visionModel,
+                    model: visionResolved.model,
+                    provider: visionResolved.providerId || '',
                     isStream: false,
                     durationMs: Date.now() - requestStartedAt,
                     outputCharacters: description.length
@@ -3652,7 +3915,8 @@ const app = createApp({
             }
         };
         const requestChatImageSelection = (input) => {
-            if (!settings.apiKey || !settings.visionModel) {
+            const visionGuard = resolveModelRequest(settings.visionModel);
+            if (!visionGuard.model || !visionGuard.apiKey) {
                 showToast('请先在设置中配置识图模型', 'warning');
                 return;
             }
@@ -3989,12 +4253,13 @@ const app = createApp({
                 }));
             const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
 
-            const fallbackModel = (settings.uiTemplateModel || '').trim();
+            const uiTemplateResolved = resolveModelRequest(settings.uiTemplateModel);
+            const fallbackModel = uiTemplateResolved.model.trim();
             if (!fallbackModel) {
                 markUiTemplateStatus('skipped', '未选模型');
                 return false;
             }
-            const url = buildApiEndpoint(settings.apiUrl, 'chat/completions');
+            const url = buildApiEndpoint(uiTemplateResolved.url, 'chat/completions');
 
             try {
                 const updateRun = startUiTemplateUpdateRun();
@@ -4031,7 +4296,7 @@ const app = createApp({
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${settings.apiKey}`
+                                'Authorization': `Bearer ${uiTemplateResolved.apiKey}`
                             },
                             body: JSON.stringify({
                                 model,
@@ -4068,6 +4333,7 @@ const app = createApp({
                         recordApiUsage(getApiUsagePayload(data), {
                             type: 'ui_template',
                             model,
+                            provider: uiTemplateResolved.providerId || '',
                             isStream: false,
                             durationMs: Date.now() - requestStartedAt,
                             outputCharacters: content.length
@@ -4429,7 +4695,7 @@ const app = createApp({
                 defaultResultCount: ACTIVE_TOOL_DEFAULT_RESULT_COUNT
             });
         };
-        const usesThinkingCotTag = (model) => /(?:deepseek|glm|kimi)/i.test(String(model || ''));
+        const usesThinkingCotTag = (model) => /(?:deepseek|glm|kimi)/i.test(String(parseModelRef(model).bareId || ''));
         const getMessageThinkingText = (message, includeNativeReasoning = true) => {
             const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
             const content = String(message?.content || '');
@@ -4466,7 +4732,8 @@ const app = createApp({
             const activeToolDepth = Number(options.activeToolDepth) || 0;
             const continueAssistantMessageId = options.continueAssistantMessageId || null;
             const continuationToolCallId = options.continuationToolCallId || null;
-            const requestModel = settings.model;
+            const requestModelResolved = resolveModelRequest(settings.model);
+            const requestModel = requestModelResolved.model;
 
             if (!currentCharacter.value) {
                 showToast('请先选择一个角色', 'error');
@@ -5030,8 +5297,8 @@ const app = createApp({
 
             try {
                 const responseResult = await requestChatCompletion({
-                url: buildApiEndpoint(settings.apiUrl, 'chat/completions'),
-                    apiKey: settings.apiKey,
+                url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
+                    apiKey: requestModelResolved.apiKey,
                     model: requestModel,
                     messages: apiMessages,
                     temperature: settings.temperature,
@@ -5096,6 +5363,7 @@ const app = createApp({
                 recordApiUsage(responseUsage, {
                     type: activeToolDepth > 0 ? 'tool_continuation' : 'chat',
                     model: requestModel,
+                    provider: requestModelResolved.providerId || '',
                     isStream: responseResult.isStream,
                     durationMs: duration,
                     outputCharacters
@@ -5401,16 +5669,17 @@ const app = createApp({
         };
 
         const requestClassicMemoryCompletion = async (requestMessages, signal) => {
-            const model = String(memorySettings.classicModel || '').trim();
-            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
-            if (!model) throw new Error('请先选择总结模式副模型');
+            const classicResolved = resolveModelRequest(memorySettings.classicModel);
+            if (!classicResolved.url || !classicResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
+            if (!classicResolved.model) throw new Error('请先选择总结模式副模型');
+            const model = classicResolved.model;
 
             const requestStartedAt = Date.now();
-            const response = await fetch(buildApiEndpoint(settings.apiUrl, 'chat/completions'), {
+            const response = await fetch(buildApiEndpoint(classicResolved.url, 'chat/completions'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${settings.apiKey}`
+                    'Authorization': `Bearer ${classicResolved.apiKey}`
                 },
                 body: JSON.stringify({ model, temperature: 0.2, stream: false, messages: requestMessages }),
                 signal
@@ -5430,6 +5699,7 @@ const app = createApp({
             recordApiUsage(extractApiUsageFromText(rawText), {
                 type: 'summary',
                 model,
+                provider: classicResolved.providerId || '',
                 isStream: false,
                 durationMs: Date.now() - requestStartedAt,
                 outputCharacters: summary.length
@@ -5808,20 +6078,23 @@ const app = createApp({
             return fragments;
         };
 
-        const requestMemoryEmbeddings = async (inputs, signal) => {
-            const model = getMemoryEmbeddingModel();
-            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
-            if (!model) throw new Error('请先选择向量嵌入模型');
+        const requestMemoryEmbeddings = async (inputs, signal, embeddingRefOverride = null) => {
+            // [LuzzyRP patch 012] 支持 (provider, model) 引用级嵌入：分桶检索时按桶现算查询向量
+            const embeddingRef = embeddingRefOverride != null ? embeddingRefOverride : getMemoryEmbeddingModel();
+            const embeddingResolved = resolveModelRequest(embeddingRef);
+            if (!embeddingResolved.url || !embeddingResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
+            if (!embeddingResolved.model) throw new Error('请先选择向量嵌入模型');
+            const model = embeddingResolved.model;
 
             const normalizedInputs = inputs.map(input => String(input || '').trim());
             if (normalizedInputs.some(input => !input)) throw new Error('嵌入内容不能为空');
 
             const requestStartedAt = Date.now();
-            const response = await fetch(buildApiEndpoint(settings.apiUrl, 'embeddings'), {
+            const response = await fetch(buildApiEndpoint(embeddingResolved.url, 'embeddings'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${settings.apiKey}`
+                    'Authorization': `Bearer ${embeddingResolved.apiKey}`
                 },
                 body: JSON.stringify({
                     model,
@@ -5854,6 +6127,7 @@ const app = createApp({
             recordApiUsage(getApiUsagePayload(data), {
                 type: 'embedding',
                 model,
+                provider: embeddingResolved.providerId || '',
                 isStream: false,
                 durationMs: Date.now() - requestStartedAt,
                 outputCharacters: 0
@@ -5889,7 +6163,8 @@ const app = createApp({
                 contentFingerprint: getVectorFragmentFingerprint(fragment),
                 sourceUserIds: fragment.sourceUserIds,
                 sourceAssistantIds: fragment.sourceAssistantIds,
-                embeddingModel: getMemoryEmbeddingModel(),
+                embeddingModel: parseModelRef(getMemoryEmbeddingModel()).bareId,
+                embeddingProvider: parseModelRef(getMemoryEmbeddingModel()).providerId || '',
                 embedding,
                 sourceText: fragment.sourceText,
                 ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
@@ -6192,6 +6467,30 @@ const app = createApp({
             vectorScore: scored.vectorScore
         });
 
+        // [LuzzyRP patch 012] 跨商向量检索：分片按 (embeddingProvider, embeddingModel) 分桶，
+        // 每桶用该商/该模型现算查询向量（桶内自比较，余弦有效）；legacy 分片（无商字段）跟随激活商 = 原行为
+        const getVectorMemoryBucketKey = (memory) => `${memory.embeddingProvider || ''}\u0000${memory.embeddingModel || ''}`;
+        const buildVectorMemoryBuckets = (vectorMemories) => {
+            const buckets = new Map();
+            vectorMemories.forEach(memory => {
+                const key = getVectorMemoryBucketKey(memory);
+                if (!buckets.has(key)) buckets.set(key, []);
+                buckets.get(key).push(memory);
+            });
+            return buckets;
+        };
+        const getBucketEmbeddingRef = (memory) => {
+            const providerId = memory.embeddingProvider || '';
+            const model = memory.embeddingModel || '';
+            if (!model) return '';
+            return providerId ? `${providerId}::${model}` : model;
+        };
+        const compareVectorScores = (a, b) => {
+            const scoreDiff = b.vectorScore - a.vectorScore;
+            if (Math.abs(scoreDiff) > 0.0001) return scoreDiff;
+            return (b.memory.turn || 0) - (a.memory.turn || 0);
+        };
+
         const selectVectorMemoriesForContext = async (signal, options = {}) => {
             const excludedTurns = options.excludedTurns instanceof Set
                 ? options.excludedTurns
@@ -6211,9 +6510,22 @@ const app = createApp({
             if (!queryText) return [];
 
             try {
-                const [queryVector] = await requestMemoryEmbeddings([queryText], signal);
-                if (signal?.aborted || !isEmbeddingLike(queryVector)) return [];
-                const scoredMemories = await scoreVectorMemories(vectorMemories, queryVector, queryTerms, signal);
+                const buckets = buildVectorMemoryBuckets(vectorMemories);
+                const scoredMemories = [];
+                for (const [bucketKey, bucketMemories] of buckets.entries()) {
+                    if (signal?.aborted) return [];
+                    const embeddingRef = getBucketEmbeddingRef(bucketMemories[0]);
+                    try {
+                        const [queryVector] = await requestMemoryEmbeddings([queryText], signal, embeddingRef);
+                        if (signal?.aborted || !isEmbeddingLike(queryVector)) continue;
+                        scoredMemories.push(...await scoreVectorMemories(bucketMemories, queryVector, queryTerms, signal));
+                    } catch (err) {
+                        if (err.name === 'AbortError') throw err;
+                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
+                    }
+                }
+                if (signal?.aborted) return [];
+                scoredMemories.sort(compareVectorScores);
 
                 const selected = [];
                 const seen = new Set();
@@ -6268,21 +6580,35 @@ const app = createApp({
             );
 
             try {
-                const [queryVector] = await requestMemoryEmbeddings([`用户：${query}`], searchAbort.signal);
-                if (!isCurrentSearch()) return;
+                const buckets = buildVectorMemoryBuckets(vectorMemories);
                 const scoredMemories = [];
-                for (let i = 0; i < vectorMemories.length; i++) {
+                for (const [bucketKey, bucketMemories] of buckets.entries()) {
                     if (!isCurrentSearch()) {
                         const abortErr = new Error('Aborted');
                         abortErr.name = 'AbortError';
                         throw abortErr;
                     }
-                    const memory = vectorMemories[i];
-                    const vectorSearchScore = cosineSimilarity(queryVector, memory.embedding);
-                    if (Number.isFinite(vectorSearchScore) && vectorSearchScore > -1 && passesMemorySimilarityThreshold(vectorSearchScore)) {
-                        scoredMemories.push({ memory, vectorSearchScore });
+                    const embeddingRef = getBucketEmbeddingRef(bucketMemories[0]);
+                    try {
+                        const [queryVector] = await requestMemoryEmbeddings([`用户：${query}`], searchAbort.signal, embeddingRef);
+                        if (!isEmbeddingLike(queryVector)) continue;
+                        for (let i = 0; i < bucketMemories.length; i++) {
+                            if (!isCurrentSearch()) {
+                                const abortErr = new Error('Aborted');
+                                abortErr.name = 'AbortError';
+                                throw abortErr;
+                            }
+                            const memory = bucketMemories[i];
+                            const vectorSearchScore = cosineSimilarity(queryVector, memory.embedding);
+                            if (Number.isFinite(vectorSearchScore) && vectorSearchScore > -1 && passesMemorySimilarityThreshold(vectorSearchScore)) {
+                                scoredMemories.push({ memory, vectorSearchScore });
+                            }
+                            if (i > 0 && i % 512 === 0) await yieldToBrowser();
+                        }
+                    } catch (err) {
+                        if (err.name === 'AbortError') throw err;
+                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
                     }
-                    if (i > 0 && i % 512 === 0) await yieldToBrowser();
                 }
                 if (!isCurrentSearch()) return;
                 vectorMemorySearchResults.value = scoredMemories
@@ -9420,7 +9746,11 @@ const app = createApp({
             }
 
             if (settings.autoFetchModels) {
-                fetchModels();
+                // [LuzzyRP patch 012] 启动仅拉取激活商模型，其余已配置商在选择器打开时惰性补拉
+                const activeProvider = getApiProviderById(settings.apiProviderId);
+                if (isProviderConfigured(activeProvider)) {
+                    fetchModelsForProvider(activeProvider).catch(() => { });
+                }
             }
 
             // Initial Status Check
@@ -9658,7 +9988,7 @@ const app = createApp({
         return {
             switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
             processMainContent, replaceUserNamePlaceholder,
-            currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
+            currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor, showAppearancePanel,
             showActiveToolEditor,
             showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
             showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
@@ -9680,8 +10010,8 @@ const app = createApp({
             showCharacterExportModal, openCharacterExportModal, confirmCharacterExport, // Character Export Modal
             updateModalRef, latestUpdateConfig,
             showConfirmModal, confirmMessage, modelMode, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
-            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters,
-            user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
+            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
+            user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
             isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,

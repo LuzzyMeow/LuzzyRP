@@ -307,6 +307,95 @@
 }
 
 /* ============================================================
+ * 思考卡片 · 全卡雾纸玻璃（v1.1.0 · 三方向硬门用户选定「全卡雾纸玻璃」）
+ * 上游 .cot-ui 系为纯白实底 + is-open 蓝调；此处整卡半透磨砂化，
+ * 流式（.is-live）自动降级近实底规避逐帧重排的 GPU 代价。
+ * 破上游移动端 kill-switch（styles.css `* { backdrop-filter:none !important }`）
+ * 沿用既定手段：:root[data-theme] 前缀 + !important 更高特异性。
+ * ============================================================ */
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card {
+    background-color: rgba(var(--tw-gray-100) / 0.86) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.15) !important;
+    backdrop-filter: blur(16px) saturate(1.15) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.8) !important;
+    box-shadow: 0 1px 2px rgba(var(--tw-gray-900) / 0.04), 0 8px 24px rgba(var(--tw-gray-900) / 0.05) !important;
+    transition:
+        background-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+        border-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+        box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* 展开态：上游蓝 border/shadow → 暖发丝线 + 暖阴影 */
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-open {
+    background-color: rgba(var(--tw-gray-100) / 0.88) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.9) !important;
+    box-shadow: 0 2px 6px rgba(var(--tw-gray-900) / 0.05), 0 12px 32px rgba(var(--tw-gray-900) / 0.07) !important;
+}
+
+/* 头部：半透暖面（上游白底 / is-open 蓝底） */
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card .cot-header {
+    background-color: transparent !important;
+}
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card .cot-header:hover {
+    background-color: rgba(var(--tw-gray-200) / 0.5) !important;
+}
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-open .cot-header {
+    background-color: rgba(var(--tw-gray-200) / 0.45) !important;
+    color: rgb(var(--tw-gray-800)) !important;
+}
+
+/* 卡内步骤详情面板（上游 bg-gray-50 实底）：半透化让整卡玻璃透出 */
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card .bg-gray-50 {
+    background-color: rgba(var(--tw-gray-50) / 0.55) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.55) !important;
+}
+
+/* 流式生成中：alpha 提至近实底 + 模糊收窄；珊瑚描边点缀（--tw-primary-500） */
+:root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-live {
+    background-color: rgba(var(--tw-gray-100) / 0.96) !important;
+    -webkit-backdrop-filter: blur(6px) saturate(1.05) !important;
+    backdrop-filter: blur(6px) saturate(1.05) !important;
+    border-color: rgba(var(--tw-primary-500) / 0.45) !important;
+    box-shadow: 0 0 0 1px rgba(var(--tw-primary-500) / 0.12), 0 4px 16px rgba(var(--tw-primary-600) / 0.10) !important;
+}
+
+/* 暗色：tint 换 gray-200 基底（与输入岛同族色），头部/详情随之调整 */
+:root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card {
+    background-color: rgba(var(--tw-gray-200) / 0.86) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-open {
+    background-color: rgba(var(--tw-gray-200) / 0.88) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card .cot-header:hover {
+    background-color: rgba(var(--tw-gray-300) / 0.45) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-open .cot-header {
+    background-color: rgba(var(--tw-gray-300) / 0.40) !important;
+    color: rgb(var(--tw-gray-900)) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card .bg-gray-50 {
+    background-color: rgba(var(--tw-gray-100) / 0.5) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.5) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-live {
+    background-color: rgba(var(--tw-gray-200) / 0.96) !important;
+}
+
+/* 降级：不支持 backdrop-filter → 雾纸实底（与既有 Frost-Paper 降级同配方） */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root[data-theme="luzzy"] .cot-ui.native-thinking-card,
+    :root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-open,
+    :root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-live {
+        background-color: #F5F0E8 !important;
+    }
+    :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card,
+    :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-open,
+    :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-live {
+        background-color: #2B2824 !important;
+    }
+}
+
+/* ============================================================
  * 动效（DESIGN.md Motion：进入 200ms / 退出 140ms / ease-out）
  * ============================================================ */
 :root[data-theme="luzzy"] body {

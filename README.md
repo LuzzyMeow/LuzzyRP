@@ -20,7 +20,7 @@
 > - 修改范围：安卓壳封装、资源离线化、品牌化、独立扩展层（详见 [CHANGELOG](CHANGELOG.md)）；
 > - 上游原 LICENSE 文件保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布。
 
-![Status](https://img.shields.io/badge/Status-v1.0.0--正式版·可游玩-10B981)
+![Status](https://img.shields.io/badge/Status-v1.1.0--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.8.9-4FC08D?logo=vue.js&logoColor=white)
@@ -150,6 +150,7 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 
 | LuzzyRP 版本 | 上游基线 | 说明 |
 |--------------|---------|------|
+| v1.1.0（正式版） | RP-Hub 1.8.9 | 多模型商混用（供应商管理器 + `[商名]` 徽标 + 跨商模型列表/请求解析/记忆双模式）+ 思考卡全卡雾纸玻璃 + 外观独立面板（真机验证，附 APK） |
 | v1.0.0（正式版） | RP-Hub 1.8.9 | 重建落地：主题「暖幕手记 × Claude」+ 雾纸玻璃层 + 字体系统 + 二创壳全链路（真机验证，附 APK） |
 | v1.0.0-rc3 | RP-Hub 1.8.9 | 雾纸玻璃层 Frost-Paper（液态玻璃方向板三选一，chrome 磨砂 + 气泡纸感）+ 上游 ！important 白面暗色收编 |
 | v1.0.0-rc2 | RP-Hub 1.8.9 | 主题系统「暖幕手记 × Claude」+ 字体系统 + 暗色修复（模拟器+真机验证） |
@@ -239,8 +240,8 @@ LuzzyRP/
 | 版本 | 内容 | 附 APK |
 |------|------|--------|
 | v1.0.0 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 主题/字体/雾纸玻璃系统 + 同步机制（✅ 已发布，附 APK） | ✓（稳定版） |
-| v1.1.0 | 扩展功能第一批（候选：原生设置页、深链、自建更新检查） | ✓ |
-| v1.2.0+ | 跟随上游节奏迭代 + 独立功能持续扩展 | 按稳定版 |
+| v1.1.0 | 扩展功能第一批：多模型商混用（供应商管理器 / `[商名]` 来源徽标 / 跨商请求解析 / 记忆双模式跨商）+ 思考卡全卡雾纸玻璃 + 外观独立面板（✅ 已发布，附 APK） | ✓（稳定版） |
+| v1.2.0+ | 跟随上游节奏迭代 + 独立功能持续扩展（候选遗留：indigo/blue 硬编码色主题化、「荧光笔落笔」招牌动效、深链、自建更新检查） | 按稳定版 |
 
 版本号独立于上游（LuzzyRP v1.0.0 基于 RP-Hub 1.8.9），CHANGELOG 每条记录注明上游基线版本。
 

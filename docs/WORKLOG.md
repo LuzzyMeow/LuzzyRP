@@ -610,3 +610,45 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 ### 会话 10 追记 2：v1.0.0 正式版发布
 - **发布**：versionCode 1→5（衔接 v0.3.0 的 4，避免覆盖安装降级拦截）· assembleRelease 通过（luzzy 签名 + R8 + ABI 三件套 17.1MB）· 模拟器发布包 smoke（首启公告→欢迎向导→新用户默认主题/字体全通过）· CHANGELOG/README 定稿 · 提交 5c7cf43c · **GitHub Release v1.0.0 已发布并附三件套 APK**（stable，非 prerelease）：https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.0.0
 - **遗留顺延**：手机上仍为 debug 包（release 与 debug 签名不同不能覆盖装，卸载 debug 会清用户数据——留给用户决定）；indigo/blue 硬编码点缀与「荧光笔落笔」动效在 v1.1.0 候选。
+
+---
+
+## 2026-09-02 · 会话 11：v1.1.0 增量更新（多模型商混用 + 思考卡雾纸玻璃 + 外观独立面板）【进行中】
+
+### 开始
+- 任务：①多模型商（provider）混用模型——设置页/聊天页以 `[商名]` 前缀区分同名模型、记忆双模式支持跨商嵌入/总结模型、含供应商管理器（用户选定方案）；②聊天页思考卡片液态玻璃（三方向硬门已过，用户选定**全卡雾纸玻璃**）；③主题/字体设置独立为侧边栏「外观」入口 + 模态弹层。
+- 设计 SKILL 强制条款：4 项 SKILL 主文档已复核（huashu-design / awesome-design-md / open-design / ui-ux-pro-max）。
+- 详细计划已落盘 `docs/PLAN-v1.1.0.md`。
+
+### 会话 11 完成 · v1.1.0 发布
+
+**完成**
+1. **多模型商混用（patch 012）**：模型引用体系 `providerId::bareId`（裸 id=跟随激活商，老数据零迁移）+ `parseModelRef/formatModelRef/resolveModelRequest` 解析层；供应商管理器（`settings.apiProviders` 任意用户商 + 每商「检测」+ custom/custom2 一次性迁移）；跨商合并模型列表（`providerModels` 按商缓存 + 合并视图条目带 bareId/providerName，启动仅拉激活商、选择器惰性补拉、手动刷新拉全部）；请求点全接入（主聊天/识图/UI模板/记忆总结/记忆嵌入）；`usesThinkingCotTag` 取 bareId 防商名误判；向量检索按 (provider, model) 分桶现算查询向量、legacy 分片跟随激活商、新分片记 `embeddingProvider`；用量记录加 provider；iframe 同步载荷剥前缀；工坊激活商为用户商时映射 custom 槽位。涉及 app.js / ui-components.js / index.html，`node --check` 通过。
+2. **思考卡片全卡雾纸玻璃**（luzzy-theme.css 追加，零 patch）：整卡 `gray-100/.86`+blur16 saturate1.15（暗 gray-200），发丝线，is-open 暖阴影，头部半透，卡内 bg-gray-50 半透化；`.is-live` 降级 .96+blur6+珊瑚描边；`@supports` 实底兜底；`:root[data-theme]`+`!important` 破移动端 kill-switch。
+3. **外观独立面板（patch 013）**：AppSidebar「外观」按钮（emit open-appearance）+ 模态面板（主题/模式/字体/对话字号，绑定既有 settings 复用 watch+deep-watch+系统栏联动）+ 设置页主题卡改入口卡。
+4. **发布链**：EXTRACT_VERSION 4→5 · versionCode 6 / versionName 1.1.0 · CHANGELOG/README（版本表+状态徽标）· patches README 登记 012/013、011 升 v3 说明 · DESIGN.md 新增「外观面板与模型商徽标」章 + Glass 章思考卡配方 · assembleRelease 通过（三件套 ~17.9MB）。
+
+**验证（真机小米 25098PN5AC / Android 16，CDP + adb screencap）**
+- 启动健康：mounted ✓ body #FAF9F5 ✓ luzzy/light ✓ 控制台仅已知 tailwind CDN 警告；
+- 玻璃四态 computed 全命中：亮 is-open rgba(245,240,232,.88)+blur16 / 暗 is-open rgba(43,40,36,.88)+blur16 / 暗 is-live rgba(43,40,36,.96)+blur6+珊瑚边 rgba(217,119,87,.45)；条纹探针证照磨砂生效；
+- 外观面板：雾纸弹窗自动接管（.88+blur16），四项设置回显用户现值；
+- 供应商管理器：4 内置商「当前/检测/设为当前/配置点」渲染正确，「检测」端到端 ✓（patch fetch 返回 5 模型 →「✓ 5 个模型」）；
+- 模型选择器：跨商合并列表 `[DeepSeek]`/`[STA1N API]` 珊瑚 chip 徽标并列展示，族谱计数按 bareId，槽位显示复合引用格式；
+- 验证后现场已完全恢复（fetch unpatch、探针 key 清除、mode=light、探针节点移除）；证照 `docs/design/verify-v110-*.png` ×6。
+
+**决策**
+1. 复合引用分隔符取首个 `::`（商 id 无冒号，openrouter 模型 id 单 `:` 不冲突）；裸 id 语义=跟随激活商，避免全量迁移；
+2. 老用户 custom/custom2 迁移后**原字段保留**（工坊协议仍读），靠 `apiProvidersMigrated` 标记一次性导入；
+3. `userApiProviders` computed 返回原始响应式条目（拷贝会导致管理弹窗 v-model 不写回，开发中已修）；
+4. 向量检索分桶而非批量重嵌入：切换嵌入商不触发全量 API 费用；桶间分数直接混排（跨嵌入空间比较属固有限制，词面 boost 部分补偿）；
+5. 验证用临时 fetch patch + 探针 key 的方式取得端到端证据，结束后全部还原（用户无感）。
+
+**遗留**
+- 真机端到端对话级验证（用户实际配 ≥2 商 key 跨商对话）由用户日常使用覆盖；
+- 向量分桶在多商混合场景的检索质量待实际语料评估；
+- AGENTS.md §9 待办顺延：SAF 文件桥实机、推广外链清理、上游同步演练、indigo/blue 主题化、荧光笔动效（v1.2.0 候选）。
+
+**下一步**
+1. 用户真机体验反馈微调；
+2. GitHub Release v1.1.0（本会话收尾发布）；
+3. 上游同步演练（sync-upstream.ps1 假发版模拟）。

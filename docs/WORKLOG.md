@@ -596,3 +596,13 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 ### 工具坑（复用价值）
 - Git Bash 会把 `/data/...` 参数改写为 `C:/Program Files/Git/data/...`——`adb push` 到设备路径必须 `MSYS_NO_PATHCONV=1`（本次 push 静默失败导致 md5 不一致的排障教训）。
 - 模拟器 AVD 的系统 WebView 可能远旧于真机（本机 124 vs 真机 14x）：WebView 行为验证不能只信模拟器。
+
+
+### 会话 10 追记：真机验证通过 + 模拟器诊断改判
+
+- **装机**：小米 25098PN5AC（Android 16 / WebView **150.0.7871.47**）`install -r` 保数据；`.extracted_v4` 标记确认；用户原 light 设置沿用，老用户 tint/字体全部命中。
+- **🔴 根因改判（重要）**：追记前文「模拟器旧版 WebView 不渲染 backdrop-filter」**结论错误**。真凶是上游 styles.css 移动端媒体查询的全局 kill-switch：`* { backdrop-filter: none !important }`（上游为性能主动关闭移动端磨砂——上游自己的 glass 类在手机上从未模糊过）。它同时解释模拟器与真机的全部怪象（inline 都失效、supports=true、视觉无模糊）。WebView 版本无关。
+- **修复**：luzzy-theme.css 对 chrome 表面（.backdrop-blur-xl 持有者 / .app-sidebar / 模态面板）以 `:root[data-theme]` 前缀 + `!important` 更高特异性精准放行 blur(16px)；其余表面维持上游省电策略。真机 CDP 复测：顶栏/输入岛 `blur: blur(16px)` ✅。
+- **视觉实证**：条幅探针垫入输入岛玻璃后方 → 系统级 `adb shell screencap` 截图 → 玻璃后条纹明显磨砂化（玻璃外锐利、玻璃内柔化），亮暗双证 `docs/design/verify-frost-phone-{light,dark}.png`；验证后已清理测试元素并恢复 light。
+- **新坑**：CDP `Page.captureScreenshot` 在页面有激活 backdrop-filter 时永久挂起（合成读回互锁，两台设备均复现）——有 blur 的页面截图必须走 `adb shell screencap`。
+- **小坑**：小米 Android 16 已限制 shell 注入按键（`input keyevent` 抛 SecurityException）——亮屏改用 `am start` 拉起 Activity 顺带唤醒（本次有效）+ `svc power stayon true`。

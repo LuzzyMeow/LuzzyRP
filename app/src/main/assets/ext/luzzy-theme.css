@@ -145,10 +145,13 @@
  * 中端机 GPU 代价同步下降）。@supports 不支持时降级实底。
  * ============================================================ */
 
-/* blur 校准：backdrop-blur-xl 24px → 16px（雾纸配方） */
+/* blur 校准：backdrop-blur-xl 24px → 16px（雾纸配方）。
+   ⚠ 上游 styles.css 移动端媒体查询有全局 kill-switch：
+   * { backdrop-filter: none !important }——主题侧必须以更高特异性 !important
+   才能在 chrome 表面重新放行（作者级 important 碾压内联与普通声明）。 */
 :root[data-theme="luzzy"] .backdrop-blur-xl {
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px) !important;
+    backdrop-filter: blur(16px) !important;
 }
 
 /* chrome 半透白面 → 雾纸 tint（亮 cream / 暗 暖纸），alpha 收至 .86；
@@ -170,8 +173,8 @@
 
 /* 侧栏（移动端抽屉悬浮于对话之上）：补雾纸 blur；桌面 static 无物可糊，无副作用 */
 :root[data-theme="luzzy"] .app-sidebar {
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px) !important;
+    backdrop-filter: blur(16px) !important;
 }
 
 /* chrome 发丝线：border-gray-100/80 在雾纸上不可见 → hairline（仅限玻璃面自携） */
@@ -191,13 +194,13 @@
 /* 模态面板（modal-shell 直子面板 bg-white）→ 雾纸弹窗（悬浮磨砂卡） */
 :root[data-theme="luzzy"][data-mode="light"] .fixed.inset-0 > .bg-white {
     background-color: rgba(250, 249, 245, 0.88) !important;
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px) !important;
+    backdrop-filter: blur(16px) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .fixed.inset-0 > .bg-white {
     background-color: rgba(32, 30, 27, 0.88) !important;
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px) !important;
+    backdrop-filter: blur(16px) !important;
 }
 
 /* 聊天气泡回归纸感：不透明纸面 + 去 blur（与雾纸方向一致，GPU 同步减负） */

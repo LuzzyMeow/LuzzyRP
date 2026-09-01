@@ -128,6 +128,14 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 
 - **枚举而非通配**：只接管 `bg-white/50` `-60` `-70` `-90` `-95`；`/20` `/40` 是照片上的
   白 chip（白字语义），保持上游值——通配 `[class*="bg-white/"]` 会打碎图片浮层对比度；
+- **上游 kill-switch（关键工程约束）**：styles.css 移动端媒体查询内有
+  `* { backdrop-filter: none !important }`（上游为性能全局关闭移动端磨砂，手机上上游自己的
+  glass 也因此从未模糊过）。雾纸层以 `:root[data-theme]` 前缀 + `!important` 更高特异性
+  **仅对 chrome 表面放行 blur**（backdrop-blur-xl 持有者 / `.app-sidebar` / 模态面板），
+  其余表面维持上游省电策略；真机（小米 25098PN5AC / WebView 150）实测磨砂渲染生效
+  （条幅探针证照 `docs/design/verify-frost-phone-{light,dark}.png`）；
+  ⚠ CDP `captureScreenshot` 在页面有激活 backdrop-filter 时会挂起——真机截图走
+  `adb shell screencap`；
 - 照片浮层 chip（`bg-white/20` + `backdrop-blur-md` + 白字）不属雾纸体系，不改；
 - 暗色实底 `.bg-white`（非模态按钮/白卡）→ `#2B2824`，维持不变；
 - 实现全部落 `luzzy-theme.css`（规定 3），零新 patch。

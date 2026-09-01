@@ -14,10 +14,11 @@
 **修复**
 - rc2 暗色死角：上游 styles.css 在移动端媒体查询内以 `!important` 写死一批白面（`.input-island` 输入岛、`.typing-bubble`、`.msg-name-tag`、`.typing-timer-badge`、`.toast-item`、`.desc-panel`、`.wi-footer`），暗色下仍呈白色——主题层以同等级 `!important` + 更高特异性成建制收编（CDP 实证 `.input-island` 由白 0.9 → 暖纸 0.88）。
 - 抽屉遮罩由上游 slate 冷蓝改为墨色暖黑（亮暗通用）。
+- **上游移动端 backdrop-filter 全局 kill-switch**（`* { backdrop-filter: none !important }`）导致手机上从未有过磨砂——雾纸层以更高特异性 `!important` 仅对 chrome 表面精准放行；真机（小米 25098PN5AC / WebView 150）实测磨砂渲染生效（条幅探针证照 `docs/design/verify-frost-phone-{light,dark}.png`）。
 
 **注意事项**
-- 模拟器旧版 WebView（Chromium 124）**不渲染 backdrop-filter**（`CSS.supports()` 返回 true 但合成器静默跳过，视觉探针实证）——雾纸层 alpha ≥.85 自带近实底兜底，降级视觉连续；真机（新 WebView）磨砂效果待实机复验。
 - `EXTRACT_VERSION` 2→4（assets 变更触发重新解压，IndexedDB 用户数据不受影响）。
+- CDP `captureScreenshot` 在页面有激活 backdrop-filter 时会挂起（Chromium 合成读回互锁）——真机视觉验证走 `adb shell screencap`。
 
 **构建**：`assembleDebug` 通过（universal 42,750,291 字节 ≈ 40.8MB）；versionCode 1（debug 后缀）。
 

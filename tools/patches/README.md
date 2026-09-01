@@ -47,10 +47,10 @@
 #   - 预期冲突点：上游改子页面依赖时需重打
 #
 # ------------------------------------------------------------
-# 008-theme-vars.patch（v2，2026-09-01 重做）
-#   - index.html tailwind.config: gray/primary 色板 hex → var(--tw-gray-*)/var(--tw-primary-*)
+# 008-theme-vars.patch（v3，2026-09-01 暗色修复）
+#   - index.html tailwind.config: gray/primary 色板 → rgb(var(--tw-*) / <alpha-value>)（RGB 三元组）
 #   - 对应：DESIGN.md 主题技术契约；变量定义在 ext/luzzy-theme.css（classic=原版值兜底）
-#   - 实证：Tailwind Play CDN JIT 接受 var() 色值并正常生成工具类（jsdom 复现）
+#   - v3 动因：v2 纯 var() 下带透明度修饰符的工具类（bg-gray-50/60 等）被 JIT 回退纯白（暗色白块根因）；三元组 + <alpha-value> 使 alpha 由 JIT 自动注入
 #   - 预期冲突点：上游改色板结构/新增色阶时需重打
 #
 # 009-font-options.patch（v2，2026-09-01 重做）

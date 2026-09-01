@@ -525,3 +525,30 @@
 - 用户真机体验新主题 → 反馈微调（色板/字体/动效均可按 DESIGN.md token 快速调）。
 - 决定是否扩展上游硬编码色的主题化（indigo/pink → coral 系）。
 - v1.0.0 正式发布流程（assembleRelease + CHANGELOG 定稿 + GitHub Release）。
+
+### 会话 9 追记：暗色模式修复（用户反馈「暗色有点难看，对比度没调好」）
+
+**诊断（CDP 实测）**——用户直觉正确，且根因比对比度更深：
+1. **机制缺陷（主因）**：v2 纯 `var()` 色板下，Tailwind JIT 无法给带透明度修饰符的工具类
+   （`bg-gray-50/60`、`border-gray-100/80` 等）注入 alpha，**回退输出纯白**——暗色下输入框/
+   设置输入框/分段滑块发白全是这个根因（jsdom 早期 B 场景已见端倪：alpha 变体丢失）。
+2. **层次不足**：画布 #181715 与卡片 #252320 仅差 3.5% 亮度，界面糊成一片死黑。
+3. **文字对比不达标**：text-gray-500 = #6E6B64 实测 3.95:1（<4.5）；text-gray-400 = #4A4842 仅 2:1。
+4. **上游写死白**：styles.css `.segmented-switch__indicator { background:#fff }`。
+
+**修复（patch 008 升 v3 + 暗色板重调）**：
+- 色板改 **RGB 三元组** + config `rgb(var(--tw-*) / <alpha-value>)`（Tailwind 官方模式）——
+  透明度变体由 JIT 自动注入 alpha，机制性消除白块回退；classic/亮/暗三套变量全部改三元组。
+- 暗色板重调（保持 Claude 暖黑）：canvas #171614 / surface-soft #201E1B / card #2B2824（层次
+  拉开）/ hairline #3E3A34（暗下可见）/ 图标 #6B675F（3.3:1）/ 弱文字 #8A867D（4.98:1）/ 次级
+  #A5A198（6.8:1）/ 正文 #DED9CF（12:1）。
+- segmented 白滑块暗色覆盖 + bg-white 校准值随新板同步（#2B2824 系）。
+- DESIGN.md 暗色 token 表与技术契约同步；patches/README 008 条目更新 v3。
+
+**复验（CDP 数据面，pm clear 全新路径）**：暗色画布 #171614、卡片 #2B2824、输入岛
+rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白残留 = 0**（全 DOM 扫描）、
+次级文字对比 4.98:1；亮色不受影响（#FAF9F5 + alpha 变体 rgba(250,249,245,.8)）。
+截图：docs/design/verify-v3-{light,dark}.png。
+
+**经验**：var() 色板必须用三元组 + <alpha-value> 形式；纯 var() 会静默损坏全部透明度工具类
+（不报错、仅回退白色，CDP 全 DOM 扫描才能抓到）。

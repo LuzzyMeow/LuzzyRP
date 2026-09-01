@@ -3,17 +3,17 @@
  *
  * 只定义 CSS 变量与追加规则，禁止修改上游 assets/css/styles.css。
  *
+ * [变量格式 v3] RGB 三元组（如 `250 249 245`），tailwind.config 以
+ *   `rgb(var(--tw-gray-50) / <alpha-value>)` 引用——透明度修饰符
+ *   （bg-gray-50/60 等）由 JIT 自动注入 alpha。v2 的纯 var() 方案会让
+ *   带 alpha 的工具类被 JIT 回退成纯白（暗色下白块刺眼的根因）。
+ *
  * [主题系统] data-theme / data-mode 双属性驱动（<html> 上，app.js watch 设置）：
  *   :root, :root[data-theme="classic"]              → 经典 = 上游原版色值
  *   :root[data-theme="luzzy"][data-mode="light"]    → 暖幕手记 · 亮（Claude token 体系）
  *   :root[data-theme="luzzy"][data-mode="dark"]     → 暖幕手记 · 暗（色阶反转）
  *
- * [字体设置] data-app-font 驱动：
- *   luzzy（默认）= AlibabaSans（拉丁）+ Alibaba PuHuiTi 3.0（中文）
- *   modern（经典）/ serif（经典衬线）/ system 保持上游语义
- * 本地 @font-face 在 assets/css/local-fonts.css（index.html 头部引用）。
- *
- * 同步上游后若 --app-font-* 变量名变化，本文件需同步调整。
+ * [字体设置] data-app-font 驱动；本地 @font-face 在 assets/css/local-fonts.css。
  */
 
 /* ============================================================
@@ -41,31 +41,31 @@
 }
 
 /* ============================================================
- * 经典主题变量（= 上游 tailwind.config 原值；patch 008v2 色板 var() 化的默认兜底）
+ * 经典主题变量（= 上游 tailwind.config 原值的 RGB 三元组）
  * ============================================================ */
 :root,
 :root[data-theme="classic"] {
-    --tw-gray-50: #f9fafb;
-    --tw-gray-100: #f3f4f6;
-    --tw-gray-200: #e5e7eb;
-    --tw-gray-300: #d1d5db;
-    --tw-gray-400: #9ca3af;
-    --tw-gray-500: #6b7280;
-    --tw-gray-600: #4b5563;
-    --tw-gray-700: #374151;
-    --tw-gray-800: #1f2937;
-    --tw-gray-900: #111827;
+    --tw-gray-50: 249 250 251;   /* #f9fafb */
+    --tw-gray-100: 243 244 246;  /* #f3f4f6 */
+    --tw-gray-200: 229 231 235;  /* #e5e7eb */
+    --tw-gray-300: 209 213 219;  /* #d1d5db */
+    --tw-gray-400: 156 163 175;  /* #9ca3af */
+    --tw-gray-500: 107 114 128;  /* #6b7280 */
+    --tw-gray-600: 75 85 99;     /* #4b5563 */
+    --tw-gray-700: 55 65 81;     /* #374151 */
+    --tw-gray-800: 31 41 55;     /* #1f2937 */
+    --tw-gray-900: 17 24 39;     /* #111827 */
 
-    --tw-primary-50: #eff6ff;
-    --tw-primary-100: #dbeafe;
-    --tw-primary-200: #bfdbfe;
-    --tw-primary-300: #93c5fd;
-    --tw-primary-400: #60a5fa;
-    --tw-primary-500: #3b82f6;
-    --tw-primary-600: #2563eb;
-    --tw-primary-700: #1d4ed8;
-    --tw-primary-800: #1e40af;
-    --tw-primary-900: #1e3a8a;
+    --tw-primary-50: 239 246 255;  /* #eff6ff */
+    --tw-primary-100: 219 234 254; /* #dbeafe */
+    --tw-primary-200: 191 219 254; /* #bfdbfe */
+    --tw-primary-300: 147 197 253; /* #93c5fd */
+    --tw-primary-400: 96 165 250;  /* #60a5fa */
+    --tw-primary-500: 59 130 246;  /* #3b82f6 */
+    --tw-primary-600: 37 99 235;   /* #2563eb */
+    --tw-primary-700: 29 78 216;   /* #1d4ed8 */
+    --tw-primary-800: 30 64 175;   /* #1e40af */
+    --tw-primary-900: 30 58 138;   /* #1e3a8a */
 }
 
 /* ============================================================
@@ -73,55 +73,59 @@
  * gray 50 浅 → 900 深；primary = 珊瑚陶土系（Claude coral）
  * ============================================================ */
 :root[data-theme="luzzy"][data-mode="light"] {
-    --tw-gray-50: #FAF9F5;   /* canvas · tinted cream 画布 */
-    --tw-gray-100: #F5F0E8;  /* surface-soft 次级表面 */
-    --tw-gray-200: #EFE9DE;  /* surface-card 卡片表面 */
-    --tw-gray-300: #E6DFD8;  /* hairline 发丝线 */
-    --tw-gray-400: #BEB6A8;  /* hairline-strong 强描边/禁用 */
-    --tw-gray-500: #8E8B82;  /* muted-soft 弱文字 */
-    --tw-gray-600: #6C6A64;  /* muted 次级文字（4.9:1） */
-    --tw-gray-700: #52504A;  /* 强调次级 */
-    --tw-gray-800: #3D3A36;  /* body 正文（9.3:1） */
-    --tw-gray-900: #141413;  /* ink 主文字（16:1） */
+    --tw-gray-50: 250 249 245;   /* #FAF9F5 canvas · tinted cream 画布 */
+    --tw-gray-100: 245 240 232;  /* #F5F0E8 surface-soft 次级表面 */
+    --tw-gray-200: 239 233 222;  /* #EFE9DE surface-card 卡片表面 */
+    --tw-gray-300: 230 223 216;  /* #E6DFD8 hairline 发丝线 */
+    --tw-gray-400: 190 182 168;  /* #BEB6A8 hairline-strong 强描边/禁用 */
+    --tw-gray-500: 142 139 130;  /* #8E8B82 muted-soft 弱文字 */
+    --tw-gray-600: 108 106 100;  /* #6C6A64 muted 次级文字（4.9:1） */
+    --tw-gray-700: 82 80 74;     /* #52504A 强调次级 */
+    --tw-gray-800: 61 58 54;     /* #3D3A36 body 正文（9.3:1） */
+    --tw-gray-900: 20 20 19;     /* #141413 ink 主文字（16:1） */
 
-    --tw-primary-50: #FAF0EA;
-    --tw-primary-100: #F5E2D8;
-    --tw-primary-200: #EFCDBD;
-    --tw-primary-300: #E5B099;
-    --tw-primary-400: #DB9273;
-    --tw-primary-500: #CC785C;  /* Claude coral · 图形 accent/链接 */
-    --tw-primary-600: #A9583E;  /* 按钮底（白字 4.7:1） */
-    --tw-primary-700: #8F4732;
-    --tw-primary-800: #733626;
-    --tw-primary-900: #57281B;
+    --tw-primary-50: 250 240 234;  /* #FAF0EA */
+    --tw-primary-100: 245 226 216; /* #F5E2D8 */
+    --tw-primary-200: 239 205 189; /* #EFCDBD */
+    --tw-primary-300: 229 176 153; /* #E5B099 */
+    --tw-primary-400: 219 146 115; /* #DB9273 */
+    --tw-primary-500: 204 120 92;  /* #CC785C Claude coral · 图形 accent */
+    --tw-primary-600: 169 88 62;   /* #A9583E 按钮底（白字 4.7:1） */
+    --tw-primary-700: 143 71 50;   /* #8F4732 */
+    --tw-primary-800: 115 54 38;   /* #733626 */
+    --tw-primary-900: 87 40 27;    /* #57281B */
 }
 
 /* ============================================================
  * 暖幕手记 · 暗色（Claude 暗表面系；gray 色阶整体反转：
- * 50 最深 = 画布 → 900 最浅 = 主文字，上游工具类自动适配）
+ * 50 最深 = 画布 → 900 最浅 = 主文字）
+ *
+ * v3 层次重调（对比画布 #171614 实测）：
+ *   表面阶梯拉开（canvas 1.0% → card 1.9% 亮度），发丝线 gray-300
+ *   提亮至可见；弱文字/次级文字对比度 4.9:1 / 6.8:1（原 3.95 / —）。
  * ============================================================ */
 :root[data-theme="luzzy"][data-mode="dark"] {
-    --tw-gray-50: #181715;   /* surface-dark 画布 */
-    --tw-gray-100: #1F1E1B;  /* surface-dark-soft 次级表面 */
-    --tw-gray-200: #252320;  /* surface-dark-elevated 卡片 */
-    --tw-gray-300: #33312D;  /* 发丝线 */
-    --tw-gray-400: #4A4842;  /* 强描边 */
-    --tw-gray-500: #6E6B64;  /* 弱文字 */
-    --tw-gray-600: #8F8C84;  /* 次级文字（4.6:1） */
-    --tw-gray-700: #B5B1A8;  /* 强调次级 */
-    --tw-gray-800: #D8D4CB;  /* 正文（11:1） */
-    --tw-gray-900: #FAF9F5;  /* on-dark 主文字（15:1） */
+    --tw-gray-50: 23 22 20;      /* #171614 画布（surface-dark） */
+    --tw-gray-100: 32 30 27;     /* #201E1B surface-soft 次级表面 */
+    --tw-gray-200: 43 40 36;     /* #2B2824 surface-card 卡片（+层次） */
+    --tw-gray-300: 62 58 52;     /* #3E3A34 hairline 发丝线（暗下可见） */
+    --tw-gray-400: 107 103 95;   /* #6B675F 弱元素/图标（3.3:1 ≥3:1） */
+    --tw-gray-500: 138 134 125;  /* #8A867D 弱文字（4.9:1） */
+    --tw-gray-600: 165 161 152;  /* #A5A198 次级文字（6.8:1） */
+    --tw-gray-700: 196 191 181;  /* #C4BFB5 强调次级 */
+    --tw-gray-800: 222 217 207;  /* #DED9CF 正文（12:1） */
+    --tw-gray-900: 250 249 245;  /* #FAF9F5 on-dark 主文字（15:1） */
 
-    --tw-primary-50: #2A201B;   /* 暗底卡片 tint */
-    --tw-primary-100: #3A2A22;
-    --tw-primary-200: #4E362B;
-    --tw-primary-300: #6B4736;
-    --tw-primary-400: #8F5C42;
-    --tw-primary-500: #D97757;  /* 暗下提亮 coral · 图形 accent */
-    --tw-primary-600: #B85C3E;  /* 按钮底（白字 4.5:1） */
-    --tw-primary-700: #E0946F;  /* accent 文字亮化 */
-    --tw-primary-800: #EDB899;
-    --tw-primary-900: #F7DCC8;
+    --tw-primary-50: 46 33 25;     /* #2E2119 暗底卡片 tint */
+    --tw-primary-100: 61 44 34;    /* #3D2C22 */
+    --tw-primary-200: 81 58 44;    /* #513A2C */
+    --tw-primary-300: 110 75 56;   /* #6E4B38 */
+    --tw-primary-400: 154 98 68;   /* #9A6244 */
+    --tw-primary-500: 217 119 87;  /* #D97757 暗下提亮 coral · 图形 accent */
+    --tw-primary-600: 184 92 62;   /* #B85C3E 按钮底（白字 4.5:1） */
+    --tw-primary-700: 224 148 111; /* #E0946F accent 文字亮化 */
+    --tw-primary-800: 237 184 153; /* #EDB899 */
+    --tw-primary-900: 247 220 200; /* #F7DCC8 */
 }
 
 /* ============================================================
@@ -139,17 +143,22 @@
     background-color: rgba(250, 249, 245, 0.78);
 }
 :root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
-    background-color: rgba(37, 35, 32, 0.82);
+    background-color: rgba(43, 40, 36, 0.82);
 }
 
 /* 暗色下 bg-white 系（输入岛/工具钮/弹窗面）→ Claude 暗表面系，
    避免暗色画布上出现刺眼纯白块（亮色模式不干预，白=纸面语义）。
    !important：上游 glass/blur 组合带有更高优先级声明，主题覆盖层以此取胜。 */
 :root[data-theme="luzzy"][data-mode="dark"] .bg-white {
-    background-color: #252320 !important;
+    background-color: #2B2824 !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] [class*="bg-white/"] {
-    background-color: rgba(37, 35, 32, 0.72) !important;
+    background-color: rgba(43, 40, 36, 0.72) !important;
+}
+
+/* 上游 styles.css 写死的白色组件面（分段选择器滑块等）→ 暗面 */
+:root[data-theme="luzzy"][data-mode="dark"] .segmented-switch__indicator {
+    background: #3E3A34;
 }
 
 /* ============================================================

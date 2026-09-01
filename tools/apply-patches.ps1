@@ -168,26 +168,28 @@ foreach ($sub in $subPages) {
 }
 
 # ------------------------------------------------------------------
-# Patch 008 · 主题色板 var() 化 v2（tailwind.config gray/primary → var() 引用）
-# 对应：DESIGN.md 主题技术契约（已验证 Tailwind Play CDN JIT 接受 var() 色值）
+# Patch 008 · 主题色板 var() 化 v3（RGB 三元组 + <alpha-value>）
+# 对应：DESIGN.md 主题技术契约。v3：三元组格式使透明度修饰符
+#（bg-gray-50/60 等）由 JIT 自动注入 alpha——v2 纯 var() 会让带 alpha
+# 的工具类被 JIT 回退成纯白（暗色白块根因，jsdom+CDP 实证）。
 # 预期冲突点：上游改色板结构/新增色阶时需重打
 # ------------------------------------------------------------------
 $titleContent = [System.IO.File]::ReadAllText($titlePath)
-if ($titleContent -match 'var\(--tw-gray-50\)') {
+if ($titleContent -match '<alpha-value>') {
     Write-Host "[SKIP] 008-theme-vars (已应用)"
 } else {
-    if ($titleContent -match "50: '#f9fafb'") {
+    if ($titleContent -match "50: 'var\(--tw-gray-50\)'") {
         $keys = @(50, 100, 200, 300, 400, 500, 600, 700, 800, 900)
-        $grayHex = @('#f9fafb', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827')
-        $priHex = @('#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a')
         for ($i = 0; $i -lt 10; $i++) {
-            $titleContent = $titleContent.Replace("$($keys[$i]): '$($grayHex[$i])'", "$($keys[$i]): 'var(--tw-gray-$($keys[$i]))'")
-            $titleContent = $titleContent.Replace("$($keys[$i]): '$($priHex[$i])'", "$($keys[$i]): 'var(--tw-primary-$($keys[$i]))'")
+            $titleContent = $titleContent.Replace("'$($keys[$i])': 'var(--tw-gray-$($keys[$i]))'", "'$($keys[$i])': 'rgb(var(--tw-gray-$($keys[$i])) / <alpha-value>)'")
+            $titleContent = $titleContent.Replace("$($keys[$i]): 'var(--tw-gray-$($keys[$i]))'", "$($keys[$i]): 'rgb(var(--tw-gray-$($keys[$i])) / <alpha-value>)'")
+            $titleContent = $titleContent.Replace("'$($keys[$i])': 'var(--tw-primary-$($keys[$i]))'", "'$($keys[$i])': 'rgb(var(--tw-primary-$($keys[$i])) / <alpha-value>)'")
+            $titleContent = $titleContent.Replace("$($keys[$i]): 'var(--tw-primary-$($keys[$i]))'", "$($keys[$i]): 'rgb(var(--tw-primary-$($keys[$i])) / <alpha-value>)'")
         }
         [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "[ OK ] 008-theme-vars"
     } else {
-        Write-Host "[FAIL] 008-theme-vars: 未找到原色板，上游可能已改色板结构"
+        Write-Host "[FAIL] 008-theme-vars: 未找到 var() 色板，上游可能已改色板结构"
     }
 }
 

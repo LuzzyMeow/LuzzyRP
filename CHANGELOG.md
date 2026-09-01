@@ -14,7 +14,7 @@
 - **新主题「暖幕手记」**（C × Claude token 体系，DESIGN.md 真源重写）：亮色 = tinted cream 画布 #FAF9F5 + 暖表面三层（#F5F0E8/#EFE9DE/#E8E0D2）+ Claude coral #CC785C（图形）/ #A9583E（按钮，白字 4.7:1）+ ink #141413；暗色 = Claude 暗表面系（#181715/#1F1E1B/#252320）+ coral 提亮 #D97757，gray 色阶反转使上游全部工具类自动适配；名字标签走 Lora 衬线（剧作手记的文学声音）；正文对比度亮暗分别 ≥4.5:1。
 - **设置页主题卡重构**：「界面主题」卡——主题选择（暖幕手记/经典）+ 模式选择（亮/暗，仅 Luzzy 主题显示）+ 界面字体（附属设置并入主题卡）；新用户默认暖幕手记+亮色，老用户（savedSettings 无 theme 字段）迁移保留经典。
 - **字体选项改版**：上游内置字体改「经典」系命名——`经典（原版）`/`经典衬线（Lora）`/`系统`，新增 `Luzzy 默认`（AlibabaSans 拉丁 + Alibaba PuHuiTi 3.0 中文，本地打包）；新用户默认 Luzzy 字体。
-- **暗色 bg-white 校准**：暗色模式下 `bg-white`/`bg-white/*`（输入岛/工具钮/弹窗面）覆盖为暖暗表面 rgba(37,35,32,·)，消除暗色画布上的刺眼纯白块（亮色不干预）。
+- **暗色白块治理**：patch 008 升级 v3（RGB 三元组 + `<alpha-value>`）——v2 纯 var() 下带透明度修饰符的工具类（bg-gray-50/60 等）被 Tailwind JIT 回退纯白，是暗色白块的机制性根因；另以 !important 覆盖暗色 `bg-white`/`bg-white/*` 与上游写死白色的 segmented 滑块，暗色画面纯白块清零（CDP 全 DOM 扫描实证）。
 - **壳层配套**：debug 构建开启 WebView 远程调试（CDP，release 不受影响）；系统栏桥接改「状态栏图标恒白（顶栏深渐隐双向可读）+ 导航栏图标随主题明暗」；windowBackground 渐变暖化为 #8B8886→#7D7A77→#FAF9F5 与 cream 画布衔接。
 
 **修复**
@@ -24,7 +24,7 @@
 
 **注意**
 
-- 主题验证基线（模拟器实测，CDP 数据面）：亮 `body=#FAF9F5`、暗 `body=#181715`、经典回退 `#f9fafb`，`data-theme/data-mode/data-app-font` 全链路正确；截图存档 `docs/design/verify-v2-final-{light,dark}.png`。
+- 主题验证基线（模拟器实测，CDP 数据面）：亮 `body=#FAF9F5`、暗 `body=#171614`、经典回退 `#f9fafb`；暗色层次重调后弱/次级文字对比 4.9:1 / 6.8:1、卡片与画布拉开展次、透明度变体正常着色；截图存档 `docs/design/verify-v3-{light,dark}.png`。
 - 修改 assets 后必须卸载重装或 bump `AssetExtractor.EXTRACT_VERSION`，否则 filesDir 不会重新解压（本版验证时踩过）。
 - 上游硬编码的非 gray/primary 色（indigo/blue/pink 工具类）不在 v1 主题范围，保持原样；后续可按 DESIGN.md 扩展。
 

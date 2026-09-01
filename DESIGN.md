@@ -51,25 +51,28 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 
 完整 10 阶 ramp（gray / primary）见 `luzzy-theme.css`，一一对应上游工具类。
 
-### Luzzy「暖幕手记」· 暗色（Claude 暗表面系，gray 色阶反转）
+### Luzzy「暖幕手记」· 暗色（Claude 暗表面系，gray 色阶反转；v3 层次重调）
 
 | Token | 值 | 用途 |
 |-------|-----|------|
-| canvas | `#181715` | 画布底（surface-dark，gray-50 最深） |
-| surface-soft | `#1F1E1B` | 次级表面（gray-100） |
-| surface-card | `#252320` | 卡片表面（gray-200，elevated） |
-| hairline | `#33312D` | 发丝线（gray-300） |
-| hairline-strong | `#4A4842` | 强描边（gray-400） |
-| muted | `#6E6B64` → `#8F8C84` | 弱→次级文字（500/600） |
-| body | `#B5B1A8` → `#D8D4CB` | 强调次级→正文（700/800） |
+| canvas | `#171614` | 画布底（surface-dark，gray-50 最深） |
+| surface-soft | `#201E1B` | 次级表面（gray-100） |
+| surface-card | `#2B2824` | 卡片表面（gray-200，elevated，与画布拉开的层次） |
+| hairline | `#3E3A34` | 发丝线（gray-300，暗下可见） |
+| hairline-strong / 图标 | `#6B675F` | 强描边/弱元素（gray-400，≥3:1） |
+| muted-soft | `#8A867D` | 弱文字（gray-500，4.9:1） |
+| muted | `#A5A198` | 次级文字（gray-600，6.8:1） |
+| body-strong-mid | `#C4BFB5` | 强调次级（gray-700） |
+| body | `#DED9CF` | 正文（gray-800，≈12:1） |
 | on-dark | `#FAF9F5` | 主文字（gray-900，≈15:1） |
 | accent 图形 | `#D97757` | primary-500（暗下提亮的 coral） |
 | accent 按钮 | `#B85C3E` | primary-600（按钮底，白字 ≈4.5:1） |
-| accent 浅阶 | `#2A201B`→`#8F5C42` | 50-400（暗底卡片/边框） |
+| accent 浅阶 | `#2E211B`→`#9A6244` | 50-400（暗底卡片/边框） |
 | accent 高亮 | `#E0946F`→`#F7DCC8` | 700-900（accent 文字亮化） |
 
 暗色 gray 色阶**整体反转**（50 最深=画布 → 900 最浅=主文字），上游全部 gray-* 工具类
-自动适配，无需改上游 DOM。
+自动适配，无需改上游 DOM。v3 层次重调：表面阶梯 1.0%→1.3%→1.9% 亮度拉开 +
+发丝线可见化；弱/次级文字对比度 4.9:1 / 6.8:1（v2 为 3.95:1 / 不达标）。
 
 ## Typography
 
@@ -129,9 +132,11 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 
 - 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性于 `<html>`（app.js
   settings.theme/themeMode watch 设置，immediate）；
-- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*`（classic=上游 hex 值，
-  luzzy=上表 token），patch 008v2 将 tailwind.config 色板指向这些变量
-  （**已验证**：Tailwind Play CDN JIT 接受 `var()` 色值并正常生成工具类）；
+- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*` 为 **RGB 三元组**
+  （classic=上游 hex 值三元组，luzzy=上表 token），patch 008v3 将 tailwind.config 色板指向
+  `rgb(var(--tw-*) / <alpha-value>)`——**透明度修饰符（bg-gray-50/60 等）由 JIT 自动注入
+  alpha**。v2 纯 `var()` 方案的缺陷：带 alpha 的工具类被 JIT 回退成纯白（暗色白块根因，
+  jsdom + CDP 双实证），禁止回退；
 - 字体：`data-app-font`（luzzy/modern/serif/system）驱动 `--app-font-family`；
 - 存储：settings.theme / settings.themeMode / settings.fontFamily（上游 settings 体系，
   IndexedDB 随 saveData 持久化；**不使用**独立 localStorage 键）；

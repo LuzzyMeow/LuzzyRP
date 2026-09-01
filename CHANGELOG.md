@@ -4,6 +4,23 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v1.0.0-rc3 — 雾纸玻璃层 Frost-Paper · 液态玻璃方向融合（上游基线 RP-Hub 1.8.9）
+
+在「暖幕手记」主题上融合液态玻璃 / 半透明容器语言：按硬性规定 9 重读 4 项设计 SKILL，出 3 块真实方向板（`docs/design/boards-v3/`，亮暗双框同场景渲染），用户选定**方向 A「雾纸 Frost-Paper」**（参照 Windows 11 Mica，存档 `direction-approved-v3.md`）。
+
+**新增**
+- 雾纸玻璃层：玻璃只上**固定 chrome**——顶栏 / 输入岛 / 侧栏抽屉 / 模态面板（亮 cream `rgba(250,249,245,.86-.88)` / 暗 暖纸 `rgba(32,30,27,.86-.88)` + blur 统一 16px + 发丝线边）；聊天气泡**回归不透纸面**并移除 backdrop blur（亮 `#F5F0E8` / 暗 `#2B2824`，GPU 同步减负）；`@supports` 不支持时自动实底降级。全部落在 `luzzy-theme.css` 扩展层（硬性规定 3），**零新 patch**；DESIGN.md 新增 Glass 章作为真源。
+
+**修复**
+- rc2 暗色死角：上游 styles.css 在移动端媒体查询内以 `!important` 写死一批白面（`.input-island` 输入岛、`.typing-bubble`、`.msg-name-tag`、`.typing-timer-badge`、`.toast-item`、`.desc-panel`、`.wi-footer`），暗色下仍呈白色——主题层以同等级 `!important` + 更高特异性成建制收编（CDP 实证 `.input-island` 由白 0.9 → 暖纸 0.88）。
+- 抽屉遮罩由上游 slate 冷蓝改为墨色暖黑（亮暗通用）。
+
+**注意事项**
+- 模拟器旧版 WebView（Chromium 124）**不渲染 backdrop-filter**（`CSS.supports()` 返回 true 但合成器静默跳过，视觉探针实证）——雾纸层 alpha ≥.85 自带近实底兜底，降级视觉连续；真机（新 WebView）磨砂效果待实机复验。
+- `EXTRACT_VERSION` 2→4（assets 变更触发重新解压，IndexedDB 用户数据不受影响）。
+
+**构建**：`assembleDebug` 通过（universal 42,750,291 字节 ≈ 40.8MB）；versionCode 1（debug 后缀）。
+
 ### v1.0.0-rc2 — 全新主题「暖幕手记 × Claude」· 设计 SKILL 三方向硬门（上游基线 RP-Hub 1.8.9）
 
 按用户指令推翻 v1.0.0-rc1 的「暖纸书房」主题（patch 008-011 全部撤销、上游文件与参考克隆 diff 归零），依据硬性规定 9 走完 4 项设计 SKILL（huashu-design / awesome-design-md / open-design / ui-ux-pro-max）完整流程后重新设计。

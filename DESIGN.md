@@ -110,6 +110,28 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 | 发送/强调按钮 | primary-600 底 + 白字；active = primary-700 |
 | 设置页卡片 | surface-soft 底 + hairline 边；选中态 = coral-100 底 |
 
+## Glass（雾纸玻璃层 Frost-Paper）
+
+> 方向板 A「雾纸 Frost-Paper」，用户选定于 2026-09-01（原话与三方向对比见
+> `docs/design/boards-v3/direction-approved-v3.md`；参照 Windows 11 Mica / Arc 侧栏）。
+
+**原则：玻璃只上固定 chrome，内容层维持纸感。** blur 统一 **16px**
+（上游 chrome 为 backdrop-blur-xl=24px，收准到 16，中端机 GPU 代价下降）；
+无 specular；`@supports` 不支持时降级实底（alpha 本就 ≥.85，视觉连续）。
+
+| 表面 | 亮色 | 暗色 |
+|------|------|------|
+| chrome 半透白面（`bg-white/50-95`：顶栏 / 输入岛 / 侧栏抽屉 / 徽章） | `rgba(250,249,245,.86)` | `rgba(32,30,27,.86)` |
+| 模态面板（modal-shell 直子 `.bg-white`） | `rgba(250,249,245,.88)` + blur 16 | `rgba(32,30,27,.88)` + blur 16 |
+| chrome 发丝线（玻璃面自携 `border-gray-100/80`） | `rgba(230,223,216,.8)` | `rgba(62,58,52,.8)` |
+| 聊天气泡（`.msg-bubble-glass`） | `#F5F0E8` 不透纸面，**去 blur** | `#2B2824` 不透纸面，**去 blur** |
+
+- **枚举而非通配**：只接管 `bg-white/50` `-60` `-70` `-90` `-95`；`/20` `/40` 是照片上的
+  白 chip（白字语义），保持上游值——通配 `[class*="bg-white/"]` 会打碎图片浮层对比度；
+- 照片浮层 chip（`bg-white/20` + `backdrop-blur-md` + 白字）不属雾纸体系，不改；
+- 暗色实底 `.bg-white`（非模态按钮/白卡）→ `#2B2824`，维持不变；
+- 实现全部落 `luzzy-theme.css`（规定 3），零新 patch。
+
 ## Motion（动效令牌）
 
 - 基线：进入 **200ms** / 退出 **140ms** / `cubic-bezier(0.23, 1, 0.32, 1)`（ease-out 系）；

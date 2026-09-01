@@ -54,7 +54,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `assets/js/api-utils.js` / `presence.js` / `update-check.js` | 辅助脚本 | 同步时整体覆盖 |
 | `assets/css/styles.css` | 全局样式 | 仅允许登记 patch 修改 |
 | `vendor/` | 离线化 CDN 依赖 | 上游可能升级依赖版本，同步时检查 |
-| `assets/fonts/` | 本地字体（Lora + Alibaba PuHuiTi 3 + AlibabaSans） | @font-face 在 `assets/css/local-fonts.css`；禁止运行时依赖字体 CDN（硬性规定 4） |
+| `assets/fonts/`（二创新增，上游同步排除项） | 本地字体（Lora + Alibaba PuHuiTi 3 + AlibabaSans） | @font-face 在 `rphub/assets/css/local-fonts.css`；禁止运行时依赖字体 CDN（硬性规定 4） |
 | `character/` / `novel/` | 子页面 | 同步时整体覆盖 |
 
 ### 1.4 扩展层（app/src/main/assets/ext/）

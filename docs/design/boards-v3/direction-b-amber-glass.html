@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方向 B · 琥珀琉璃 Amber-Glass</title>
+<style>
+/* ---------- fonts (local only) ---------- */
+@font-face { font-family:'Lora'; src:url('./fonts/Lora-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; }
+@font-face { font-family:'Lora'; src:url('./fonts/Lora-Italic.woff2') format('woff2'); font-weight:400; font-style:italic; }
+@font-face { font-family:'PuHuiTi'; src:url('./fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'PuHuiTi'; src:url('./fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2'); font-weight:500 600; }
+
+/* ---------- board base ---------- */
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:1440px; height:900px; overflow:hidden; }
+body {
+  background:#141413;
+  font-family:'PuHuiTi','AlibabaSans',sans-serif;
+  color:#FAF9F5;
+  display:flex; flex-direction:column;
+  padding:12px 60px 10px;
+}
+.board-head { display:flex; align-items:baseline; gap:14px; height:30px; flex:none; }
+.board-title { font-family:'Lora','PuHuiTi',serif; font-size:21px; letter-spacing:.02em; color:#FAF9F5; }
+.board-title .zh { font-family:'PuHuiTi',sans-serif; font-weight:600; }
+.badge {
+  font-size:11px; color:#A5A198; border:1px solid rgba(250,249,245,.18);
+  border-radius:999px; padding:3px 10px; letter-spacing:.06em;
+}
+.badge.ref { margin-left:auto; border:none; padding:0; }
+
+/* ---------- frames ---------- */
+.frames { flex:none; display:flex; justify-content:center; gap:56px; height:706px; margin-top:8px; }
+.frame-col { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.flabel { font-size:11px; color:#A5A198; letter-spacing:.14em; }
+.phone {
+  position:relative; width:340px; height:700px; border-radius:36px; overflow:hidden;
+  border:1px solid rgba(250,249,245,.14);
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+
+/* light phone tokens */
+.phone.light { background:#FAF9F5; color:#3D3A36; }
+.phone.light .glass {
+  background:rgba(250,249,245,.76);
+  border:1px solid rgba(230,223,216,.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 8px 24px rgba(20,20,19,.10);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.phone.light .glass-ai { background:rgba(250,249,245,.74); }
+.phone.light .glass-bar { background:rgba(250,249,245,.76); }
+.phone.light .glass-input { background:rgba(250,249,245,.76); }
+.phone.light .glass-modal {
+  background:rgba(250,249,245,.76);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 18px 44px rgba(20,20,19,.16);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+/* dark phone tokens */
+.phone.dark { background:#171614; color:#DED9CF; }
+.phone.dark .glass {
+  background:rgba(32,30,27,.76);
+  border:1px solid rgba(62,58,52,.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.38);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.phone.dark .glass-ai { background:rgba(32,30,27,.74); }
+.phone.dark .glass-bar { background:rgba(32,30,27,.76); }
+.phone.dark .glass-input { background:rgba(32,30,27,.76); }
+.phone.dark .glass-modal {
+  background:rgba(32,30,27,.76);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 18px 44px rgba(0,0,0,.55);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+/* @supports fallback = solid */
+@supports not (backdrop-filter: blur(1px)) {
+  .phone.light .glass, .phone.light .glass-modal { background:#FAF9F5; }
+  .phone.dark  .glass, .phone.dark  .glass-modal { background:#201E1B; }
+}
+
+/* ---------- chat scene ---------- */
+.chat { position:absolute; inset:0; padding:0 12px; }
+.bubble {
+  font-size:14.5px; line-height:1.6; padding:10px 14px; border-radius:16px;
+  max-width:288px; width:fit-content; position:relative;
+}
+.bubble.ai {
+  background-clip:padding-box;
+  border-top-left-radius:6px;
+}
+.bubble.user {
+  margin-left:auto;
+  background:#F1E3D9; border:1px solid rgba(230,223,216,.8); color:#3D3A36;
+  border-top-right-radius:6px;
+}
+.phone.dark .bubble.user { background:#2E211B; border-color:rgba(62,58,52,.8); color:#DED9CF; }
+.luna-name {
+  font-family:'Lora','PuHuiTi',serif; font-size:13px; letter-spacing:.03em;
+  color:#A9583E; margin:12px 0 4px 6px;
+}
+.phone.dark .luna-name { color:#D97757; }
+.ts { text-align:center; font-size:12px; color:#6C6A64; margin:10px 0 2px; }
+.phone.dark .ts { color:#A5A198; }
+.frag { margin-top:16px; }
+mark.hl {
+  background:rgba(245,217,168,.7); color:inherit; padding:0 3px; border-radius:3px;
+}
+.phone.dark mark.hl { background:rgba(245,217,168,.30); }
+
+/* ---------- floating top bar ---------- */
+.topbar {
+  position:absolute; top:10px; left:10px; right:10px; height:60px; border-radius:18px;
+  display:flex; align-items:center; gap:10px; padding:0 12px;
+}
+.avatar {
+  width:30px; height:30px; border-radius:50%; background:#E5B099; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Lora',serif; font-size:15px; color:#141413;
+}
+.tb-name { font-family:'Lora','PuHuiTi',serif; font-size:15.5px; color:#141413; line-height:1.1; }
+.phone.dark .tb-name { color:#FAF9F5; }
+.tb-sub { font-size:11.5px; color:#6C6A64; margin-top:1px; }
+.phone.dark .tb-sub { color:#A5A198; }
+.tb-icons { margin-left:auto; display:flex; gap:12px; color:#3D3A36; }
+.phone.dark .tb-icons { color:#DED9CF; }
+.tb-icons svg { display:block; }
+
+/* ---------- modal ---------- */
+.modal {
+  position:absolute; left:22px; right:22px; top:278px; border-radius:20px; padding:14px 16px 12px;
+}
+.m-title { font-family:'Lora','PuHuiTi',serif; font-size:16px; color:#141413; }
+.phone.dark .m-title { color:#FAF9F5; }
+.m-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.m-label { font-size:12px; color:#6C6A64; flex:none; width:34px; }
+.phone.dark .m-label { color:#A5A198; }
+.chips { display:flex; gap:8px; }
+.chip {
+  font-size:12.5px; padding:5px 12px; border-radius:999px;
+  color:#3D3A36; border:1px solid rgba(230,223,216,.9); background:rgba(250,249,245,.5);
+}
+.phone.dark .chip { color:#DED9CF; border-color:rgba(62,58,52,.9); background:rgba(32,30,27,.5); }
+.chip.on { background:#A9583E; border-color:#A9583E; color:#FAF9F5; font-weight:600; }
+.phone.dark .chip.on { background:#B85C3E; border-color:#B85C3E; }
+.m-btns { display:flex; justify-content:flex-end; gap:10px; margin-top:14px; }
+.btn-ghost { font-size:14px; color:#6C6A64; padding:6px 12px; border-radius:10px; background:transparent; }
+.phone.dark .btn-ghost { color:#A5A198; }
+.btn-primary {
+  font-size:14px; font-weight:600; color:#FAF9F5; background:#A9583E;
+  padding:6px 18px; border-radius:10px;
+}
+.phone.dark .btn-primary { background:#B85C3E; }
+
+/* ---------- input island ---------- */
+.input {
+  position:absolute; left:10px; right:10px; bottom:14px; height:48px; border-radius:22px;
+  display:flex; align-items:center; padding:0 6px 0 18px; gap:10px;
+}
+.input .ph { font-size:14px; color:#6C6A64; flex:1; }
+.phone.dark .input .ph { color:#A5A198; }
+.send {
+  width:36px; height:36px; border-radius:50%; background:#A9583E; flex:none;
+  display:flex; align-items:center; justify-content:center;
+}
+.phone.dark .send { background:#B85C3E; }
+
+/* ---------- footer ---------- */
+.foot { flex:1; display:flex; gap:34px; align-items:flex-start; margin-top:10px; overflow:hidden; }
+.recipe { width:500px; flex:none; }
+.recipe .cap { font-size:11px; color:#A5A198; letter-spacing:.1em; margin-bottom:4px; }
+.r-row {
+  display:grid; grid-template-columns:78px 1fr 1fr; gap:0 14px;
+  border-top:1px solid rgba(250,249,245,.10); padding:2px 0;
+  font-size:11px; line-height:1.35; white-space:nowrap;
+}
+.r-row:last-child { border-bottom:1px solid rgba(250,249,245,.10); }
+.r-row .k { font-size:11px; color:#A5A198; }
+.r-row .v { font-size:11px; color:#DED9CF; }
+.vibe { width:430px; flex:none; }
+.vibe .v-main { font-size:17px; font-weight:600; color:#FAF9F5; letter-spacing:.04em; white-space:nowrap; }
+.vibe .v-sub { font-size:11.5px; color:#A5A198; margin-top:6px; line-height:1.5; }
+.vibe .v-note { font-size:11px; color:#A5A198; margin-top:7px; line-height:1.5; opacity:.85; }
+.pal { flex:1; }
+.pal .cap { font-size:11px; color:#A5A198; letter-spacing:.1em; margin-bottom:4px; }
+.pal-row { display:flex; gap:10px; align-items:flex-start; margin-bottom:6px; }
+.pal-row .tag { font-size:11px; color:#A5A198; width:16px; flex:none; padding-top:2px; }
+.sw { width:52px; }
+.sw .c { height:18px; border-radius:5px; border:1px solid rgba(250,249,245,.16); }
+.sw .h { font-size:9.5px; color:#A5A198; margin-top:2px; text-align:center; letter-spacing:.02em; }
+</style>
+</head>
+<body>
+
+<div class="board-head">
+  <div class="board-title"><span class="zh">方向 B · 琥珀琉璃</span> <em style="font-family:'Lora',serif;font-style:italic;">Amber-Glass</em></div>
+  <div class="badge">居中 · 暖 tint 派</div>
+  <div class="badge ref">boards-v3 · 液态玻璃方向板</div>
+</div>
+
+<div class="frames">
+  <!-- ================= LIGHT ================= -->
+  <div class="frame-col">
+    <div class="flabel">亮 · LIGHT</div>
+    <div class="phone light">
+      <div class="chat">
+        <div class="bubble user frag">石板路在脚下延伸，风把最后一段路吹得看不见了，我们只好数着路灯走，尽头的钟楼只剩一个尖顶。</div>
+        <div class="ts">今天 · 14:32</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">她忽然停在钟楼投下的阴影里，把兜帽压得更低。“你听——”她的声音压得很轻，“钟楼在敲<mark class="hl">第七下</mark>，可现在明明才下午三点半。”</div>
+        <div class="bubble user" style="margin-top:10px;">我数了数，第七声之后还有半声，像发条卡住了喉咙。</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">“别数了。”她摊开掌心，一枚温热的铜钥匙躺在里面，“它在等有人把时间重新拧上发条。”</div>
+        <div class="bubble user" style="margin-top:10px;">那陪我上去。</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">她笑起来，眼睛弯成月牙：“好啊。不过说好了——如果塔顶的钟声把我们送回昨天，你得请我喝热蜂蜜酒。”</div>
+        <div class="bubble user" style="margin-top:10px;">一言为定。</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">她转身推开侧门，锈屑簌簌落在肩上。“扶稳了，”她说，“楼梯比记忆里陡得多。”</div>
+      </div>
+
+      <div class="topbar glass glass-bar">
+        <div class="avatar">L</div>
+        <div>
+          <div class="tb-name">Luna</div>
+          <div class="tb-sub">正在输入…</div>
+        </div>
+        <div class="tb-icons">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </div>
+      </div>
+
+      <div class="modal glass glass-modal">
+        <div class="m-title">界面主题</div>
+        <div class="m-row">
+          <div class="m-label">画布</div>
+          <div class="chips"><span class="chip">经典</span><span class="chip on">暖纸书房</span></div>
+        </div>
+        <div class="m-row">
+          <div class="m-label">模式</div>
+          <div class="chips"><span class="chip on">亮色</span><span class="chip">暗色</span></div>
+        </div>
+        <div class="m-btns"><span class="btn-ghost">取消</span><span class="btn-primary">保存</span></div>
+      </div>
+
+      <div class="input glass glass-input">
+        <div class="ph">续写这一幕…</div>
+        <div class="send"><svg width="16" height="16" viewBox="0 0 24 24" fill="#FAF9F5"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10 14 12 3.4 14z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DARK ================= -->
+  <div class="frame-col">
+    <div class="flabel">暗 · DARK</div>
+    <div class="phone dark">
+      <div class="chat">
+        <div class="bubble user frag">石板路在脚下延伸，风把最后一段路吹得看不见了，我们只好数着路灯走，尽头的钟楼只剩一个尖顶。</div>
+        <div class="ts">今天 · 14:32</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">她忽然停在钟楼投下的阴影里，把兜帽压得更低。“你听——”她的声音压得很轻，“钟楼在敲<mark class="hl">第七下</mark>，可现在明明才下午三点半。”</div>
+        <div class="bubble user" style="margin-top:10px;">我数了数，第七声之后还有半声，像发条卡住了喉咙。</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">“别数了。”她摊开掌心，一枚温热的铜钥匙躺在里面，“它在等有人把时间重新拧上发条。”</div>
+        <div class="bubble user" style="margin-top:10px;">那陪我上去。</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">她笑起来，眼睛弯成月牙：“好啊。不过说好了——如果塔顶的钟声把我们送回昨天，你得请我喝热蜂蜜酒。”</div>
+        <div class="bubble user" style="margin-top:10px;">一言为定。</div>
+        <div class="luna-name">Luna</div>
+        <div class="bubble ai glass glass-ai">她转身推开侧门，锈屑簌簌落在肩上。“扶稳了，”她说，“楼梯比记忆里陡得多。”</div>
+      </div>
+
+      <div class="topbar glass glass-bar">
+        <div class="avatar">L</div>
+        <div>
+          <div class="tb-name">Luna</div>
+          <div class="tb-sub">正在输入…</div>
+        </div>
+        <div class="tb-icons">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </div>
+      </div>
+
+      <div class="modal glass glass-modal">
+        <div class="m-title">界面主题</div>
+        <div class="m-row">
+          <div class="m-label">画布</div>
+          <div class="chips"><span class="chip">经典</span><span class="chip on">暖纸书房</span></div>
+        </div>
+        <div class="m-row">
+          <div class="m-label">模式</div>
+          <div class="chips"><span class="chip">亮色</span><span class="chip on">暗色</span></div>
+        </div>
+        <div class="m-btns"><span class="btn-ghost">取消</span><span class="btn-primary">保存</span></div>
+      </div>
+
+      <div class="input glass glass-input">
+        <div class="ph">续写这一幕…</div>
+        <div class="send"><svg width="16" height="16" viewBox="0 0 24 24" fill="#FAF9F5"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10 14 12 3.4 14z"/></svg></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= FOOTER ================= -->
+<div class="foot">
+  <div class="recipe">
+    <div class="cap">玻璃配方 · GLASS RECIPE</div>
+    <div class="r-row"><div class="k">blur</div><div class="v">14px（弹窗 16px）</div><div class="v">14px（弹窗 16px）</div></div>
+    <div class="r-row"><div class="k">tint</div><div class="v">cream rgba(250,249,245,.74–.76)</div><div class="v">warm-black rgba(32,30,27,.74–.76)</div></div>
+    <div class="r-row"><div class="k">alpha</div><div class="v">72–82%（气泡 .74 · 弹窗 .78）</div><div class="v">72–82%（气泡 .74 · 弹窗 .78）</div></div>
+    <div class="r-row"><div class="k">border</div><div class="v">1px #E6DFD8 发丝线</div><div class="v">1px #3E3A34 发丝线</div></div>
+    <div class="r-row"><div class="k">specular</div><div class="v">inset 0 1px 0 rgba(255,255,255,.45)</div><div class="v">inset 0 1px 0 rgba(255,255,255,.12)</div></div>
+  </div>
+  <div class="vibe">
+    <div class="v-main">气质定位：「阳光穿过琥珀」</div>
+    <div class="v-sub">玻璃如被午后晒暖的树脂，字在光里浮着。参照：macOS 窗口 tinted glass · Claude 移动端弹层。</div>
+    <div class="v-note">AI 气泡同玻璃化，用户气泡保持实底锚点。工程备注：backdrop-filter 仅用于固定/悬浮层；AI 气泡逐个 blur 属重方案（视口外停用）；@supports 降级为实底。玻璃上正文均 ≥4.5:1。</div>
+  </div>
+  <div class="pal">
+    <div class="cap">色板 · PALETTE</div>
+    <div class="pal-row">
+      <div class="tag">亮</div>
+      <div class="sw"><div class="c" style="background:#FAF9F5"></div><div class="h">FAF9F5</div></div>
+      <div class="sw"><div class="c" style="background:#F1E3D9"></div><div class="h">F1E3D9</div></div>
+      <div class="sw"><div class="c" style="background:#F5E2D8"></div><div class="h">F5E2D8</div></div>
+      <div class="sw"><div class="c" style="background:#F5D9A8"></div><div class="h">F5D9A8</div></div>
+      <div class="sw"><div class="c" style="background:#A9583E"></div><div class="h">A9583E</div></div>
+    </div>
+    <div class="pal-row">
+      <div class="tag">暗</div>
+      <div class="sw"><div class="c" style="background:#171614"></div><div class="h">171614</div></div>
+      <div class="sw"><div class="c" style="background:#2E211B"></div><div class="h">2E211B</div></div>
+      <div class="sw"><div class="c" style="background:#3E3A34"></div><div class="h">3E3A34</div></div>
+      <div class="sw"><div class="c" style="background:#D97757"></div><div class="h">D97757</div></div>
+      <div class="sw"><div class="c" style="background:#E0946F"></div><div class="h">E0946F</div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

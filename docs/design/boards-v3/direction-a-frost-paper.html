@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方向 A · 雾纸 Frost-Paper — LuzzyRP 液态玻璃方向板</title>
+<style>
+/* ================= 字体（本地相对路径，无任何外链） ================= */
+@font-face{font-family:'Lora';src:url('./fonts/Lora-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'Lora';src:url('./fonts/Lora-Italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('./fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('./fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap;}
+
+/* ================= 基础 ================= */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1440px;height:900px;overflow:hidden;}
+body{
+  background:#141413; /* spec: 深色中性背景 */
+  font-family:'PuHuiTi','Segoe UI',sans-serif;
+  color:#FAF9F5;
+  display:flex;flex-direction:column;
+  padding:4px 28px 2px;
+}
+.serif{font-family:'Lora','PuHuiTi',Georgia,serif;}
+
+/* ================= 板头 ================= */
+.board-head{display:flex;align-items:flex-end;justify-content:space-between;height:40px;flex:none;}
+.overline{font-size:9px;letter-spacing:.24em;color:#A5A198;font-weight:400;}
+.board-head h1{font-size:23px;font-weight:500;line-height:1.12;margin-top:2px;color:#FAF9F5;}
+.board-head h1 em{font-style:italic;color:#D97757;letter-spacing:.01em;}
+.chips{display:flex;gap:8px;padding-bottom:3px;}
+.chip{font-size:11px;color:#A5A198;border:1px solid rgba(250,249,245,.16);border-radius:999px;padding:3px 12px;white-space:nowrap;}
+.chip b{color:#DED9CF;font-weight:500;}
+
+/* ================= 手机框 ================= */
+.boards{display:flex;justify-content:center;gap:72px;margin-top:4px;flex:none;}
+.device{position:relative;width:340px;height:700px;flex:none;}
+.frame{
+  width:340px;height:700px;border-radius:36px;padding:8px;
+  background:#141413;
+  border:1px solid rgba(250,249,245,.18);
+  box-shadow:0 24px 60px rgba(20,20,19,.55);
+}
+.screen{position:relative;width:100%;height:100%;border-radius:28px;overflow:hidden;}
+.dev-light .screen{background:linear-gradient(180deg,#F5F0E8 0%,#FAF9F5 130px);}
+.dev-dark .screen{background:linear-gradient(180deg,#201E1B 0%,#171614 150px);}
+.dev-tag{
+  position:absolute;top:-11px;left:20px;z-index:50;
+  font-size:10px;letter-spacing:.14em;color:#A5A198;
+  background:#141413;border:1px solid rgba(250,249,245,.2);
+  border-radius:999px;padding:3px 12px;
+}
+
+/* ================= 玻璃配方（方向 A · 雾纸） =================
+   高不透明度 85–92% + blur 16px + 1px 发丝线；无 specular，玻璃几乎不抢戏 */
+.dev-light .glass{
+  background:rgba(250,249,245,.85);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border:1px solid rgba(230,223,216,.9);
+  box-shadow:0 6px 22px rgba(20,20,19,.08);
+}
+.dev-light .inputbar.glass{background:rgba(250,249,245,.88);}
+.dev-light .modal.glass{background:rgba(250,249,245,.88);box-shadow:0 18px 44px rgba(20,20,19,.22);}
+.dev-dark .glass{
+  background:rgba(32,30,27,.85);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border:1px solid rgba(62,58,52,.95);
+  box-shadow:0 6px 22px rgba(20,20,19,.35);
+}
+.dev-dark .inputbar.glass{background:rgba(32,30,27,.88);}
+.dev-dark .modal.glass{background:rgba(32,30,27,.88);box-shadow:0 18px 44px rgba(20,20,19,.55);}
+
+/* ================= 状态栏 ================= */
+.statusbar{position:absolute;top:0;left:0;right:0;height:26px;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:0 18px;}
+.dev-light .statusbar{color:#6C6A64;}
+.dev-dark .statusbar{color:#A5A198;}
+.statusbar .time{font-size:11px;font-weight:500;letter-spacing:.04em;}
+.sicons{display:flex;align-items:center;gap:6px;}
+.sig{display:flex;align-items:flex-end;gap:1.5px;}
+.sig i{width:2.5px;background:currentColor;border-radius:1px;display:block;}
+.sig i:nth-child(1){height:4px;opacity:.55;}
+.sig i:nth-child(2){height:6.5px;opacity:.75;}
+.sig i:nth-child(3){height:9px;}
+.batt{width:19px;height:10px;border:1px solid currentColor;border-radius:3px;position:relative;opacity:.9;}
+.batt::before{content:'';position:absolute;left:1.2px;top:1.2px;bottom:1.2px;width:11px;background:currentColor;border-radius:1.5px;}
+.batt::after{content:'';position:absolute;right:-3.2px;top:2.6px;width:1.8px;height:3.6px;background:currentColor;border-radius:0 2px 2px 0;opacity:.6;}
+
+/* ================= 聊天流（气泡 = 纸感，全不透） ================= */
+.chat{position:absolute;inset:0;z-index:5;}
+.chat .row{position:absolute;left:14px;right:14px;display:flex;gap:8px;align-items:flex-start;}
+.avatar{
+  width:22px;height:22px;border-radius:50%;flex:none;margin-top:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Lora',serif;font-size:12px;
+}
+.dev-light .avatar{background:#F5E2D8;color:#A5472E;color:#A9583E;}
+.dev-dark .avatar{background:#2E211B;color:#E0946F;}
+.stack{display:flex;flex-direction:column;min-width:0;}
+.name{font-family:'Lora','PuHuiTi',serif;font-size:13.5px;line-height:1;margin:0 0 5px 2px;letter-spacing:.02em;}
+.dev-light .name{color:#A9583E;}
+.dev-dark .name{color:#E0946F;}
+.bubble{
+  font-size:14px;line-height:1.55;border-radius:16px;padding:9px 13px;
+  width:fit-content;max-width:236px;
+  box-shadow:0 1px 3px rgba(20,20,19,.05);
+}
+.dev-light .bubble.ai{background:#EFE9DE;color:#3D3A36;border:1px solid #E6DFD8;border-bottom-left-radius:5px;}
+.dev-dark .bubble.ai{background:#2B2824;color:#DED9CF;border:1px solid #3E3A34;border-bottom-left-radius:5px;}
+.dev-light .bubble.user{background:#F1E3D9;color:#3D3A36;border:1px solid rgba(230,223,216,.7);border-bottom-right-radius:5px;margin-left:auto;}
+.dev-dark .bubble.user{background:#2E211B;color:#DED9CF;border:1px solid rgba(62,58,52,.6);border-bottom-right-radius:5px;margin-left:auto;}
+.row.user{justify-content:flex-end;}
+mark{border-radius:3px;padding:0 3px;}
+.dev-light mark{background:#F5D9A8;color:#3D3A36;}
+.dev-dark mark{background:rgba(245,217,168,.12);color:#F5D9A8;}
+.wavy{text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#CC785C;text-decoration-thickness:1.5px;text-underline-offset:3px;}
+.dev-dark .wavy{text-decoration-color:#D97757;}
+/* 分割时间戳 */
+.ts{position:absolute;left:14px;right:14px;top:106px;display:flex;align-items:center;gap:10px;}
+.ts i{flex:1;height:1px;}
+.dev-light .ts i{background:#E6DFD8;}
+.dev-dark .ts i{background:#3E3A34;}
+.ts span{font-size:10.5px;letter-spacing:.08em;}
+.dev-light .ts span{color:#6C6A64;}
+.dev-dark .ts span{color:#A5A198;}
+/* 行位置（证明「透」：气泡延伸到顶栏与弹窗后方） */
+.r-ghost{top:34px;}
+.r-msg1{top:128px;}
+.r-user1{top:244px;}
+.r-msg2{top:314px;}
+.r-user2{top:492px;}
+.r-typing{top:566px;}
+/* 正在输入 */
+.dots{display:flex;gap:4px;align-items:center;height:10px;}
+.dots i{width:5px;height:5px;border-radius:50%;animation:tp 1.3s ease-in-out infinite;}
+.dots i:nth-child(2){animation-delay:.18s;}
+.dots i:nth-child(3){animation-delay:.36s;}
+@keyframes tp{0%,100%{opacity:.45;transform:translateY(0);}50%{opacity:1;transform:translateY(-2px);}}
+.dev-light .dots i{background:#6C6A64;}
+.dev-dark .dots i{background:#A5A198;}
+
+/* ================= 悬浮顶栏（玻璃 · 固定 chrome） ================= */
+.topbar{
+  position:absolute;top:30px;left:10px;right:10px;height:46px;z-index:30;
+  border-radius:16px;display:flex;align-items:center;gap:9px;padding:0 12px;
+}
+.topbar .chev{width:18px;height:18px;flex:none;}
+.dev-light .topbar .chev,.dev-light .topbar .more{color:#6C6A64;}
+.dev-dark .topbar .chev,.dev-dark .topbar .more{color:#A5A198;}
+.topbar .avatar{margin-top:0;width:26px;height:26px;font-size:13px;}
+.topbar .tt{display:flex;flex-direction:column;min-width:0;}
+.topbar .tt b{font-family:'Lora','PuHuiTi',serif;font-weight:400;font-size:15.5px;line-height:1.1;letter-spacing:.02em;}
+.dev-light .topbar .tt b{color:#141413;}
+.dev-dark .topbar .tt b{color:#FAF9F5;}
+.topbar .tt span{font-size:10px;letter-spacing:.05em;margin-top:1.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dev-light .topbar .tt span{color:#6C6A64;}
+.dev-dark .topbar .tt span{color:#A5A198;}
+.topbar .more{margin-left:auto;width:18px;height:18px;flex:none;}
+
+/* ================= 输入岛（玻璃 · 固定 chrome） ================= */
+.inputbar{
+  position:absolute;left:10px;right:10px;bottom:10px;height:52px;z-index:30;
+  border-radius:22px;display:flex;align-items:center;gap:10px;padding:0 8px 0 8px;
+}
+.plus{
+  width:34px;height:34px;border-radius:50%;flex:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.dev-light .plus{border:1px solid #E6DFD8;color:#6C6A64;}
+.dev-dark .plus{border:1px solid #3E3A34;color:#A5A198;}
+.ph{flex:1;font-size:14px;}
+.dev-light .ph{color:#6C6A64;}
+.dev-dark .ph{color:#A5A198;}
+.send{
+  width:36px;height:36px;border-radius:50%;flex:none;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.dev-light .send{background:#A9583E;color:#FAF9F5;}
+.dev-dark .send{background:#B85C3E;color:#FAF9F5;}
+
+/* ================= 居中模态弹窗（玻璃 · 固定 chrome） ================= */
+.modal{
+  position:absolute;left:20px;right:20px;top:196px;z-index:40;
+  border-radius:20px;padding:15px 16px 16px;
+}
+.modal .mhead{display:flex;align-items:center;}
+.modal .mtitle{font-size:15px;font-weight:500;letter-spacing:.02em;}
+.dev-light .modal .mtitle{color:#141413;}
+.dev-dark .modal .mtitle{color:#FAF9F5;}
+.modal .msub{font-family:'Lora',serif;font-style:italic;font-size:11.5px;margin-left:7px;letter-spacing:.03em;}
+.dev-light .modal .msub{color:#6C6A64;}
+.dev-dark .modal .msub{color:#A5A198;}
+.modal .mclose{margin-left:auto;width:16px;height:16px;}
+.dev-light .modal .mclose{color:#6C6A64;}
+.dev-dark .modal .mclose{color:#A5A198;}
+.modal .mnote{font-size:11.5px;line-height:1.4;margin-top:3px;}
+.dev-light .modal .mnote{color:#6C6A64;}
+.dev-dark .modal .mnote{color:#A5A198;}
+.opts{margin-top:11px;display:flex;flex-direction:column;gap:6px;}
+.opt{
+  display:flex;align-items:center;gap:10px;height:38px;border-radius:11px;padding:0 10px;
+}
+.dev-light .opt.on{background:rgba(245,226,216,.6);}
+.dev-dark .opt.on{background:rgba(46,33,27,.85);}
+.radio{width:15px;height:15px;border-radius:50%;flex:none;position:relative;}
+.dev-light .radio{border:1.5px solid #C9C2B8;}
+.dev-dark .radio{border:1.5px solid #55504A;}
+.opt.on .radio::after{content:'';position:absolute;inset:2.5px;border-radius:50%;}
+.dev-light .opt.on .radio{border-color:#A9583E;}
+.dev-light .opt.on .radio::after{background:#A9583E;}
+.dev-dark .opt.on .radio{border-color:#D97757;}
+.dev-dark .opt.on .radio::after{background:#D97757;}
+.opt .olabel{font-size:14px;flex:1;white-space:nowrap;}
+.dev-light .opt .olabel{color:#3D3A36;}
+.dev-dark .opt .olabel{color:#DED9CF;}
+.preview{font-size:9px;letter-spacing:.08em;border-radius:999px;padding:2px 7px;flex:none;}
+.dev-light .preview{background:#F5E2D8;color:#A9583E;}
+.dev-dark .preview{background:rgba(217,119,87,.16);color:#E0946F;}
+.sws{display:flex;gap:2.5px;flex:none;}
+.sws i{width:11px;height:11px;border-radius:3.5px;display:block;border:1px solid rgba(20,20,19,.08);}
+.mbtn{
+  margin-top:12px;width:100%;height:36px;border:none;border-radius:12px;cursor:pointer;
+  font-family:'PuHuiTi',sans-serif;font-size:14px;font-weight:500;letter-spacing:.1em;
+}
+.dev-light .mbtn{background:#A9583E;color:#FAF9F5;}
+.dev-dark .mbtn{background:#B85C3E;color:#FAF9F5;}
+
+/* ================= 板底：色板 / 配方表 / 定位 ================= */
+.meta{
+  flex:none;margin-top:3px;display:grid;grid-template-columns:290px 1fr 392px;gap:30px;
+  padding-top:4px;border-top:1px solid rgba(250,249,245,.1);
+}
+.mlabel{font-size:9px;letter-spacing:.22em;color:#A5A198;margin-bottom:4px;}
+/* 色板 */
+.palrow{display:flex;align-items:flex-start;gap:9px;}
+.palrow .pl{font-size:10px;color:#A5A198;width:14px;padding-top:5px;flex:none;}
+.sw{width:42px;}
+.sw i{display:block;width:42px;height:21px;border-radius:5px;border:1px solid rgba(250,249,245,.16);}
+.sw b{display:block;font-weight:400;font-size:8.5px;color:#A5A198;text-align:center;margin-top:2px;letter-spacing:.02em;line-height:1.25;}
+.palrow+.palrow{margin-top:6px;}
+/* 配方表 */
+.rtable{width:100%;border-collapse:collapse;font-size:10px;line-height:1.15;}
+.rtable th{font-weight:400;font-size:9px;letter-spacing:.14em;color:#A5A198;text-align:left;padding:0 8px 3px 0;}
+.rtable td{color:#DED9CF;padding:2px 8px 2px 0;border-top:1px solid rgba(250,249,245,.08);}
+.rtable td:first-child{color:#A5A198;}
+.ennote{font-size:8.5px;line-height:1.35;color:#A5A198;margin-top:3px;}
+.ennote b{color:#DED9CF;font-weight:500;}
+/* 定位 */
+.pos{font-size:13px;line-height:1.5;color:#A5A198;}
+.pos b{color:#FAF9F5;font-weight:500;}
+.refline{font-size:11px;color:#A5A198;margin-top:7px;}
+.refline b{color:#DED9CF;font-weight:500;font-family:'Lora','PuHuiTi',serif;letter-spacing:.02em;}
+.glassmap{font-size:11px;color:#A5A198;margin-top:5px;}
+.glassmap b{color:#DED9CF;font-weight:500;}
+</style>
+</head>
+<body>
+
+<header class="board-head">
+  <div>
+    <div class="overline">LUZZYRP · 暖幕手记 × 液态玻璃 — DIRECTION BOARD A</div>
+    <h1>方向 A · 雾纸 <em class="serif">Frost-Paper</em></h1>
+  </div>
+  <div class="chips">
+    <span class="chip">保守 · <b>Windows Mica / Acrylic</b> 派</span>
+    <span class="chip">玻璃仅用于固定 <b>chrome</b>（顶栏 / 输入岛 / 弹窗）</span>
+    <span class="chip">聊天气泡保持纸感 · <b>全不透</b></span>
+    <span class="chip">alpha <b>85–92%</b> · blur <b>16px</b> · 发丝线 1px</span>
+  </div>
+</header>
+
+<main class="boards">
+
+  <!-- ==================== 亮色框 ==================== -->
+  <section class="device dev-light">
+    <div class="frame"><div class="screen">
+      <div class="dev-tag">A · 亮色 LIGHT</div>
+
+      <div class="chat">
+        <!-- 顶栏后方被模糊的滚动内容 -->
+        <div class="row ai r-ghost">
+          <div class="avatar">L</div>
+          <div class="stack"><div class="bubble ai">雨声把整条街都盖住了，只有这盏灯还醒着。</div></div>
+        </div>
+
+        <div class="ts"><i></i><span>今天 23:04</span><i></i></div>
+
+        <div class="row ai r-msg1">
+          <div class="avatar">L</div>
+          <div class="stack">
+            <div class="name">Luna</div>
+            <div class="bubble ai">你推开门时，风铃轻轻响了一声。我合上那本<mark>一直为你留着</mark>的诗集——靠窗的位置，就在灯下。</div>
+          </div>
+        </div>
+
+        <div class="row user r-user1">
+          <div class="bubble user">（抖落外套上的雨水）外面雨很大……我以为你打烊了。</div>
+        </div>
+
+        <div class="row ai r-msg2">
+          <div class="avatar">L</div>
+          <div class="stack">
+            <div class="name">Luna</div>
+            <div class="bubble ai">「为你留着一盏灯。」她把一杯热茶推过柜台，杯壁的白雾缓缓散开，「坐吧，今晚不急着回家。」</div>
+          </div>
+        </div>
+
+        <div class="row user r-user2">
+          <div class="bubble user">那就再坐一会儿吧。<span class="wavy">今晚</span>，我想把那个故事听完。</div>
+        </div>
+
+        <div class="row ai r-typing">
+          <div class="avatar">L</div>
+          <div class="stack">
+            <div class="name">Luna</div>
+            <div class="bubble ai"><div class="dots"><i></i><i></i><i></i></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar">
+        <span class="time">23:47</span>
+        <div class="sicons">
+          <div class="sig"><i></i><i></i><i></i></div>
+          <div class="batt"></div>
+        </div>
+      </div>
+
+      <div class="topbar glass">
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <div class="avatar">L</div>
+        <div class="tt"><b>Luna</b><span>夜航书店 · 第 7 夜</span></div>
+        <svg class="more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      </div>
+
+      <div class="inputbar glass">
+        <div class="plus"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="ph">续写这一幕……</div>
+        <button class="send"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg></button>
+      </div>
+
+      <div class="modal glass">
+        <div class="mhead">
+          <span class="mtitle">界面主题</span><span class="msub">Appearance</span>
+          <svg class="mclose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </div>
+        <div class="mnote">玻璃只作用于固定栏，气泡保持纸感。</div>
+        <div class="opts">
+          <div class="opt"><div class="radio"></div><span class="olabel">暖纸书房 · 纸感</span><div class="sws"><i style="background:#FAF9F5"></i><i style="background:#EFE9DE"></i><i style="background:#F1E3D9"></i></div></div>
+          <div class="opt on"><div class="radio"></div><span class="olabel">暖纸书房 · 雾纸玻璃</span><span class="preview">本次预览</span><div class="sws"><i style="background:#FAF9F5"></i><i style="background:rgba(250,249,245,.85)"></i><i style="background:#EFE9DE"></i></div></div>
+          <div class="opt"><div class="radio"></div><span class="olabel">经典</span><div class="sws"><i style="background:#FAF9F5"></i><i style="background:#F5F0E8"></i></div></div>
+        </div>
+        <button class="mbtn">完 成</button>
+      </div>
+
+    </div></div>
+  </section>
+
+  <!-- ==================== 暗色框 ==================== -->
+  <section class="device dev-dark">
+    <div class="frame"><div class="screen">
+      <div class="dev-tag">A · 暗色 DARK</div>
+
+      <div class="chat">
+        <div class="row ai r-ghost">
+          <div class="avatar">L</div>
+          <div class="stack"><div class="bubble ai">雨声把整条街都盖住了，只有这盏灯还醒着。</div></div>
+        </div>
+
+        <div class="ts"><i></i><span>今天 23:04</span><i></i></div>
+
+        <div class="row ai r-msg1">
+          <div class="avatar">L</div>
+          <div class="stack">
+            <div class="name">Luna</div>
+            <div class="bubble ai">你推开门时，风铃轻轻响了一声。我合上那本<mark>一直为你留着</mark>的诗集——靠窗的位置，就在灯下。</div>
+          </div>
+        </div>
+
+        <div class="row user r-user1">
+          <div class="bubble user">（抖落外套上的雨水）外面雨很大……我以为你打烊了。</div>
+        </div>
+
+        <div class="row ai r-msg2">
+          <div class="avatar">L</div>
+          <div class="stack">
+            <div class="name">Luna</div>
+            <div class="bubble ai">「为你留着一盏灯。」她把一杯热茶推过柜台，杯壁的白雾缓缓散开，「坐吧，今晚不急着回家。」</div>
+          </div>
+        </div>
+
+        <div class="row user r-user2">
+          <div class="bubble user">那就再坐一会儿吧。<span class="wavy">今晚</span>，我想把那个故事听完。</div>
+        </div>
+
+        <div class="row ai r-typing">
+          <div class="avatar">L</div>
+          <div class="stack">
+            <div class="name">Luna</div>
+            <div class="bubble ai"><div class="dots"><i></i><i></i><i></i></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar">
+        <span class="time">23:47</span>
+        <div class="sicons">
+          <div class="sig"><i></i><i></i><i></i></div>
+          <div class="batt"></div>
+        </div>
+      </div>
+
+      <div class="topbar glass">
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <div class="avatar">L</div>
+        <div class="tt"><b>Luna</b><span>夜航书店 · 第 7 夜</span></div>
+        <svg class="more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      </div>
+
+      <div class="inputbar glass">
+        <div class="plus"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="ph">续写这一幕……</div>
+        <button class="send"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg></button>
+      </div>
+
+      <div class="modal glass">
+        <div class="mhead">
+          <span class="mtitle">界面主题</span><span class="msub">Appearance</span>
+          <svg class="mclose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </div>
+        <div class="mnote">玻璃只作用于固定栏，气泡保持纸感。</div>
+        <div class="opts">
+          <div class="opt"><div class="radio"></div><span class="olabel">暖纸书房 · 纸感</span><div class="sws"><i style="background:#2B2824"></i><i style="background:#2E211B"></i></div></div>
+          <div class="opt on"><div class="radio"></div><span class="olabel">暖纸书房 · 雾纸玻璃</span><span class="preview">本次预览</span><div class="sws"><i style="background:#201E1B"></i><i style="background:rgba(32,30,27,.85)"></i><i style="background:#2B2824"></i></div></div>
+          <div class="opt"><div class="radio"></div><span class="olabel">经典</span><div class="sws"><i style="background:#171614"></i><i style="background:#201E1B"></i></div></div>
+        </div>
+        <button class="mbtn">完 成</button>
+      </div>
+
+    </div></div>
+  </section>
+
+</main>
+
+<footer class="meta">
+  <div class="col">
+    <div class="mlabel">色板 PALETTE · 本方向用色（均取自 Claude token）</div>
+    <div class="palrow"><span class="pl">亮</span>
+      <div class="sw"><i style="background:#FAF9F5"></i><b>#FAF9F5 画布/玻璃tint</b></div>
+      <div class="sw"><i style="background:#EFE9DE"></i><b>#EFE9DE AI气泡</b></div>
+      <div class="sw"><i style="background:#F1E3D9"></i><b>#F1E3D9 用户气泡</b></div>
+      <div class="sw"><i style="background:#A9583E"></i><b>#A9583E 按钮底</b></div>
+      <div class="sw"><i style="background:#F5D9A8"></i><b>#F5D9A8 记号</b></div>
+    </div>
+    <div class="palrow"><span class="pl">暗</span>
+      <div class="sw"><i style="background:#171614"></i><b>#171614 画布</b></div>
+      <div class="sw"><i style="background:#201E1B"></i><b>#201E1B 玻璃tint</b></div>
+      <div class="sw"><i style="background:#2B2824"></i><b>#2B2824 气泡</b></div>
+      <div class="sw"><i style="background:#B85C3E"></i><b>#B85C3E 按钮底</b></div>
+      <div class="sw"><i style="background:#F5D9A8"></i><b>#F5D9A8 记号</b></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="mlabel">玻璃配方 GLASS RECIPE · Frost-Paper</div>
+    <table class="rtable">
+      <tr><th></th><th>亮 · LIGHT</th><th>暗 · DARK</th></tr>
+      <tr><td>blur</td><td>16px（三处 chrome 一致）</td><td>16px</td></tr>
+      <tr><td>tint</td><td>#FAF9F5（cream）</td><td>#201E1B（暗纸）</td></tr>
+      <tr><td>alpha</td><td>顶栏 .85 · 输入岛 .88 · 弹窗 .88</td><td>同左（.85–.88）</td></tr>
+      <tr><td>border</td><td>1px #E6DFD8（发丝线）</td><td>1px #3E3A34</td></tr>
+      <tr><td>specular</td><td>无 — 仅以发丝线定边</td><td>无</td></tr>
+    </table>
+    <div class="ennote"><b>工程备注 ·</b> backdrop-filter 仅用于固定/悬浮层（顶栏、输入岛、模态弹窗）；滚动长列表逐气泡 blur 为重方案，中端安卓机代价高，本方向不采用；@supports 不支持时降级为实底（同 tint，alpha→1）。</div>
+  </div>
+
+  <div class="col">
+    <div class="mlabel">气质定位 POSITIONING</div>
+    <div class="pos">「<b>毛玻璃窗台上的手账</b>」—— 玻璃退到窗台，纸与字留在灯下；玻璃几乎不抢戏，只负责把 chrome 轻轻托起。</div>
+    <div class="refline">参照作品 · <b>Windows 11 Mica</b> / <b>Arc 浏览器侧栏</b></div>
+    <div class="glassmap">玻璃落点 · 仅固定 chrome：顶栏 / 输入岛 / 模态弹窗；聊天气泡 0% 透。</div>
+  </div>
+</footer>
+
+</body>
+</html>

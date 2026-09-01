@@ -138,22 +138,164 @@
     letter-spacing: 0.02em;
 }
 
-/* 玻璃气泡在暖底上的白度校准（亮色过纯白会发灰，暖纸白更融合） */
-:root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
-    background-color: rgba(250, 249, 245, 0.78);
-}
-:root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
-    background-color: rgba(43, 40, 36, 0.82);
+/* ============================================================
+ * 雾纸玻璃层 Frost-Paper（方向板 A，docs/design/boards-v3/direction-approved-v3）
+ * 玻璃只上固定 chrome：顶栏 / 输入岛 / 侧栏抽屉 / 模态面板；聊天气泡维持纸感。
+ * blur 统一 16px（上游 chrome 为 backdrop-blur-xl=24px，雾纸配方收准到 16，
+ * 中端机 GPU 代价同步下降）。@supports 不支持时降级实底。
+ * ============================================================ */
+
+/* blur 校准：backdrop-blur-xl 24px → 16px（雾纸配方） */
+:root[data-theme="luzzy"] .backdrop-blur-xl {
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
 }
 
-/* 暗色下 bg-white 系（输入岛/工具钮/弹窗面）→ Claude 暗表面系，
-   避免暗色画布上出现刺眼纯白块（亮色模式不干预，白=纸面语义）。
-   !important：上游 glass/blur 组合带有更高优先级声明，主题覆盖层以此取胜。 */
+/* chrome 半透白面 → 雾纸 tint（亮 cream / 暗 暖纸），alpha 收至 .86；
+   枚举 alpha≥50 的工具类：/20 与 /40 是照片上的白 chip（白字），保持上游语义 */
+:root[data-theme="luzzy"][data-mode="light"] .bg-white\/95,
+:root[data-theme="luzzy"][data-mode="light"] .bg-white\/90,
+:root[data-theme="luzzy"][data-mode="light"] .bg-white\/70,
+:root[data-theme="luzzy"][data-mode="light"] .bg-white\/60,
+:root[data-theme="luzzy"][data-mode="light"] .bg-white\/50 {
+    background-color: rgba(250, 249, 245, 0.86);
+}
+:root[data-theme="luzzy"][data-mode="dark"] .bg-white\/95,
+:root[data-theme="luzzy"][data-mode="dark"] .bg-white\/90,
+:root[data-theme="luzzy"][data-mode="dark"] .bg-white\/70,
+:root[data-theme="luzzy"][data-mode="dark"] .bg-white\/60,
+:root[data-theme="luzzy"][data-mode="dark"] .bg-white\/50 {
+    background-color: rgba(32, 30, 27, 0.86);
+}
+
+/* 侧栏（移动端抽屉悬浮于对话之上）：补雾纸 blur；桌面 static 无物可糊，无副作用 */
+:root[data-theme="luzzy"] .app-sidebar {
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+}
+
+/* chrome 发丝线：border-gray-100/80 在雾纸上不可见 → hairline（仅限玻璃面自携） */
+:root[data-theme="luzzy"][data-mode="light"] .bg-white\/70.border-gray-100\/80 {
+    border-color: rgba(230, 223, 216, 0.8);
+}
+:root[data-theme="luzzy"][data-mode="dark"] .bg-white\/70.border-gray-100\/80 {
+    border-color: rgba(62, 58, 52, 0.8);
+}
+
+/* 暗色下其余实底 bg-white（按钮/白卡/输入面）→ Claude 暗表面系
+   （模态面板由下方雾纸弹窗规则以更高优先级接管为半透） */
 :root[data-theme="luzzy"][data-mode="dark"] .bg-white {
     background-color: #2B2824 !important;
 }
-:root[data-theme="luzzy"][data-mode="dark"] [class*="bg-white/"] {
-    background-color: rgba(43, 40, 36, 0.72) !important;
+
+/* 模态面板（modal-shell 直子面板 bg-white）→ 雾纸弹窗（悬浮磨砂卡） */
+:root[data-theme="luzzy"][data-mode="light"] .fixed.inset-0 > .bg-white {
+    background-color: rgba(250, 249, 245, 0.88) !important;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+}
+:root[data-theme="luzzy"][data-mode="dark"] .fixed.inset-0 > .bg-white {
+    background-color: rgba(32, 30, 27, 0.88) !important;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+}
+
+/* 聊天气泡回归纸感：不透明纸面 + 去 blur（与雾纸方向一致，GPU 同步减负） */
+:root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
+    background-color: #F5F0E8 !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
+    background-color: #2B2824 !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+/* 上游 styles.css 在移动端媒体查询内以 !important 写死一批白面
+   （blur 补偿：.input-island/.typing-bubble/.msg-name-tag/.typing-timer-badge/
+   .toast-item/.desc-panel/.wi-footer）。作者级 !important 碾压普通声明，
+   主题侧必须同样 !important + 更高特异性（:root 双属性前缀 (0,4,0) > (0,1,0)）夺回。
+   ——rc2 暗色未覆盖的死角，雾纸层统一收编（2026-09-01 CDP 实证）。 */
+:root[data-theme="luzzy"][data-mode="light"] .input-island {
+    background-color: rgba(250, 249, 245, 0.9) !important;
+    border-color: rgba(230, 223, 216, 0.8) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .input-island {
+    background-color: rgba(32, 30, 27, 0.88) !important;
+    border-color: rgba(62, 58, 52, 0.8) !important;
+}
+
+:root[data-theme="luzzy"][data-mode="light"] .typing-bubble,
+:root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
+    background-color: #F5F0E8 !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .typing-bubble,
+:root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
+    background-color: #2B2824 !important;
+}
+
+:root[data-theme="luzzy"][data-mode="light"] .msg-name-tag {
+    background-color: rgba(250, 249, 245, 0.92) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .msg-name-tag {
+    background-color: rgba(43, 40, 36, 0.92) !important;
+}
+
+:root[data-theme="luzzy"][data-mode="light"] .typing-timer-badge {
+    background-color: rgba(250, 249, 245, 0.86) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .typing-timer-badge {
+    background-color: rgba(32, 30, 27, 0.86) !important;
+}
+
+:root[data-theme="luzzy"][data-mode="light"] .toast-item {
+    background-color: rgba(250, 249, 245, 0.97) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .toast-item {
+    background-color: rgba(43, 40, 36, 0.97) !important;
+}
+
+:root[data-theme="luzzy"][data-mode="light"] .desc-panel {
+    background-color: rgba(250, 249, 245, 0.97) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .desc-panel {
+    background-color: rgba(32, 30, 27, 0.97) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .desc-close-btn:hover {
+    background-color: rgba(62, 58, 52, 0.75) !important;
+}
+
+:root[data-theme="luzzy"][data-mode="light"] .wi-footer {
+    background-color: rgba(245, 240, 232, 0.95) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .wi-footer {
+    background-color: rgba(32, 30, 27, 0.95) !important;
+}
+
+/* 抽屉遮罩：上游 slate 冷蓝底 → 墨色暖黑（亮暗通用） */
+:root[data-theme="luzzy"] .mobile-overlay {
+    background: rgba(20, 20, 19, 0.38) !important;
+}
+
+/* @supports 降级：无 backdrop-filter → 实底（雾纸 alpha 本就 ≥.85，视觉连续） */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root[data-theme="luzzy"][data-mode="light"] .bg-white\/95,
+    :root[data-theme="luzzy"][data-mode="light"] .bg-white\/90,
+    :root[data-theme="luzzy"][data-mode="light"] .bg-white\/70,
+    :root[data-theme="luzzy"][data-mode="light"] .bg-white\/60,
+    :root[data-theme="luzzy"][data-mode="light"] .bg-white\/50,
+    :root[data-theme="luzzy"][data-mode="light"] .fixed.inset-0 > .bg-white {
+        background-color: #F5F0E8;
+    }
+    :root[data-theme="luzzy"][data-mode="dark"] .bg-white\/95,
+    :root[data-theme="luzzy"][data-mode="dark"] .bg-white\/90,
+    :root[data-theme="luzzy"][data-mode="dark"] .bg-white\/70,
+    :root[data-theme="luzzy"][data-mode="dark"] .bg-white\/60,
+    :root[data-theme="luzzy"][data-mode="dark"] .bg-white\/50,
+    :root[data-theme="luzzy"][data-mode="dark"] .fixed.inset-0 > .bg-white {
+        background-color: #201E1B !important;
+    }
 }
 
 /* 上游 styles.css 写死的白色组件面（分段选择器滑块等）→ 暗面 */

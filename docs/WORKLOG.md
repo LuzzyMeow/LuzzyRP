@@ -567,3 +567,32 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
   `input keyevent KEYCODE_WAKEUP + 82` 唤醒再截；CDP 长时间多客户端折腾后会僵死（HTTP 无响应），
   force-stop 重启 app 刷新 socket 即恢复；`await evaluate('location.reload()')` 会永久挂起
   （页面销毁丢响应），必须 fire-and-forget 或用 Page.reload（CDP 方法，连接保持）。
+
+---
+
+## 2026-09-01 · 会话 10：雾纸玻璃层 Frost-Paper（液态玻璃方向融合）
+
+### 完成
+- **设计 SKILL 强制条款重执行**：完整重读 4 项 SKILL 主文档（huashu-design SKILL / awesome-design-md README / open-design AGENTS+CLAUDE / ui-ux-pro-max CLAUDE+SKILL），跑 glassmorphism 风格检索（blur 10-20px + 半透 10-30% + 1px 亮边 + 对比度条件性）。
+- **三方向硬门**：固化共享 spec（`docs/design/boards-v3/SPEC.md`）→ 3 个并行 subagent 各出一块方向板（HTML+Playwright 截图，亮暗双框渲染同一聊天场景）：A 雾纸 Frost-Paper（Windows Mica 派，玻璃仅固定 chrome）/ B 琥珀琉璃 Amber-Glass（暖 tint，AI 气泡玻璃化）/ C 晨露 Liquid-Clear（Apple Liquid Glass 派，高透+saturate，用户气泡玻璃化）→ 用户选定 **A**（`direction-approved-v3.md` 存档）。
+- **实施**（全在 `luzzy-theme.css`，零新 patch）：chrome 半透白面枚举接管（`bg-white/50/60/70/90/95` → 亮 cream/暗暖纸 0.86；**故意不接管 /20 /40**——照片上白 chip 白字语义）；`backdrop-blur-xl` 24→16px；`.app-sidebar` 补 blur；模态面板 `.fixed.inset-0 > .bg-white` 雾纸化；气泡 `.msg-bubble-glass` 回归不透纸面+去 blur；上游 `!important` 白面成建制收编（`.input-island` 等 7 个选择器 + 抽屉遮罩去 slate）；`@supports` 实底降级。
+- **真源与文档**：DESIGN.md 新增 Glass 章（配方表 + 枚举原则）；AGENTS.md §1.3 字体路径修正（实际 `rphub/assets/fonts/`）；CHANGELOG rc3 条目；EXTRACT_VERSION 2→4；`assembleDebug` 通过（40.8MB）。
+- **验证（模拟器 CDP 取证）**：亮/暗 tint 全部命中（顶栏/输入岛/侧栏 rgba 逐项核对）；暗色输入岛 `!important` 夺回实证（白 0.9 → rgba(32,30,27,0.88)）；模态选择器探针命中；证照 `docs/design/verify-frost-{light,dark}.png`。
+
+### 决策
+1. **玻璃面积与强度构成三方向结构差**（不是换皮）：A chrome-only 高不透 / B 暖 tint 到 AI 气泡 / C 高透+saturate 到用户气泡——用户选 A（最稳）。
+2. **bg-white/N 枚举而非通配**：通配 `[class*="bg-white/"]` 会打碎照片浮层白 chip（`/20` `/40` 白字语义），rc2 的通配写法是隐患，本轮已改。
+3. **气泡去玻璃化**：方向 A 板定稿「气泡=纸感」，`.msg-bubble-glass` 不透 + 去 blur——与雾纸气质一致且降低 GPU 代价。
+4. 模拟器 blur 不渲染定性为**设备/WebView 层问题**（Chromium 124，supports=true 但合成器跳过；设计以 alpha 兜底不劣化），真机复验后再定论。
+
+### 遗留
+- **真机 blur 复验**：用户下次连接手机时，确认新 WebView 上磨砂玻璃实际渲染（预期成立），并顺带过一遍聊天页/弹窗/抽屉的雾纸观感。
+- rc3 证照为空聊天页（无会话数据），聊天气泡纸感 + 名牌/typing/Toast 收编效果待有会话数据的设备走查。
+
+### 下一步
+1. 真机复验雾纸层（上）。
+2. AGENTS.md §9 待办顺延：SAF 文件桥实机、推广外链清理、上游同步演练、v1.0.0 正式发版。
+
+### 工具坑（复用价值）
+- Git Bash 会把 `/data/...` 参数改写为 `C:/Program Files/Git/data/...`——`adb push` 到设备路径必须 `MSYS_NO_PATHCONV=1`（本次 push 静默失败导致 md5 不一致的排障教训）。
+- 模拟器 AVD 的系统 WebView 可能远旧于真机（本机 124 vs 真机 14x）：WebView 行为验证不能只信模拟器。

@@ -45,3 +45,6 @@ Thumbs.db
 
 # Room schema 导出目录中的临时文件（schemas 本身需要入库）
 *.bak
+
+# 方向板本地字体（与 app/src/main/assets/rphub/assets/fonts 重复，PNG 为持久产物）
+docs/design/boards-v2/fonts/

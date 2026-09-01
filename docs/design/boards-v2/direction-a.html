@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>LuzzyRP 方向板 · A Swiss Monochrome</title>
+<style>
+/* ════════════════════════════════════════════════════════════
+   方向定制区开始 —— subagent 只允许修改本区域与下方标注为【可改】的文本节点
+   允许：定义/覆盖 CSS 变量、追加方向装饰 CSS（纹理/光效/母题，挂在 .deco 钩子上）
+   禁止：改动选择器结构、聊天文案、布局尺寸
+   ════════════════════════════════════════════════════════════ */
+/* 方向 A · 秒数轮盘 #19「Swiss极致黑白 Swiss Monochrome」
+   参照：Vercel / Geist · Massimo Vignelli「Less is more」
+   语言：纸白 + 纯黑 + 精密灰阶；一抹克制的墨蓝（#34599B）。
+   层级靠发丝线与留白建立；形状锐利（2-6px）；阴影近乎为零；
+   唯一强动作 = 反转：亮模式用户气泡是一整块黑（雨夜的黑伞）。 */
+
+:root {
+    /* —— 色彩（亮色 = 纸白 + 纯黑 + 精密灰阶）—— */
+    --canvas: #FAFAFA;            /* 聊天画布底 = 纸白 */
+    --surface: #FFFFFF;           /* 面板/输入岛实体面 */
+    --surface-2: #F5F5F5;         /* 次级表面 */
+    --hairline: #E2E2E2;          /* 发丝分割线 */
+    --text-1: #0A0A0A;            /* 主文字 = 近纯黑 */
+    --text-2: #525252;            /* 次级文字 */
+    --text-3: #737373;            /* 弱化文字（仍 ≥ 4.5:1）*/
+    --bubble-ai: #FFFFFF;         /* AI 气泡 = 白面 + 发丝描边 */
+    --bubble-ai-border: #D4D4D4;
+    --bubble-user: #111111;       /* 用户气泡 = 黑伞（反转块）*/
+    --bubble-user-border: #111111;
+    --accent: #34599B;            /* 唯一一抹墨蓝：印刷感，不艳俗 */
+    --on-accent: #FFFFFF;
+    --accent-soft: rgba(52,89,155,0.10);
+    --link: #264478;
+    --scrim-0: rgba(0,0,0,0.90);  /* 顶栏 = 印刷报头式黑色渐隐 */
+    --scrim-1: rgba(0,0,0,0.70);
+    --scrim-2: rgba(0,0,0,0.10);
+    --avatar-a: #2E2E33;          /* 头像 = 炭黑渐变，无彩色 */
+    --avatar-b: #5A5A64;
+    /* —— 形状与深度：锐利、平整 —— */
+    --radius-bubble: 6px;
+    --radius-card: 4px;
+    --radius-input: 6px;
+    --radius-btn: 4px;
+    --shadow-1: 0 1px 2px rgba(10,10,10,0.05);
+    --shadow-2: 0 24px 48px -28px rgba(10,10,10,0.45);
+    /* —— 装饰令牌 —— */
+    --deco-line: rgba(10,10,10,0.05);  /* 屏内栅格参考线 */
+    /* —— 字体（三方向统一，禁止更换字体文件）—— */
+    --font-body: "AlibabaSans", "PuHuiTi", sans-serif;
+    --font-display: "AlibabaSans", "PuHuiTi", sans-serif;
+    --font-serif: "Lora", serif;
+}
+
+/* 暗色模式（作用域：第二台手机 + 右列暗色卡）＝ 近黑底 + 白字 + 灰阶发丝线 */
+[data-mode="dark"] {
+    --canvas: #0A0A0A;
+    --surface: #161616;
+    --surface-2: #1E1E1E;
+    --hairline: #2E2E2E;
+    --text-1: #F5F5F5;
+    --text-2: #A3A3A3;
+    --text-3: #8A8A8A;
+    --bubble-ai: #161616;
+    --bubble-ai-border: #2E2E2E;
+    --bubble-user: #F5F5F5;       /* 反转：暗模式下用户气泡是纸白块 */
+    --bubble-user-border: #F5F5F5;
+    --accent: #7094C6;
+    --on-accent: #0A0A0A;
+    --accent-soft: rgba(112,148,198,0.16);
+    --link: #9CB6DB;
+    --scrim-0: rgba(0,0,0,0.70);
+    --scrim-1: rgba(0,0,0,0.30);
+    --scrim-2: rgba(0,0,0,0);
+    --avatar-a: #3A3A40;
+    --avatar-b: #6A6A74;
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.50);
+    --shadow-2: 0 24px 48px -28px rgba(0,0,0,0.70);
+    --deco-line: rgba(245,245,245,0.045);
+}
+
+/* —— 形状修正（锐化：方向形状语言，经 .board/.screen 提升特异性）—— */
+.board .masthead .badge { background:#0A0A0A; border-radius:4px; }
+.board .masthead .chip { border-radius:2px; }
+.board .card { border-radius:6px; }
+.board .ramp .sw { border-radius:2px; }
+.board .pv { border-radius:4px; }
+.board .pv .frow { border-radius:3px; }
+.board .island .send { border-radius:6px; box-shadow:none; }
+
+/* 反转气泡文字（黑白对调的唯一个性强动作）*/
+.screen[data-mode="light"] .bubble.user { color:#FAFAFA; }
+.screen[data-mode="light"] .bubble.user .stamp { color:#8A8A8A; }
+.screen[data-mode="dark"] .bubble.user { color:#111111; }
+.screen[data-mode="dark"] .bubble.user .stamp { color:#525252; }
+
+/* 可读性修正：亮模式顶栏为深色报头渐隐，状态栏随之为白（骨架默认黑字会消失）*/
+.screen[data-mode="light"] .statusbar { color:#FAFAFA; }
+
+/* —— Swiss 装饰：装帧框线 + 角裁切标记 + 精密栅格 + 屏内栏参考线 ——
+   （.board/.screen 建立层叠上下文，装饰层 z:-1 沉底，避免盖住静态内容）*/
+.board { isolation:isolate; }
+.board .screen { isolation:isolate; }
+.board > .deco {
+    z-index:-1;
+    background-color:#EBEBEB;
+    background-image:
+        linear-gradient(#0A0A0A,#0A0A0A),
+        linear-gradient(#0A0A0A,#0A0A0A),
+        linear-gradient(#0A0A0A,#0A0A0A),
+        linear-gradient(#0A0A0A,#0A0A0A),
+        linear-gradient(to bottom right,#0A0A0A 50%,transparent 50.5%),
+        linear-gradient(to bottom left,#0A0A0A 50%,transparent 50.5%),
+        linear-gradient(to top right,#0A0A0A 50%,transparent 50.5%),
+        linear-gradient(to top left,#0A0A0A 50%,transparent 50.5%),
+        repeating-linear-gradient(to right, rgba(10,10,10,0.045) 0 1px, transparent 1px 80px),
+        repeating-linear-gradient(to bottom, rgba(10,10,10,0.045) 0 1px, transparent 1px 80px);
+    background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,repeat,repeat;
+    background-size:
+        calc(100% - 20px) 1px, calc(100% - 20px) 1px, 1px calc(100% - 20px), 1px calc(100% - 20px),
+        8px 8px, 8px 8px, 8px 8px, 8px 8px,
+        auto, auto;
+    background-position:
+        10px 10px, 10px calc(100% - 11px), 10px 10px, calc(100% - 11px) 10px,
+        10px 10px, calc(100% - 18px) 10px, 10px calc(100% - 18px), calc(100% - 18px) calc(100% - 18px),
+        0 0, 0 0;
+}
+.screen > .deco {
+    z-index:-1;
+    background-image:
+        linear-gradient(var(--deco-line),var(--deco-line)),
+        linear-gradient(var(--deco-line),var(--deco-line));
+    background-size:1px 100%,1px 100%;
+    background-position:33.333% 0,66.667% 0;
+    background-repeat:no-repeat;
+}
+
+/* —— 方向装饰钩子（空元素，方向可自由绘制）—— */
+.deco { position:absolute; inset:0; pointer-events:none; }
+
+/* ══════════════════ 方向定制区结束，以下骨架禁止修改 ══════════════════ */
+
+@font-face { font-family:"PuHuiTi"; src:url("fonts/AlibabaPuHuiTi-3-55-Regular.woff2") format("woff2"); font-weight:400; font-display:block; }
+@font-face { font-family:"PuHuiTi"; src:url("fonts/AlibabaPuHuiTi-3-65-Medium.woff2") format("woff2"); font-weight:500; font-display:block; }
+@font-face { font-family:"PuHuiTi"; src:url("fonts/AlibabaPuHuiTi-3-85-Bold.woff2") format("woff2"); font-weight:700; font-display:block; }
+@font-face { font-family:"AlibabaSans"; src:url("fonts/AlibabaSans-Regular.woff2") format("woff2"); font-weight:400; font-display:block; }
+@font-face { font-family:"AlibabaSans"; src:url("fonts/AlibabaSans-Medium.woff2") format("woff2"); font-weight:500; font-display:block; }
+@font-face { font-family:"AlibabaSans"; src:url("fonts/AlibabaSans-Bold.woff2") format("woff2"); font-weight:700; font-display:block; }
+@font-face { font-family:"Lora"; src:url("fonts/Lora-Regular.woff2") format("woff2"); font-weight:400; font-display:block; }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:1600px; height:1200px; overflow:hidden; }
+body { font-family:var(--font-body); background:#e8eaee; }
+
+.board { position:relative; width:1600px; height:1200px; display:grid;
+    grid-template-columns: 1fr 1fr 432px; grid-template-rows: 64px 1fr; gap:16px; padding:20px; }
+
+/* —— 顶栏条 —— */
+.masthead { grid-column:1/4; display:flex; align-items:center; gap:18px; }
+.masthead .badge { width:46px; height:46px; border-radius:12px; background:var(--accent); color:var(--on-accent);
+    display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; }
+.masthead .name { font-size:24px; font-weight:700; letter-spacing:0.02em; }
+.masthead .tagline { font-size:14px; color:#4b5563; }
+.masthead .logic { margin-left:auto; display:flex; gap:8px; align-items:center; }
+.masthead .chip { font-size:12px; padding:5px 10px; border-radius:999px; background:#fff; border:1px solid #d1d5db; color:#374151; }
+
+/* —— 手机 —— */
+.phone-wrap { display:flex; align-items:center; justify-content:center; position:relative; }
+.phone { width:352px; height:742px; background:#0b0e14; border-radius:40px; padding:10px; box-shadow:var(--shadow-2); position:relative; }
+.screen { position:relative; width:100%; height:100%; border-radius:32px; overflow:hidden;
+    background:var(--canvas); color:var(--text-1); display:flex; flex-direction:column; }
+
+.statusbar { height:34px; flex:none; display:flex; align-items:center; justify-content:space-between;
+    padding:0 18px; font-size:12px; font-weight:700; color:var(--text-1); position:relative; z-index:3; }
+.statusbar .right { display:flex; gap:5px; align-items:center; }
+.statusbar svg { width:15px; height:12px; }
+
+.topbar { position:relative; flex:none; height:56px; padding:0 14px 10px; z-index:2; display:flex; align-items:center; gap:10px; }
+.topbar::before { content:""; position:absolute; inset:-34px 0 -10px; z-index:-1;
+    background:linear-gradient(to bottom, var(--scrim-0) 0%, var(--scrim-1) 55%, var(--scrim-2) 100%); }
+.topbar .avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--avatar-a),var(--avatar-b));
+    color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex:none;
+    border:1px solid rgba(255,255,255,0.35); }
+.topbar .who { min-width:0; }
+.topbar .who .n { font-size:15px; font-weight:700; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.35); }
+.topbar .who .s { font-size:10.5px; color:rgba(255,255,255,0.82); text-shadow:0 1px 3px rgba(0,0,0,0.35); }
+.topbar .acts { margin-left:auto; display:flex; gap:6px; }
+.topbar .acts .ic { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.topbar .acts svg { width:17px; height:17px; stroke:#fff; stroke-width:1.8; fill:none; opacity:0.92; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35)); }
+
+.chat { flex:1; padding:6px 12px 8px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
+.mtag { font-size:10px; font-weight:700; color:var(--text-2); margin:4px 2px 3px; letter-spacing:0.04em; }
+.mtag.me { text-align:right; }
+.bubble { max-width:82%; padding:10px 13px; font-size:14.5px; line-height:1.62; border:1px solid var(--bubble-ai-border);
+    background:var(--bubble-ai); border-radius:var(--radius-bubble); border-top-left-radius:6px;
+    box-shadow:var(--shadow-1); backdrop-filter:blur(10px); }
+.bubble.ai + .mtag { margin-top:7px; }
+.bubble.user { margin-left:auto; background:var(--bubble-user); border-color:var(--bubble-user-border);
+    border-radius:var(--radius-bubble); border-top-right-radius:6px; }
+.bubble .stamp { display:block; margin-top:5px; font-size:9.5px; color:var(--text-3); text-align:right; }
+.typing { display:inline-flex; align-items:center; gap:7px; margin:8px 2px; font-size:11px; color:var(--text-2); }
+.typing .dots { display:inline-flex; gap:4px; }
+.typing .dots i { width:6px; height:6px; border-radius:50%; background:var(--text-3); }
+
+.composer { flex:none; padding:10px 12px 16px; }
+.island { display:flex; align-items:flex-end; gap:8px; padding:10px 10px 10px 12px;
+    border-radius:var(--radius-input); background:var(--surface); border:1px solid var(--hairline);
+    box-shadow:var(--shadow-1); }
+.island .ph { flex:1; font-size:13.5px; color:var(--text-3); line-height:1.4; padding-bottom:6px; }
+.island .tool { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--text-2); }
+.island .tool svg { width:17px; height:17px; stroke:currentColor; stroke-width:1.8; fill:none; }
+.island .send { width:38px; height:38px; border-radius:50%; background:var(--accent); color:var(--on-accent);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px -2px var(--accent); }
+.island .send svg { width:18px; height:18px; stroke:currentColor; stroke-width:2; fill:none; }
+
+/* —— 右列 —— */
+.panel { display:flex; flex-direction:column; gap:11px; min-height:0; }
+.card { background:#fff; border:1px solid #d8dbe0; border-radius:14px; padding:12px 15px; box-shadow:0 1px 3px rgba(15,23,42,0.05); }
+.card h3 { font-size:11px; letter-spacing:0.14em; color:#6b7280; margin-bottom:8px; font-weight:700; }
+
+.ramp { display:grid; grid-template-columns:repeat(10,1fr); gap:4px; margin-bottom:8px; }
+.ramp .sw { height:26px; border-radius:5px; border:1px solid rgba(0,0,0,0.08); position:relative; }
+.ramp .sw b { position:absolute; left:0; right:0; bottom:-14px; font-size:8px; font-weight:400; color:#6b7280; text-align:center; letter-spacing:0; }
+.ramp-row { margin-bottom:18px; }
+.ramp-row .lb { font-size:10px; color:#6b7280; letter-spacing:0.1em; margin-bottom:5px; font-weight:700; }
+
+.type-spec .row { display:flex; align-items:baseline; gap:12px; margin-bottom:6px; }
+.type-spec .k { width:64px; flex:none; font-size:9.5px; color:#9ca3af; letter-spacing:0.08em; }
+.type-spec .display { font-size:26px; font-weight:700; letter-spacing:0.01em; }
+.type-spec .body { font-size:15px; line-height:1.55; }
+.type-spec .cap { font-size:12px; color:#6b7280; }
+.type-spec .latin { font-size:13px; color:#374151; letter-spacing:0.06em; }
+
+.pv-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.pv { border-radius:12px; padding:12px; border:1px solid var(--hairline); background:var(--canvas); color:var(--text-1); }
+.pv .sec { font-size:9.5px; letter-spacing:0.12em; color:var(--text-2); font-weight:700; margin-bottom:8px; }
+.pv .frow { background:var(--surface-2); border:1px solid var(--hairline); border-radius:9px; padding:7px 9px; margin-bottom:6px;
+    display:flex; justify-content:space-between; align-items:center; font-size:11.5px; }
+.pv .frow .sel { color:var(--text-1); font-weight:500; display:flex; align-items:center; gap:5px; }
+.pv .frow .sel i { font-style:normal; color:var(--text-3); font-size:9px; }
+.pv .frow .lab { color:var(--text-2); font-size:10.5px; }
+.pv .toggle { width:30px; height:17px; border-radius:999px; background:var(--accent); position:relative; flex:none; }
+.pv .toggle::after { content:""; position:absolute; right:2px; top:2px; width:13px; height:13px; border-radius:50%; background:var(--on-accent); }
+
+.motion .mrow { display:flex; gap:10px; margin-bottom:8px; font-size:11.5px; align-items:baseline; }
+.motion .mk { width:104px; flex:none; color:#6b7280; font-weight:700; }
+.motion .mv { color:#111827; }
+.motion .mv b { font-family:"AlibabaSans"; font-weight:700; }
+
+.meta .line { font-size:12px; color:#374151; line-height:1.7; margin-bottom:6px; }
+.meta .line b { color:#111827; }
+.meta .ok { color:#059669; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="board">
+    <div class="deco"></div>
+
+    <!-- 顶栏条【可改文字：方向名 / 定位 / 逻辑标签 / 参照】 -->
+    <header class="masthead">
+        <div class="badge">A</div>
+        <div>
+            <div class="name">Swiss 极致黑白</div>
+            <div class="tagline">冷静、精密、克制 —— 排印即界面，留白与发丝线就是全部装饰。</div>
+        </div>
+        <div class="logic">
+            <span class="chip">逻辑：秒数轮盘 #19</span>
+            <span class="chip">参照：Vercel Geist · Massimo Vignelli</span>
+        </div>
+    </header>
+
+    <!-- 手机 1 · 亮色聊天（结构与文案禁止改动） -->
+    <div class="phone-wrap">
+        <div class="phone"><div class="screen" data-mode="light">
+            <div class="deco"></div>
+            <div class="statusbar"><span>23:47</span>
+                <span class="right">
+                    <svg viewBox="0 0 16 12"><path d="M1 11V8M5.5 11V5.5M10 11V3M14.5 11V1" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+                    <svg viewBox="0 0 20 12"><rect x="0.5" y="0.5" width="16" height="11" rx="3" stroke="currentColor" fill="none"/><rect x="2.5" y="2.5" width="10" height="7" rx="1.5" fill="currentColor"/><rect x="17.5" y="3.5" width="2" height="5" rx="1" fill="currentColor"/></svg>
+                </span>
+            </div>
+            <div class="topbar">
+                <div class="avatar">凛</div>
+                <div class="who"><div class="n">凛音</div><div class="s">雨夜的便利店 · 第 2 幕</div></div>
+                <div class="acts">
+                    <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 12h13M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></span>
+                </div>
+            </div>
+            <div class="chat">
+                <div class="mtag">凛音</div>
+                <div class="bubble ai">雨夜便利店的屋檐下，她把伞倾向你这一侧，自己的肩线却被淋湿了一片。霓虹在水洼里碎成一片一片。<span class="stamp">23:41</span></div>
+                <div class="mtag">凛音</div>
+                <div class="bubble ai">……你总是这样，明明自己也会淋雨。再不走快点，热可可就要凉了哦。<span class="stamp">23:42</span></div>
+                <div class="mtag me">你</div>
+                <div class="bubble user">那就把伞收了吧。<span class="stamp">23:43</span></div>
+                <div class="typing"><span class="dots"><i></i><i></i><i></i></span>凛音正在输入…</div>
+            </div>
+            <div class="composer">
+                <div class="island">
+                    <span class="tool"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg></span>
+                    <span class="ph">续写这个故事…</span>
+                    <span class="tool"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4 4 3 3-2 4 3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span class="send"><svg viewBox="0 0 24 24"><path d="M4 12l16-7-5 16-3.5-6.5L4 12z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    <!-- 手机 2 · 暗色聊天（结构与文案禁止改动） -->
+    <div class="phone-wrap">
+        <div class="phone"><div class="screen" data-mode="dark">
+            <div class="deco"></div>
+            <div class="statusbar"><span>23:47</span>
+                <span class="right">
+                    <svg viewBox="0 0 16 12"><path d="M1 11V8M5.5 11V5.5M10 11V3M14.5 11V1" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+                    <svg viewBox="0 0 20 12"><rect x="0.5" y="0.5" width="16" height="11" rx="3" stroke="currentColor" fill="none"/><rect x="2.5" y="2.5" width="10" height="7" rx="1.5" fill="currentColor"/><rect x="17.5" y="3.5" width="2" height="5" rx="1" fill="currentColor"/></svg>
+                </span>
+            </div>
+            <div class="topbar">
+                <div class="avatar">凛</div>
+                <div class="who"><div class="n">凛音</div><div class="s">雨夜的便利店 · 第 2 幕</div></div>
+                <div class="acts">
+                    <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 12h13M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></span>
+                </div>
+            </div>
+            <div class="chat">
+                <div class="mtag">凛音</div>
+                <div class="bubble ai">雨夜便利店的屋檐下，她把伞倾向你这一侧，自己的肩线却被淋湿了一片。霓虹在水洼里碎成一片一片。<span class="stamp">23:41</span></div>
+                <div class="mtag">凛音</div>
+                <div class="bubble ai">……你总是这样，明明自己也会淋雨。再不走快点，热可可就要凉了哦。<span class="stamp">23:42</span></div>
+                <div class="mtag me">你</div>
+                <div class="bubble user">那就把伞收了吧。<span class="stamp">23:43</span></div>
+                <div class="typing"><span class="dots"><i></i><i></i><i></i></span>凛音正在输入…</div>
+            </div>
+            <div class="composer">
+                <div class="island">
+                    <span class="tool"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg></span>
+                    <span class="ph">续写这个故事…</span>
+                    <span class="tool"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4 4 3 3-2 4 3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span class="send"><svg viewBox="0 0 24 24"><path d="M4 12l16-7-5 16-3.5-6.5L4 12z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    <!-- 右列 -->
+    <div class="panel">
+        <div class="card">
+            <h3>色板 · gray ×10 + accent ×10（上排亮色 / 下排暗色）</h3>
+            <!-- 【可改】每个 swatch 的 inline 背景 + hex 标注，方向必须全部替换 -->
+            <div class="ramp-row"><div class="lb">GRAY · LIGHT</div><div class="ramp">
+                <div class="sw" style="background:#FAFAFA"><b>50</b></div><div class="sw" style="background:#F5F5F5"><b>100</b></div><div class="sw" style="background:#E5E5E5"><b>200</b></div><div class="sw" style="background:#D4D4D4"><b>300</b></div><div class="sw" style="background:#A3A3A3"><b>400</b></div><div class="sw" style="background:#737373"><b>500</b></div><div class="sw" style="background:#525252"><b>600</b></div><div class="sw" style="background:#404040"><b>700</b></div><div class="sw" style="background:#262626"><b>800</b></div><div class="sw" style="background:#0A0A0A"><b>900</b></div>
+            </div></div>
+            <div class="ramp-row"><div class="lb">ACCENT · LIGHT</div><div class="ramp">
+                <div class="sw" style="background:#F1F4F9"><b>50</b></div><div class="sw" style="background:#E1E9F4"><b>100</b></div><div class="sw" style="background:#C5D4EA"><b>200</b></div><div class="sw" style="background:#9CB6DB"><b>300</b></div><div class="sw" style="background:#7094C6"><b>400</b></div><div class="sw" style="background:#4C73AE"><b>500</b></div><div class="sw" style="background:#34599B"><b>600</b></div><div class="sw" style="background:#264478"><b>700</b></div><div class="sw" style="background:#1A3157"><b>800</b></div><div class="sw" style="background:#0F1F38"><b>900</b></div>
+            </div></div>
+            <div class="ramp-row"><div class="lb">GRAY · DARK</div><div class="ramp">
+                <div class="sw" style="background:#0A0A0A"><b>50</b></div><div class="sw" style="background:#171717"><b>100</b></div><div class="sw" style="background:#262626"><b>200</b></div><div class="sw" style="background:#3A3A3A"><b>300</b></div><div class="sw" style="background:#525252"><b>400</b></div><div class="sw" style="background:#737373"><b>500</b></div><div class="sw" style="background:#8A8A8A"><b>600</b></div><div class="sw" style="background:#A3A3A3"><b>700</b></div><div class="sw" style="background:#D4D4D4"><b>800</b></div><div class="sw" style="background:#F5F5F5"><b>900</b></div>
+            </div></div>
+            <div class="ramp-row" style="margin-bottom:2px"><div class="lb">ACCENT · DARK</div><div class="ramp">
+                <div class="sw" style="background:#0F1F38"><b>50</b></div><div class="sw" style="background:#1A3157"><b>100</b></div><div class="sw" style="background:#264478"><b>200</b></div><div class="sw" style="background:#34599B"><b>300</b></div><div class="sw" style="background:#4C73AE"><b>400</b></div><div class="sw" style="background:#7094C6"><b>500</b></div><div class="sw" style="background:#9CB6DB"><b>600</b></div><div class="sw" style="background:#C5D4EA"><b>700</b></div><div class="sw" style="background:#E1E9F4"><b>800</b></div><div class="sw" style="background:#F1F4F9"><b>900</b></div>
+            </div></div>
+        </div>
+
+        <div class="card type-spec">
+            <h3>字体样张 · AlibabaSans + Alibaba PuHuiTi 3.0（Lora 衬线备用）</h3>
+            <div class="row"><span class="k">DISPLAY</span><span class="display">雨夜与她</span></div>
+            <div class="row"><span class="k">BODY 15</span><span class="body">她把伞倾向你这一侧，肩线却被淋湿了一片。</span></div>
+            <div class="row"><span class="k">CAPTION</span><span class="cap">第 2 幕 · 雨夜便利店 · 23:47</span></div>
+            <div class="row"><span class="k">LATIN</span><span class="latin">LuzzyRP 0123456789 — “Continue the story.”</span></div>
+        </div>
+
+        <div class="card">
+            <h3>设置页预览 · 界面主题 / 模式 / 界面字体 / 字号</h3>
+            <div class="pv-grid">
+                <div class="pv" data-mode="light">
+                    <div class="sec">高级参数 · 亮</div>
+                    <div class="frow"><span class="lab">界面主题</span><span class="sel">Swiss 极致黑白 <i>▾</i></span></div>
+                    <div class="frow"><span class="lab">模式</span><span class="sel">亮色 <i>▾</i></span></div>
+                    <div class="frow"><span class="lab">界面字体</span><span class="sel">Luzzy 默认 <i>▾</i></span></div>
+                    <div class="frow"><span class="lab">气泡毛玻璃</span><span class="toggle"></span></div>
+                </div>
+                <div class="pv" data-mode="dark">
+                    <div class="sec">高级参数 · 暗</div>
+                    <div class="frow"><span class="lab">界面主题</span><span class="sel">Swiss 极致黑白 <i>▾</i></span></div>
+                    <div class="frow"><span class="lab">模式</span><span class="sel">暗色 <i>▾</i></span></div>
+                    <div class="frow"><span class="lab">界面字体</span><span class="sel">Luzzy 默认 <i>▾</i></span></div>
+                    <div class="frow"><span class="lab">气泡毛玻璃</span><span class="toggle"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card motion">
+            <h3>动效令牌</h3>
+            <!-- 【可改】四行 mv 值 -->
+            <div class="mrow"><span class="mk">气泡进入</span><span class="mv"><b>200ms</b> · <b>cubic-bezier(0.23,1,0.32,1)</b> · 淡入 + 上移 4px</span></div>
+            <div class="mrow"><span class="mk">气泡退出</span><span class="mv"><b>140ms</b> · 同曲线 · 原位直落淡出</span></div>
+            <div class="mrow"><span class="mk">主题切换转场</span><span class="mv">黑白「显影」：淡出后以新模式淡入，发丝线重新对位</span></div>
+            <div class="mrow"><span class="mk">招牌动效</span><span class="mv">印刷光标：发送后 1px 竖线扫至新气泡行首，即隐没</span></div>
+        </div>
+
+        <div class="card meta">
+            <h3>定位 · 母题 · 自查</h3>
+            <!-- 【可改】三行 line 文本 -->
+            <div class="line"><b>form 来自内容：</b>母题 = 伞——黑伞剪影即唯一大黑块，伞骨放射即栅格。</div>
+            <div class="line"><b>禁区自查：</b><span class="ok">✓</span> 无紫渐变 / 无 emoji 图标 / 无左彩边圆角卡 / 非 GitHub-dark 套壳 / 正文对比度 ≥ 4.5:1（亮暗分别达标）</div>
+            <div class="line"><b>参照署名：</b>Vercel / Geist · Vignelli「The Vignelli Canon」</div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -20,7 +20,7 @@
 > - 修改范围：安卓壳封装、资源离线化、品牌化、独立扩展层（详见 [CHANGELOG](CHANGELOG.md)）；
 > - 上游原 LICENSE 文件保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布。
 
-![Status](https://img.shields.io/badge/Status-重建中-blue)
+![Status](https://img.shields.io/badge/Status-v1.0.0--rc2·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.8.9-4FC08D?logo=vue.js&logoColor=white)
@@ -80,7 +80,9 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 | 资源离线化 | Vue / Tailwind / marked / DOMPurify / SortableJS / Lora 字体全部本地打包 |
 | 文件桥接 | 角色卡 PNG/JSON 导入导出走系统文件选择器（SAF） |
 | 系统能力桥 | 剪贴板、Toast、版本信息等原生能力通过 JSBridge 暴露给前端 |
-| 独立扩展层 | `luzzy-ext.js` / `luzzy-theme.css` 独立文件承载二创新功能，与上游零冲突 |
+| 独立扩展层 | `luzzy-theme.css` / `luzzy-bridge.js` / `luzzy-ext.js` 独立文件承载二创新功能，与上游零冲突 |
+| **主题系统** | 「暖幕手记 × Claude」主题（亮/暗双模式）+ 经典（原版）主题，设置页一键切换；新用户默认暖幕手记，老用户保留经典 |
+| **字体系统** | 「Luzzy 默认」字体（Alibaba Sans 拉丁 + Alibaba PuHuiTi 3 中文，本地打包）；经典（原版）/经典衬线（Lora）/系统可选 |
 | 上游同步机制 | 覆盖 + patch 重放脚本化同步，跟随上游持续迭代 |
 
 ---
@@ -126,7 +128,7 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 | 宿主 | 单 Activity + WebView（系统 WebView，minSdk 26 起） |
 | 前端 | Vue 3（本地打包）· Tailwind CSS（本地打包）· DaisyUI |
 | 前端依赖 | marked · DOMPurify 3.0.6 · SortableJS（全部本地化） |
-| 字体 | RP-Hub 规定字体栈（`--app-font-modern` / `--app-font-serif`）+ Lora 本地打包 |
+| 字体 | Alibaba Sans + Alibaba PuHuiTi 3（默认）· Lora 衬线 · 上游经典栈，全部本地打包 |
 | 构建 | Gradle · AGP · 现有签名（keystore/luzzy-release.keystore） |
 | SDK | compileSdk 37 · minSdk 26 · targetSdk 37 |
 
@@ -148,7 +150,8 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 
 | LuzzyRP 版本 | 上游基线 | 说明 |
 |--------------|---------|------|
-| v1.0.0 | RP-Hub 1.8.9 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 扩展层骨架 |
+| v1.0.0-rc2 | RP-Hub 1.8.9 | 主题系统「暖幕手记 × Claude」+ 字体系统 + 暗色修复（模拟器+真机验证） |
+| v1.0.0 | RP-Hub 1.8.9 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 扩展层 + 主题 |
 
 ---
 
@@ -206,11 +209,11 @@ LuzzyRP/
 │   ├── apply-patches.ps1         # patch 重放脚本
 │   ├── patches/                  # 二创登记 patch
 │   └── upstream-fingerprints.txt # 上游文件指纹基线
-├── docs/                         # 规划 / 日志 / 归档
+├── docs/                         # 规划 / 日志 / 设计存档 / 归档
 ├── keystore/                     # 签名（不入库）
 ├── CHANGELOG.md                  # 更新日志（沿用既有格式）
 ├── AGENTS.md                     # 后续开发 Agent 指南
-├── HARD_REQUIREMENTS.md          # 硬性规定（8 条）
+├── HARD_REQUIREMENTS.md          # 硬性规定（9 条）
 ├── LICENSE                        # CC BY-NC 4.0
 └── README.md                     # 本文件
 ```
@@ -221,7 +224,7 @@ LuzzyRP/
 
 **接手开发前必读**（按顺序）：
 
-1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 8 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程），**违反任何一条即为不合格交付**；
+1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 9 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程 / **设计 SKILL 强制条款**），**违反任何一条即为不合格交付**；
 2. [`AGENTS.md`](AGENTS.md) —— 后续开发/更新/维护 Agent 工作指南（文件地图 / 工作流程 / 同步 SOP / 扩展开发规范）；
 3. [`docs/PLAN-v1.0.0.md`](docs/PLAN-v1.0.0.md) —— v1.0.0 重建完整实施计划；
 4. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
@@ -233,7 +236,7 @@ LuzzyRP/
 
 | 版本 | 内容 | 附 APK |
 |------|------|--------|
-| v1.0.0 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 扩展层骨架 + 同步机制 | ✓（稳定版） |
+| v1.0.0 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 主题/字体系统 + 同步机制（当前 rc2，真机已验证） | ✓（稳定版） |
 | v1.1.0 | 扩展功能第一批（候选：原生设置页、深链、自建更新检查） | ✓ |
 | v1.2.0+ | 跟随上游节奏迭代 + 独立功能持续扩展 | 按稳定版 |
 

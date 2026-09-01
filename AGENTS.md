@@ -22,6 +22,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `CHANGELOG.md` | 更新日志 | 格式：`### vX.Y.Z — 标题` + 「新增/优化/修复/注意事项」分类 + 构建结果与 versionCode；每条注明上游基线版本 |
 | `HARD_REQUIREMENTS.md` | 9 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
 | `AGENTS.md` | 本文件 | 与 HARD_REQUIREMENTS 同步演进 |
+| `DESIGN.md` | 设计真源（唯一设计契约，Claude token 体系） | 任何 UI 改动必须遵循；修改需按硬性规定 9 走设计流程 |
 | `LICENSE` | CC BY-NC 4.0 | **禁止删除/改写**（含上游 LICENSE 保留义务） |
 | `keystore.properties` | 签名配置 | 不入库（.gitignore） |
 | `settings.gradle.kts` / `build.gradle.kts` / `gradle.properties` | 构建配置 | 仅 `:app` 单模块 |
@@ -53,7 +54,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `assets/js/api-utils.js` / `presence.js` / `update-check.js` | 辅助脚本 | 同步时整体覆盖 |
 | `assets/css/styles.css` | 全局样式 | 仅允许登记 patch 修改 |
 | `vendor/` | 离线化 CDN 依赖 | 上游可能升级依赖版本，同步时检查 |
-| `fonts/` | Lora 本地字体 | 禁止运行时依赖 Google Fonts CDN（硬性规定 4） |
+| `assets/fonts/` | 本地字体（Lora + Alibaba PuHuiTi 3 + AlibabaSans） | @font-face 在 `assets/css/local-fonts.css`；禁止运行时依赖字体 CDN（硬性规定 4） |
 | `character/` / `novel/` | 子页面 | 同步时整体覆盖 |
 
 ### 1.4 扩展层（app/src/main/assets/ext/）
@@ -61,8 +62,8 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
 | `luzzy-bridge.js` | 桥接封装（存在性检测 + 降级） | 新增桥接方法必须同步此文件 |
-| `luzzy-theme.css` | 字体/品牌覆盖 | 用 CSS 变量覆盖，**不改 styles.css** |
-| `luzzy-ext.js` | 二创新功能 | 所有新功能 JS 落此文件（或按功能拆分新文件，登记到 index.html 挂载 patch） |
+| `luzzy-theme.css` | 主题变量 + 字体栈（DESIGN.md token 落地） | classic/亮/暗三套 `--tw-*` 变量为 **RGB 三元组**；暗色组件覆盖在此；token 改动须同步 DESIGN.md |
+| `luzzy-ext.js` | 桥接自检 + 关于页品牌注入 | 主题/字体切换逻辑在 patch 010/011（上游 app.js 内），不在此文件 |
 
 ### 1.5 工具与文档
 
@@ -73,6 +74,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2） |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.0.0.md` | v1.0.0 重建计划 | 实施期主文档 |
+| `docs/design/` | 设计存档（spec-v2 合同 / boards-v2 三方向板 / direction-approved-v2 / 验证截图） | 设计演进按硬性规定 9 流程 |
 | `docs/WORKLOG.md` | 工作日志 | 每次会话追加「日期 / 完成 / 决策 / 遗留 / 下一步」 |
 | `docs/archive/` | 归档（旧工程备份等） | gitignore，仅本地 |
 | `rp-hub-reference/` | 上游参考克隆 | 保留 upstream remote；**只读参考，不直接改** |
@@ -185,15 +187,21 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记）：
+**允许 patch 的点位**（当前登记 001-011，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
-| 001-brand-title.patch | index.html `<title>` | RP Hub → LuzzyRP |
-| 002-disable-update-check.patch | index.html `rphub-update-api` meta | 移除（禁用上游更新检查） |
-| 003-entry-logo.patch | index.html 入口 logo | 品牌化 |
-| 004-vendor-local.patch | index.html CDN script/link | 改为本地 vendor/ 引用 |
-| 005-ext-mount.patch | index.html 尾部 | 挂载扩展层 3 文件 |
+| 001 | index.html `<title>` | RP Hub → LuzzyRP |
+| 002 | index.html `rphub-update-api` meta | 移除（禁用上游更新检查） |
+| 003 | index.html 入口 logo | 品牌化（LUZZY/RP） |
+| 004 | index.html CDN script/link | 本地 vendor/ 引用 |
+| 005 | index.html 尾部 | 挂载扩展层 3 文件 |
+| 006 | index.html head 字体 | Google Fonts Lora → 本地 local-fonts.css |
+| 007 | character/novel 子页面 | CDN 本地化 |
+| 008 | index.html tailwind.config | 色板 → `rgb(var(--tw-*) / <alpha-value>)`（主题底座，v3） |
+| 009 | core-utils.js fontFamilies | 内置改「经典」系命名 + 新增 luzzy 默认 |
+| 010 | app.js 默认值/白名单 | 默认 fontFamily 'luzzy' + normalize 白名单 |
+| 011 | index.html + app.js | 设置页主题卡（主题/模式/字体）+ theme 字段 + watch + 老用户迁移 |
 
 **新增 patch 的规则**：
 
@@ -293,52 +301,48 @@ Luzzy.copyToClipboard = function (text) {
 | 运行时依赖 Google Fonts | 硬性规定 4，Lora 必须本地打包 |
 | 上架应用商店 | 12 岁条款合规风险，**仅侧载分发** |
 | 删除上游 LICENSE | 二创署名义务，禁止删除/改写 |
-| **Tailwind CDN 不接受 var() 颜色值** | RP-Hub 用 cdn.tailwindcss.com 运行时 JIT，config 色板写 `'var(--tw-gray-50)'` 可能被拒绝 → 工具类不生成 → 主题不生效（2026-09-01 真机实测，见 §9） |
+| **Tailwind CDN 不接受 var() 颜色值** | ~~已证伪~~：JIT 接受纯 var()，但见下一行真正的坑 |
+| **主题色板必须用 RGB 三元组 + `<alpha-value>`** | 纯 `var()` 色值下基本工具类正常，但带透明度修饰符的类（`bg-gray-50/60` 等）会**静默回退纯白**（暗色白块根因，不报错难排查）。正确写法：config 用 `rgb(var(--tw-gray-50) / <alpha-value>)` + 变量存三元组如 `250 249 245`（2026-09-01 jsdom+CDP 双实证，见 §9） |
+| **改 assets 不 bump EXTRACT_VERSION = 白改** | filesDir 已解压且标记匹配时跳过解压；改 `rphub/`/`ext/` 资产后必须卸载重装或 `AssetExtractor.EXTRACT_VERSION` +1（IndexedDB 用户数据不受重新解压影响） |
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-01 移交快照）
+## 9. 当前状态与已知问题（2026-09-01 会话 9 移交快照）
 
-> 本节约等于「接手必读」的现场速览。详细过程见 `docs/WORKLOG.md` 会话 8。
+> 本节约等于「接手必读」的现场速览。详细过程见 `docs/WORKLOG.md` 会话 9（含两次追记）。
 
 ### 项目状态
 
-- **v1.0.0 重建**：RP-Hub 1.8.9 二次开发（WebView 壳 + 扩展层），壳工程/离线化/品牌化/桥接/同步机制全部完成，`assembleDebug` 通过（40.8MB）。
-- **主题系统已实施**（patch 008-011）：设置页「界面主题」（经典/暖纸书房）+ 亮暗双模式 + 字体设置（Luzzy 默认字体 = PuHuiTi + AlibabaSans）；新用户默认新主题新字体，老用户保留经典（迁移逻辑）。
-- **设计真源**：`DESIGN.md`（暖纸书房定稿）+ `docs/design/`（spec/tech-plan/motion-plan/direction-approved）。
+- **v1.0.0-rc2**：壳工程/离线化/品牌化/桥接/同步机制全部完成；主题系统**「暖幕手记 × Claude」**实施完成，模拟器（LuzzyRP_Test）+ 真机（小米 25098PN5AC / Android 16）双端验证通过；CHANGELOG 已记 rc2。
+- **设计真源**：`DESIGN.md`（暖幕手记定稿，Claude token 体系）+ `docs/design/`（`spec-v2.md` 设计合同 / `boards-v2/` 三方向板 / `direction-approved-v2.md` 用户选择记录 / `verify-v3-*.png` 验证截图）。
+- **rc1 旧主题「暖纸书房」已按用户指令整体移除**（patch 008-011 撤销后以 v2/v3 重做），上游参考克隆 diff 归零。
 
-### 🔴 P0 已知问题：主题未生效（待修复）
+### 主题系统架构速览（改主题必读）
 
-**现象**：新用户（卸载重装）默认 theme='luzzy'，但界面颜色仍是原版灰色（聊天区 #BCBDBE、顶栏 #7C7D7D），非暖纸书房米纸色 #FAF9F5。
+- 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性（app.js `applyTheme`/`applyThemeMode` watch，immediate 执行）。
+- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*` 为 **RGB 三元组**（classic=上游原值，luzzy 亮/暗两套；暗色 gray 色阶整体反转）。
+- 引用：tailwind.config 色板 = `rgb(var(--tw-*) / <alpha-value>)`（patch 008 **v3**）。**禁止改回纯 var()**——透明度修饰符工具类（`bg-gray-50/60` 等）会被 JIT 静默回退纯白（rc2 暗色白块根因）。
+- 组件覆盖：名字标签 Lora 衬线、暗色 `bg-white`/`bg-white/*`/segmented 白滑块 `!important` 覆盖（上游 glass/blur 优先级更高，`!important` 是扩展层合法取胜手段）。
+- 存储：settings.theme/themeMode（上游 IndexedDB 体系）；老用户迁移（savedSettings **存在**且无 theme → classic；新用户默认 luzzy+light+luzzy 字体）。
+- 系统栏：applyThemeMode → LuzzyBridge.setSystemBarStyle（状态栏图标恒白——顶栏深渐隐双向可读；导航栏图标随主题明暗）。
+- 字体：fontFamily 'luzzy' → data-app-font="luzzy" → luzzy-theme.css 字体栈（AlibabaSans + PuHuiTi 3，local-fonts.css @font-face 本地打包）。
 
-**已排除**：文件部署（patch 008 已生效、luzzy-theme.css 已挂载、ext 三件套齐全）；JS 语法（node --check 通过）；老用户迁移（按设计工作）。
+### 验证基线（回归时对照）
 
-**最可能根因**：**Tailwind CDN 运行时 JIT 不接受 `var(--tw-gray-50)` 作为 config 颜色值**（非合法颜色格式 → 工具类不生成 → 界面无主题样式）。
-
-**修复方向**（按序尝试）：
-1. **验证根因**：Playwright 加载 `app/src/main/assets/rphub/index.html`，检查生成的 `<style>` 中 `.bg-gray-50` 规则是否存在、值是什么；同时检查 `document.documentElement.dataset.theme/mode` 是否被设置。
-2. **方案 A（推荐）**：回滚 patch 008（tailwind.config 恢复 hex），改在 `luzzy-theme.css` 用高优先级规则覆盖工具类（`:root[data-theme="luzzy"][data-mode="light"] .bg-gray-50 { background-color: #FAF9F5; }`）——需覆盖 RP-Hub 用到的全部 gray/primary 工具类组合（bg-/text-/border-/from-/to-/ring- 等）。
-3. **方案 B**：config 色板改 `'rgb(var(--tw-gray-50) / <alpha-value>)'` 形式（Tailwind 官方 CSS 变量颜色模式），变量存 RGB 三元组。
-4. 修复后真机复测：卸载重装 → 截图采样聊天区背景应为 #FAF9F5（亮色）。
+- 亮 `body=#FAF9F5`；暗 `body=#171614`、输入岛 rgba(43,40,36,.72)、纯白残留=0；经典回退 `#f9fafb`。
+- 弱文字 4.98:1 / 次级文字 6.8:1 / 正文 12:1（暗色）；截图存档 `docs/design/verify-v3-{light,dark}.png` 与 `verify-v3-phone-{light,dark}.png`。
+- debug 构建开 CDP：`adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`；**熄屏时截图挂起需先唤醒**；CDP 僵死时 force-stop 重启 app 刷新。
 
 ### 待办（按优先级）
 
-1. **P0**：修复主题未生效（见上）。
-2. 真机补测：亮暗切换、字体切换（PuHuiTi 生效）、系统栏图标联动。
-3. 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
-4. 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
-5. 上游同步演练（sync-upstream.ps1 假发版模拟）。
-6. 构建警告清理（onActivityResult / databaseEnabled deprecated）。
-7. CHANGELOG v1.0.0 定稿 → 发布（仅稳定版附 APK）。
-
-### 主题系统架构速览（修复时参考）
-
-- 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性（app.js `applyTheme`/`applyThemeMode` watch，immediate 执行）。
-- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*`（classic=原版值，luzzy 亮/暗两套）。
-- 引用：tailwind.config 色板 var() 化（patch 008，**疑似问题点**）。
-- 存储：settings.theme/themeMode（上游体系，随 saveData 持久化）；老用户迁移（savedSettings 无 theme → classic）。
-- 系统栏：applyThemeMode → LuzzyBridge.setSystemBarStyle（亮=深图标/暗=浅图标）。
-- 字体：fontFamily 'luzzy' → data-app-font="luzzy" → luzzy-theme.css 字体栈（PuHuiTi + AlibabaSans，local-fonts.css @font-face）。
+1. 用户真机体验反馈微调（色板/字体/动效，按 DESIGN.md token 调整）。
+2. 上游硬编码色（indigo/blue/pink 工具类：用户设置页头部渐变、抽屉图标等）是否纳入主题化——待用户决策。
+3. 「荧光笔落笔」招牌动效（DESIGN.md roadmap，需正则/markdown 管线配合）。
+4. 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
+5. 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
+6. 上游同步演练（sync-upstream.ps1 假发版模拟）。
+7. 构建警告清理（onActivityResult / databaseEnabled deprecated）。
+8. v1.0.0 正式发布（assembleRelease + 真机矩阵回归 + GitHub Release 附 APK）。
 
 ---
 

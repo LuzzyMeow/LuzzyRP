@@ -24,7 +24,7 @@
 
 **注意**
 
-- 主题验证基线（模拟器实测，CDP 数据面）：亮 `body=#FAF9F5`、暗 `body=#171614`、经典回退 `#f9fafb`；暗色层次重调后弱/次级文字对比 4.9:1 / 6.8:1、卡片与画布拉开展次、透明度变体正常着色；截图存档 `docs/design/verify-v3-{light,dark}.png`。
+- 主题验证基线（模拟器 + 真机双端，CDP 数据面）：亮 `body=#FAF9F5`、暗 `body=#171614`、经典回退 `#f9fafb`；暗色层次重调后弱/次级文字对比 4.9:1 / 6.8:1、卡片与画布拉开展次、透明度变体正常着色、纯白残留 0；真机（小米 25098PN5AC）走 EXTRACT_VERSION 2 保数据升级，老用户设置正确沿用——对照 rc1 同机 #BCBDBE，P0 确证修复；截图存档 `docs/design/verify-v3-{light,dark}.png` 与 `verify-v3-phone-{light,dark}.png`。
 - 修改 assets 后必须卸载重装或 bump `AssetExtractor.EXTRACT_VERSION`，否则 filesDir 不会重新解压（本版验证时踩过）。
 - 上游硬编码的非 gray/primary 色（indigo/blue/pink 工具类）不在 v1 主题范围，保持原样；后续可按 DESIGN.md 扩展。
 

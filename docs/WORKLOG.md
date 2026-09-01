@@ -552,3 +552,18 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 
 **经验**：var() 色板必须用三元组 + <alpha-value> 形式；纯 var() 会静默损坏全部透明度工具类
 （不报错、仅回退白色，CDP 全 DOM 扫描才能抓到）。
+
+### 会话 9 追记 2：真机验证通过（用户连接小米 25098PN5AC / Android 16）
+
+- **部署**：EXTRACT_VERSION 1→2（旧包 filesDir 停留 rc1 解压产物，必须 bump 才会重新解压；
+  IndexedDB 用户数据不受影响）→ arm64 APK `install -r` 保数据安装 → 启动后确认
+  `.extracted_v2` + index.html md5 与新构建一致。
+- **老用户路径**：savedSettings（rc1 保存过 theme='luzzy'/light/luzzy）被正确沿用，未触发
+  classic 迁移；body 精确 #FAF9F5、变量三元组、字体栈 AlibabaSans+PuHuiTi 全部命中——
+  对照 rc1 同一真机的 #BCBDBE，P0 问题确证修复。
+- **亮/暗实测**：暗色 CDP 持久路径 reload 后 canvas #171614、输入岛暗面、**纯白残留 0**
+  （全 DOM 扫描）；截图 verify-v3-phone-{light,dark}.png 存档；验证后已恢复用户原 light 设置。
+- **真机 CDP 踩坑**：熄屏时 Page.captureScreenshot 挂起（/json visible:false）——先
+  `input keyevent KEYCODE_WAKEUP + 82` 唤醒再截；CDP 长时间多客户端折腾后会僵死（HTTP 无响应），
+  force-stop 重启 app 刷新 socket 即恢复；`await evaluate('location.reload()')` 会永久挂起
+  （页面销毁丢响应），必须 fire-and-forget 或用 Page.reload（CDP 方法，连接保持）。

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuzzyRP · 方向板 B「极光暖夜」</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   LuzzyRP 主题方向板 B · 极光暖夜
+   Claude 暖底气质 × LuzzyRP 旧 Aurora 品牌基因（粉紫渐变）
+   布局骨架：沉浸无边 —— 消息区全宽无卡片边框，气泡融入背景
+   仅靠色差区分；极光渐变只出现在顶栏 / 输入区边缘作氛围光
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 设计 token ─────────────────────────────────────────── */
+:root{
+  --ease-out: cubic-bezier(0.23,1,0.32,1);
+  --t-enter: 200ms;
+  --t-exit: 140ms;
+  --t-press: 120ms;
+  --font-cn: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --font-latin: "AlibabaSans","PingFang SC","Segoe UI",sans-serif;
+}
+
+/* ── 亮色 · 暖米底 ──────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:            #FAF9F5;   /* 背景 · 暖米 */
+  --bg-elev:       #FFFFFF;   /* 表面（输入框 / 抽屉） */
+  --bubble-user:   #F6E3EF;   /* 用户消息表面 · 粉调淡染 */
+  --ink-1:         #2B2926;   /* 主文字 */
+  --ink-2:         #6B675F;   /* 次文字 */
+  --ink-3:         #6E6A62;   /* 弱文字（时间戳 / 标签）5.1:1 */
+  --accent-pink:   #FF6EC7;   /* AuroraPink 主色 */
+  --accent-violet: #B57BFF;   /* AuroraViolet 次色 */
+  --pink-strong:   #B93D85;   /* 粉 · 正文可用强调（4.9:1） */
+  --violet-strong: #8B5CF6;   /* 紫 · 正文可用强调（5.0:1） */
+  --aurora:        linear-gradient(120deg,#FF6EC7 0%,#B57BFF 100%);
+  --aurora-soft:   linear-gradient(120deg,rgba(255,110,199,.16),rgba(181,123,255,.16));
+  --line:          rgba(43,41,38,.09);
+  --drawer-bg:     #FDFCF9;
+  --scrim:         rgba(43,41,38,.38);
+  --page-bg:       #EDEBE6;   /* 方向板页面底（衬托手机框） */
+  --toolbar-ink:   #4A463F;
+  --chip-border:   rgba(43,41,38,.12);
+  --glow-op:       .38;       /* 顶栏极光氛围光强度 */
+  --edge-op:       .55;       /* 输入区极光细线强度 */
+}
+
+/* ── 暗色 · 极夜 ────────────────────────────────────────── */
+[data-theme="dark"]{
+  --bg:            #0E1116;   /* 背景 · 极夜 */
+  --bg-elev:       #171B22;   /* 表面 */
+  --bubble-user:   #1D1622;   /* 用户消息表面 · 粉紫调深色 */
+  --ink-1:         #F2F0EB;   /* 主文字 · 暖白 */
+  --ink-2:         #A8A5A0;   /* 次文字 */
+  --ink-3:         #8A8781;   /* 弱文字（时间戳 / 标签）5.3:1 */
+  --accent-pink:   #FF6EC7;   /* AuroraPink（暗底 5.6:1，可作正文强调） */
+  --accent-violet: #B57BFF;   /* AuroraViolet（暗底 6.6:1） */
+  --pink-strong:   #FF8FD6;
+  --violet-strong: #C9A6FF;
+  --aurora:        linear-gradient(120deg,#FF6EC7 0%,#B57BFF 100%);
+  --aurora-soft:   linear-gradient(120deg,rgba(255,110,199,.20),rgba(181,123,255,.20));
+  --line:          rgba(242,240,235,.09);
+  --drawer-bg:     #12151B;
+  --scrim:         rgba(0,0,0,.52);
+  --page-bg:       #0A0C10;
+  --toolbar-ink:   #C9C5BE;
+  --chip-border:   rgba(242,240,235,.14);
+  --glow-op:       .55;
+  --edge-op:       .8;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html{ scroll-behavior:smooth; }
+body{
+  font-family: var(--font-cn);
+  background: var(--page-bg);
+  color: var(--ink-1);
+  width:390px;
+  margin:0 auto;
+  padding-bottom:56px;
+  transition: background-color var(--t-enter) var(--ease-out), color var(--t-enter) var(--ease-out);
+}
+button{ font-family:inherit; border:none; background:none; cursor:pointer; color:inherit; }
+svg{ display:block; }
+
+/* ── 方向板工具条 ────────────────────────────────────────── */
+.toolbar{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px; padding:10px 14px 12px;
+}
+.tb-title{ font-size:15px; font-weight:700; letter-spacing:.02em; }
+.tb-sub{ font-size:11px; color:var(--ink-2); margin-top:2px; letter-spacing:.04em; }
+.tb-right{ display:flex; gap:6px; flex-shrink:0; }
+.tb-btn{
+  height:32px; padding:0 12px; border-radius:16px;
+  font-size:12px; color:var(--toolbar-ink);
+  background:var(--bg-elev); border:1px solid var(--line);
+  transition: transform var(--t-press) var(--ease-out), opacity var(--t-press) var(--ease-out),
+              background-color var(--t-enter) var(--ease-out), color var(--t-enter) var(--ease-out);
+}
+.tb-btn.active{
+  background:var(--aurora); color:#fff; border-color:transparent;
+  box-shadow:0 2px 10px rgba(255,110,199,.35);
+}
+.tb-btn:active{ transform:scale(.94); opacity:.8; }
+
+/* ── 手机框 ─────────────────────────────────────────────── */
+.phone{
+  width:390px; height:844px;
+  border-radius:44px;
+  background:var(--bg);
+  border:1px solid var(--chip-border);
+  box-shadow:0 24px 64px rgba(0,0,0,.22), 0 2px 8px rgba(0,0,0,.10);
+  position:relative; overflow:hidden;
+  display:flex; flex-direction:column;
+  transition: background-color var(--t-enter) var(--ease-out);
+}
+
+/* 状态栏 */
+.statusbar{
+  height:40px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px;
+  font-size:13px; font-weight:600; color:var(--ink-1);
+  transition: color var(--t-enter) var(--ease-out);
+}
+.sb-icons{ display:flex; align-items:center; gap:6px; }
+
+/* 屏幕容器 */
+.screen{ display:none; flex-direction:column; flex:1; min-height:0; }
+.screen.active{ display:flex; animation:pageIn var(--t-enter) var(--ease-out); }
+@keyframes pageIn{
+  from{ opacity:0; transform:translateY(8px); }
+  to{ opacity:1; transform:none; }
+}
+
+/* ── 聊天页 · 顶栏 ─────────────────────────────────────── */
+.topbar{
+  height:56px; flex-shrink:0; position:relative;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 8px;
+  transition: color var(--t-enter) var(--ease-out);
+}
+/* 极光氛围光：从顶栏溢出到消息区顶部 */
+.topbar::before{
+  content:""; position:absolute; left:-40px; right:-40px; top:-46px; height:150px;
+  background:var(--aurora);
+  filter:blur(34px);
+  opacity:var(--glow-op);
+  pointer-events:none;
+}
+.topbar::after{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,110,199,.5),rgba(181,123,255,.5),transparent);
+  opacity:var(--edge-op);
+}
+.tb-actions{ display:flex; align-items:center; gap:2px; position:relative; z-index:1; }
+.icon-btn{
+  width:44px; height:44px; border-radius:22px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--ink-1);
+  transition: transform var(--t-press) var(--ease-out), opacity var(--t-press) var(--ease-out),
+              background-color var(--t-enter) var(--ease-out), color var(--t-enter) var(--ease-out);
+}
+.icon-btn:active{ transform:scale(.9); opacity:.75; background:var(--aurora-soft); }
+.role{
+  position:relative; z-index:1;
+  display:flex; align-items:center; gap:7px;
+  font-size:16px; font-weight:700; letter-spacing:.06em;
+}
+.role .dot{
+  width:7px; height:7px; border-radius:50%;
+  background:var(--accent-pink);
+  box-shadow:0 0 0 3px var(--aurora-soft);
+  animation:breath 2.4s var(--ease-out) infinite;
+}
+@keyframes breath{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+
+/* ── 聊天页 · 消息区（沉浸无边） ────────────────────────── */
+.msgs{
+  flex:1; min-height:0; overflow-y:auto;
+  padding:18px 20px 14px;
+  scrollbar-width:none;
+}
+.msgs::-webkit-scrollbar{ display:none; }
+.msg{ margin-bottom:22px; }
+.msg-meta{
+  display:flex; align-items:baseline; gap:8px;
+  margin-bottom:6px;
+  font-size:12px; color:var(--ink-3);
+  transition: color var(--t-enter) var(--ease-out);
+}
+.msg-meta .who{ font-size:13px; font-weight:600; color:var(--ink-2); }
+.msg-meta.right{ justify-content:flex-end; }
+/* AI 消息：无容器，文字直接铺在背景上（书页式） */
+.msg.ai .msg-body{
+  font-size:15px; line-height:1.78; color:var(--ink-1);
+  letter-spacing:.01em;
+  transition: color var(--t-enter) var(--ease-out);
+}
+.msg.ai .msg-body .hl{
+  color:var(--pink-strong);
+  font-weight:600;
+}
+/* 用户消息：淡粉表面，无边框无阴影，仅靠色差 + 右对齐区分 */
+.msg.user{ display:flex; flex-direction:column; align-items:flex-end; }
+.msg.user .msg-body{
+  max-width:78%;
+  background:var(--bubble-user);
+  border-radius:16px 16px 4px 16px;
+  padding:10px 15px;
+  font-size:15px; line-height:1.7; color:var(--ink-1);
+  transition: background-color var(--t-enter) var(--ease-out), color var(--t-enter) var(--ease-out);
+}
+
+/* 思考卡片：极光竖线 + 文字 + 呼吸点，无容器 */
+.thinking{
+  display:flex; align-items:center; gap:7px;
+  padding:2px 0 2px 12px;
+  background:linear-gradient(var(--accent-pink),var(--accent-violet)) left / 2px 100% no-repeat;
+  margin-bottom:22px;
+}
+.thinking .t-text{ font-size:13px; color:var(--ink-2); letter-spacing:.05em; }
+.t-dot{
+  width:5px; height:5px; border-radius:50%;
+  background:var(--accent-pink);
+  animation:blink 1.2s var(--ease-out) infinite;
+}
+.t-dot:nth-child(3){ animation-delay:.18s; }
+.t-dot:nth-child(4){ animation-delay:.36s; }
+@keyframes blink{
+  0%,100%{ opacity:.25; transform:translateY(0); }
+  50%{ opacity:1; transform:translateY(-2px); }
+}
+
+/* ── 聊天页 · 输入区 ────────────────────────────────────── */
+.inputbar{
+  flex-shrink:0; position:relative;
+  padding:10px 14px 16px;
+  transition: color var(--t-enter) var(--ease-out);
+}
+/* 极光细线：输入区边缘的氛围光 */
+.inputbar::before{
+  content:""; position:absolute; left:20px; right:20px; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,110,199,.65),rgba(181,123,255,.65),transparent);
+  opacity:var(--edge-op);
+}
+.toolbar-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:8px;
+}
+.toolbar-row .icon-btn{ width:44px; height:40px; }
+.toolbar-row .icon-btn svg{ width:22px; height:22px; }
+.input-row{ display:flex; align-items:center; gap:10px; }
+.input-field{
+  flex:1; height:46px;
+  display:flex; align-items:center;
+  padding:0 16px;
+  background:var(--bg-elev);
+  border:1px solid var(--line);
+  border-radius:23px;
+  font-size:14px; color:var(--ink-2);
+  transition: background-color var(--t-enter) var(--ease-out), color var(--t-enter) var(--ease-out),
+              border-color var(--t-enter) var(--ease-out);
+}
+.send-btn{
+  width:46px; height:46px; border-radius:50%;
+  background:var(--aurora);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff;
+  box-shadow:0 4px 14px rgba(255,110,199,.4);
+  transition: transform var(--t-press) var(--ease-out), opacity var(--t-press) var(--ease-out);
+}
+.send-btn:active{ transform:scale(.88); opacity:.85; }
+
+/* ── 设置页 ────────────────────────────────────────────── */
+.set-head{
+  height:56px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 8px;
+}
+.set-title{ font-size:16px; font-weight:700; letter-spacing:.06em; }
+.set-scroll{ flex:1; min-height:0; overflow-y:auto; padding:6px 16px 24px; scrollbar-width:none; }
+.set-scroll::-webkit-scrollbar{ display:none; }
+.set-card{
+  margin-bottom:18px;
+  background:var(--bg-elev);
+  border:1px solid var(--line);
+  border-radius:16px;
+  overflow:hidden;
+  transition: background-color var(--t-enter) var(--ease-out), border-color var(--t-enter) var(--ease-out);
+}
+/* 区块头：蓝色渐变 → 极光渐变（粉→紫） */
+.set-card-head{
+  padding:12px 16px;
+  background:var(--aurora);
+  color:#fff;
+  font-size:14px; font-weight:700; letter-spacing:.08em;
+}
+.set-row{
+  display:flex; align-items:center; gap:12px;
+  padding:13px 16px;
+  border-top:1px solid var(--line);
+  min-height:48px;
+}
+.set-row .row-label{ font-size:14px; color:var(--ink-1); flex:1; }
+.set-row .row-value{ font-size:13px; color:var(--ink-2); }
+.set-row .chev{ color:var(--ink-3); display:flex; }
+.avatar{
+  width:34px; height:34px; border-radius:50%;
+  background:var(--aurora);
+  color:#fff; font-size:14px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.toggle{
+  width:40px; height:22px; border-radius:11px;
+  background:var(--aurora); position:relative; flex-shrink:0;
+}
+.toggle::after{
+  content:""; position:absolute; top:3px; right:3px;
+  width:16px; height:16px; border-radius:50%; background:#fff;
+}
+
+/* ── 侧边栏 ────────────────────────────────────────────── */
+.scrim{
+  position:absolute; inset:0; z-index:20;
+  background:var(--scrim);
+  opacity:0; pointer-events:none;
+  transition: opacity var(--t-enter) var(--ease-out);
+}
+.scrim.open{ opacity:1; pointer-events:auto; }
+.scrim.closing{ transition: opacity var(--t-exit) var(--ease-out); }
+.drawer{
+  position:absolute; top:0; bottom:0; left:0; width:300px; z-index:21;
+  background:var(--drawer-bg);
+  display:flex; flex-direction:column;
+  transform:translateX(-100%);
+  transition: transform var(--t-enter) var(--ease-out), background-color var(--t-enter) var(--ease-out);
+  box-shadow:8px 0 32px rgba(0,0,0,.18);
+}
+.drawer.open{ transform:none; }
+.drawer.closing{ transition: transform var(--t-exit) var(--ease-out); }
+.drawer-brand{
+  display:flex; align-items:center; gap:12px;
+  padding:22px 20px 18px;
+  border-bottom:1px solid var(--line);
+}
+.logo{
+  width:42px; height:42px; border-radius:14px;
+  background:var(--aurora);
+  color:#fff; font-size:20px; font-weight:800;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 14px rgba(181,123,255,.4);
+}
+.brand-name{ font-size:16px; font-weight:800; letter-spacing:.04em; }
+.brand-ver{ font-size:11px; color:var(--ink-3); margin-top:2px; letter-spacing:.06em; }
+.drawer-nav{ flex:1; overflow-y:auto; padding:10px 10px; }
+.nav-item{
+  display:flex; align-items:center; gap:14px;
+  height:48px; padding:0 14px;
+  border-radius:12px;
+  font-size:14px; color:var(--ink-2);
+  position:relative;
+  transition: transform var(--t-press) var(--ease-out), opacity var(--t-press) var(--ease-out),
+              background-color var(--t-enter) var(--ease-out), color var(--t-enter) var(--ease-out);
+}
+.nav-item:active{ transform:scale(.97); opacity:.8; }
+.nav-item svg{ width:20px; height:20px; flex-shrink:0; }
+.nav-item.active{
+  color:var(--ink-1); font-weight:600;
+  background:var(--aurora-soft);
+}
+.nav-item.active::before{
+  content:""; position:absolute; left:0; top:10px; bottom:10px; width:3px;
+  border-radius:2px;
+  background:var(--aurora);
+}
+.drawer-foot{
+  padding:14px 20px 20px;
+  border-top:1px solid var(--line);
+  font-size:12px; color:var(--ink-3);
+  display:flex; align-items:center; gap:8px;
+}
+.drawer-foot .aurora-dot{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--aurora);
+}
+
+/* ── 色板条 ────────────────────────────────────────────── */
+.section-title{
+  margin:34px 16px 14px;
+  font-size:15px; font-weight:700; letter-spacing:.06em;
+  display:flex; align-items:baseline; gap:10px;
+}
+.section-title .en{ font-family:var(--font-latin); font-size:11px; font-weight:400; color:var(--ink-3); letter-spacing:.14em; }
+.palette{
+  margin:0 16px 16px;
+  background:var(--bg-elev);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  transition: background-color var(--t-enter) var(--ease-out), border-color var(--t-enter) var(--ease-out);
+}
+.pal-title{
+  font-size:12px; font-weight:700; letter-spacing:.1em;
+  margin-bottom:12px;
+  display:flex; align-items:center; gap:8px;
+}
+.pal-title .tag{
+  font-size:10px; font-weight:600; padding:2px 8px; border-radius:8px;
+  background:var(--aurora-soft); color:var(--ink-2);
+}
+.swatches{ display:flex; flex-wrap:wrap; gap:10px; }
+.swatch{ width:calc(25% - 8px); }
+.chip{
+  height:44px; border-radius:10px;
+  border:1px solid var(--chip-border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:600;
+}
+.chip.ink{ font-size:13px; }
+.sw-name{ font-size:10px; color:var(--ink-2); margin-top:6px; letter-spacing:.04em; }
+.sw-hex{ font-family:var(--font-latin); font-size:10px; color:var(--ink-3); margin-top:1px; }
+.sw-cr{ font-size:9px; color:var(--ink-3); margin-top:1px; }
+.sw-cr.ok{ color:var(--pink-strong); }
+
+/* ── 字体展示 ─────────────────────────────────────────── */
+.fonts{ margin:0 16px; }
+.font-row{
+  display:flex; align-items:baseline; gap:14px;
+  padding:14px 0;
+  border-bottom:1px solid var(--line);
+}
+.font-row:last-child{ border-bottom:none; }
+.fw-tag{
+  width:86px; flex-shrink:0;
+  font-size:10px; color:var(--ink-3); letter-spacing:.08em;
+  font-family:var(--font-latin);
+}
+.fw-demo{ font-size:17px; color:var(--ink-1); letter-spacing:.02em; }
+.fw-55{ font-weight:400; }
+.fw-65{ font-weight:500; }
+.fw-85{ font-weight:700; }
+.fw-latin{ font-family:var(--font-latin); font-size:17px; letter-spacing:.04em; }
+.font-note{
+  margin:14px 0 0;
+  font-size:11px; line-height:1.7; color:var(--ink-3);
+}
+.font-note b{ color:var(--ink-2); font-weight:600; }
+</style>
+</head>
+<body>
+
+<!-- ═══ 方向板工具条 ═══ -->
+<header class="toolbar">
+  <div>
+    <div class="tb-title">方向 B · 极光暖夜</div>
+    <div class="tb-sub">Claude 暖底 × Aurora 粉紫 · 沉浸无边</div>
+  </div>
+  <div class="tb-right">
+    <button class="tb-btn" id="themeToggle" aria-label="切换亮暗主题">亮 / 暗</button>
+    <button class="tb-btn page-btn active" data-page="chat">聊天</button>
+    <button class="tb-btn page-btn" data-page="settings">设置</button>
+    <button class="tb-btn" id="drawerBtn">侧边栏</button>
+  </div>
+</header>
+
+<!-- ═══ 手机框 ═══ -->
+<div class="phone" id="phone">
+
+  <!-- 状态栏 -->
+  <div class="statusbar">
+    <span>9:41</span>
+    <div class="sb-icons">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M1 8.5V10M4.5 6.5V10M8 4.5V10M11.5 6.5V10M15 8.5V10"/></svg>
+      <svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M1 4h9v5H1zM11 2.5v8M13.5 1v11"/></svg>
+    </div>
+  </div>
+
+  <!-- 聊天页 -->
+  <div class="screen screen-chat active">
+    <div class="topbar">
+      <div class="tb-actions">
+        <button class="icon-btn" id="menuBtn" aria-label="打开菜单">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+      <div class="role"><span class="dot"></span>鹿溪</div>
+      <div class="tb-actions">
+        <button class="icon-btn" aria-label="全屏">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="清空对话">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <main class="msgs" id="msgs">
+      <div class="msg ai">
+        <div class="msg-meta"><span class="who">鹿溪</span><span>21:47</span></div>
+        <div class="msg-body">夜风把窗外的银杏吹得沙沙响。你那边呢，今晚的月色好看吗？</div>
+      </div>
+      <div class="msg user">
+        <div class="msg-body">今晚月色真美。</div>
+        <div class="msg-meta right"><span>21:48</span></div>
+      </div>
+      <div class="msg ai">
+        <div class="msg-meta"><span class="who">鹿溪</span><span>21:48</span></div>
+        <div class="msg-body">嗯，<span class="hl">像你眼睛里的光</span>。</div>
+      </div>
+      <div class="msg ai">
+        <div class="msg-body">……我盯着窗外看了好一会儿，才想起要回你这句话。月色是很好，但被你这么一说，倒显得它只是陪衬了。</div>
+      </div>
+      <div class="thinking">
+        <span class="t-text">正在思考</span>
+        <span class="t-dot"></span><span class="t-dot"></span><span class="t-dot"></span>
+      </div>
+    </main>
+
+    <div class="inputbar">
+      <div class="toolbar-row">
+        <button class="icon-btn" aria-label="发送图片">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17.5l4.5-4.5 3.5 3.5 3-3 5 4.5"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="自动生图">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="剧情分支">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v6M6 10c0 3 3 4 6 4s6-1 6-4M6 10v10M18 4v6M18 10v10"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="切换模型">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h11M7 8l2.5-2.5M7 8l2.5 2.5M17 16H6M17 16l-2.5-2.5M17 16l-2.5 2.5"/></svg>
+        </button>
+      </div>
+      <div class="input-row">
+        <div class="input-field">给鹿溪发消息…</div>
+        <button class="send-btn" aria-label="发送">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L20 4l-4.5 16-4-6.5z"/><path d="M11.5 13.5L20 4"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置页 -->
+  <div class="screen screen-settings">
+    <div class="set-head">
+      <button class="icon-btn page-btn" data-page="chat" aria-label="返回聊天">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="set-title">设置</div>
+      <div style="width:44px"></div>
+    </div>
+    <div class="set-scroll">
+      <section class="set-card">
+        <div class="set-card-head">用户设置</div>
+        <div class="set-row">
+          <div class="avatar">夜</div>
+          <div class="row-label">昵称</div>
+          <div class="row-value">夜航星</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+        <div class="set-row">
+          <div class="row-label">语言</div>
+          <div class="row-value">简体中文</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+        <div class="set-row">
+          <div class="row-label">界面主题</div>
+          <div class="row-value">极光暖夜 · 亮</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+      </section>
+      <section class="set-card">
+        <div class="set-card-head">生图设置</div>
+        <div class="set-row">
+          <div class="row-label">模型</div>
+          <div class="row-value">Aurora-Diffusion</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+        <div class="set-row">
+          <div class="row-label">尺寸</div>
+          <div class="row-value">1024 × 1024</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+        <div class="set-row">
+          <div class="row-label">采样步数</div>
+          <div class="row-value">28</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+      </section>
+      <section class="set-card">
+        <div class="set-card-head">高级设置</div>
+        <div class="set-row">
+          <div class="row-label">流式输出</div>
+          <div class="toggle"></div>
+        </div>
+        <div class="set-row">
+          <div class="row-label">自动生图</div>
+          <div class="toggle"></div>
+        </div>
+        <div class="set-row">
+          <div class="row-label">上下文长度</div>
+          <div class="row-value">8192</div>
+          <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 侧边栏 -->
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-label="侧边栏">
+    <div class="drawer-brand">
+      <div class="logo">L</div>
+      <div>
+        <div class="brand-name">LuzzyRP</div>
+        <div class="brand-ver">v1.0.0 · Aurora</div>
+      </div>
+    </div>
+    <nav class="drawer-nav">
+      <a class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3h11A2.5 2.5 0 0120 5.5v9a2.5 2.5 0 01-2.5 2.5H9l-4.5 4V5.5z"/></svg>
+        聊天
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+        用量统计
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3h11A2.5 2.5 0 0120 5.5v13a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 18.5z"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>
+        记忆系统
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+        UI模板
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 9.5h17M8 5v14"/></svg>
+        角色卡管理
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3"/><path d="M4 8v4h4M20 16v-4h-4"/></svg>
+        在线
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a3 3 0 11-5 0M12 3.5v3M14.5 6.5l2.2-2.2M9.5 6.5l-2.2-2.2M12 9.5v2M12 11.5l-2.5 2.5M12 11.5l2.5 2.5M9.5 14l-1.5 1.5M14.5 14l1.5 1.5M12 16.5V20"/></svg>
+        高级
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 00-.15-1.4l2-1.55-2-3.46-2.35.95a7 7 0 00-2.4-1.4L13.8 2.5h-3.6l-.3 2.64a7 7 0 00-2.4 1.4l-2.35-.95-2 3.46 2 1.55A7 7 0 005 12c0 .48.05.94.15 1.4l-2 1.55 2 3.46 2.35-.95a7 7 0 002.4 1.4l.3 2.64h3.6l.3-2.64a7 7 0 002.4-1.4l2.35.95 2-3.46-2-1.55c.1-.46.15-.92.15-1.4z"/></svg>
+        设置
+      </a>
+    </nav>
+    <div class="drawer-foot">
+      <span class="aurora-dot"></span>
+      主题：极光暖夜 · 亮 / 暗
+    </div>
+  </aside>
+</div>
+
+<!-- ═══ 色板条 ═══ -->
+<div class="section-title">色板 <span class="en">PALETTE · LIGHT / DARK</span></div>
+
+<div class="palette">
+  <div class="pal-title">亮 · 暖米底 <span class="tag">#FAF9F5</span></div>
+  <div class="swatches">
+    <div class="swatch">
+      <div class="chip" style="background:#FAF9F5"></div>
+      <div class="sw-name">背景</div>
+      <div class="sw-hex">#FAF9F5</div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#F6E3EF"></div>
+      <div class="sw-name">表面 · 用户气泡</div>
+      <div class="sw-hex">#F6E3EF</div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#FF6EC7"></div>
+      <div class="sw-name">主色 AuroraPink</div>
+      <div class="sw-hex">#FF6EC7</div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#B57BFF"></div>
+      <div class="sw-name">次色 AuroraViolet</div>
+      <div class="sw-hex">#B57BFF</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#2B2926;color:#FAF9F5">Aa</div>
+      <div class="sw-name">主文字</div>
+      <div class="sw-hex">#2B2926</div>
+      <div class="sw-cr ok">12.9:1 ✓</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#6B675F;color:#FAF9F5">Aa</div>
+      <div class="sw-name">次文字</div>
+      <div class="sw-hex">#6B675F</div>
+      <div class="sw-cr ok">5.5:1 ✓</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#6E6A62;color:#FAF9F5">Aa</div>
+      <div class="sw-name">弱文字</div>
+      <div class="sw-hex">#6E6A62</div>
+      <div class="sw-cr ok">5.1:1 ✓</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#B93D85;color:#FAF9F5">Aa</div>
+      <div class="sw-name">强调（正文可用）</div>
+      <div class="sw-hex">#B93D85</div>
+      <div class="sw-cr ok">4.9:1 ✓</div>
+    </div>
+  </div>
+</div>
+
+<div class="palette">
+  <div class="pal-title">暗 · 极夜 <span class="tag">#0E1116</span></div>
+  <div class="swatches">
+    <div class="swatch">
+      <div class="chip" style="background:#0E1116"></div>
+      <div class="sw-name">背景 · 极夜</div>
+      <div class="sw-hex">#0E1116</div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#171B22"></div>
+      <div class="sw-name">表面</div>
+      <div class="sw-hex">#171B22</div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#FF6EC7"></div>
+      <div class="sw-name">主色 AuroraPink</div>
+      <div class="sw-hex">#FF6EC7</div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background:#B57BFF"></div>
+      <div class="sw-name">次色 AuroraViolet</div>
+      <div class="sw-hex">#B57BFF</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#F2F0EB;color:#0E1116">Aa</div>
+      <div class="sw-name">主文字</div>
+      <div class="sw-hex">#F2F0EB</div>
+      <div class="sw-cr ok">15.2:1 ✓</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#A8A5A0;color:#0E1116">Aa</div>
+      <div class="sw-name">次文字</div>
+      <div class="sw-hex">#A8A5A0</div>
+      <div class="sw-cr ok">7.2:1 ✓</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#8A8781;color:#0E1116">Aa</div>
+      <div class="sw-name">弱文字</div>
+      <div class="sw-hex">#8A8781</div>
+      <div class="sw-cr ok">5.3:1 ✓</div>
+    </div>
+    <div class="swatch">
+      <div class="chip ink" style="background:#FF6EC7;color:#0E1116">Aa</div>
+      <div class="sw-name">强调（暗底可用）</div>
+      <div class="sw-hex">#FF6EC7</div>
+      <div class="sw-cr ok">5.6:1 ✓</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 字体展示 ═══ -->
+<div class="section-title">字体 <span class="en">TYPOGRAPHY</span></div>
+<div class="fonts">
+  <div class="font-row">
+    <span class="fw-tag">PuHuiTi-3 · 55 Regular</span>
+    <span class="fw-demo fw-55">月色真美，像你眼睛里的光</span>
+  </div>
+  <div class="font-row">
+    <span class="fw-tag">PuHuiTi-3 · 65 Medium</span>
+    <span class="fw-demo fw-65">月色真美，像你眼睛里的光</span>
+  </div>
+  <div class="font-row">
+    <span class="fw-tag">PuHuiTi-3 · 85 Bold</span>
+    <span class="fw-demo fw-85">月色真美，像你眼睛里的光</span>
+  </div>
+  <div class="font-row">
+    <span class="fw-tag">AlibabaSans</span>
+    <span class="fw-demo fw-latin">Aurora Night · 0123456789</span>
+  </div>
+  <p class="font-note">
+    正式实现打包 <b>AlibabaPuHuiTi-3</b>（55 / 65 / 85 三字重 woff2）与 <b>AlibabaSans</b> 本地字体，禁 CDN（硬性规定 4）。
+    方向板以系统字体栈模拟：<b>"PingFang SC","Microsoft YaHei",sans-serif</b>。
+  </p>
+</div>
+
+<script>
+(function(){
+  var root = document.documentElement;
+
+  /* ── 主题：URL 参数 ?theme=dark 优先，其次 localStorage ── */
+  var params = new URLSearchParams(location.search);
+  var saved = null;
+  try { saved = localStorage.getItem('luzzy-theme'); } catch(e){}
+  var theme = params.get('theme') || saved || 'light';
+  root.dataset.theme = theme;
+
+  var themeBtn = document.getElementById('themeToggle');
+  function syncThemeLabel(){
+    themeBtn.textContent = root.dataset.theme === 'dark' ? '亮 / 暗' : '亮 / 暗';
+  }
+  themeBtn.addEventListener('click', function(){
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('luzzy-theme', root.dataset.theme); } catch(e){}
+    syncThemeLabel();
+  });
+  syncThemeLabel();
+
+  /* ── 页面切换：聊天 / 设置（进入 200ms，退出 140ms） ── */
+  var screens = document.querySelectorAll('.screen');
+  var pageBtns = document.querySelectorAll('.page-btn');
+  function showPage(name){
+    screens.forEach(function(s){
+      var isTarget = s.classList.contains('screen-' + name);
+      if (isTarget) {
+        s.classList.add('active');
+        if (name === 'chat') {
+          var msgs = document.getElementById('msgs');
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+      } else {
+        s.classList.remove('active');
+      }
+    });
+    pageBtns.forEach(function(b){
+      b.classList.toggle('active', b.dataset.page === name);
+    });
+  }
+  pageBtns.forEach(function(b){
+    b.addEventListener('click', function(){ showPage(b.dataset.page); });
+  });
+
+  /* ── 侧边栏：进入 200ms / 退出 140ms，禁 scale(0) ── */
+  var drawer = document.getElementById('drawer');
+  var scrim = document.getElementById('scrim');
+  var drawerOpen = false;
+  function openDrawer(){
+    drawerOpen = true;
+    drawer.classList.remove('closing');
+    scrim.classList.remove('closing');
+    drawer.classList.add('open');
+    scrim.classList.add('open');
+  }
+  function closeDrawer(){
+    if (!drawerOpen) return;
+    drawerOpen = false;
+    drawer.classList.add('closing');
+    scrim.classList.add('closing');
+    setTimeout(function(){
+      drawer.classList.remove('open','closing');
+      scrim.classList.remove('open','closing');
+    }, 150);
+  }
+  document.getElementById('menuBtn').addEventListener('click', openDrawer);
+  document.getElementById('drawerBtn').addEventListener('click', openDrawer);
+  scrim.addEventListener('click', closeDrawer);
+
+  /* ── 初始：消息区滚到底（思考卡片可见），页面滚到手机框顶 ── */
+  window.addEventListener('load', function(){
+    var msgs = document.getElementById('msgs');
+    msgs.scrollTop = msgs.scrollHeight;
+    window.scrollTo(0, 44);
+  });
+})();
+</script>
+</body>
+</html>

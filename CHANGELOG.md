@@ -1,7 +1,45 @@
 # 更新日志（CHANGELOG）
 
 > LuzzyRP 遵循语义化版本（`MAJOR.MINOR.PATCH`）；`x.y.0` 视为稳定版并附 APK。
-> 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。---
+> 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
+> **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
+
+### v1.0.0 — 重建 · RP-Hub 二次开发 · 原生 WebView 壳（上游基线 RP-Hub 1.8.9）
+
+全面推翻旧 Kotlin/Compose 工程，转为对开源项目 RP-Hub（STA1N156，CC BY-NC 4.0）的二次开发：原生 WebView 壳 + 独立扩展层。旧工程备份于 git tag `legacy-v0.3.0`。
+
+**新增**
+
+- **主题系统**：设置页新增「界面主题」——经典（原版 RP-Hub 浅色）/ 暖纸书房（Luzzy 新主题，亮/暗双模式）；新用户默认暖纸书房；老用户保留经典（迁移逻辑）。主题由 `data-theme` + `data-mode` 双属性驱动，tailwind.config 色板 var() 化（patch 008-011）。
+- **暖纸书房主题**（方向 A，用户选定）：米纸底 #FAF9F5 + 烤橙 #D97757（图形 accent）/ #B85C3E（按钮）/ #A8543A（文字）双档策略过 4.5:1；暗色深暖灰 #262624 + 暖橙 #E08A5F；卡片式分层布局（气泡悬浮卡 + 输入区悬浮工具栏）；动效令牌进入 200ms / 退出 140ms / ease-out cubic-bezier(0.23,1,0.32,1)；系统栏图标深浅联动（LuzzyBridge.setSystemBarStyle）。
+- **字体设置**：界面字体新增「Luzzy 默认字体」选项（Alibaba PuHuiTi 3.0 中文 + AlibabaSans 拉丁，本地打包 15.8MB）；新用户默认 Luzzy 字体；经典（modern/serif/system）保留。
+- **壳工程**：单 Activity WebView 宿主（Kotlin，仅 4 个最小依赖）；首次启动 assets 解压到 filesDir（标记版本幂等，localStorage 持久化保障）；返回键 WebView 回退；`onActivityResult` 文件选择桥。
+- **JSBridge 原生层**：剪贴板 / Toast / 版本信息（versionName、versionCode、上游版本）/ 设备信息 / 系统栏样式；R8 keep 规则保护方法名。
+- **文件桥**：`onShowFileChooser` SAF 导入（角色卡 PNG/JSON）；DownloadManager 导出落盘 Download/LuzzyRP/。
+- **资源离线化**：Vue 3 / Tailwind CDN / marked / DOMPurify 3.0.6 / SortableJS / daisyUI 4.7.2 / localforage 1.10.0 全部本地打包至 `vendor/`；Lora 可变字体（400-700 + italic）本地打包；主页面 + character + novel 子页面 CDN 引用全部本地化（静态资源 CDN 清零）。
+- **品牌化**：标题 / 入口 logo（LUZZY·RP）/ 应用名 / 图标复用；`rphub-update-api` 移除（禁用上游更新检查）。
+- **扩展层**：`luzzy-bridge.js`（桥接封装 + 降级）/ `luzzy-theme.css`（字体栈覆盖 + 主题变量）/ `luzzy-ext.js`（桥接自检 + 关于页品牌注入 + 主题应用）；index.html 尾部挂载，与上游零冲突。
+- **文档体系**：README 重写（二创署名声明 + 完整门面）；AGENTS.md（后续 Agent 工作指南 + 硬性规定 9 设计 SKILL 强制条款）；HARD_REQUIREMENTS 重写（9 条）；PLAN-v1.0.0（10 决策 + 9 Phase）；DESIGN.md 设计真源（暖纸书房定稿）；docs/design/（theme-spec / theme-tech-plan / theme-motion-plan / direction-approved / direction-summary）。
+- **同步机制**：`tools/sync-upstream.ps1`（fetch → 覆盖复制 → patch 重放 → 指纹更新 → 回归清单）；`tools/apply-patches.ps1`（幂等 patch 重放，001-011 登记）；`tools/upstream-fingerprints.txt`（11 文件 SHA-256 基线，NSFW 协议守护配套）。
+
+**优化**
+
+- APK 体积：旧工程全量 ≈ 830MB 源码 → 壳 + 离线资源 + 字体 debug APK ≈ 40.8MB（ABI 拆分三件套）。
+
+**注意**
+
+- 应用为**侧载分发**，不上架商店（nsfw_rules 年龄条款合规风险）。
+- 上游基线：RP-Hub 1.8.9（commit b409ca6）；同步 SOP 详见 AGENTS.md §4。
+- CJK 分片字体（Ma Shan Zheng / Noto Serif SC）未本地化，novel 页艺术字体降级为系统衬线（已登记 patch 007 决策）。
+- 主题系统依赖 patch 008-011，上游同步后必须重放（apply-patches.ps1 已登记）。
+
+构建：`assembleDebug` BUILD SUCCESSFUL（AGP 9 内置 Kotlin）· versionCode 1
+
+---
+
+## 历史区（v0.x · 旧 Kotlin/Compose 工程）
+
+旧工程全部记录保留于 git tag `legacy-v0.3.0` 对应版本的 CHANGELOG 页。以下为存档：
 
 ### v0.2.0 — 设计重构 · 角色卡生态 · 预设与档案
 

@@ -1,19 +1,14 @@
 import java.util.Properties
 
-// :app —— 主应用模块（UI / ViewModel / Room / DataStore / DI / ChatService）
+// :app —— LuzzyRP WebView 壳工程（v1.0.0 重建）
 //
-// [INVARIANT-STACK] SDK/版本锁定：compileSdk 37 · minSdk 26 · targetSdk 37。
-// [INVARIANT-STREAMING] OkHttpClient 的 readTimeout = 10 MINUTES 在 di/DataSourceModule.kt
-//   中集中定义，属于真流式不变性（HARD_REQUIREMENTS 规定 1），禁止改小。
+// [HARD-REQ-8] 发布流程：稳定版 versionCode 递增，release 构建走 luzzy 签名 + ABI 拆分。
+// AGP 9 内置 Kotlin 支持（无需 org.jetbrains.kotlin.android 插件，见 AGP 9 迁移说明）。
+// 签名配置：从根目录 keystore.properties 读取（该文件不入库，见 .gitignore）。
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
 }
 
-// 签名配置：从根目录 keystore.properties 读取（该文件不入库，见 .gitignore）。
-// 首次发版前运行 tools/gen_keystore.md 中记录的 keytool 命令生成。
 val keystoreProps: Properties? = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
     Properties().apply { file.inputStream().use { stream -> load(stream) } }
 }
@@ -26,13 +21,13 @@ android {
         applicationId = "com.luzzymeow.luzzyrp"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.0"
+        versionCode = 1
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // abiSplits：按 ABI 拆分 APK，控制分发体积
+    // abiSplits：按 ABI 拆分 APK，控制分发体积（沿用旧工程配置）
     splits {
         abi {
             isEnable = true
@@ -73,91 +68,25 @@ android {
     }
 
     buildFeatures {
-        compose = true
         buildConfig = true
     }
-
-    // Room schema 导出目录（入库，保证迁移可追溯）
-    sourceSets {
-        getByName("main") {
-            assets.directories.add("$projectDir/schemas")
-        }
-    }
 }
 
+// AGP 9 内置 Kotlin：编译选项在顶层 kotlin 块配置（kotlinOptions 已被替代）
 kotlin {
-    jvmToolchain(21)
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        freeCompilerArgs.addAll(
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.animation.ExperimentalSharedTransitionApi",
-            "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
-        )
     }
-}
-
-// Room schema 导出（供后续 AutoMigration 生成与版本审查）
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
-    // 核心模块
-    implementation(project(":core:model"))
-    implementation(project(":core:ai"))
-    implementation(project(":core:common"))
-
-    // AndroidX 基础
+    // AndroidX 基础（保持最小依赖）
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.webkit)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.activity.compose)
-
-    // Compose（BOM + Material3 Expressive）
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    debugImplementation(libs.androidx.ui.tooling)
-
-    // Navigation3（entry<T> 模式）
-    implementation(libs.androidx.navigation3.runtime)
-    implementation(libs.androidx.navigation3.ui)
-    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
-
-    // DI（Koin）
-    implementation(platform(libs.koin.bom))
-    implementation(libs.koin.android)
-    implementation(libs.koin.compose)
-
-    // 数据库（Room + DataStore + Paging + 向量检索）
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.room.paging)
-    ksp(libs.androidx.room.compiler)
-    implementation(libs.androidx.paging.runtime)
-    implementation(libs.androidx.paging.compose)
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.sqlite.vector)
-
-    // 网络（真流式 SSE）
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.sse)
-    implementation(libs.okhttp.logging)
-
-    // Kotlin 生态
-    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.datetime)
-
-    // 图片
-    implementation(libs.coil.compose)
 
     // 测试
     testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.androidx.room.testing)
 }

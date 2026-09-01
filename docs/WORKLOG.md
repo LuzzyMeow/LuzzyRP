@@ -181,3 +181,279 @@
 
 ### 下一步
 - 暗色/AMOLED 巡检 + 组件统一收尾（见会话 7 遗留）。
+
+---
+
+## 2026-09-01 · 重建会话 1：定案 + 文档体系 + Phase 0/1 壳骨架
+
+> **重要**：本会话起，项目全面转向 RP-Hub 二次开发（用户拍板），旧 Kotlin/Compose 工程作废（备份于 git tag `legacy-v0.3.0`）。版本线自 v1.0.0 / versionCode 1 重新起算。
+
+### 完成
+- **可行性探索**：摸清 RP-Hub（纯前端 Vue CDN + Tailwind CDN，CC BY-NC 4.0 与旧工程一致，二创合规；NSFW 预设位于 built-in-content.js；字体栈为 --app-font-modern/--app-font-serif + Lora；update-check 指向 rphub-presence.zeabur.app）+ 壳技术选型论证（原生 WebView 壳，三层结构：上游层/扩展层/原生层）+ 上游同步机制论证（覆盖 + patch 重放）。
+- **决策落盘**：`docs/PLAN-v1.0.0.md`（10 条决策 + 9 Phase 实施计划 + 同步 SOP + 8 项风险登记 + 验收清单）。
+- **文档体系重写**：`README.md`（二创署名声明 + 完整门面）、`AGENTS.md`（后续 Agent 工作指南：文件地图/硬性规定速览/工作流程/同步 SOP/扩展规范/测试要求/红线）、`HARD_REQUIREMENTS.md`（8 条新硬性规定，取代旧 13 条）。
+- **Phase 0**：旧工程备份 git tag `legacy-v0.3.0`（commit 2fd8b53，含全部历史，无需物理复制 11GB 资产）；上游 11 个文件 SHA-256 指纹登记 `tools/upstream-fingerprints.txt`（基线 RP-Hub 1.8.9 / b409ca6）；keystore 验证可用（luzzy 别名）。
+- **Phase 1（进行中）**：Gradle 精简为单模块 :app（AGP 9 内置 Kotlin，移除 core/ 三模块与全部旧依赖）；RP-Hub 上游 19 文件复制至 `app/src/main/assets/rphub/`（含 presence-server 原样保留）；壳代码完成：`AssetExtractor`（filesDir 解压 + 版本标记幂等）、`WebViewSetup`（DOM storage/file 访问/缓存）、`LuzzyBridge`（剪贴板/Toast/版本信息 JSBridge）、`FileChooserHandler`（SAF 文件选择）、`DownloadHandler`（DownloadManager 导出）、`MainActivity`（单 Activity 宿主 + 返回键回退 + onActivityResult 转发）；扩展层骨架：`luzzy-bridge.js` / `luzzy-theme.css`（本地 Lora @font-face + 字体栈覆盖）/ `luzzy-ext.js`（桥接自检 + 关于页品牌注入）。
+- **构建修错**：AGP 9 不再需要 org.jetbrains.kotlin.android 插件（移除后重跑构建中）。
+
+### 决策
+1. 上游基线锁定 RP-Hub 1.8.9（本地 rp-hub-reference 与官方一致，commit b409ca6）。
+2. 壳加载路径 = filesDir 解压（localStorage 持久化），非 android_asset。
+3. 更新检查（rphub-update-api）二创后禁用（patch 002），自建服务列 v1.1.0 候选。
+4. presence-server 原样保留代码（用户要求不动后端），不部署。
+5. 旧工程备份采用 git tag 方式（git 历史完整保留 11GB 资产，无需物理归档）。
+
+### 遗留
+- assembleDebug 构建结果待确认（AGP 9 插件修正后）。
+- 待办：Patch 体系（001-005 品牌/禁用更新检查/vendor 本地化/扩展层挂载）、CDN 资源离线化（Vue/Tailwind/marked/DOMPurify/SortableJS/Lora）、文件桥实机验证、Phase 7 测试验收。
+
+### 下一步
+- 确认构建通过 → 生成登记 patch（001-005）→ CDN 离线化（Phase 2）→ 品牌化（Phase 3）。
+
+---
+
+## 2026-09-01 · 重建会话 2：Phase 1 壳骨架完成 + Phase 2 离线化 + Phase 3 品牌化
+
+> 续重建会话 1（见上）。本会话完成 v1.0.0 重建的核心工程部分，`assembleDebug` 持续通过。
+
+### 完成
+- **Phase 1 壳工程（完成）**：Gradle 单模块化（删 core/ 三模块，libs.versions.toml 瘦身为 6 依赖）；AGP 9 内置 Kotlin 适配（移除 kotlin.android 插件、kotlinOptions → kotlin block，查证官方迁移文档）；壳代码 6 文件：AssetExtractor（filesDir 解压 + `.extracted_v1` 版本标记幂等）、WebViewSetup（DOM storage / file 访问 / UA 标注）、LuzzyBridge（剪贴板/Toast/版本/设备信息，R8 keep）、FileChooserHandler（SAF 导入，onActivityResult 转发）、DownloadHandler（DownloadManager 导出）、MainActivity（ComponentActivity 宿主 + 返回键回退）；Manifest 重写（去 LuzzyApp、加下载权限、configChanges 补 density/fontScale）。**产物：24.8MB debug APK 三件套（ABI 拆分）**。
+- **Phase 2 离线化（完成）**：vendor/ 下载 7 件（vue 164KB / tailwind.js 398KB 运行时 JIT / marked / purify 3.0.6 / SortableJS / daisyUI 4.7.2 / localforage 1.10.0）；Lora 可变字体本地打包（Regular + Italic 两文件覆盖 400-700）；主页面 + character + novel 子页面 CDN **全扫描清零**（审计中发现子页面同样有 CDN 依赖，补做本地化）；`assets/css/local-fonts.css` 建立（本地 @font-face + 字体栈覆盖）；**决策**：CJK 分片字体（Ma Shan Zheng 100+ 分片）不做本地化，依赖安卓系统 Noto 回退（登记 patch 007 决策）。
+- **Phase 3 品牌化（完成）**：title→LuzzyRP、入口 logo→LUZZY·RP、移除 rphub-update-api meta、vendor 引用、扩展层挂载（luzzy-theme.css + luzzy-bridge.js + luzzy-ext.js 尾部注入）；`tools/patches/README.md` 登记 7 个 patch（001-007）；`tools/apply-patches.ps1` 幂等重放脚本（8 步全 SKIP 验证 = 已应用状态）；`tools/sync-upstream.ps1` 同步脚本（dry-run 分支 + 参考克隆更新提示 + 二创专属文件备份恢复保护 + 指纹更新）。
+- **扩展层三件套**：luzzy-bridge.js（存在性检测 + 降级）、luzzy-theme.css（字体变量覆盖）、luzzy-ext.js（桥接自检 + 关于页品牌注入）。
+- **文档**：CHANGELOG v1.0.0 条目（含上游基线声明 + 历史区存档）；README/AGENTS.md/HARD_REQUIREMENTS.md 已在会话 1 完成；.gitignore 加 rp-hub-reference/ 排除；DESIGN.md 移除（摈弃项，git 历史可恢复）。
+
+### 决策
+1. AGP 9 内置 Kotlin：不装 kotlin.android 插件，`kotlin { compilerOptions { jvmTarget } }` 顶层块配置。
+2. 入口 logo 品牌化改文字（LUZZY·RP）不动 CSS 动画结构（entry-logo-* 动画体系完整保留）。
+3. patch 体系采用「脚本幂等查找替换」而非 git apply（上游文件无版本基线 diff 可比，脚本更抗冲突）。
+4. novel 页 CJK 字体本地化放弃（100+ 分片不划算），系统 Noto 回退（patch 007 已登记决策）。
+5. rp-hub-reference/ 加 .gitignore（独立仓库 + 11GB 资产不入库；同步 SOP 依赖其 fetch upstream）。
+
+### 遗留
+- `cdn.sta1n.cn/keys` 与 `qianxun1688.com` 推广外链未处理（保留待审，Phase 3 遗留）。
+- LuzzyBridge 未接入扩展层实机调用验证（需真机）。
+- FileChooserHandler/DownloadHandler 实机验证未做（需要真机 SAF）。
+- 上游同步演练（sync-upstream.ps1 假发版模拟）未做。
+- 构建警告：onActivityResult deprecated / databaseEnabled deprecated（Phase 4 桥接完善时处理）。
+
+### 下一步
+- 真机安装验证（壳加载 + 离线化 + 品牌化 + 桥接）→ CSP/混合内容审计 → 同步演练 → Phase 4 桥接完善 → Phase 7 测试验收。
+
+---
+
+## 2026-09-01 · 重建会话 3：真机验证通过（小米 25098PN5AC / Android 16）
+
+> 用户连接真机（小米 pandora，arm64），完成 v1.0.0 壳工程首次实机验收。
+
+### 完成
+- **安装与启动**：`adb install` arm64 debug APK 成功；冷启动无崩溃；`AssetExtractor` 解压 rphub + ext 双目录成功。
+- **界面完整加载**：uiautomator dump 确认 RP-Hub 全界面就位——侧边栏（聊天/用量统计/记忆系统/UI模板/角色卡管理/在线/高级/设置）、聊天页（未选择角色卡空态、发送图片 0/3、自动生图开关、单次系统指令、剧情分支：主线、切换模型、输入框+发送按钮）。
+- **离线化生效**：vendor 本地加载（tailwind.js 运行时 JIT 正常，仅生产环境提示警告）；无任何 CDN 请求失败。
+- **品牌化生效**：title LuzzyRP、入口 logo LUZZY·RP。
+- **JSBridge 全链路打通**：扩展层自检输出 `[LuzzyRP] v1.0.0-debug (code 1) · upstream RP-Hub 1.8.9 · Xiaomi 25098PN5AC · Android 16 (API 36)`——JS → addJavascriptInterface → Kotlin → 返回 JS 全通。
+- **数据持久化**：force-stop 重启后解压标记生效（无重复解压）、扩展层自检再次输出、localStorage 保留。
+- **修复 2 个 bug**：① AssetExtractor 只解压 rphub 未解压 ext（扩展层静默失败，好在降级没白屏）→ 重构为多根目录解压；② WebViewSetup 引用已删的 TARGET_DIR 常量 → 改为硬编码 UA 版本。
+- **新增**：JS console 转发到 Logcat（tag: JSConsole）——RP-Hub 是纯 JS 应用，调试与扩展层验证全靠 console 输出（FileChooserHandler.webChromeClient 内 onConsoleMessage）。
+
+### 决策
+1. AssetExtractor 改为 ROOTS 列表驱动（rphub + ext 双根），标记版本统一管理。
+2. JS console 转发进 WebChromeClient（与文件选择桥同文件，避免多 WebChromeClient 冲突）。
+
+### 遗留
+- 文件桥实机验证（角色卡 PNG 导入导出 SAF 全流程）——需要用户操作或自动化脚本。
+- 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
+- 上游同步演练。
+- 构建警告（onActivityResult / databaseEnabled deprecated）Phase 4 处理。
+
+### 下一步
+- 文件桥 SAF 实机验证 → 推广外链清理 → 同步演练 → Phase 4 桥接完善 → Phase 7 测试验收 → 发布。
+
+---
+
+## 2026-09-01 · 重建会话 4：设计 SKILL 强制条款 + 主题功能启动
+
+> 用户新任务：①AGENTS.md 增量更新硬性规定（设计相关必须启用 4 项 skill）；②设置页新增主题功能（经典=原版 + 新主题方案 + 新用户默认新主题）；③主题附属字体设置（系统内置字体=经典，默认字体=PuHuiTi-3/AlibabaSans，新用户默认）。
+
+### 完成
+- **AGENTS.md 增量更新**：硬性规定速览表新增第 9 条「设计 SKILL 强制条款」+ §2.1 详细展开（触发条件/4 项 SKILL 本地存档表/强制流程 5 步/豁免/与规定 4 的关系）。
+- **HARD_REQUIREMENTS.md 同步**：新增规定 9（设计 SKILL 强制条款），含 4 项 SKILL 表 + 强制流程 + 守护落点。
+- **4 项 SKILL 启用**：huashu-design（SKILL.md 579 行完整阅读：三方向硬门/反 AI slop/动效=物理学/Gate 文件协议）、awesome-design-md（73 份 DESIGN.md 范本库）、open-design（用户手动下载 zip 解压至 docs/skills/open-design，242MB；AGENTS.md 完整阅读：DESIGN.md 品牌契约/五维 critique/UI 动画哲学）、ui-ux-pro-max-skill（CLAUDE.md + SKILL.md + pro-rules.md 完整阅读：10 优先级规则/检索命令/Pre-Delivery Checklist）。
+- **技术侦察**：RP-Hub 无内置主题机制（纯浅色，色值硬编码在 index.html tailwind.config）；设置页结构确认（用户设置/生图设置/高级设置区块）；字体资产盘点（PuHuiTi-3 woff2 每字重 1.4-5.3MB，AlibabaSans woff2 每字重 44-47KB）。
+
+### 决策
+1. 主题技术路线候选：方案 C（tailwind.config 色板改 var() 引用 + 扩展层 CSS 变量切换）最优雅，待讨论确认。
+2. 字体打包策略：PuHuiTi 精选 3 字重（Regular/Medium/Bold ≈ 15.5MB）+ AlibabaSans 全 6 字重（≈ 0.3MB）。
+
+### 遗留
+- 主题方案 3 方向待用户选择（huashu-design 三方向硬门）。
+- 字体设置 UI 设计待主题方向确定后展开。
+
+### 下一步
+- 主题 3 方向讨论 → 用户选定 → DESIGN.md 设计真源 → 实施。
+
+---
+
+## 2026-09-01 · 重建会话 5：主题系统技术底座 + 三方向板制作中
+
+> 续会话 4。用户确认：新主题走 **Claude 风格** + **亮暗双模式**。三方向板（huashu-design 硬门）并行制作中。
+
+### 完成
+- **设计 spec 固化**：`docs/design/theme-spec.md`（三方向共同输入：产品/受众/硬约束/界面结构/三方向色板核心/动效纪律）。
+- **三方向板并行启动**（3 个 subagent 独立工作）：
+  - A · 暖纸书房：Claude 原味（米纸 #FAF9F5 + 烤橙 #D97757），卡片式分层布局
+  - B · 极光暖夜：Claude 暖底 × 旧 Aurora 基因（AuroraPink/Violet），沉浸无边布局
+  - C · 墨韵朱砂：Claude 暖底 × 东方文人（宣纸/朱砂/墨色），分栏杂志布局
+- **技术侦察完成**：
+  - RP-Hub 字体机制：`fontFamilies`（modern/serif/system）→ `data-app-font` 属性 → `--app-font-family` CSS 变量（styles.css:455-465）；`applyFontFamily`（app.js:653）；默认 `fontFamily: 'modern'`（app.js:628）；迁移 `fontFamilyVersion: 4`
+  - **上游字体栈已预留 "Alibaba PuHuiTi 3.0" 位置**（styles.css:422）——本地 @font-face 定义后直接命中，无需改上游字体栈
+  - 设置页结构：高级参数区块（grid 双列）含「界面字体」「对话字体大小」custom-select——主题选择 UI 落点确认
+  - 存储机制：`setStoredValue('settings', settings)` 整体保存（app.js:1667）；扩展层用独立键 `luzzy_theme` / `luzzy_theme_mode`（与上游 `rp_hub_` 前缀零冲突）
+- **字体资产打包**：PuHuiTi-3 三字重 woff2（55-Regular 5.0MB / 65-Medium 5.2MB / 85-Bold 5.3MB）+ AlibabaSans 全 6 字重（≈0.3MB）→ `assets/rphub/assets/fonts/`；`local-fonts.css` 追加 @font-face 定义
+- **主题系统骨架**：`luzzy-theme.css`（classic 色板变量 = 原版色值 + luzzy 亮暗变量 TODO 待方向板填充）；`luzzy-ext.js`（applyTheme：data-theme/data-mode 驱动 + localStorage 独立键 + 新用户默认 luzzy）；`LuzzyBridge.setSystemBarStyle`（亮暗切换系统栏图标深浅）+ `luzzy-bridge.js` 封装
+- **技术方案文档**：`docs/design/theme-tech-plan.md`（data-theme 驱动机制 / 设置项落点 / 字体打包 / 上游同步影响表：patch 008-011 登记规划）
+
+### 决策
+1. 主题机制 = `data-theme` + `data-mode` 双属性驱动（复刻上游 `data-app-font` 模式），classic = 原版色值默认变量。
+2. 主题/字体设置存扩展层独立键（`luzzy_theme` 等），不侵入上游 settings 对象（硬性规定 3 扩展层隔离）。
+3. 字体默认 = luzzy（PuHuiTi + AlibabaSans），通过扩展层 `data-app-font="luzzy"` 触发，上游 `normalizeFontFamily` 兜底为 modern 时扩展层重写。
+4. 新用户默认新主题（luzzy）+ 默认字体（luzzy），老用户保留原设置。
+
+### 遗留
+- 三方向板完成待展示（A/B/C 各亮暗两张截图）。
+- 方向板选定后：DESIGN.md 设计真源 → 色板变量填充 → patch 008-011 → 设置页 UI → 实机验证。
+
+### 下一步
+- 展示三方向板 → 用户选定 → direction-approved.md 落档 → DESIGN.md → 实施。
+
+---
+
+## 2026-09-01 · 重建会话 6：三方向板 A/C 完成，B 制作中
+
+> 续会话 5。三个方向板 subagent 并行制作，A（暖纸书房）与 C（墨韵朱砂）已完成并验证，B（极光暖夜）制作中。
+
+### 完成
+- **方向 A · 暖纸书房**（subagent c7b78d52）：`docs/design/direction-a-warm-paper.html`（900 行单文件）+ 亮/暗截图。卡片式分层骨架（气泡悬浮卡 + 输入区悬浮工具栏 + 顶栏毛玻璃）；烤橙双档策略（#D97757 图形 accent / #B85C3E 文字按钮，过 4.5:1）；对比度亮 13.9:1/5.1:1、暗 13.5:1/6.0:1；零 JS 错误、无溢出、交互全通。
+- **方向 C · 墨韵朱砂**（subagent ae7ce188）：`docs/design/theme-C-moyun-zhusha.html`（656 行单文件）+ 亮/暗截图。分栏杂志骨架（书页眉细线 + 消息左右分栏剧本排版）；宣纸 #F7F3EC + 墨色 #2B2620 + 朱砂 #C0392B 点睛；对比度亮 13.6:1/5.5:1、暗 14.7:1/7.9:1；零 JS 错误、交互全通。
+- **汇总文档**：`docs/design/direction-summary.md`（三方向对比表 + 交付物清单 + 验证结果 + 选定后流程）。
+- **清理**：删除重复的 theme-A-* 截图（保留 subagent 权威版本 direction-a-*）。
+
+### 决策
+1. 方向板截图命名规范：`direction-<字母>-<mode>.png`（subagent 产出为准）。
+2. 方向板工具条（页面切换/亮暗按钮）是设计标注层，非 app 内容。
+
+### 遗留
+- 方向 B（极光暖夜）制作中。
+- 用户选定方向后：direction-approved.md 落档 → DESIGN.md 填充 → luzzy-theme.css 变量 → patch 008-011 → 设置页 UI → 实机验证。
+
+### 下一步
+- B 完成 → 三方向一起展示给用户 → 用户选定 → 实施。
+
+---
+
+## 2026-09-01 · 重建会话 7：方向 A 选定 + 主题系统实施完成
+
+> 续会话 6。用户从三方向板中选定「A · 暖纸书房」，主题系统全部实施完成（待真机验证）。
+
+### 完成
+- **方向选定落档**：`docs/design/direction-approved.md`（用户选择原话「A」+ 方向 A 完整设计要点）。
+- **DESIGN.md 设计真源定稿**：方向 A「暖纸书房」完整契约（亮/暗色板 token 表、卡片式分层布局、动效令牌、可访问性、主题技术契约）。
+- **luzzy-theme.css 主题变量填充**：classic = 原版色值；luzzy 亮色 = 米纸系 gray（#FAF9F5→#2A2826）+ 烤橙系 primary（#D97757 图形 / #B85C3E 按钮 / #A8543A 文字）；luzzy 暗色 = 深暖灰 gray 反转（#262624→#F5F1EA）+ 暖橙 primary；body 过渡 + reduced-motion 兜底。
+- **patch 008-011 实施**：
+  - 008：tailwind.config gray/primary 色板 → var() 引用（20 变量一一对应验证）
+  - 009：core-utils.js fontFamilies 增加 luzzy 选项
+  - 010：app.js 默认 fontFamily → luzzy + normalizeFontFamily 白名单加 luzzy
+  - 011：设置页「界面主题」custom-select + 模式选择（v-if 条件显示）；app.js settings 加 theme/themeMode 字段（默认 luzzy/light）+ themeOptions/themeModeOptions + applyTheme/applyThemeMode watch（含 LuzzyBridge.setSystemBarStyle 联动）+ setup return 暴露 + 老用户迁移（savedSettings 无 theme → classic）
+- **apply-patches.ps1 扩展**：008-011 幂等重放逻辑（13 项全 SKIP 验证通过）。
+- **patches/README.md 登记**：008-011 补丁说明（目的/对应规定/预期冲突点）。
+- **修复**：themeOptions 误插到 uiOptions 解构中间 → 移正（node --check 语法验证通过）。
+- **验证**：20 个主题变量定义/引用一一对应；13 项 patch 状态全 OK；assembleDebug 通过（40.8MB）。
+
+### 决策
+1. 老用户迁移策略：savedSettings 无 theme 字段 → classic（保留原版），新用户默认 luzzy（settings 默认值）。
+2. 主题切换联动系统栏：applyThemeMode watch 调 LuzzyBridge.setSystemBarStyle（亮=深图标/暗=浅图标）。
+3. 暗色 gray 色阶反转映射（50 最深=画布 → 900 最浅=主文字），使上游全部 gray-* 工具类自动适配，无需改上游 HTML。
+
+### 遗留
+- 真机验证（用户在用手机，待空闲）：主题切换、亮暗切换、字体切换、系统栏联动、老用户迁移。
+- 方向板 B/C 存档（备选，不实施）。
+
+### 下一步
+- 真机验证 → 修复问题 → CHANGELOG v1.0.0 更新 → 发布。
+
+---
+
+## 2026-09-01 · 重建会话 8：真机验证发现主题未生效（移交下一个 Agent）
+
+> 续会话 7。用户连接真机（小米 25098PN5AC / Android 16），验证主题系统。**发现主题未生效——界面仍为原版灰色，非暖纸书房米纸色。已定位到最可能根因，移交下一个 Agent 修复。**
+
+### 完成
+- **安装与启动**：`adb install` 最新 APK（40.8MB，含主题系统）成功；冷启动无崩溃；AssetExtractor 解压正常；扩展层自检输出正常（`[LuzzyRP] v1.0.0-debug (code 1) · upstream RP-Hub 1.8.9`）。
+- **部署文件验证**（run-as 检查解压后文件）：
+  - `index.html` 含 `var(--tw-gray-50)`（patch 008 生效）✅
+  - `index.html` 含 `luzzy-theme.css` 挂载（patch 005 生效）✅
+  - `files/ext/` 三件套（luzzy-bridge.js / luzzy-ext.js / luzzy-theme.css）齐全 ✅
+- **老用户迁移验证**：旧数据（savedSettings 无 theme 字段）→ 主题为 classic（原版灰色）——**迁移逻辑按设计工作** ✅
+- **新用户路径验证**：卸载重装（等价全新用户）→ 截图采样仍为原版灰色（聊天区 #BCBDBE、顶栏 #7C7D7D、输入区 #FFFFFF）——**主题未生效** ❌
+
+### 问题定位（关键）
+
+**现象**：新用户默认 theme='luzzy'，但界面颜色仍是原版灰色（#BCBDBE 等），非暖纸书房米纸色（#FAF9F5）。
+
+**已排除**：
+1. 文件部署问题（patch 008 已生效，luzzy-theme.css 已挂载）
+2. JS 语法错误（node --check 通过）
+3. 老用户迁移逻辑（按设计工作）
+
+**最可能根因（待验证）**：**Tailwind CDN（cdn.tailwindcss.com 运行时 JIT）不接受 `var(--tw-gray-50)` 作为 config 颜色值**。
+
+- RP-Hub 用 Tailwind CDN 运行时 JIT：它扫描 DOM class → 按 tailwind.config 生成 CSS 规则注入 `<style>`。
+- patch 008 把 config 的 gray/primary 色板从 hex 改为 `'var(--tw-gray-50)'` 字符串。
+- Tailwind 的 config 颜色值校验：`'var(--tw-gray-50)'` 不是合法颜色格式（非 hex/rgb/hsl/命名色），**Tailwind 可能拒绝该值，导致 `.bg-gray-50` 等工具类不生成或生成失败** → 界面回落到无样式状态（或浏览器默认/上游 styles.css 兜底色）。
+- 证据：截图颜色 #BCBDBE ≈ 原版 gray-200（#e5e7eb 的暗化版？）或 Tailwind 未生成规则时的兜底色；#7C7D7D 顶栏 ≈ 原版黑色渐隐层叠在白色上。
+
+**备选根因（可能性低）**：
+- `data-theme` / `data-mode` 属性未设置（watch 未执行）——但 luzzy-ext.js 的 applyTheme 也会设置，且无 JS 报错。
+- luzzy-theme.css 的 `:root[data-theme="luzzy"][data-mode="light"]` 选择器未命中。
+
+### 修复方向（下一个 Agent 参考）
+
+**方案 1（推荐）· 放弃 Tailwind config var() 化，改用 CSS 覆盖层**：
+- 回滚 patch 008（tailwind.config 恢复 hex 原值）。
+- 在 luzzy-theme.css 中，用**高优先级 CSS 规则覆盖** Tailwind 生成的工具类：
+  ```css
+  :root[data-theme="luzzy"][data-mode="light"] .bg-gray-50 { background-color: #FAF9F5; }
+  :root[data-theme="luzzy"][data-mode="light"] .text-gray-800 { color: #3D3A36; }
+  ```
+- 缺点：需要覆盖 RP-Hub 用到的全部 gray/primary 工具类组合（bg-/text-/border-/from-/to-/ring- 等），工作量大但可控。
+- 优点：不依赖 Tailwind 对 var() 的支持，100% 可靠。
+
+**方案 2 · 验证 Tailwind 是否支持 var() 颜色**：
+- 在浏览器（Playwright）加载 index.html，检查生成的 `<style>` 里 `.bg-gray-50` 规则是否存在、值是什么。
+- 若 Tailwind 支持 var()（生成 `background-color: var(--tw-gray-50)`），则问题在 data-theme 未设置，转查 watch 链路。
+- 若 Tailwind 拒绝 var()（规则缺失），走方案 1。
+
+**方案 3 · 换用 Tailwind 任意值语法**：
+- config 色板改 `'rgb(var(--tw-gray-50) / <alpha-value>)'` 形式（Tailwind 官方支持的 CSS 变量颜色模式）——但需要变量存 RGB 三元组而非 hex，改动面大。
+
+**验证方法**：
+1. Playwright 加载 `file:///D:/.NekoTool/LuzzyRP/app/src/main/assets/rphub/index.html`，`page.evaluate` 检查：
+   - `document.documentElement.dataset.theme` / `dataset.mode` 值
+   - `getComputedStyle(document.querySelector('.bg-gray-50')).backgroundColor` 值
+   - 生成的 `<style>` 中 `.bg-gray-50` 规则文本
+2. 真机复测：卸载重装 → 截图采样聊天区背景应为 #FAF9F5（亮色）。
+
+### 决策
+1. 主题未生效问题**不阻塞其他工作**，但 v1.0.0 发布前必须修复。
+2. 移交下一个 Agent 时，优先执行「修复方向」中的方案 2（验证根因）→ 按结果走方案 1 或 3。
+
+### 遗留
+- **P0：主题未生效**（根因待验证，见上）。
+- 真机验证其余项（亮暗切换、字体切换、系统栏联动）待主题生效后补测。
+- 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
+- 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
+- 上游同步演练。
+- 构建警告（onActivityResult / databaseEnabled deprecated）。
+
+### 下一步
+- 下一个 Agent：验证 Tailwind var() 支持性 → 修复主题 → 真机复测 → 补测亮暗/字体/系统栏 → CHANGELOG → 发布。

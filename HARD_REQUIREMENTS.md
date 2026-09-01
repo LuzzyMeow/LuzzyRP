@@ -1,105 +1,86 @@
 # LuzzyRP 硬性规定（HARD_REQUIREMENTS）
 
 > **本文件是项目的最高约束**，位于仓库根目录，任何开发 Agent 接手任务前必须完整阅读并遵守。
-> 违反任何一条即为不合格交付。发版前必须逐项通过 `docs/INVARIANTS-CHECKLIST.md` 自检。
+> 违反任何一条即为不合格交付。发版前必须逐项通过 `docs/PLAN-v1.0.0.md` §10 验收清单自检。
 
 ---
 
-## 一、十二条硬性规定
+## 背景
 
-### 规定 1 · 流式输出不可破坏
-所有模式下，模型的输出必须是**模型原生的流式输出**：模型出一个字，思考卡片内和正文气泡内就出一个字。
-**1 字 = 1 次状态更新**，禁止模拟打字机、禁止节流/批量 flush、禁止非流式请求伪装流式。
-- 守护落点：`core/ai` 各协议 `streamText` 实现（文件头 `[INVARIANT-STREAMING]` 注释块）+ `app/.../service/ChatService.kt` + `di/DataSourceModule.kt`（OkHttp 超时配置）。
-- 回归测试：`KvPrefixStabilityGoldenTest`（前缀稳定）+ 人工验收（对 DeepSeek/方舟实测逐字）。
-
-### 规定 2 · Agentic 模式不可破坏
-所有模式都要支持 Agentic 多轮思考与多轮工具调用；除被动工具外，硬性要求每模式模型进行 **>2 轮次的思考** 和 **>1 轮次的主动工具调用**；必须持续强化/更新内置提示词（不得依赖 `tool_choice` 强制）。
-- 守护落点：`app/.../data/ai/GenerationHandler.kt`（`[INVARIANT-AGENTIC]` 注释块）+ `app/.../data/ai/prompts/AgenticProtocol.kt`（内置提示词强化段）。
-- 回归测试：`GenerationLoopTest`。
-
-### 规定 3 · NSFW 提示词不可触碰
-`app/.../data/ai/prompts/NsfwBlock.kt` 内的 NSFW 内置提示词内容（当前为占位，由用户手动填写），**禁止任何审查、过滤、改写逻辑触碰该内容**；不得添加内容过滤器、敏感词拦截、输出改写。
-- 守护落点：`NsfwBlock.kt` 文件头警示注释。
-
-### 规定 4 · 代码守护注释
-凡涉及代码改写与开发，必须在不变性落点代码内部写**详细中文注释**，明确：
-- `[INVARIANT-xxx]` 标记 + 禁止修改的范围；
-- 允许修改的范围；
-- 为什么（对应本文件哪条规定）。
-让后续开发 Agent 清楚哪些内容禁止修改。
-
-### 规定 5 · 技术栈锁定
-项目源码严格以 **Android 原生 Kotlin + Jetpack Compose** 开发（含附属功能、工具与 UI）。参考成品：
-- https://github.com/rikkahub/rikkahub
-- https://github.com/CherryHQ/cherry-studio
-- https://github.com/STA1N156/RP-Hub
-- https://github.com/lobehub/lobehub
-- https://github.com/SillyTavern/SillyTavern
-
-### 规定 6 · 图标 / 字体 / 动画
-- 所有新容器、按钮、弹窗、页面、下拉扩展框等前端内容的 Icon **仅限** 从 `docs/game-icon-pack` 与 `docs/lobe-ui-master` 提取使用（运行时经 `GameIcons.kt` / `LuzzyIcons.kt` 注册表），**禁止自行绘画图标样式**。
-- 系统规定内置字体仅限 `docs/AlibabaPuHuiTi-3` 与 `docs/AlibabaSans`；**只有非简体中文和英语时回退系统默认字体**。
-- 整体 UI 保持一致性、美观性；所有新 UI 必须具备**进入 / 交互 / 退出三态丝滑动画**（令牌：进入 300ms / 交互 150ms / 退出 195ms），以最高质量与精度做最佳视觉效果。
-- 守护落点：`app/.../ui/theme/`（AuroraColor / MotionTokens / LuzzyMixedFontFamily）+ `app/.../ui/icons/`。
-
-### 规定 7 · 禁止占位符
-不得遗留任何占位符；所有工作、开发代码以**最完整、功能最全面**为质量标准，不得简化与占位。（唯一例外：`NsfwBlock.kt` 内容由用户手动填写。）
-
-### 规定 8 · KV 缓存命中不可破坏
-版本新功能升级时，需确保新功能无法破坏模型输入缓存命中 / KV 缓存机制。要求：
-- 消息序列化稳定化（固定字段序、紧凑 JSON、时间戳等易变字段不进前缀）；
-- 系统提示按「稳定前缀 / 半稳定段 / 动态尾段」三层组装；
-- 工具结果原地回填（不新建 TOOL 消息）。
-- 回归测试：`KvPrefixStabilityGoldenTest`（同一历史两次组装逐字节相等）。
-
-### 规定 9 · 工具变更同步
-凡涉及任何工具（SKILL 工具、MCP 工具、内置工具等）的更新，必须同步 `CHANGELOG.md`，并同步 agentic 请求阶段的内部工具提示词（如需）。
-
-### 规定 10 · 版本文档同步
-新版本内容必须同步更新 `CHANGELOG.md` 与 `README.md`（要求美观且极其详细）。
-
-### 规定 11 · 工作区整洁
-整理项目工作区，清理冗余文件，做好文件分类（docs 内：plan / task-archive / archive / 参考资料分区）。
-
-### 规定 12 · 发布流程
-`android` 目录资源同步最新构建产物确认可编译后，编译新版本 APK，随后提交推送远程仓库；按仓库旧版本 release 排版格式编写新的、美观且极其详细的 release 内容推送（**仅稳定版更新附 APK**）。
-
-### 规定 13 · 设计 SKILL 强制条款（2026-08-30 用户新增）
-
-凡涉及主题/UI/UX/前端显示效果的工作，**必须**先完全掌握并应用以下 4 项设计 SKILL（仓库已存档至 `docs/skills/`）：
-
-| # | SKILL | 仓库 | 本项目应用方式 |
-|---|-------|------|----------------|
-| 1 | huashu-design | https://github.com/alchaincyf/huashu-design | 工作室多角色设计方法论（艺术总监→视觉→动效→工程）；动效=物理学（缓动表达重量与摩擦）；pitfalls 避坑清单；三方向初稿制 |
-| 2 | open-design | https://github.com/nexu-io/open-design | DESIGN.md 作为品牌契约（仓库根 `DESIGN.md` 为唯一设计真源，所有 UI 改动必须遵循）；工件优先；交付前五维 critique 门控 |
-| 3 | awesome-design-md | https://github.com/VoltAgent/awesome-design-md | 73 份真实站点 DESIGN.md 范本库（`docs/skills/awesome-design-md-main/design-md/`），撰写/演进本项目 DESIGN.md 时参照其结构（Colors/Typography/Layout/Elevation/Shapes/Components/Motion） |
-| 4 | ui-ux-pro-max-skill | https://github.com/nextlevelbuilder/ui-ux-pro-max-skill | 可检索设计智能（styles/palettes/UX 规则/图标），`references/pro-rules.md` 原生 App 交付清单为发版必过项；`data/stacks/jetpack-compose.csv` 为 Compose 代码规约 |
-
-- 上述 4 项 SKILL 的本地存档路径：`docs/skills/{huashu-design,open-design,awesome-design-md-main,ui-ux-pro-max-skill}/`。
-- UI 交付前必须执行：ui-ux-pro-max `pro-rules.md` 的 Pre-Delivery Checklist + huashu-design `animation-pitfalls.md` 逐项对照。
-- 本条款与规定 6（图标/字体/动画令牌）并行生效；冲突时以更严格者为准。
+LuzzyRP v1.0.0 起为对开源项目 [STA1N156/RP-Hub](https://github.com/STA1N156/RP-Hub)（上游基线 1.8.9）的二次开发：原生 WebView 壳 + 独立扩展层。本文件取代旧版 13 条硬性规定（真流式/Agentic/KV 等不变性随旧工程一并作废）。
 
 ---
 
-## 二、真流式 6 大不变性（规定 1 的技术展开）
+## 八条硬性规定
 
-| # | 不变性 | 守护落点 |
-|---|--------|----------|
-| S1 | `Provider<T>` + `ProviderManager` 管理多 LLM 供应商 | `core/ai/.../provider/Provider.kt`、`ProviderManager.kt` |
-| S2 | `streamText` 返回 `Flow<MessageChunk>` | 同上 |
-| S3 | `callbackFlow` + `okhttp3.sse.EventSources.createFactory().newEventSource()`；`onEvent → trySend` 逐 event 零节流；`awaitClose { eventSource.cancel() }` | `core/ai/.../openai/ChatCompletionsAPI.kt` 等三协议 |
-| S4 | OkHttp `readTimeout = 10 MINUTES` | `app/.../di/DataSourceModule.kt` |
-| S5 | `MutableStateFlow<Conversation>` 单一真源 + `collectAsStateWithLifecycle()` | `app/.../service/ChatService.kt`、各 ViewModel |
-| S6 | 1 字 = 1 次更新（逐 event 直通 StateFlow，无节流无动画缓冲） | S3 + S5 组合保证 |
+### 规定 1 · NSFW 协议不可触碰
 
-## 三、Agentic 6 大不变性（规定 2 的技术展开）
+RP-Hub `assets/js/built-in-content.js` 内的 NSFW 预设（`nsfw: Object.freeze({...})`，含 `<nsfw_rules>` 全文）**原样保留，禁止任何审查、过滤、改写逻辑触碰该内容**；不得添加内容过滤器、敏感词拦截、输出改写。
+- 守护落点：`app/src/main/assets/rphub/assets/js/built-in-content.js`（同步时整体覆盖，**永远不在 patch 范围内**）+ `assets/ext/` 扩展层（禁止引入审查逻辑）。
+- 同步验证：每次上游同步后与上游文件做指纹比对（`tools/upstream-fingerprints.txt`），确认逐字节一致。
 
-| # | 不变性 | 守护落点 |
-|---|--------|----------|
-| A1 | `GenerationHandler.generateText`：`maxSteps = 256` for 循环 | `app/.../data/ai/GenerationHandler.kt` |
-| A2 | 工具结果原地回填（不新建 TOOL 消息，保持 KV 缓存命中） | 同上 |
-| A3 | 三 break 条件：不调工具 / 等待审批 / 无可执行工具 | 同上 |
-| A4 | `ToolApprovalState` 五状态机（Auto/Pending/Approved/Denied/Answered）续跑 | `core/model/.../ToolApprovalState.kt` + ChatService |
-| A5 | 禁止 `tool_choice = required`（仅 auto / none） | 各协议实现 |
-| A6 | 被动工具通过系统提示注入，不预执行 | `PromptAssembler` + `PassiveTools.kt` |
+### 规定 2 · 上游文件最小改动
+
+RP-Hub 上游文件（`index.html`、`assets/js/*.js`、`assets/css/styles.css`、`character/`、`novel/`）**仅允许通过 `tools/patches/` 内登记的 patch 修改**；任何新改动必须新增 patch 文件并编号登记，**禁止裸改**。
+- 守护落点：`tools/patches/`（当前登记 001-005，见 `AGENTS.md` §4.2）+ `tools/apply-patches.ps1`。
+- 原因：上游大文件（app.js 512KB）裸改会导致同步时无法手工解决的巨型冲突。
+
+### 规定 3 · 扩展层隔离
+
+所有二创新功能必须落在 `app/src/main/assets/ext/` 独立文件（`luzzy-ext.js` / `luzzy-theme.css` / `luzzy-bridge.js` 或按功能拆分的新文件），**禁止写入上游文件**；扩展功能必须自带降级路径，不允许因扩展层报错导致应用白屏。
+- 守护落点：`assets/ext/` 目录 + `AGENTS.md` §5 扩展开发规范。
+
+### 规定 4 · 字体锁定
+
+字体遵循 RP-Hub 规定字体栈（`--app-font-modern` / `--app-font-serif`，见上游 `styles.css`），通过 `luzzy-theme.css` 覆盖变量实现；**Lora 必须本地打包**（`assets/rphub/fonts/`），禁止运行时依赖 Google Fonts CDN。
+- 守护落点：`assets/ext/luzzy-theme.css` + `assets/rphub/fonts/`。
+
+### 规定 5 · CHANGELOG 同步
+
+新版本内容必须同步更新 `CHANGELOG.md` 与 `README.md`。CHANGELOG 沿用既有格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode；**每条记录注明上游基线版本**。
+
+### 规定 6 · 上游同步纪律
+
+上游发版后按 `AGENTS.md` §4 SOP 同步（fetch → 覆盖 → patch 重放 → 回归实测）；同步后必须实测：数据兼容（localStorage 结构）、核心功能回归（对话 / 角色卡导入导出 / 世界书 / 正则 / 记忆 / 生图）、断网可用性、扩展层功能回归。
+
+### 规定 7 · 工作区整洁
+
+整理项目工作区，清理冗余文件，做好文件分类（docs 内：plan / archive / 参考资料分区）；未登记的上游文件改动必须为零（指纹比对）。
+
+### 规定 8 · 发布流程
+
+编译新版本 APK（复用现有签名 `keystore/luzzy-release.keystore` 与 ABI 拆分）→ 推送远程仓库 → 按仓库旧版本 release 排版格式编写新的、美观且极其详细的 release 内容推送（**仅稳定版更新附 APK**）。
+
+### 规定 9 · 设计 SKILL 强制条款（2026-09-01 用户新增）
+
+凡涉及 UI 设计 / 前端设计 / 主题方案 / 视觉风格 / 交互动画 / 转场动画 / 页面布局 / 组件样式 / 字体排版 / 色彩体系的工作（**包括讨论、计划、实施三个阶段**），**必须先完整阅读并应用以下 4 项设计 SKILL 才可继续讨论、计划、工作**：
+
+| # | SKILL | 仓库 | 本地存档 | 本项目应用方式 |
+|---|-------|------|---------|---------------|
+| 1 | huashu-design | https://github.com/alchaincyf/huashu-design | `docs/skills/huashu-design/` | 工作室多角色设计方法论；**三方向硬门**（任何新视觉设计必须先出 3 个差异化方向给用户选）；反 AI slop 清单；动效=物理学（缓动表达重量与摩擦）；`references/animation-pitfalls.md` 动效避坑 |
+| 2 | awesome-design-md | https://github.com/VoltAgent/awesome-design-md | `docs/skills/awesome-design-md-main/` | 73 份真实站点 DESIGN.md 范本库（`design-md/` 目录）；撰写/演进本项目 DESIGN.md 时参照其结构（Colors/Typography/Layout/Elevation/Shapes/Components/Motion） |
+| 3 | open-design | https://github.com/nexu-io/open-design | `docs/skills/open-design/` | DESIGN.md 作为品牌契约（仓库根 `DESIGN.md` 为唯一设计真源，所有 UI 改动必须遵循）；工件优先；交付前五维 critique 门控；UI 动画哲学（ease-out `cubic-bezier(0.23,1,0.32,1)`、进入 200ms/退出 140ms、禁 scale(0)） |
+| 4 | ui-ux-pro-max-skill | https://github.com/nextlevelbuilder/ui-ux-pro-max-skill | `docs/skills/ui-ux-pro-max-skill/` | 可检索设计智能（styles/palettes/UX 规则/图标/字体配对）；`search.py` 检索命令；`data/stacks/jetpack-compose.csv` 等栈规约；交付前对照 pro-rules 清单 |
+
+**强制流程**（触发后按序执行，缺一步不得进入设计工作）：
+
+1. **阅读**：完整阅读 4 项 SKILL 主文档（huashu-design `SKILL.md`、open-design `AGENTS.md`、ui-ux-pro-max `CLAUDE.md` + `SKILL.md`、awesome-design-md `README.md`）；
+2. **三方向硬门**（huashu-design 强制）：任何新视觉设计必须先产出 **3 个差异化方向**（含真实视觉初稿）给用户选择，用户选定后才进入执行；用户指定风格也不豁免；
+3. **设计真源**（open-design 强制）：设计决策写入仓库根 `DESIGN.md`（唯一设计真源），所有 UI 改动必须遵循；
+4. **动效纪律**（huashu-design + open-design）：动效=物理学；进入 200ms / 退出 140ms / ease-out `cubic-bezier(0.23,1,0.32,1)`；禁 `scale(0)` 起步；对照 `animation-pitfalls.md`；
+5. **交付门控**（open-design 五维 critique + ui-ux-pro-max pro-rules）：交付前执行五维 critique 与 pro-rules 清单逐项对照。
+
+**豁免**：非设计的机械操作（修 bug、纯文字改动、数据迁移、构建配置）不触发；任何视觉产出（哪怕一行 CSS 颜色改动）都触发。
+
+**与规定 4（字体锁定）的关系**：字体锁定是上游合规约束，设计 SKILL 条款是设计质量约束；冲突时以更严格者为准。
+
+- 守护落点：`docs/skills/` 四目录 + `AGENTS.md` §2.1 + 仓库根 `DESIGN.md`。
+
+---
+
+## 合规红线（许可证义务，与规定并行）
+
+- 上游 LICENSE 文件**原样保留**在仓库内，禁止删除或改写；
+- README 顶部二创署名声明（基于 STA1N156/RP-Hub，上游基线版本）不得移除；
+- 项目保持 CC BY-NC 4.0，禁止任何商业化使用；
+- **仅侧载分发，禁止上架应用商店**（nsfw_rules 含年龄条款，合规风险）。

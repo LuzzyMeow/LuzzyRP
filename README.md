@@ -6,80 +6,151 @@
 
 **"每次对话，都像一本有你的小说。"**
 
-移动端 AI 角色扮演应用 · 将 LLM 的推理能力与角色扮演（RP）规则/背景提示词深度融合
+移动端 AI 角色扮演应用 · 基于 [RP-Hub](https://github.com/STA1N156/RP-Hub) 二次开发的原生安卓封装
 
 </div>
 
-> [!WARNING]
-> ## ⚠️ 本项目仍在积极开发中（Work In Progress）
+> [!IMPORTANT]
+> ## 📖 二创声明（Attribution）
 >
-> **当前版本不支持正常游玩。** LuzzyRP 尚处于早期开发阶段：
+> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.8.9**。
 >
-> - ❌ **无法直接开箱游玩**——需要自行配置模型供应商 API Key 才能产生对话；
-> - ❌ 核心玩法链路（真流式逐字输出、Agentic 工具调用、记忆/摘要、世界书召回）**尚未经过完整实机验收**；
-> - ❌ 部分 UI 仍在重制中，存在已知未修复项（见 CHANGELOG「遗留」）；
-> - ❌ 数据格式（Room schema、Settings）**在 v1.0 前仍可能破坏性变更**，不保证旧数据兼容；
-> - ❌ **不提供任何安装包支持**——Release 不附带 APK，安装包仅供开发者自行构建（见下文「构建」）。
->
-> **想要尝鲜？** 请自行 `git clone` 并用 Android Studio 构建 debug 包，预期遇到 bug 属正常现象。
-> 稳定可玩的首个版本会在开发完成后另行发布（届时 Release 将附 APK）。
+> - 遵循上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）** 许可协议；
+> - 仅对**前端**进行优化与封装，**后端代码（presence-server）完全未动**；
+> - 修改范围：安卓壳封装、资源离线化、品牌化、独立扩展层（详见 [CHANGELOG](CHANGELOG.md)）；
+> - 上游原 LICENSE 文件保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布。
 
-![Status](https://img.shields.io/badge/Status-WIP%20开发中-red)
-![Android](https://img.shields.io/badge/Android-Native%20Kotlin-3DDC84?logo=android&logoColor=white)
+![Status](https://img.shields.io/badge/Status-重建中-blue)
+![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202026.05.01-4285F4?logo=jetpackcompose&logoColor=white)
-![Material 3 Expressive](https://img.shields.io/badge/Material%203-Expressive-EADDFF)
+![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.8.9-4FC08D?logo=vue.js&logoColor=white)
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-F5A623)
+
+---
+
+## 目录
+
+- [简介](#简介)
+- [核心特性](#核心特性)
+- [技术架构](#技术架构)
+- [与上游的关系](#与上游的关系)
+- [构建与运行](#构建与运行)
+- [目录结构](#目录结构)
+- [开发者须知](#开发者须知)
+- [版本规划](#版本规划)
+- [许可证与合规](#许可证与合规)
+- [免责声明](#免责声明)
 
 ---
 
 ## 简介
 
-LuzzyRP 是一款原生 Android AI 角色扮演应用。它不是又一个聊天壳——而是把 **真流式输出**、**Agentic 闭环**、**角色卡生态** 与 **长期记忆** 做成一套完整的 RP 引擎，让每一次对话都像在读一本以你为主角的小说。
+LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开始的工程——而是把成熟、可玩、功能完整的开源项目 **RP-Hub** 完整封装进安卓，并在此基础上持续做**前端优化**与**独立功能扩展**。
 
-- **真流式**：模型出一个字，屏幕上就出一个字。1 字 = 1 次更新，无伪打字机、无节流。
-- **Agentic**：多轮思考 + 主动工具调用 + 结果原地回填，推理过程以思考卡片时间线完整呈现。
-- **像小说**：角色卡、世界书、正则脚本、三级摘要与长期记忆共同构成连贯的长篇叙事体验。
+选择这条路的理由很直接：**开箱即玩**。RP-Hub 本身已经具备角色卡、世界书、正则脚本、剧情分支、双轨记忆、自动生图等完整能力，套壳后直接获得成熟可玩的 RP 体验，不再需要从零验证核心玩法链路。
 
-## 核心能力（开发目标 · 完成度见 CHANGELOG）
+### 设计理念
 
-| 能力 | 说明 | 状态 |
-|------|------|------|
-| 真流式输出 | `callbackFlow` + OkHttp SSE `EventSources` + `trySend` 逐 event 零节流 + `readTimeout = 10 MINUTES`，1 字 = 1 次更新 | 架构完成，实机验收中 |
-| Agentic 闭环 | `maxLoops = 3` 两阶段闭环，工具结果原地回填，禁 `tool_choice = required` | 架构完成，单测通过 |
-| 三级摘要 | A 每轮（≤50）/ B 每 10 轮（≤10）/ C 每 50 轮（永久） | 已实现 |
-| 文本标签兜底 | `<tool_calls>` 标签解析（GLM-5.2 等无原生 FC 模型） | 已实现，单测通过 |
-| 角色卡生态 | SillyTavern PNG 导入/导出、世界书编辑器、正则脚本、UI 模板、收藏 | 部分（正则/UI 模板待 UI） |
-| 长期记忆 | ACE 三步循环、向量检索（sqlite-vec）、嵌入去重与评分淘汰 | 已实现 |
-| TRPG 模式 | D&D 5e 规则引擎、GM 工具组、世界卡设计模式 | 规划中（v0.4+） |
+- **成熟优先**：站在 RP-Hub 的肩膀上，把精力花在体验优化而非重复造轮子；
+- **隔离扩展**：所有二创新功能与上游代码物理隔离，上游更新可无缝同步；
+- **离线可用**：全部运行时依赖本地化，断网也能完整使用（除真实 API 请求外）；
+- **隐私本地**：数据全部存储在设备本地，无任何遥测与云端收集。
 
-## 技术栈
+---
+
+## 核心特性
+
+### 来自上游 RP-Hub（原样保留）
+
+| 能力 | 说明 |
+|------|------|
+| 角色卡生态 | 角色卡、世界书、正则脚本和多用户资料管理 |
+| 双轨记忆 | 总结记忆与向量记忆，可按角色和剧情分支独立保存 |
+| 剧情分支 | 分支创建、切换、回档、重命名和完整导入导出 |
+| UI 模板 | 模板变量分析与对话状态展示 |
+| 自动生图 | 自动生图、单张重新生成和多套内置画师风格 |
+| 在线工具 | 角色卡生成、万相广场与「墨韵 · 造梦」在线工具 |
+| NSFW 协议 | 内置 NSFW 增强预设（`<nsfw_rules>`），**原样保留、不可触碰** |
+
+### 来自 LuzzyRP 壳（二创新增）
+
+| 能力 | 说明 |
+|------|------|
+| 原生安卓封装 | 单 Activity WebView 壳，本地加载，无网络依赖 |
+| 资源离线化 | Vue / Tailwind / marked / DOMPurify / SortableJS / Lora 字体全部本地打包 |
+| 文件桥接 | 角色卡 PNG/JSON 导入导出走系统文件选择器（SAF） |
+| 系统能力桥 | 剪贴板、Toast、版本信息等原生能力通过 JSBridge 暴露给前端 |
+| 独立扩展层 | `luzzy-ext.js` / `luzzy-theme.css` 独立文件承载二创新功能，与上游零冲突 |
+| 上游同步机制 | 覆盖 + patch 重放脚本化同步，跟随上游持续迭代 |
+
+---
+
+## 技术架构
+
+```
+┌─────────────────────────────────────────────────┐
+│  LuzzyRP 安卓应用（Kotlin 壳工程）                │
+│                                                 │
+│  ┌─────────────────────────────────────────┐  │
+│  │  WebView（加载 filesDir/rphub/index.html） │  │
+│  │  ┌───────────────────────────────────┐  │  │
+│  │  │  RP-Hub 上游文件（仅登记 patch）    │  │  │
+│  │  │  index.html · assets/js/*.js      │  │  │
+│  │  │  assets/css/styles.css            │  │  │
+│  │  └───────────────────────────────────┘  │  │
+│  │  ┌───────────────────────────────────┐  │  │
+│  │  │  二创扩展层（独立文件，零冲突）       │  │  │
+│  │  │  luzzy-ext.js · luzzy-theme.css   │  │  │
+│  │  │  luzzy-bridge.js                   │  │  │
+│  │  └───────────────────────────────────┘  │  │
+│  └──────────────┬──────────────────────────┘  │
+│                 │ addJavascriptInterface      │
+│  ┌──────────────▼──────────────────────────┐  │
+│  │  JSBridge 原生层（LuzzyBridge.kt）         │  │
+│  │  文件选择 · 导出 · 剪贴板 · 通知 · 深链    │  │
+│  └─────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+```
+
+| 层 | 内容 | 与上游关系 |
+|----|------|-----------|
+| 上游层 | RP-Hub 6 个 JS + styles.css + index.html（仅登记 patch） | 覆盖式同步 |
+| 扩展层 | `luzzy-ext.js` / `luzzy-theme.css` / `luzzy-bridge.js` | 完全独立，零冲突 |
+| 原生层 | WebView 壳 + `LuzzyBridge.kt` + 系统能力 | 完全独立 |
+
+### 技术栈
 
 | 层 | 选型 |
 |----|------|
-| 语言 | Kotlin 2.4.0（JVM 17 字节码 target，jvmToolchain(21)） |
-| UI | Jetpack Compose（BOM 2026.05.01）· Material3 1.5.0-alpha21 · MaterialExpressiveTheme |
-| 架构 | MVVM + 单一真源 `MutableStateFlow<Conversation>` + `collectAsStateWithLifecycle()` |
-| 导航 | Navigation3 1.1.2（`entry<T> { key -> XxxPage() }` 模式） |
-| DI | Koin 4.2.1（BOM 模式） |
-| 网络 | OkHttp 5.3.2 · okhttp-sse EventSources（真流式 SSE） |
-| 数据库 | Room 2.8.4（v2，手写迁移）· DataStore Preferences |
-| 向量检索 | sqlite-vec（记忆/世界书/摘要嵌入） |
-| 序列化 | kotlinx.serialization |
-| 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.9 |
+| 壳语言 | Kotlin 2.4.0（JVM 17 字节码 target，jvmToolchain(21)） |
+| 宿主 | 单 Activity + WebView（系统 WebView，minSdk 26 起） |
+| 前端 | Vue 3（本地打包）· Tailwind CSS（本地打包）· DaisyUI |
+| 前端依赖 | marked · DOMPurify 3.0.6 · SortableJS（全部本地化） |
+| 字体 | RP-Hub 规定字体栈（`--app-font-modern` / `--app-font-serif`）+ Lora 本地打包 |
+| 构建 | Gradle · AGP · 现有签名（keystore/luzzy-release.keystore） |
 | SDK | compileSdk 37 · minSdk 26 · targetSdk 37 |
 
-## 模块结构
+---
+
+## 与上游的关系
+
+### 同步策略：覆盖 + patch 重放
 
 ```
-LuzzyRP/
-├── app/          # 主应用：UI、ViewModel、Room、DataStore、DI、ChatService、AppLogger
-├── core/model/   # 纯领域模型（UIMessage / MessageChunk / 角色卡 / 世界书 / 预设）
-├── core/ai/      # AI SDK：Provider 三协议、SSE 真流式、标签兜底解析
-├── core/common/  # 工具：HTTP 桥接、JSON 单例、PNG tEXt chunk 读写
-├── tools/        # 图标资产管线（icon_pipeline.py）与补丁脚本
-└── docs/         # 规划 / 工作日志 / 设计技能存档（docs/skills/）
+上游发版 → git fetch upstream → 覆盖上游文件 → 重放登记 patch → 回归实测 → 构建发布
 ```
+
+- 上游文件仅允许通过 `tools/patches/` 内**登记**的 patch 修改（品牌标题、禁用更新检查、入口 logo、扩展层挂载）；
+- 二创新功能全部落在 `assets/ext/` 独立文件，同步时零冲突；
+- 同步 SOP 详见 [AGENTS.md](AGENTS.md) 与 `tools/sync-upstream.ps1`。
+
+### 版本对应
+
+| LuzzyRP 版本 | 上游基线 | 说明 |
+|--------------|---------|------|
+| v1.0.0 | RP-Hub 1.8.9 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 扩展层骨架 |
+
+---
 
 ## 构建与运行（开发者）
 
@@ -88,34 +159,108 @@ LuzzyRP/
 git clone git@github.com:LuzzyMeow/LuzzyRP.git
 cd LuzzyRP
 ./gradlew assembleDebug        # Debug 构建（可直接安装尝鲜）
-./gradlew test                 # JVM 单元测试
+./gradlew assembleRelease      # Release 构建（需 keystore.properties，见下）
 ```
 
-内置供应商预置档案（需自行填 API Key）：DeepSeek / 火山方舟 CodingPlan / 自定义 OpenAI 兼容端点。
+**签名配置**：仓库根创建 `keystore.properties`（不入库）：
+
+```properties
+storeFile=keystore/luzzy-release.keystore
+storePassword=***
+keyAlias=luzzy
+keyPassword=***
+```
+
+**产物**：ABI 拆分三件套（arm64-v8a / x86_64 / universal）。
+
+> [!NOTE]
+> 应用为**侧载分发**，不上架应用商店。安装前需在系统设置中允许「安装未知来源应用」。
+
+---
+
+## 目录结构
+
+```
+LuzzyRP/
+├── app/                          # 安卓壳工程（Kotlin）
+│   └── src/main/
+│       ├── java/com/luzzymeow/luzzyrp/
+│       │   ├── MainActivity.kt           # 单 Activity，WebView 宿主
+│       │   ├── web/                      # WebView 配置 / JSBridge / 文件桥
+│       │   └── util/                     # assets 解压等工具
+│       ├── res/                          # 启动图标（mipmap 全套 + luzzy_logo）
+│       └── assets/
+│           ├── rphub/                    # RP-Hub 上游文件（同步目标）
+│           │   ├── index.html
+│           │   ├── character/ novel/
+│           │   ├── assets/css/ assets/js/
+│           │   ├── vendor/               # 离线化 CDN 依赖
+│           │   └── fonts/                # Lora 本地字体
+│           └── ext/                      # 二创扩展层（独立文件）
+│               ├── luzzy-bridge.js
+│               ├── luzzy-theme.css
+│               └── luzzy-ext.js
+├── rp-hub-reference/             # 上游参考克隆（保留 upstream remote）
+├── tools/
+│   ├── sync-upstream.ps1         # 上游同步脚本
+│   ├── apply-patches.ps1         # patch 重放脚本
+│   ├── patches/                  # 二创登记 patch
+│   └── upstream-fingerprints.txt # 上游文件指纹基线
+├── docs/                         # 规划 / 日志 / 归档
+├── keystore/                     # 签名（不入库）
+├── CHANGELOG.md                  # 更新日志（沿用既有格式）
+├── AGENTS.md                     # 后续开发 Agent 指南
+├── HARD_REQUIREMENTS.md          # 硬性规定（8 条）
+├── LICENSE                        # CC BY-NC 4.0
+└── README.md                     # 本文件
+```
+
+---
 
 ## 开发者须知
 
 **接手开发前必读**（按顺序）：
 
-1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 13 条硬性规定（含规定 13：4 项设计 SKILL 强制）+ 真流式 6 不变性 + Agentic 6 不变性，**违反任何一条即为不合格交付**；
-2. [`DESIGN.md`](DESIGN.md) —— 设计契约（唯一设计真源）；
-3. [`docs/AGENT-GUIDE.md`](docs/AGENT-GUIDE.md) —— 后续 Agent 开发指南；
-4. [`docs/PLAN-v0.1.0.md`](docs/PLAN-v0.1.0.md) —— 架构与实施计划；
-5. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
-6. [`docs/INVARIANTS-CHECKLIST.md`](docs/INVARIANTS-CHECKLIST.md) —— 发版前逐项自检。
+1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 8 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程），**违反任何一条即为不合格交付**；
+2. [`AGENTS.md`](AGENTS.md) —— 后续开发/更新/维护 Agent 工作指南（文件地图 / 工作流程 / 同步 SOP / 扩展开发规范）；
+3. [`docs/PLAN-v1.0.0.md`](docs/PLAN-v1.0.0.md) —— v1.0.0 重建完整实施计划；
+4. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
+5. [`CHANGELOG.md`](CHANGELOG.md) —— 版本记录（格式：`### vX.Y.Z — 标题` + 分类要点 + 构建结果）。
 
-不变性落点代码头部带 `[INVARIANT-*]` 注释块——**看到该标记即视为红线**。
+---
 
-## 路线图
+## 版本规划
 
-- **v0.3.x** 暗色/AMOLED 巡检、组件统一收尾、聊天背景打磨
-- **v0.4** 稳定性验收（流式逐字实测、长会话回归）→ 首个可玩版本
-- **v0.5+** TRPG 模式专项（D&D 5e 引擎、GM 工具组、世界卡设计模式）
+| 版本 | 内容 | 附 APK |
+|------|------|--------|
+| v1.0.0 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 扩展层骨架 + 同步机制 | ✓（稳定版） |
+| v1.1.0 | 扩展功能第一批（候选：原生设置页、深链、自建更新检查） | ✓ |
+| v1.2.0+ | 跟随上游节奏迭代 + 独立功能持续扩展 | 按稳定版 |
 
-## 许可证
+版本号独立于上游（LuzzyRP v1.0.0 基于 RP-Hub 1.8.9），CHANGELOG 每条记录注明上游基线版本。
 
-本项目以 [CC BY-NC 4.0](LICENSE)（署名-非商业性使用 4.0 国际）许可开源。
+---
+
+## 许可证与合规
+
+本项目以 [CC BY-NC 4.0](LICENSE)（署名-非商业性使用 4.0 国际）许可开源，与上游 RP-Hub 一致。
+
+| 义务 | 落实 |
+|------|------|
+| 署名 | 本 README 顶部二创声明 + 保留上游 LICENSE 文件 |
+| 非商业 | 禁止任何形式的商业化使用（售卖、付费订阅、广告盈利） |
+| 修改声明 | CHANGELOG 与 README 注明上游基线版本与修改范围 |
+
+**合规红线**：上游 LICENSE 文件原样保留；仅侧载分发，不上架应用商店。
+
+---
+
+## 免责声明
+
+- 本项目为个人学习与娱乐用途的二次开发作品，与上游 RP-Hub 无官方关联；
+- 应用内 AI 生成内容由用户自行配置的模型 API 产生，本项目不对生成内容负责；
+- 请遵守所在地区法律法规，合理使用。
 
 <div align="center">
-<sub>LuzzyRP · Built with Kotlin & Jetpack Compose · WIP</sub>
+<sub>LuzzyRP · Based on RP-Hub by STA1N156 · CC BY-NC 4.0</sub>
 </div>

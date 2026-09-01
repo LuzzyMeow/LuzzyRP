@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 应用基础主题：Compose 接管后仅作启动底色；父主题用最低依赖的 android 主题 -->
+    <!-- 应用基础主题：仅作启动底色；父主题用最低依赖的 android 主题。
+         windowBackground 用渐变 drawable：顶部状态栏区域为浅灰渐变（与 RP-Hub
+         页面顶栏（白色背景+黑色渐隐层）衔接），其余区域白色。
+         [注意] 状态栏图标为浅色（windowLightStatusBar=false）——顶部渐变
+         呈中灰底，白色图标清晰；底部导航栏区域为白色底，保持深色图标。 -->
     <style name="Theme.LuzzyRP" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:windowBackground">@drawable/window_bg_gradient</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- 顶部渐变中灰底 → 状态栏图标用白色；底部白底 → 导航栏图标深色 -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

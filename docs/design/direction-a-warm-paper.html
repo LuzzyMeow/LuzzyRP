@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuzzyRP · 方向 A「暖纸书房」</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   LuzzyRP 主题方向板 · A「暖纸书房」
+   设计逻辑：Claude 视觉语言（暖米纸底 + 烤橙 accent + 衬线标题感 + 优雅留白）
+   布局骨架：卡片式分层 —— 消息气泡独立悬浮卡片、输入区悬浮工具栏
+   动效纪律：进入 200ms / 退出 140ms / ease-out cubic-bezier(0.23,1,0.32,1)
+             禁 scale(0) 起步 / 按压反馈 80-150ms
+   字体：中文 AlibabaPuHuiTi-3（55/65/85）、拉丁 AlibabaSans
+         方向板以系统字体栈模拟（"PingFang SC","Microsoft YaHei",sans-serif）
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 设计 token：亮 / 暗 双套，CSS 变量驱动 ── */
+:root[data-theme="light"] {
+  --bg:            #FAF9F5;   /* 米纸底 */
+  --surface:       #F1EDE3;   /* 表面（次级卡） */
+  --surface-2:     #E8E0D2;   /* 表面强（用户气泡） */
+  --card:          #FFFFFF;   /* 卡片（AI 气泡 / 设置卡） */
+  --hairline:      #E6DFD8;   /* 描边 */
+  --ink:           #2A2826;   /* 主文字 */
+  --body:          #3D3A36;   /* 正文 */
+  --muted:         #6C6A64;   /* 次级文字（≥4.5:1） */
+  --accent:        #D97757;   /* 烤橙（图形 accent） */
+  --accent-strong: #B85C3E;   /* 烤橙深（按钮底，白字 4.53:1） */
+  --accent-deep:   #A8543A;   /* 烤橙最深（accent 文字，4.99:1） */
+  --on-accent:     #FFFFFF;
+  --shadow-1: 0 1px 2px rgba(42,40,38,.06), 0 2px 8px rgba(42,40,38,.05);
+  --shadow-2: 0 2px 6px rgba(42,40,38,.07), 0 8px 24px rgba(42,40,38,.08);
+  --shadow-3: 0 4px 12px rgba(42,40,38,.10), 0 16px 40px rgba(42,40,38,.12);
+  --scrim: rgba(42,40,38,.32);
+  --bar-bg: rgba(250,249,245,.86);
+  --thinking-dot: #B85C3E;
+  --online: #5DB872;
+  --grad-head: linear-gradient(135deg, #D97757 0%, #B85C3E 100%);
+  --grad-avatar: linear-gradient(135deg, #E8B48C 0%, #D97757 100%);
+  --designbar-bg: #EFEAE0;
+  --designbar-ink: #6C6A64;
+}
+
+:root[data-theme="dark"] {
+  --bg:            #262624;   /* 深暖灰底 */
+  --surface:       #32302D;   /* 表面 */
+  --surface-2:     #3A3733;   /* 表面强（用户气泡） */
+  --card:          #2E2C29;   /* 卡片（AI 气泡 / 设置卡） */
+  --hairline:      #3F3C37;   /* 描边 */
+  --ink:           #F5F1EA;   /* 主文字（暖白） */
+  --body:          #D8D2C8;   /* 正文 */
+  --muted:         #A6A29A;   /* 次级文字（≥4.5:1） */
+  --accent:        #E08A5F;   /* 暖橙 accent */
+  --accent-strong: #E08A5F;   /* 按钮底（深字 5.75:1） */
+  --accent-deep:   #E8A37C;   /* accent 文字亮化 */
+  --on-accent:     #262624;
+  --shadow-1: 0 1px 2px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.22);
+  --shadow-2: 0 2px 6px rgba(0,0,0,.30), 0 8px 24px rgba(0,0,0,.32);
+  --shadow-3: 0 4px 12px rgba(0,0,0,.38), 0 16px 40px rgba(0,0,0,.45);
+  --scrim: rgba(0,0,0,.55);
+  --bar-bg: rgba(38,38,36,.82);
+  --thinking-dot: #E08A5F;
+  --online: #5DB872;
+  --grad-head: linear-gradient(135deg, #E08A5F 0%, #C97A4F 100%);
+  --grad-avatar: linear-gradient(135deg, #C98A5E 0%, #E08A5F 100%);
+  --designbar-bg: #2E2C29;
+  --designbar-ink: #A6A29A;
+}
+
+/* ── 基础 ── */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; }
+body {
+  font-family: "PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+  transition: background-color 200ms cubic-bezier(0.23,1,0.32,1), color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+button { font-family:inherit; border:none; background:none; color:inherit; cursor:pointer; }
+svg { display:block; }
+
+/* 动效纪律：按压反馈 80-150ms */
+.press { transition: transform 100ms cubic-bezier(0.23,1,0.32,1), opacity 100ms cubic-bezier(0.23,1,0.32,1); }
+.press:active { transform: scale(.96); opacity:.75; }
+
+/* ── 方向板工具条（设计标注层，非 app 内容） ── */
+.design-bar {
+  height: 34px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px;
+  background: var(--designbar-bg);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 11px;
+  color: var(--designbar-ink);
+  letter-spacing: .02em;
+  transition: background-color 200ms cubic-bezier(0.23,1,0.32,1), color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+.design-bar .db-name { font-weight:700; color: var(--accent-deep); white-space:nowrap; }
+.design-bar .db-tabs { display:flex; gap:2px; margin:0 auto; }
+.design-bar .db-tab {
+  padding: 3px 8px; border-radius: 6px; font-size: 11px; color: var(--designbar-ink);
+  transition: background-color 140ms cubic-bezier(0.23,1,0.32,1), color 140ms cubic-bezier(0.23,1,0.32,1);
+}
+.design-bar .db-tab.on { background: var(--accent); color: var(--on-accent); font-weight:600; }
+.theme-toggle {
+  display:flex; align-items:center; gap:5px;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--hairline);
+  font-size: 11px; color: var(--ink); white-space:nowrap;
+  box-shadow: var(--shadow-1);
+}
+.theme-toggle .dot { width:8px; height:8px; border-radius:50%; background: var(--accent); }
+
+/* ── 状态栏（模拟系统） ── */
+.status-bar {
+  height: 24px; display:flex; align-items:center; justify-content:space-between;
+  padding: 0 18px; font-size: 12px; font-weight:600; color: var(--ink);
+  background: var(--bg);
+  transition: background-color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+.status-bar .sb-right { display:flex; align-items:center; gap:6px; }
+
+/* ── 手机屏容器 ── */
+.phone {
+  position: relative;
+  height: calc(100% - 58px);
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  transition: background-color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+
+/* ── 页面切换（进入 200ms / 退出 140ms，禁 scale(0)） ── */
+.page {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity 140ms cubic-bezier(0.23,1,0.32,1),
+    transform 140ms cubic-bezier(0.23,1,0.32,1),
+    visibility 0s linear 140ms;
+}
+.page.active {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: translateY(0);
+  transition:
+    opacity 200ms cubic-bezier(0.23,1,0.32,1),
+    transform 200ms cubic-bezier(0.23,1,0.32,1),
+    visibility 0s;
+}
+
+/* ═══════════ 1 · 聊天页 ═══════════ */
+.chat-topbar {
+  display:flex; align-items:center; gap:4px;
+  padding: 8px 10px 8px 6px;
+  background: var(--bar-bg);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+  z-index: 5;
+  transition: background-color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 10px;
+  display:flex; align-items:center; justify-content:center;
+  color: var(--muted);
+}
+.icon-btn svg { width: 20px; height: 20px; }
+.chat-title { display:flex; align-items:center; gap:9px; margin:0 auto; }
+.chat-title .who { text-align:left; }
+.chat-title .who b { display:block; font-size:15px; font-weight:700; line-height:1.25; color:var(--ink); }
+.chat-title .who span { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); }
+.chat-title .who .online-dot { width:6px; height:6px; border-radius:50%; background:var(--online); }
+
+/* 鹿溪头像：CSS 几何（猫耳 + 圆脸） */
+.avatar {
+  position: relative; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--grad-avatar);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35);
+  flex-shrink: 0;
+}
+.avatar::before, .avatar::after {
+  content:""; position:absolute; top:-5px; width:14px; height:12px;
+  background: var(--accent-strong);
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+.avatar::before { left:1px; transform: rotate(-14deg); }
+.avatar::after  { right:1px; transform: rotate(14deg); }
+.avatar .eyes { position:absolute; top:16px; left:0; right:0; display:flex; justify-content:center; gap:9px; }
+.avatar .eyes i { width:3px; height:3px; border-radius:50%; background:var(--on-accent); }
+.avatar.sm { width:30px; height:30px; }
+.avatar.sm::before, .avatar.sm::after { top:-4px; width:12px; height:10px; }
+.avatar.sm .eyes { top:13px; gap:7px; }
+.avatar.lg { width:52px; height:52px; }
+.avatar.lg::before, .avatar.lg::after { top:-7px; width:20px; height:17px; }
+.avatar.lg .eyes { top:23px; gap:12px; }
+.avatar.lg .eyes i { width:4px; height:4px; }
+
+/* 消息区 */
+.chat-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 14px 14px 132px;
+  scrollbar-width: none;
+}
+.chat-scroll::-webkit-scrollbar { display:none; }
+.day-divider {
+  display:flex; align-items:center; gap:10px;
+  margin: 2px 0 14px; color: var(--muted); font-size: 11px;
+}
+.day-divider::before, .day-divider::after { content:""; flex:1; height:1px; background: var(--hairline); }
+
+/* 消息气泡 = 独立悬浮卡片（卡片式分层核心） */
+.msg { display:flex; gap:8px; margin-bottom:14px; }
+.msg .avatar { margin-top: 2px; }
+.msg .bubble {
+  max-width: 76%;
+  padding: 10px 13px;
+  border-radius: 14px;
+  font-size: 14px; line-height: 1.65;
+  box-shadow: var(--shadow-1);
+  animation: bubble-in 200ms cubic-bezier(0.23,1,0.32,1) both;
+}
+@keyframes bubble-in {
+  from { opacity:0; transform: translateY(6px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.msg .meta { display:block; margin-top:4px; font-size:11px; color:var(--muted); }
+.msg.ai { align-items:flex-start; }
+.msg.ai .bubble { background: var(--card); border:1px solid var(--hairline); border-top-left-radius: 5px; }
+.msg.user { justify-content:flex-end; }
+.msg.user .bubble { background: var(--surface-2); border-top-right-radius: 5px; }
+
+/* 思考卡片 */
+.thinking {
+  display:flex; align-items:center; gap:9px;
+  width: fit-content;
+  padding: 9px 14px;
+  background: var(--card);
+  border: 1px dashed var(--hairline);
+  border-radius: 14px;
+  box-shadow: var(--shadow-1);
+  font-size: 12px; color: var(--muted);
+  margin-bottom: 14px;
+}
+.thinking .dots { display:flex; gap:4px; }
+.thinking .dots i {
+  width:5px; height:5px; border-radius:50%; background: var(--thinking-dot);
+  animation: think 1.2s ease-in-out infinite;
+}
+.thinking .dots i:nth-child(2) { animation-delay: .15s; }
+.thinking .dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes think { 0%,60%,100% { opacity:.25; transform:translateY(0); } 30% { opacity:1; transform:translateY(-2px); } }
+
+/* 输入区 = 悬浮工具栏（卡片式分层核心） */
+.input-dock {
+  position: absolute; left: 10px; right: 10px; bottom: 10px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  box-shadow: var(--shadow-3);
+  padding: 8px 10px 9px;
+  z-index: 6;
+  transition: background-color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+.input-tools { display:flex; gap:2px; margin-bottom:7px; }
+.tool-btn {
+  display:flex; align-items:center; gap:5px;
+  padding: 5px 9px; border-radius: 8px;
+  font-size: 11px; color: var(--muted);
+}
+.tool-btn svg { width:15px; height:15px; }
+.tool-btn.on { background: var(--surface); color: var(--accent-deep); font-weight:600; }
+.input-row { display:flex; align-items:flex-end; gap:8px; }
+.input-row .field {
+  flex:1; display:flex; align-items:center; gap:8px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-height: 40px;
+  transition: border-color 200ms cubic-bezier(0.23,1,0.32,1);
+}
+.input-row .field:focus-within { border-color: var(--accent); }
+.input-row .field .ph { font-size: 13px; color: var(--muted); }
+.send-btn {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--accent-strong); color: var(--on-accent);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 2px 6px rgba(184,92,62,.35);
+}
+.send-btn svg { width:18px; height:18px; }
+
+/* home indicator */
+.home-bar {
+  position:absolute; bottom:4px; left:50%; transform:translateX(-50%);
+  width: 120px; height: 4px; border-radius: 999px;
+  background: var(--muted); opacity:.5; z-index: 7;
+}
+
+/* toast */
+.toast {
+  position:absolute; top: 64px; left:50%; transform: translateX(-50%) translateY(-6px);
+  background: var(--ink); color: var(--bg);
+  font-size: 12px; padding: 7px 14px; border-radius: 999px;
+  opacity:0; visibility:hidden; pointer-events:none;
+  z-index: 20;
+  transition: opacity 200ms cubic-bezier(0.23,1,0.32,1), transform 200ms cubic-bezier(0.23,1,0.32,1), visibility 0s linear 200ms;
+}
+.toast.show { opacity:1; visibility:visible; transform: translateX(-50%) translateY(0); transition: opacity 200ms cubic-bezier(0.23,1,0.32,1), transform 200ms cubic-bezier(0.23,1,0.32,1), visibility 0s; }
+
+/* ═══════════ 2 · 设置页 ═══════════ */
+.sub-topbar {
+  display:flex; align-items:center; gap:4px;
+  padding: 8px 10px;
+  background: var(--bar-bg);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+  z-index: 5;
+}
+.sub-topbar .st-title { margin:0 auto; font-size:15px; font-weight:700; }
+.settings-scroll { flex:1; overflow-y:auto; padding: 14px; scrollbar-width:none; }
+.settings-scroll::-webkit-scrollbar { display:none; }
+
+/* 设置卡头部：蓝色渐变 → 烤橙渐变（主题色） */
+.set-card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.set-head {
+  background: var(--grad-head);
+  color: var(--on-accent);
+  padding: 13px 16px;
+  display:flex; align-items:center; gap:9px;
+}
+.set-head svg { width:17px; height:17px; }
+.set-head b { font-size:14px; font-weight:700; }
+.set-head span { margin-left:auto; font-size:11px; opacity:.85; }
+.set-body { padding: 4px 16px 8px; }
+.set-row {
+  display:flex; align-items:center; gap:10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.set-row:last-child { border-bottom:none; }
+.set-row .k { font-size:13px; color: var(--body); }
+.set-row .v { margin-left:auto; font-size:13px; color: var(--muted); display:flex; align-items:center; gap:6px; }
+.set-row .v .chev { width:14px; height:14px; }
+.set-row .v .sw { width:34px; height:20px; border-radius:999px; background: var(--accent); position:relative; }
+.set-row .v .sw::after { content:""; position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#fff; }
+.set-row .v .sw.off { background: var(--surface-2); }
+.set-row .v .sw.off::after { right:auto; left:2px; }
+
+/* ═══════════ 3 · 侧边栏 ═══════════ */
+.drawer-scrim {
+  position:absolute; inset:0; background: var(--scrim);
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition: opacity 140ms cubic-bezier(0.23,1,0.32,1), visibility 0s linear 140ms;
+  z-index: 10;
+}
+.drawer-scrim.show { opacity:1; visibility:visible; pointer-events:auto; transition: opacity 200ms cubic-bezier(0.23,1,0.32,1), visibility 0s; }
+.drawer {
+  position:absolute; top:0; left:0; bottom:0; width: 280px;
+  background: var(--card);
+  border-right: 1px solid var(--hairline);
+  box-shadow: var(--shadow-3);
+  display:flex; flex-direction:column;
+  transform: translateX(-100%);
+  transition: transform 140ms cubic-bezier(0.23,1,0.32,1);
+  z-index: 11;
+}
+.drawer.show { transform: translateX(0); transition: transform 200ms cubic-bezier(0.23,1,0.32,1); }
+.drawer-head {
+  display:flex; align-items:center; gap:11px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.drawer-head .who b { display:block; font-size:15px; font-weight:700; }
+.drawer-head .who span { font-size:11px; color:var(--muted); }
+.drawer-nav { flex:1; overflow-y:auto; padding: 10px 10px; scrollbar-width:none; }
+.drawer-nav::-webkit-scrollbar { display:none; }
+.nav-item {
+  display:flex; align-items:center; gap:12px;
+  width:100%; padding: 10px 12px; border-radius: 10px;
+  font-size: 14px; color: var(--body); text-align:left;
+  transition: background-color 140ms cubic-bezier(0.23,1,0.32,1), color 140ms cubic-bezier(0.23,1,0.32,1);
+}
+.nav-item svg { width:18px; height:18px; color: var(--muted); flex-shrink:0; }
+.nav-item.on { background: var(--surface); color: var(--accent-deep); font-weight:600; }
+.nav-item.on svg { color: var(--accent-deep); }
+.nav-item .badge { margin-left:auto; font-size:10px; padding:1px 7px; border-radius:999px; background: var(--accent); color: var(--on-accent); font-weight:700; }
+.drawer-foot { padding: 12px 18px; border-top: 1px solid var(--hairline); font-size: 11px; color: var(--muted); }
+
+/* ═══════════ 4 · 色板页 ═══════════ */
+.palette-scroll { flex:1; overflow-y:auto; padding: 14px; scrollbar-width:none; }
+.palette-scroll::-webkit-scrollbar { display:none; }
+.section-label {
+  font-size: 11px; font-weight:700; letter-spacing: .12em; color: var(--muted);
+  text-transform: uppercase; margin: 2px 2px 10px;
+}
+.pal-card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.pal-card.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-1); }
+.pal-card .pc-title { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; margin-bottom:12px; }
+.pal-card .pc-title .tag { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; }
+.pal-card .pc-title .tag.now { background: var(--accent); color: var(--on-accent); }
+.pal-card .pc-title .tag.other { background: var(--surface); color: var(--muted); }
+.pal-row { display:flex; align-items:center; gap:10px; padding: 6px 0; }
+.pal-row .sw { width: 34px; height: 34px; border-radius: 10px; flex-shrink:0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.pal-row .nm { font-size:12px; color: var(--body); }
+.pal-row .nm small { display:block; font-size:10px; color: var(--muted); }
+.pal-row .hex { margin-left:auto; font-size:11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pal-row .aa { font-size:10px; font-weight:700; color: var(--online); }
+.pal-note { font-size:11px; color: var(--muted); line-height:1.7; margin-top:2px; }
+
+/* ═══════════ 5 · 字体页 ═══════════ */
+.type-scroll { flex:1; overflow-y:auto; padding: 14px; scrollbar-width:none; }
+.type-scroll::-webkit-scrollbar { display:none; }
+.type-card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.type-card .tc-head { display:flex; align-items:baseline; gap:8px; margin-bottom: 10px; }
+.type-card .tc-head b { font-size:13px; }
+.type-card .tc-head span { font-size:11px; color: var(--muted); }
+.type-sample { font-size: 20px; line-height: 1.5; color: var(--ink); }
+.type-sample .sub { display:block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.w55 { font-weight: 400; }
+.w65 { font-weight: 500; }
+.w85 { font-weight: 700; }
+.latin-sample { font-size: 17px; line-height: 1.6; color: var(--ink); letter-spacing: .01em; }
+.latin-sample .nums { display:block; font-size: 15px; color: var(--accent-deep); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.type-note { font-size: 11px; color: var(--muted); line-height: 1.7; }
+
+/* 尊重系统减弱动效 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ 方向板工具条 ═══ -->
+<div class="design-bar">
+  <span class="db-name">A · 暖纸书房</span>
+  <div class="db-tabs">
+    <button class="db-tab on" data-page="chat">聊天</button>
+    <button class="db-tab" data-page="settings">设置</button>
+    <button class="db-tab" data-page="drawer">侧边栏</button>
+    <button class="db-tab" data-page="palette">色板</button>
+    <button class="db-tab" data-page="type">字体</button>
+  </div>
+  <button class="theme-toggle press" id="themeToggle" aria-label="切换亮暗模式">
+    <span class="dot"></span><span id="themeLabel">亮</span>
+  </button>
+</div>
+
+<!-- ═══ 状态栏 ═══ -->
+<div class="status-bar">
+  <span>9:41</span>
+  <span class="sb-right">
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+    <svg width="14" height="12" viewBox="0 0 14 12" fill="currentColor" aria-hidden="true"><path d="M7 1.5C4.5 1.5 2.6 3 1.6 5.2c-.2.4-.2.9 0 1.3C2.6 8.7 4.5 10.2 7 10.2s4.4-1.5 5.4-3.7c.2-.4.2-.9 0-1.3C11.4 3 9.5 1.5 7 1.5z"/><circle cx="7" cy="5.8" r="1.8" fill="var(--bg)"/></svg>
+  </span>
+</div>
+
+<!-- ═══ 手机屏 ═══ -->
+<div class="phone">
+
+  <!-- ── 页面 1 · 聊天 ── -->
+  <section class="page active" id="page-chat">
+    <div class="chat-topbar">
+      <button class="icon-btn press" id="btnMenu" aria-label="打开侧边栏">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </button>
+      <div class="chat-title">
+        <div class="avatar"><span class="eyes"><i></i><i></i></span></div>
+        <div class="who">
+          <b>鹿溪</b>
+          <span><i class="online-dot"></i>在线 · 猫耳少年</span>
+        </div>
+      </div>
+      <button class="icon-btn press" aria-label="全屏">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+      </button>
+      <button class="icon-btn press" id="btnClear" aria-label="清空对话">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></svg>
+      </button>
+    </div>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="day-divider">今晚 · 22:14</div>
+
+      <div class="msg ai">
+        <div class="avatar sm"><span class="eyes"><i></i><i></i></span></div>
+        <div>
+          <div class="bubble">你终于来了。我泡了茶，窗边的位置给你留着。</div>
+          <span class="meta">22:14</span>
+        </div>
+      </div>
+
+      <div class="msg user">
+        <div class="bubble">今晚月色真美。</div>
+      </div>
+
+      <div class="msg ai">
+        <div class="avatar sm"><span class="eyes"><i></i><i></i></span></div>
+        <div>
+          <div class="bubble">嗯，像你眼睛里的光。</div>
+          <span class="meta">22:15</span>
+        </div>
+      </div>
+
+      <div class="thinking">
+        <span>正在思考…</span>
+        <span class="dots"><i></i><i></i><i></i></span>
+      </div>
+    </div>
+
+    <!-- 输入区：悬浮工具栏 -->
+    <div class="input-dock">
+      <div class="input-tools">
+        <button class="tool-btn press" aria-label="发送图片">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M3.5 16.5l4.5-4 4 3.5 3.5-3 5 4.5"/></svg>
+          图片
+        </button>
+        <button class="tool-btn press" aria-label="自动生图">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4L12 3z"/><path d="M18.5 15l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z"/></svg>
+          生图
+        </button>
+        <button class="tool-btn press" aria-label="剧情分支">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v7a3 3 0 003 3h9"/><path d="M15 10.5L18.5 14 15 17.5"/><circle cx="6" cy="4" r="1.6"/></svg>
+          分支
+        </button>
+        <button class="tool-btn press on" aria-label="切换模型">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 7V4M14 7V4M10 20v-3M14 20v-3M7 10H4M7 14H4M20 10h-3M20 14h-3"/></svg>
+          模型
+        </button>
+      </div>
+      <div class="input-row">
+        <div class="field"><span class="ph">给鹿溪发消息…</span></div>
+        <button class="send-btn press" aria-label="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L20 4l-4.5 16-4-6.5L4 12z"/><path d="M11.5 13.5L20 4"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="home-bar"></div>
+  </section>
+
+  <!-- ── 页面 2 · 设置 ── -->
+  <section class="page" id="page-settings">
+    <div class="sub-topbar">
+      <button class="icon-btn press" data-goto="chat" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="st-title">设置</span>
+      <span style="width:38px"></span>
+    </div>
+
+    <div class="settings-scroll">
+      <!-- 用户设置 -->
+      <div class="set-card">
+        <div class="set-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg>
+          <b>用户设置</b>
+          <span>USER</span>
+        </div>
+        <div class="set-body">
+          <div class="set-row">
+            <div class="avatar sm"><span class="eyes"><i></i><i></i></span></div>
+            <span class="k">角色头像</span>
+            <span class="v">更换 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">角色昵称</span>
+            <span class="v">鹿溪 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">角色卡</span>
+            <span class="v">鹿溪 · 猫耳少年 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">界面语言</span>
+            <span class="v">简体中文 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 生图设置 -->
+      <div class="set-card">
+        <div class="set-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M3.5 16.5l4.5-4 4 3.5 3.5-3 5 4.5"/></svg>
+          <b>生图设置</b>
+          <span>IMAGE</span>
+        </div>
+        <div class="set-body">
+          <div class="set-row">
+            <span class="k">生图模型</span>
+            <span class="v">SDXL · 暖纸 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">默认尺寸</span>
+            <span class="v">832 × 1216 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">采样步数</span>
+            <span class="v">28 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">自动生图</span>
+            <span class="v"><span class="sw"></span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 高级设置 -->
+      <div class="set-card">
+        <div class="set-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="7" cy="17" r="1.8"/></svg>
+          <b>高级设置</b>
+          <span>ADV</span>
+        </div>
+        <div class="set-body">
+          <div class="set-row">
+            <span class="k">API 端点</span>
+            <span class="v">api.luzzyrp.local <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">温度</span>
+            <span class="v">0.9 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">上下文长度</span>
+            <span class="v">8192 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </div>
+          <div class="set-row">
+            <span class="k">流式输出</span>
+            <span class="v"><span class="sw"></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 页面 3 · 侧边栏（抽屉形态） ── -->
+  <section class="page" id="page-drawer">
+    <div class="drawer-scrim" id="drawerScrim"></div>
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head">
+        <div class="avatar lg"><span class="eyes"><i></i><i></i></span></div>
+        <div class="who">
+          <b>鹿溪</b>
+          <span>LuzzyRP · v1.0.0</span>
+        </div>
+      </div>
+      <nav class="drawer-nav">
+        <button class="nav-item on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5z"/><path d="M8 9.5h8M8 12.5h5"/></svg>
+          聊天
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+          用量统计
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 013 3v13l-3-2-3 2-3-2-3 2-2-2V7a3 3 0 013-3z"/><path d="M9 9h6M9 12h6"/></svg>
+          记忆系统
+          <span class="badge">新</span>
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+          UI 模板
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          角色卡管理
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9a5 5 0 019.9-1A4.5 4.5 0 0118 16.5H7.5A3.5 3.5 0 017 9z"/></svg>
+          在线
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="7" cy="17" r="1.8"/></svg>
+          高级
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></svg>
+          设置
+        </button>
+      </nav>
+      <div class="drawer-foot">LuzzyRP · 暖纸书房 · 方向板 A</div>
+    </aside>
+  </section>
+
+  <!-- ── 页面 4 · 色板 ── -->
+  <section class="page" id="page-palette">
+    <div class="sub-topbar">
+      <button class="icon-btn press" data-goto="chat" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="st-title">色板</span>
+      <span style="width:38px"></span>
+    </div>
+    <div class="palette-scroll">
+      <div class="section-label">Palette · 亮 / 暗双套</div>
+
+      <!-- 亮套 -->
+      <div class="pal-card current" id="palLight">
+        <div class="pc-title">亮 · 米纸书房 <span class="tag now">当前</span></div>
+        <div class="pal-row"><span class="sw" style="background:#FAF9F5"></span><span class="nm">背景<small>米纸底 · 页面底色</small></span><span class="hex">#FAF9F5</span></div>
+        <div class="pal-row"><span class="sw" style="background:#F1EDE3"></span><span class="nm">表面<small>次级卡 · 输入框底</small></span><span class="hex">#F1EDE3</span></div>
+        <div class="pal-row"><span class="sw" style="background:#D97757"></span><span class="nm">主色<small>烤橙 · 图形 accent</small></span><span class="hex">#D97757</span></div>
+        <div class="pal-row"><span class="sw" style="background:#B85C3E"></span><span class="nm">次色<small>烤橙深 · 按钮 / 强调</small></span><span class="hex">#B85C3E</span></div>
+        <div class="pal-row"><span class="sw" style="background:#2A2826"></span><span class="nm">文字层级<small>主 #2A2826 · 次 #6C6A64</small></span><span class="hex">#2A2826</span><span class="aa">AA ✓</span></div>
+      </div>
+
+      <!-- 暗套 -->
+      <div class="pal-card" id="palDark">
+        <div class="pc-title">暗 · 深暖书房 <span class="tag other">另一模式</span></div>
+        <div class="pal-row"><span class="sw" style="background:#262624"></span><span class="nm">背景<small>深暖灰底 · 页面底色</small></span><span class="hex">#262624</span></div>
+        <div class="pal-row"><span class="sw" style="background:#32302D"></span><span class="nm">表面<small>次级卡 · 输入框底</small></span><span class="hex">#32302D</span></div>
+        <div class="pal-row"><span class="sw" style="background:#E08A5F"></span><span class="nm">主色<small>暖橙 · 图形 accent</small></span><span class="hex">#E08A5F</span></div>
+        <div class="pal-row"><span class="sw" style="background:#C97A4F"></span><span class="nm">次色<small>暖橙深 · 按压 / 强调</small></span><span class="hex">#C97A4F</span></div>
+        <div class="pal-row"><span class="sw" style="background:#F5F1EA"></span><span class="nm">文字层级<small>主 #F5F1EA · 次 #A6A29A</small></span><span class="hex">#F5F1EA</span><span class="aa">AA ✓</span></div>
+      </div>
+
+      <div class="pal-note">
+        对比度底线 ≥ 4.5:1 已逐项核算：正文 13.9:1（亮）/ 13.5:1（暗），次级文字 5.1:1 / 6.0:1，accent 文字 5.0:1 / 5.8:1，按钮白字 4.5:1（亮）/ 深字 5.8:1（暗）。<br>
+        主色 #D97757 仅作图形 accent（非文字用途），文字与按钮一律用深一档的烤橙，保证可读性不牺牲品牌色。
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 页面 5 · 字体 ── -->
+  <section class="page" id="page-type">
+    <div class="sub-topbar">
+      <button class="icon-btn press" data-goto="chat" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="st-title">字体</span>
+      <span style="width:38px"></span>
+    </div>
+    <div class="type-scroll">
+      <div class="section-label">Typography · PuHuiTi-3 + AlibabaSans</div>
+
+      <div class="type-card">
+        <div class="tc-head"><b>AlibabaPuHuiTi-3 55</b><span>Regular · 正文</span></div>
+        <div class="type-sample w55">今晚月色真美。<span class="sub">嗯，像你眼睛里的光。</span></div>
+      </div>
+
+      <div class="type-card">
+        <div class="tc-head"><b>AlibabaPuHuiTi-3 65</b><span>Medium · 强调 / 标签</span></div>
+        <div class="type-sample w65">今晚月色真美。<span class="sub">嗯，像你眼睛里的光。</span></div>
+      </div>
+
+      <div class="type-card">
+        <div class="tc-head"><b>AlibabaPuHuiTi-3 85</b><span>Bold · 标题 / 角色名</span></div>
+        <div class="type-sample w85">今晚月色真美。<span class="sub">嗯，像你眼睛里的光。</span></div>
+      </div>
+
+      <div class="type-card">
+        <div class="tc-head"><b>AlibabaSans</b><span>拉丁 / 数字 · 品牌与数据</span></div>
+        <div class="latin-sample">LuzzyRP — Warm Paper Study<span class="nums">0123456789 · 22:14 · 8192</span></div>
+      </div>
+
+      <div class="type-note">
+        真实字体：中文 AlibabaPuHuiTi-3（55-Regular / 65-Medium / 85-Bold），拉丁与数字 AlibabaSans，本地打包、禁 CDN（硬性规定 4）。<br>
+        方向板以系统字体栈模拟（"PingFang SC","Microsoft YaHei",sans-serif），字重 400 / 500 / 700 对应三档字重；正文 ≥ 14px，标题 15-20px，标签 ≥ 11px 且用次级文字色保证对比。
+      </div>
+    </div>
+  </section>
+
+  <!-- toast -->
+  <div class="toast" id="toast">对话已清空（演示）</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── 主题：URL 参数 ?theme=dark 支持截图；按钮切换 data-theme ── */
+  var root = document.documentElement;
+  var params = new URLSearchParams(location.search);
+  var initial = params.get("theme") === "dark" ? "dark" : "light";
+  root.setAttribute("data-theme", initial);
+
+  var themeToggle = document.getElementById("themeToggle");
+  var themeLabel = document.getElementById("themeLabel");
+  function syncThemeLabel() {
+    themeLabel.textContent = root.getAttribute("data-theme") === "dark" ? "暗" : "亮";
+  }
+  syncThemeLabel();
+  themeToggle.addEventListener("click", function () {
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    syncThemeLabel();
+    syncPaletteTag();
+  });
+
+  /* ── 页面切换：进入 200ms / 退出 140ms（CSS 控制） ── */
+  var pages = {
+    chat: document.getElementById("page-chat"),
+    settings: document.getElementById("page-settings"),
+    drawer: document.getElementById("page-drawer"),
+    palette: document.getElementById("page-palette"),
+    type: document.getElementById("page-type")
+  };
+  var tabs = document.querySelectorAll(".db-tab");
+
+  function showPage(name) {
+    Object.keys(pages).forEach(function (k) {
+      pages[k].classList.toggle("active", k === name);
+    });
+    tabs.forEach(function (t) {
+      t.classList.toggle("on", t.getAttribute("data-page") === name);
+    });
+    if (name === "drawer") {
+      /* 抽屉：遮罩 + 抽屉 200ms 滑入 */
+      requestAnimationFrame(function () {
+        document.getElementById("drawerScrim").classList.add("show");
+        document.getElementById("drawer").classList.add("show");
+      });
+    } else {
+      document.getElementById("drawerScrim").classList.remove("show");
+      document.getElementById("drawer").classList.remove("show");
+    }
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () { showPage(t.getAttribute("data-page")); });
+  });
+  document.querySelectorAll("[data-goto]").forEach(function (b) {
+    b.addEventListener("click", function () { showPage(b.getAttribute("data-goto")); });
+  });
+
+  /* 聊天页 ☰ 打开侧边栏 */
+  document.getElementById("btnMenu").addEventListener("click", function () { showPage("drawer"); });
+  document.getElementById("drawerScrim").addEventListener("click", function () { showPage("chat"); });
+
+  /* 清空按钮 → toast（进入 200ms，1.6s 后退出 140ms） */
+  var toast = document.getElementById("toast");
+  var toastTimer = null;
+  document.getElementById("btnClear").addEventListener("click", function () {
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 1600);
+  });
+
+  /* 色板页：当前主题高亮对应套 */
+  function syncPaletteTag() {
+    var dark = root.getAttribute("data-theme") === "dark";
+    var pl = document.getElementById("palLight");
+    var pd = document.getElementById("palDark");
+    pl.classList.toggle("current", !dark);
+    pd.classList.toggle("current", dark);
+    pl.querySelector(".tag").textContent = dark ? "另一模式" : "当前";
+    pd.querySelector(".tag").textContent = dark ? "当前" : "另一模式";
+  }
+  syncPaletteTag();
+})();
+</script>
+</body>
+</html>

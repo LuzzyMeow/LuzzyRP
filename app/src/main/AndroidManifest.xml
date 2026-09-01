@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- LuzzyRP 主清单 -->
+<!-- LuzzyRP 主清单（v1.0.0 WebView 壳） -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 网络访问：LLM 供应商 SSE 流式请求（真流式不变性的基础设施） -->
+    <!-- 网络访问：用户配置的 LLM API 端点请求（RP-Hub 运行时需要） -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- ChatService 后台生成时的通知（targetSdk 33+ 需运行时申请） -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 导出下载（DownloadManager 写入外部下载目录；API 29+ 走 SAF 无需此权限） -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <application
-        android:name=".LuzzyApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -23,7 +23,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -1,0 +1,156 @@
+/**
+ * LuzzyRP 扩展层 · 主题覆盖（AGENTS.md §5.2）
+ *
+ * 只覆盖 CSS 变量与追加规则，禁止修改上游 assets/css/styles.css。
+ *
+ * [主题系统] data-theme / data-mode 驱动（见 docs/design/theme-tech-plan.md）：
+ *   [data-theme="classic"]            → 原版 RP-Hub 色值（经典主题，默认变量）
+ *   [data-theme="luzzy"][data-mode="light"] → 新主题「暖纸书房」亮色（方向 A 定稿）
+ *   [data-theme="luzzy"][data-mode="dark"]  → 新主题「暖纸书房」暗色
+ *
+ * [字体设置] 用户指定默认字体：Alibaba PuHuiTi 3.0（中文）+ AlibabaSans（拉丁/数字）。
+ * 上游字体栈已预留 "Alibaba PuHuiTi 3.0" 位置；AlibabaSans 提到最前保证拉丁优先。
+ * 本地 @font-face 定义在 assets/css/local-fonts.css（index.html 头部引用）。
+ *
+ * 注意：同步上游后，若 upstream 的 --app-font-* 变量名变化，本文件需同步调整。
+ */
+
+/* ============================================================
+ * 字体栈（全局，与主题无关）
+ * ============================================================ */
+:root {
+    /* RP-Hub 规定字体栈（AlibabaSans 拉丁优先 + PuHuiTi 中文；本地 @font-face 已定义） */
+    --app-font-modern: "AlibabaSans", "Inter", "HarmonyOS Sans SC", "MiSans",
+        "OPPO Sans", "Alibaba PuHuiTi 3.0", "Alibaba PuHuiTi", "Noto Sans SC",
+        "Source Han Sans SC", "Microsoft YaHei UI", "Segoe UI", Arial, sans-serif;
+
+    /* 衬线栈：本地打包的 Lora 为第一优先，回退系统衬线 */
+    --app-font-serif: "Lora", "Noto Serif SC", "Source Han Serif SC",
+        "Source Han Serif CN", STSong, SimSun, Georgia, Cambria,
+        "Times New Roman", Times, serif;
+
+    --app-font-family: var(--app-font-modern);
+    --app-font-system: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+}
+
+/* 字体设置选项：luzzy = PuHuiTi + AlibabaSans（扩展层新增，上游只认 modern/serif/system） */
+:root[data-app-font="luzzy"] {
+    --app-font-family: var(--app-font-modern);
+}
+
+/* ============================================================
+ * 主题色板变量
+ *
+ * 上游 tailwind.config 色板（index.html 内联）：
+ *   gray:  50 #f9fafb / 100 #f3f4f6 / 200 #e5e7eb / 300 #d1d5db / 400 #9ca3af
+ *         500 #6b7280 / 600 #4b5563 / 700 #374151 / 800 #1f2937 / 900 #111827
+ *   primary: 50 #eff6ff / 100 #dbeafe / 200 #bfdbfe / 300 #93c5fd / 400 #60a5fa
+ *           500 #3b82f6 / 600 #2563eb / 700 #1d4ed8 / 800 #1e40af / 900 #1e3a8a
+ *
+ * 主题化改造（patch 008）：tailwind.config 色板改为 var() 引用，
+ * 经典主题 = 以下默认值（与上游一致），新主题 = 覆盖变量。
+ * ============================================================ */
+:root,
+:root[data-theme="classic"] {
+    --tw-gray-50: #f9fafb;
+    --tw-gray-100: #f3f4f6;
+    --tw-gray-200: #e5e7eb;
+    --tw-gray-300: #d1d5db;
+    --tw-gray-400: #9ca3af;
+    --tw-gray-500: #6b7280;
+    --tw-gray-600: #4b5563;
+    --tw-gray-700: #374151;
+    --tw-gray-800: #1f2937;
+    --tw-gray-900: #111827;
+
+    --tw-primary-50: #eff6ff;
+    --tw-primary-100: #dbeafe;
+    --tw-primary-200: #bfdbfe;
+    --tw-primary-300: #93c5fd;
+    --tw-primary-400: #60a5fa;
+    --tw-primary-500: #3b82f6;
+    --tw-primary-600: #2563eb;
+    --tw-primary-700: #1d4ed8;
+    --tw-primary-800: #1e40af;
+    --tw-primary-900: #1e3a8a;
+}
+
+/* ============================================================
+ * Luzzy 新主题「暖纸书房」（方向 A 定稿，见 DESIGN.md）
+ *
+ * 映射策略：gray 色阶 → 暖调米纸系；primary 色阶 → 烤橙系。
+ * 暗色下 gray 色阶整体反转（50 最深 = 画布，900 最浅 = 主文字），
+ * 使上游所有 gray-*/primary-* 工具类自动适配，无需改上游 HTML。
+ * ============================================================ */
+
+/* 亮色 · 米纸底 + 烤橙 */
+:root[data-theme="luzzy"][data-mode="light"] {
+    /* gray → 暖调米纸系（50 浅 → 900 深） */
+    --tw-gray-50: #FAF9F5;   /* 米纸底（画布） */
+    --tw-gray-100: #F1EDE3;  /* 表面（次级卡） */
+    --tw-gray-200: #E8E0D2;  /* 表面强（用户气泡） */
+    --tw-gray-300: #D9D2C6;  /* 描边强 */
+    --tw-gray-400: #B5AFA4;  /* 弱化元素 */
+    --tw-gray-500: #8A857C;  /* 弱文字 */
+    --tw-gray-600: #6C6A64;  /* 次级文字（≥4.5:1） */
+    --tw-gray-700: #4A4742;  /* 强调文字 */
+    --tw-gray-800: #3D3A36;  /* 正文 */
+    --tw-gray-900: #2A2826;  /* 主文字 */
+
+    /* primary → 烤橙系（accent 双档策略：图形用 500，文字/按钮用 600/700） */
+    --tw-primary-50: #FDF1EC;
+    --tw-primary-100: #F9E3D8;
+    --tw-primary-200: #F2C7B3;
+    --tw-primary-300: #E8A88C;
+    --tw-primary-400: #E08F6E;
+    --tw-primary-500: #D97757;  /* 烤橙（图形 accent） */
+    --tw-primary-600: #B85C3E;  /* 烤橙深（按钮底，白字 4.53:1） */
+    --tw-primary-700: #A8543A;  /* 烤橙最深（accent 文字，4.99:1） */
+    --tw-primary-800: #8F4630;
+    --tw-primary-900: #7A3B28;
+}
+
+/* 暗色 · 深暖灰 + 暖橙 */
+:root[data-theme="luzzy"][data-mode="dark"] {
+    /* gray → 暖调深灰系（50 最深 = 画布，900 最浅 = 主文字，色阶反转） */
+    --tw-gray-50: #262624;   /* 深暖灰底（画布） */
+    --tw-gray-100: #32302D;  /* 表面 */
+    --tw-gray-200: #3A3733;  /* 表面强（用户气泡） */
+    --tw-gray-300: #4A4641;  /* 描边强 */
+    --tw-gray-400: #5C5852;  /* 弱化元素 */
+    --tw-gray-500: #7A766E;  /* 弱文字 */
+    --tw-gray-600: #A6A29A;  /* 次级文字（≥4.5:1） */
+    --tw-gray-700: #C4BFB6;  /* 强调文字 */
+    --tw-gray-800: #D8D2C8;  /* 正文 */
+    --tw-gray-900: #F5F1EA;  /* 主文字（暖白） */
+
+    /* primary → 暖橙系 */
+    --tw-primary-50: #2E2C29;  /* 卡片底 */
+    --tw-primary-100: #3A332E;
+    --tw-primary-200: #4A3D34;
+    --tw-primary-300: #6B4F3E;
+    --tw-primary-400: #A86F4E;
+    --tw-primary-500: #E08A5F;  /* 暖橙 accent */
+    --tw-primary-600: #E08A5F;  /* 按钮底（深字 5.75:1） */
+    --tw-primary-700: #E8A37C;  /* accent 文字亮化 */
+    --tw-primary-800: #F0B894;
+    --tw-primary-900: #F5CDB2;
+}
+
+/* ============================================================
+ * 主题切换转场（方案 B：遮罩淡入，见 docs/design/theme-motion-plan.md）
+ * 遮罩由 luzzy-ext.js 动态创建；此处仅定义基础过渡。
+ * ============================================================ */
+body {
+    transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+                color 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* reduced-motion 兜底 */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}

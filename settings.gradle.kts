@@ -1,8 +1,5 @@
-// LuzzyRP 模块拓扑：
-//   :app          主应用（UI/VM/Room/DataStore/DI/Service）
-//   :core:model   纯领域模型（无 Android 依赖）
-//   :core:ai      AI SDK（Provider/SSE 流式/三协议/标签兜底）
-//   :core:common  通用工具（HTTP 桥接/JSON/PNG chunk）
+// LuzzyRP v1.0.0 重建：单模块 :app（原生 WebView 壳）
+// 上游：RP-Hub 1.8.9（assets/rphub/ 目录按 AGENTS.md §4 SOP 同步）
 pluginManagement {
     repositories {
         google {
@@ -28,6 +25,3 @@ dependencyResolutionManagement {
 rootProject.name = "LuzzyRP"
 
 include(":app")
-include(":core:model")
-include(":core:ai")
-include(":core:common")

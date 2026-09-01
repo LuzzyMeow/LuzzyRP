@@ -28,6 +28,10 @@ docs/RELEASE-KEY.md
 # 本地参考归档（旧仓库源码备份，不入库）
 docs/archive/
 
+# 上游参考克隆（独立 git 仓库，tools/sync-upstream.ps1 依赖其 fetch upstream；
+# 不随仓库分发——克隆者自行 clone 上游或直接用 assets/rphub 手动同步）
+rp-hub-reference/
+
 # 运行日志与临时文件
 *.log
 logs/

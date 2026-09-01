@@ -1,0 +1,97 @@
+/*
+ * LuzzyRP 本地字体栈（patch 004 配套文件 + 字体设置扩展）
+ *
+ * 上游 index.html 原本从 Google Fonts 加载 Lora；二创本地化后改引本文件。
+ * 本文件是 LuzzyRP 新增文件（上游无此文件），随同步覆盖策略每次重放——
+ * 内容与 luzzy-theme.css 的 @font-face 保持一致，但此处路径相对 rphub/ 根：
+ *
+ *   assets/ext/luzzy-theme.css 负责全局字体变量覆盖；
+ *   assets/css/local-fonts.css 负责本地 @font-face（index.html 头部引用）。
+ *
+ * [HARD-REQ-4] Lora 必须本地打包，禁止运行时依赖 Google Fonts CDN。
+ * [字体设置] PuHuiTi-3 + AlibabaSans 本地打包（用户指定默认字体）：
+ *   - 上游 --app-font-modern 字体栈已预留 "Alibaba PuHuiTi 3.0" 位置，
+ *     本地 @font-face 定义后字体栈命中本地文件，无需改上游字体栈。
+ *   - 拉丁/数字走 AlibabaSans（font-family 栈中 AlibabaSans 优先于 PuHuiTi）。
+ */
+@font-face {
+    font-family: "Lora";
+    src: url("../fonts/Lora-Regular.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Lora";
+    src: url("../fonts/Lora-Italic.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: italic;
+    font-display: swap;
+}
+
+/* ---- Alibaba PuHuiTi 3.0（中文正文/标题） ---- */
+@font-face {
+    font-family: "Alibaba PuHuiTi 3.0";
+    src: url("../fonts/AlibabaPuHuiTi-3-55-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Alibaba PuHuiTi 3.0";
+    src: url("../fonts/AlibabaPuHuiTi-3-65-Medium.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Alibaba PuHuiTi 3.0";
+    src: url("../fonts/AlibabaPuHuiTi-3-85-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* ---- AlibabaSans（拉丁/数字） ---- */
+@font-face {
+    font-family: "AlibabaSans";
+    src: url("../fonts/AlibabaSans-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "AlibabaSans";
+    src: url("../fonts/AlibabaSans-Medium.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "AlibabaSans";
+    src: url("../fonts/AlibabaSans-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "AlibabaSans";
+    src: url("../fonts/AlibabaSans-Light.woff2") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "AlibabaSans";
+    src: url("../fonts/AlibabaSans-Heavy.woff2") format("woff2");
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "AlibabaSans";
+    src: url("../fonts/AlibabaSans-Black.woff2") format("woff2");
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}

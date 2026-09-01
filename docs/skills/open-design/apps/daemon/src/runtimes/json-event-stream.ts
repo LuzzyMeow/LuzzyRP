@@ -1,0 +1,1009 @@
+import {
+  createOpenCodeRootTaskEvidenceCollector,
+  type OpenCodeTaskTerminalCandidate,
+} from './opencode-child-evidence.js';
+
+type JsonObject = Record<string, unknown>;
+type StreamEvent = Record<string, unknown>;
+type StreamEventHandler = (event: StreamEvent) => void;
+type ParserKind = string;
+
+type ParserState = {
+  cursorTextSoFar: string;
+  cursorTurnStart: number;
+  openCodeToolUses: Set<string>;
+  openCodeToolResults: Set<string>;
+  codexToolUses: Set<string>;
+  codexErrorEmitted: boolean;
+  codexPreviousEventWasAgentMessage: boolean;
+  codexLastAgentMessageEndedWithNewline: boolean;
+  // Per reasoning-item chars already emitted as thinking deltas, keyed by
+  // item id. Codex replays the accumulated summary text on every lifecycle
+  // event of the same item (started → updated → completed), so only the
+  // unseen suffix may be re-emitted.
+  codexReasoningEmittedByItem: Map<string, number>;
+  codexReasoningEmittedAny: boolean;
+  suppressNextArtifactText: boolean;
+  suppressDuplicateArtifactText: boolean;
+  artifactOpenCandidate: string;
+  pendingArtifactText: string;
+};
+
+type Usage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  thought_tokens?: number;
+  cached_read_tokens?: number;
+  cached_write_tokens?: number;
+};
+
+function isRecord(value: unknown): value is JsonObject {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function safeParseJson(value: unknown): unknown {
+  if (value == null) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function stringifyContent(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseJsonObjectsFromContent(value: string): JsonObject[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  const direct = safeParseJson(trimmed);
+  if (isRecord(direct)) return [direct];
+  const objects: JsonObject[] = [];
+  for (const line of trimmed.split(/\r?\n/u)) {
+    const parsedLine = safeParseJson(line.trim());
+    if (isRecord(parsedLine)) objects.push(parsedLine);
+  }
+  return objects;
+}
+
+function extractConnectorApiError(value: JsonObject): JsonObject | null {
+  if (isRecord(value.error)) {
+    if (typeof value.error.code === 'string') return value.error;
+    if (isRecord(value.error.data) && isRecord(value.error.data.error)) {
+      const wrappedError = value.error.data.error;
+      if (typeof wrappedError.code === 'string') return wrappedError;
+    }
+  }
+  return null;
+}
+
+function connectorToolSelectionErrorMessage(content: string): string | null {
+  if (!content.includes('CONNECTOR_TOOL_NOT_FOUND')) return null;
+  let error: JsonObject | null = null;
+  for (const parsed of parseJsonObjectsFromContent(content)) {
+    const parsedError = extractConnectorApiError(parsed);
+    if (parsedError?.code === 'CONNECTOR_TOOL_NOT_FOUND') {
+      error = parsedError;
+      break;
+    }
+  }
+  if (!error) return null;
+  const details = isRecord(error.details) ? error.details : {};
+  const connectorId = typeof details.connectorId === 'string' && details.connectorId
+    ? details.connectorId
+    : undefined;
+  const toolName = typeof details.toolName === 'string' && details.toolName
+    ? details.toolName
+    : 'the requested connector tool';
+  const target = connectorId
+    ? `Connector tool ${toolName} is not allowed for connector ${connectorId}.`
+    : `Connector tool ${toolName} is not allowed.`;
+  return `${target} Re-list the connector catalog and choose one of the currently allowed read-only tools.`;
+}
+
+function extractErrorMessage(value: unknown, fallback: string): string {
+  if (typeof value === 'string') {
+    const parsed = safeParseJson(value);
+    if (parsed && typeof parsed === 'object') {
+      return extractErrorMessage(parsed, value);
+    }
+    return value;
+  }
+  if (isRecord(value)) {
+    if (typeof value.detail === 'string' && value.detail) return value.detail;
+    if (typeof value.message === 'string' && value.message) {
+      return extractErrorMessage(value.message, value.message);
+    }
+    if (typeof value.error === 'string' && value.error) return value.error;
+    if (value.error && typeof value.error === 'object') {
+      return extractErrorMessage(value.error, fallback);
+    }
+    if (value.data && typeof value.data === 'object') {
+      const dataMessage = extractErrorMessage(value.data, '');
+      if (dataMessage) return dataMessage;
+    }
+    if (typeof value.name === 'string' && value.name) return value.name;
+  }
+  return fallback;
+}
+
+function isRecoverableCodexReconnect(message: string): boolean {
+  return (
+    message.startsWith('Reconnecting...') &&
+    (
+      message.includes('timeout waiting for child process to exit') ||
+      message.includes('stream disconnected before completion')
+    )
+  );
+}
+
+function formatOpenCodeUsage(tokens: unknown): Usage | null {
+  if (!isRecord(tokens)) return null;
+  const usage: Usage = {};
+  if (typeof tokens.input === 'number') usage.input_tokens = tokens.input;
+  if (typeof tokens.output === 'number') usage.output_tokens = tokens.output;
+  if (typeof tokens.reasoning === 'number') usage.thought_tokens = tokens.reasoning;
+  if (isRecord(tokens.cache)) {
+    if (typeof tokens.cache.read === 'number') usage.cached_read_tokens = tokens.cache.read;
+    if (typeof tokens.cache.write === 'number') usage.cached_write_tokens = tokens.cache.write;
+  }
+  return Object.keys(usage).length > 0 ? usage : null;
+}
+
+function isPowerShellErrorRecord(toolName: string, output: unknown): boolean {
+  const normalizedTool = toolName.toLowerCase();
+  if (normalizedTool !== 'bash' && normalizedTool !== 'shell') return false;
+  if (typeof output !== 'string') return false;
+
+  // A PowerShell non-terminating error can leave the shell process at exit 0.
+  // Require both canonical ErrorRecord fields so ordinary output containing a
+  // word such as "failed" does not become an error result.
+  return (
+    /(?:^|\r?\n)\s*\+\s*CategoryInfo\s*:/u.test(output) &&
+    /(?:^|\r?\n)\s*\+\s*FullyQualifiedErrorId\s*:/u.test(output)
+  );
+}
+
+function openCodeToolResult(
+  toolName: string,
+  statePart: JsonObject,
+): { content: string; isError: boolean } | null {
+  const status = typeof statePart.status === 'string' ? statePart.status.toLowerCase() : '';
+  if (status !== 'completed' && status !== 'error' && status !== 'failed') return null;
+
+  const metadata = isRecord(statePart.metadata) ? statePart.metadata : {};
+  const exitCodes = [statePart.exit, statePart.exitCode, metadata.exit];
+  const hasNonZeroExit = exitCodes.some(
+    (exitCode) => typeof exitCode === 'number' && Number.isFinite(exitCode) && exitCode !== 0,
+  );
+  const explicitError =
+    (typeof statePart.error === 'string' && statePart.error.trim().length > 0) ||
+    (isRecord(statePart.error) && Object.keys(statePart.error).length > 0)
+      ? statePart.error
+      : null;
+  const isError =
+    status === 'error' ||
+    status === 'failed' ||
+    explicitError !== null ||
+    hasNonZeroExit ||
+    isPowerShellErrorRecord(toolName, statePart.output);
+  const contentSource = explicitError ?? statePart.output;
+
+  return { content: stringifyContent(contentSource), isError };
+}
+
+function handleOpenCodeEvent(obj: unknown, onEvent: StreamEventHandler, state: ParserState): boolean {
+  if (!isRecord(obj)) return false;
+  const part = isRecord(obj.part) ? obj.part : {};
+
+  if (obj.type === 'step_start') {
+    // `sessionID` is OpenCode's own session handle (capture-style resume).
+    // Surface it on the step-start status so the daemon can persist it to
+    // `agent_sessions` and replay it as `run -s <id>` next turn. OpenCode
+    // stamps it on every stream event; step_start is the turn opener, so a
+    // create turn always exposes it here.
+    const sessionId =
+      typeof obj.sessionID === 'string' && obj.sessionID.length > 0
+        ? obj.sessionID
+        : null;
+    onEvent({ type: 'status', label: 'running', sessionId });
+    return true;
+  }
+
+  if (obj.type === 'text' && typeof part.text === 'string' && part.text.length > 0) {
+    onEvent({ type: 'text_delta', delta: part.text });
+    return true;
+  }
+
+  if (obj.type === 'tool_use' && typeof part.tool === 'string' && typeof part.callID === 'string') {
+    const statePart = isRecord(part.state) ? part.state : null;
+    const key = `${obj.sessionID || 'session'}:${part.callID}`;
+    if (!state.openCodeToolUses.has(key)) {
+      state.openCodeToolUses.add(key);
+      onEvent({
+        type: 'tool_use',
+        id: part.callID,
+        name: part.tool,
+        input: safeParseJson(statePart?.input) ?? statePart?.input ?? null,
+      });
+    }
+    const result = statePart ? openCodeToolResult(part.tool, statePart) : null;
+    if (result && !state.openCodeToolResults.has(key)) {
+      state.openCodeToolResults.add(key);
+      onEvent({
+        type: 'tool_result',
+        toolUseId: part.callID,
+        content: result.content,
+        isError: result.isError,
+      });
+    }
+    return true;
+  }
+
+  if (obj.type === 'step_finish') {
+    const usage = formatOpenCodeUsage(part.tokens);
+    if (usage) {
+      onEvent({
+        type: 'usage',
+        usage,
+        costUsd: typeof part.cost === 'number' ? part.cost : undefined,
+      });
+    }
+    return true;
+  }
+
+  if (obj.type === 'error') {
+    // OpenCode emits structured error frames on stdout (e.g. provider auth
+    // failures, network errors, schema mismatches) and still exits 0. Surface
+    // them as proper `error` events so server.ts's `sendAgentEvent` wrapper
+    // can flip the run to `failed` and forward a visible SSE error to the
+    // chat UI. Previously we downgraded these to `type:'raw'`, which is not
+    // rendered as an assistant message — the run looked like a fast clean
+    // success while the user actually got nothing back. See issue #691.
+    //
+    // Shape mirrors the qoder-stream contract (`{type, message, raw}`) so
+    // the daemon's existing error-handling path recognises it without
+    // further wiring.
+    const message = extractErrorMessage(
+      obj.error ?? obj.message,
+      'OpenCode error',
+    );
+    onEvent({ type: 'error', message, raw: stringifyContent(obj) });
+    return true;
+  }
+
+  return false;
+}
+
+function handleGeminiEvent(obj: unknown, onEvent: StreamEventHandler, state: ParserState): boolean {
+  if (!isRecord(obj)) return false;
+
+  const isAssistantTextMessage =
+    obj.type === 'message' &&
+    obj.role === 'assistant' &&
+    typeof obj.content === 'string' &&
+    obj.content.length > 0;
+  if (!isAssistantTextMessage) {
+    flushPendingArtifactText(state, onEvent);
+  }
+
+  if (obj.type === 'init') {
+    onEvent({
+      type: 'status',
+      label: 'initializing',
+      model: typeof obj.model === 'string' ? obj.model : undefined,
+    });
+    return true;
+  }
+
+  if (obj.type === 'message' && obj.role === 'user') {
+    return true;
+  }
+
+  if (
+    obj.type === 'message' &&
+    obj.role === 'assistant' &&
+    typeof obj.content === 'string' &&
+    obj.content.length > 0
+  ) {
+    const delta = stripDuplicateArtifactText(obj.content, state);
+    if (delta) onEvent({ type: 'text_delta', delta });
+    return true;
+  }
+
+  if (
+    obj.type === 'tool_use' &&
+    typeof obj.tool_id === 'string' &&
+    typeof obj.tool_name === 'string'
+  ) {
+    const input = safeParseJson(obj.parameters) ?? obj.parameters ?? null;
+    if (obj.tool_name === 'write_todos') {
+      const todoInput = todoWriteInputFromParsedValue(input);
+      if (todoInput) {
+        onEvent({
+          type: 'tool_use',
+          id: `${obj.tool_id}:todo-native`,
+          name: 'TodoWrite',
+          input: todoInput,
+        });
+        return true;
+      }
+    }
+    if (isFileWriteToolUse(obj.tool_name, input)) {
+      state.suppressNextArtifactText = true;
+    }
+    onEvent({
+      type: 'tool_use',
+      id: obj.tool_id,
+      name: obj.tool_name,
+      input,
+    });
+    return true;
+  }
+
+  if (obj.type === 'tool_result' && typeof obj.tool_id === 'string') {
+    const error = isRecord(obj.error) ? obj.error : null;
+    const errorMessage = error ? extractErrorMessage(error, '') : '';
+    const output = typeof obj.output === 'string'
+      ? obj.output
+      : errorMessage || stringifyContent(obj.output);
+    onEvent({
+      type: 'tool_result',
+      toolUseId: obj.tool_id,
+      content: output,
+      isError: obj.status === 'error' || Boolean(error),
+    });
+    return true;
+  }
+
+  if (obj.type === 'error') {
+    const severity = typeof obj.severity === 'string' ? obj.severity.toLowerCase() : '';
+    const message = extractErrorMessage(
+      obj.message ?? obj.error,
+      severity === 'warning' ? 'Gemini CLI warning' : 'Gemini CLI error',
+    );
+    if (severity === 'warning') {
+      onEvent({ type: 'status', label: 'warning', detail: message });
+    } else {
+      onEvent({ type: 'error', message, raw: stringifyContent(obj) });
+    }
+    return true;
+  }
+
+  if (obj.type === 'result') {
+    if (obj.status === 'error' || isRecord(obj.error)) {
+      onEvent({
+        type: 'error',
+        message: extractErrorMessage(obj.error, 'Gemini CLI error'),
+        raw: stringifyContent(obj),
+      });
+      return true;
+    }
+    if (!isRecord(obj.stats)) return true;
+    const usage: Usage = {};
+    if (typeof obj.stats.input_tokens === 'number') usage.input_tokens = obj.stats.input_tokens;
+    if (typeof obj.stats.output_tokens === 'number') usage.output_tokens = obj.stats.output_tokens;
+    if (typeof obj.stats.cached === 'number') usage.cached_read_tokens = obj.stats.cached;
+    onEvent({
+      type: 'usage',
+      usage,
+      durationMs: typeof obj.stats.duration_ms === 'number' ? obj.stats.duration_ms : undefined,
+    });
+    return true;
+  }
+
+  return false;
+}
+
+function handleKimiEvent(obj: unknown, onEvent: StreamEventHandler): boolean {
+  if (!isRecord(obj)) return false;
+
+  if (obj.role === 'assistant' && Array.isArray(obj.tool_calls)) {
+    for (const rawCall of obj.tool_calls) {
+      const call = isRecord(rawCall) ? rawCall : null;
+      const fn = isRecord(call?.function) ? call.function : null;
+      const id = typeof call?.id === 'string' && call.id.trim()
+        ? call.id.trim()
+        : null;
+      const name = typeof fn?.name === 'string' && fn.name.trim()
+        ? fn.name.trim()
+        : null;
+      if (!id || !name) continue;
+      const input = safeParseJson(fn?.arguments) ?? fn?.arguments ?? null;
+      onEvent({ type: 'tool_use', id, name, input });
+    }
+    return true;
+  }
+
+  if (
+    obj.role === 'tool' &&
+    typeof obj.tool_call_id === 'string' &&
+    obj.tool_call_id.trim()
+  ) {
+    onEvent({
+      type: 'tool_result',
+      toolUseId: obj.tool_call_id.trim(),
+      content: stringifyContent(obj.content),
+      isError: false,
+    });
+    return true;
+  }
+
+  if (
+    obj.role === 'assistant' &&
+    typeof obj.content === 'string' &&
+    obj.content.length > 0
+  ) {
+    onEvent({ type: 'text_delta', delta: obj.content });
+    return true;
+  }
+
+  if (obj.role === 'meta' && obj.type === 'session.resume_hint') {
+    return true;
+  }
+
+  return false;
+}
+
+function extractCursorText(message: unknown): string {
+  const content = isRecord(message) ? message.content : undefined;
+  const blocks = Array.isArray(content) ? content : [];
+  return blocks
+    .filter((block): block is { type: 'text'; text: string } => isRecord(block) && block.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text)
+    .join('');
+}
+
+function normalizeTodoStatus(value: unknown): string {
+  const status = typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/[-\s]+/g, '_')
+    : '';
+  if (status === 'completed' || status === 'complete' || status === 'done' || status.startsWith('completed')) {
+    return 'completed';
+  }
+  if (status === 'in_progress' || status === 'doing' || status === 'active' || status.startsWith('in_progress')) {
+    return 'in_progress';
+  }
+  if (
+    status === 'stopped' ||
+    status === 'failed' ||
+    status === 'blocked' ||
+    status === 'canceled' ||
+    status === 'cancelled' ||
+    status.startsWith('stopped') ||
+    status.startsWith('failed') ||
+    status.startsWith('blocked') ||
+    status.startsWith('canceled') ||
+    status.startsWith('cancelled')
+  ) {
+    return 'stopped';
+  }
+  return 'pending';
+}
+
+function todoWriteInputFromItems(items: unknown): JsonObject | null {
+  if (!Array.isArray(items)) return null;
+  const todos = items
+    .map((raw): JsonObject | null => {
+      if (!isRecord(raw)) return null;
+      const content = typeof raw.content === 'string'
+        ? raw.content
+        : typeof raw.label === 'string'
+          ? raw.label
+          : typeof raw.description === 'string'
+            ? raw.description
+            : typeof raw.text === 'string'
+              ? raw.text
+              : '';
+      if (!content) return null;
+      return {
+        content,
+        status: raw.completed === true
+          ? 'completed'
+          : normalizeTodoStatus(raw.status),
+      };
+    })
+    .filter((todo): todo is JsonObject => todo !== null);
+  return todos.length > 0 ? { todos } : null;
+}
+
+function todoWriteInputFromParsedValue(value: unknown): JsonObject | null {
+  if (Array.isArray(value)) return todoWriteInputFromItems(value);
+  if (!isRecord(value)) return null;
+  if (Array.isArray(value.todos)) return todoWriteInputFromItems(value.todos);
+  if (Array.isArray(value.todo)) return todoWriteInputFromItems(value.todo);
+  return null;
+}
+
+function stripDuplicateArtifactText(text: string, state: ParserState): string {
+  if (
+    !state.suppressNextArtifactText &&
+    !state.suppressDuplicateArtifactText &&
+    state.artifactOpenCandidate.length === 0
+  ) {
+    return text;
+  }
+  const openTag = '<artifact';
+  const current = `${state.artifactOpenCandidate}${text}`;
+  state.artifactOpenCandidate = '';
+  if (state.suppressDuplicateArtifactText) {
+    const closeIndex = current.indexOf('</artifact>');
+    if (closeIndex === -1) return '';
+    state.suppressDuplicateArtifactText = false;
+    state.suppressNextArtifactText = false;
+    return stripDuplicateArtifactText(current.slice(closeIndex + '</artifact>'.length), state);
+  }
+  const openIndex = current.indexOf(openTag);
+  if (openIndex === -1) {
+    const candidateLength = artifactOpenCandidateLength(current, openTag);
+    if (state.suppressNextArtifactText && candidateLength > 0) {
+      state.artifactOpenCandidate = current.slice(-candidateLength);
+      return current.slice(0, -candidateLength);
+    }
+    if (state.suppressNextArtifactText) {
+      state.suppressNextArtifactText = false;
+      return current;
+    }
+    return current;
+  }
+  state.suppressDuplicateArtifactText = true;
+  state.suppressNextArtifactText = false;
+  const prefix = `${state.pendingArtifactText}${current.slice(0, openIndex)}`;
+  state.pendingArtifactText = '';
+  return `${prefix}${stripDuplicateArtifactText(current.slice(openIndex), state)}`;
+}
+
+function artifactOpenCandidateLength(text: string, openTag: string): number {
+  const max = Math.min(openTag.length - 1, text.length);
+  for (let len = max; len > 0; len -= 1) {
+    if (openTag.startsWith(text.slice(-len))) return len;
+  }
+  return 0;
+}
+
+function flushPendingArtifactText(state: ParserState, onEvent: StreamEventHandler): void {
+  const delta = `${state.pendingArtifactText}${state.artifactOpenCandidate}`;
+  if (!delta) return;
+  state.pendingArtifactText = '';
+  state.artifactOpenCandidate = '';
+  state.suppressNextArtifactText = false;
+  onEvent({ type: 'text_delta', delta });
+}
+
+function isFileWriteToolUse(toolName: string, input: unknown): boolean {
+  if (!isRecord(input)) return false;
+  const path = typeof input.file_path === 'string'
+    ? input.file_path
+    : typeof input.path === 'string'
+      ? input.path
+      : '';
+  const writesFile = toolName === 'write_file' ||
+    toolName === 'write' ||
+    toolName === 'replace' ||
+    toolName === 'edit';
+  if (!writesFile) return false;
+  if (/\.(html|htm|css|js|jsx|ts|tsx|md)$/iu.test(path)) return true;
+  return typeof input.content === 'string' || typeof input.new_string === 'string';
+}
+
+function codexTodoListInput(item: JsonObject): JsonObject | null {
+  if (item.type !== 'todo_list' || !Array.isArray(item.items)) return null;
+  return todoWriteInputFromItems(item.items);
+}
+
+function emitCodexTodoList(item: JsonObject, onEvent: StreamEventHandler): boolean {
+  if (typeof item.id !== 'string') return false;
+  const input = codexTodoListInput(item);
+  if (!input) return false;
+  onEvent({
+    type: 'tool_use',
+    id: item.id,
+    name: 'TodoWrite',
+    input,
+  });
+  return true;
+}
+
+function emitCursorTextDelta(text: string, onEvent: StreamEventHandler, state: ParserState): void {
+  // Timestamped assistant events WITHOUT `model_call_id` are cursor-agent's
+  // real-time incremental deltas (`--stream-partial-output`): the final turn
+  // text is the in-order concatenation of every such delta. Emit each one
+  // verbatim — do NOT dedupe by content. Legitimately repeated deltas
+  // (`"ha"`, `"ha"` -> `"haha"`) or a delta that happens to be a prefix of
+  // earlier text are real content, not duplicates; content-based prefix or
+  // equality checks would silently drop them. Duplicate suppression and
+  // dropped-chunk recovery belong to the buffered terminal replay paths
+  // (`model_call_id` and no-timestamp events) via reconcileCursorTurnReplay.
+  if (!text) return;
+  state.cursorTextSoFar += text;
+  onEvent({ type: 'text_delta', delta: text });
+}
+
+/**
+ * Reconcile a Cursor terminal replay against the text already emitted for the
+ * CURRENT turn. A terminal replay (either a `model_call_id` message or a
+ * non-timestamped final assistant message) carries the full text for the
+ * current turn only, so it must be compared against
+ * `cursorTextSoFar.slice(cursorTurnStart)` — NOT the whole cross-turn buffer,
+ * which would miss the current-turn prefix on later turns and re-append the
+ * whole replay (duplicate output like "secondsecond turn").
+ *
+ * Only a verified prefix permits suffix recovery: if the emitted turn text is
+ * a prefix of the replay (including the empty case where no chunk arrived),
+ * emit the missing suffix. On divergence (a non-final chunk was dropped, so
+ * the emitted text is not a prefix) leave the append-only stream untouched
+ * rather than duplicate already-shown text. Always advances the turn boundary.
+ */
+function reconcileCursorTurnReplay(text: string, onEvent: StreamEventHandler, state: ParserState): void {
+  const emittedTurn = state.cursorTextSoFar.slice(state.cursorTurnStart);
+  if (text && text !== emittedTurn && text.startsWith(emittedTurn)) {
+    const suffix = text.slice(emittedTurn.length);
+    if (suffix) onEvent({ type: 'text_delta', delta: suffix });
+    state.cursorTextSoFar += suffix;
+  }
+  state.cursorTurnStart = state.cursorTextSoFar.length;
+}
+
+function handleCursorEvent(obj: unknown, onEvent: StreamEventHandler, state: ParserState): boolean {
+  if (!isRecord(obj)) return false;
+
+  if (obj.type === 'system' && obj.subtype === 'init') {
+    onEvent({
+      type: 'status',
+      label: 'initializing',
+      model: typeof obj.model === 'string' ? obj.model : undefined,
+    });
+    return true;
+  }
+
+  if (obj.type === 'assistant' && obj.message) {
+    // Cursor sends a final assistant message that replays the full text for
+    // the current turn — either tagged with `model_call_id`, or (fallback)
+    // as a non-timestamped terminal assistant message. Both are reconciled
+    // against the current turn's emitted text via reconcileCursorTurnReplay.
+    if (typeof obj.model_call_id === 'string') {
+      const text = extractCursorText(obj.message);
+      reconcileCursorTurnReplay(text, onEvent, state);
+      return true;
+    }
+    const text = extractCursorText(obj.message);
+    if (!text) return false;
+    if (typeof obj.timestamp_ms === 'number') {
+      // Incremental streaming chunk within a turn — accumulate as usual.
+      emitCursorTextDelta(text, onEvent, state);
+      return true;
+    }
+    // Non-timestamped final assistant message: a terminal replay that marks a
+    // turn boundary. Reconcile against the current turn (not the whole
+    // cross-turn buffer) so later fallback-terminated turns do not duplicate
+    // output, then advance the turn boundary.
+    reconcileCursorTurnReplay(text, onEvent, state);
+    return true;
+  }
+
+  if (obj.type === 'result' && isRecord(obj.usage)) {
+    const usage: Usage = {};
+    if (typeof obj.usage.inputTokens === 'number') usage.input_tokens = obj.usage.inputTokens;
+    if (typeof obj.usage.outputTokens === 'number') usage.output_tokens = obj.usage.outputTokens;
+    if (typeof obj.usage.cacheReadTokens === 'number') {
+      usage.cached_read_tokens = obj.usage.cacheReadTokens;
+    }
+    if (typeof obj.usage.cacheWriteTokens === 'number') {
+      usage.cached_write_tokens = obj.usage.cacheWriteTokens;
+    }
+    onEvent({
+      type: 'usage',
+      usage,
+      durationMs: typeof obj.duration_ms === 'number' ? obj.duration_ms : undefined,
+    });
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Codex streams model reasoning as summary items (`item.started` /
+ * `item.updated` / `item.completed` with `item.type === 'reasoning'`, the
+ * summary text accumulated on `item.text`). Emit the unseen suffix of each
+ * item as `thinking_delta` so the web's collapsible thinking block has real
+ * content behind the "Thinking" label; distinct reasoning items are joined
+ * with a blank line because the web folds consecutive thinking deltas into
+ * one block. Idempotent across repeated lifecycle events of the same item.
+ */
+function emitCodexReasoningItem(
+  obj: JsonObject,
+  onEvent: StreamEventHandler,
+  state: ParserState,
+): boolean {
+  if (
+    obj.type !== 'item.started' &&
+    obj.type !== 'item.updated' &&
+    obj.type !== 'item.completed'
+  ) {
+    return false;
+  }
+  if (!isRecord(obj.item) || obj.item.type !== 'reasoning') return false;
+  const key = typeof obj.item.id === 'string' ? obj.item.id : '';
+  const text = typeof obj.item.text === 'string' ? obj.item.text : '';
+  const emitted = state.codexReasoningEmittedByItem.get(key) ?? 0;
+  if (text.length > emitted) {
+    const suffix = text.slice(emitted);
+    const delta =
+      emitted === 0 && state.codexReasoningEmittedAny ? `\n\n${suffix}` : suffix;
+    onEvent({ type: 'thinking_delta', delta });
+    state.codexReasoningEmittedByItem.set(key, text.length);
+    state.codexReasoningEmittedAny = true;
+  }
+  return true;
+}
+
+function handleCodexEvent(obj: unknown, onEvent: StreamEventHandler, state: ParserState): boolean {
+  if (!isRecord(obj)) return false;
+
+  if (obj.type === 'error') {
+    const message = extractErrorMessage(obj.message ?? obj.error, 'Codex error');
+    // Reconnecting events are recoverable — treat as status warning, not fatal
+    if (isRecoverableCodexReconnect(message)) {
+      onEvent({ type: 'status', label: message });
+      return true;
+    }
+    if (!state.codexErrorEmitted) {
+      state.codexErrorEmitted = true;
+      onEvent({ type: 'error', message });
+    }
+    return true;
+  }
+
+  if (obj.type === 'turn.failed') {
+    if (!state.codexErrorEmitted) {
+      state.codexErrorEmitted = true;
+      onEvent({
+        type: 'error',
+        message: extractErrorMessage(obj.error ?? obj.message, 'Codex turn failed'),
+      });
+    }
+    return true;
+  }
+
+  if (obj.type === 'thread.started') {
+    // `thread_id` is Codex's own session handle, surfaced on the same
+    // `sessionId` status channel claude uses (claude-stream.ts). It serves two
+    // consumers: (1) the daemon persists it to `agent_sessions` and replays it
+    // as `exec resume <thread_id>` on the next turn (capture-style resume), and
+    // (2) it identifies this run's rollout file
+    // (`$CODEX_HOME/sessions/**/rollout-*-<thread_id>.jsonl`), the only place
+    // codex records per-call usage, which run_finished reads to recover the
+    // turn's first-call cache hit (codex's stream usage is cumulative only).
+    // Codex emits this both for a fresh `exec` and for `exec resume` (echoing
+    // the resumed id), so it is a stable capture point either way.
+    const threadId =
+      typeof obj.thread_id === 'string' && obj.thread_id.length > 0
+        ? obj.thread_id
+        : null;
+    onEvent({ type: 'status', label: 'initializing', sessionId: threadId });
+    return true;
+  }
+
+  if (obj.type === 'turn.started') {
+    state.codexPreviousEventWasAgentMessage = false;
+    state.codexLastAgentMessageEndedWithNewline = false;
+    onEvent({ type: 'status', label: 'thinking' });
+    return true;
+  }
+
+  if (emitCodexReasoningItem(obj, onEvent, state)) return true;
+
+  if (obj.type === 'item.started' && isRecord(obj.item)) {
+    const item = obj.item;
+    if (emitCodexTodoList(item, onEvent)) {
+      state.codexPreviousEventWasAgentMessage = false;
+      state.codexLastAgentMessageEndedWithNewline = false;
+      return true;
+    }
+    if (item.type === 'command_execution' && typeof item.id === 'string') {
+      state.codexPreviousEventWasAgentMessage = false;
+      state.codexLastAgentMessageEndedWithNewline = false;
+      if (!state.codexToolUses.has(item.id)) {
+        state.codexToolUses.add(item.id);
+        onEvent({
+          type: 'tool_use',
+          id: item.id,
+          name: 'Bash',
+          input: {
+            command: typeof item.command === 'string' ? item.command : '',
+          },
+        });
+      }
+      return true;
+    }
+  }
+
+  if (obj.type === 'item.updated' && isRecord(obj.item)) {
+    const item = obj.item;
+    if (emitCodexTodoList(item, onEvent)) {
+      state.codexPreviousEventWasAgentMessage = false;
+      state.codexLastAgentMessageEndedWithNewline = false;
+      return true;
+    }
+  }
+
+  if (obj.type === 'item.completed' && isRecord(obj.item)) {
+    const item = obj.item;
+    if (emitCodexTodoList(item, onEvent)) {
+      state.codexPreviousEventWasAgentMessage = false;
+      state.codexLastAgentMessageEndedWithNewline = false;
+      return true;
+    }
+    // Codex reports non-fatal in-stream notices (e.g. the skills
+    // context-budget warning) as `error` ITEMS while the turn keeps running;
+    // fatal failures arrive separately as top-level `error` / `turn.failed`
+    // events. Surface these as a visible warning pill instead of dropping
+    // them as raw noise — during a silent provider hang such an item can be
+    // the only signal the user ever gets (incident recvqgLmAkUM6G).
+    if (item.type === 'error' && typeof item.message === 'string' && item.message.length > 0) {
+      onEvent({ type: 'status', label: 'warning', detail: item.message });
+      return true;
+    }
+    if (item.type === 'command_execution' && typeof item.id === 'string') {
+      state.codexPreviousEventWasAgentMessage = false;
+      state.codexLastAgentMessageEndedWithNewline = false;
+      if (!state.codexToolUses.has(item.id)) {
+        state.codexToolUses.add(item.id);
+        onEvent({
+          type: 'tool_use',
+          id: item.id,
+          name: 'Bash',
+          input: {
+            command: typeof item.command === 'string' ? item.command : '',
+          },
+        });
+      }
+      const content = stringifyContent(item.aggregated_output ?? '');
+      onEvent({
+        type: 'tool_result',
+        toolUseId: item.id,
+        content,
+        isError: typeof item.exit_code === 'number' ? item.exit_code !== 0 : item.status === 'failed',
+      });
+      const connectorToolError = connectorToolSelectionErrorMessage(content);
+      if (connectorToolError && !state.codexErrorEmitted) {
+        state.codexErrorEmitted = true;
+        onEvent({ type: 'error', message: connectorToolError });
+      }
+      return true;
+    }
+  }
+
+  if (
+    obj.type === 'item.completed' &&
+    isRecord(obj.item) &&
+    obj.item.type === 'agent_message' &&
+    typeof obj.item.text === 'string' &&
+    obj.item.text.length > 0
+  ) {
+    const text = obj.item.text;
+    const needsBoundary =
+      state.codexPreviousEventWasAgentMessage &&
+      !state.codexLastAgentMessageEndedWithNewline &&
+      !text.startsWith('\n');
+    const delta = needsBoundary ? `\n${text}` : text;
+    onEvent({ type: 'text_delta', delta });
+    state.codexPreviousEventWasAgentMessage = true;
+    state.codexLastAgentMessageEndedWithNewline = text.endsWith('\n');
+    return true;
+  }
+
+  if (obj.type === 'turn.completed' && isRecord(obj.usage)) {
+    const usage: Usage = {};
+    if (typeof obj.usage.input_tokens === 'number') usage.input_tokens = obj.usage.input_tokens;
+    if (typeof obj.usage.output_tokens === 'number') usage.output_tokens = obj.usage.output_tokens;
+    if (typeof obj.usage.reasoning_output_tokens === 'number') {
+      usage.thought_tokens = obj.usage.reasoning_output_tokens;
+    }
+    if (typeof obj.usage.cached_input_tokens === 'number') {
+      usage.cached_read_tokens = obj.usage.cached_input_tokens;
+    }
+    onEvent({ type: 'usage', usage });
+    return true;
+  }
+
+  return false;
+}
+
+export interface JsonEventStreamHandlerOptions {
+  openCodeChildEvidence?: {
+    rootSessionId?: string;
+    cliVersion: string;
+    onCandidate: (candidate: OpenCodeTaskTerminalCandidate) => void;
+    now?: () => number;
+  };
+}
+
+export function createJsonEventStreamHandler(
+  kind: ParserKind,
+  onEvent: StreamEventHandler,
+  options: JsonEventStreamHandlerOptions = {},
+) {
+  let buffer = '';
+  const state: ParserState = {
+    cursorTextSoFar: '',
+    cursorTurnStart: 0,
+    openCodeToolUses: new Set<string>(),
+    openCodeToolResults: new Set<string>(),
+    codexToolUses: new Set<string>(),
+    codexErrorEmitted: false,
+    codexPreviousEventWasAgentMessage: false,
+    codexLastAgentMessageEndedWithNewline: false,
+    codexReasoningEmittedByItem: new Map<string, number>(),
+    codexReasoningEmittedAny: false,
+    suppressNextArtifactText: false,
+    suppressDuplicateArtifactText: false,
+    artifactOpenCandidate: '',
+    pendingArtifactText: '',
+  };
+  const openCodeChildEvidence = kind === 'opencode' && options.openCodeChildEvidence
+    ? createOpenCodeRootTaskEvidenceCollector(options.openCodeChildEvidence)
+    : null;
+
+  function handleLine(line: string): void {
+    let obj: unknown;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      onEvent({ type: 'raw', line });
+      return;
+    }
+
+    openCodeChildEvidence?.observe(obj);
+
+    if (kind === 'opencode' && handleOpenCodeEvent(obj, onEvent, state)) return;
+    if (kind === 'gemini' && handleGeminiEvent(obj, onEvent, state)) return;
+    if (kind === 'kimi' && handleKimiEvent(obj, onEvent)) return;
+    if (kind === 'cursor-agent' && handleCursorEvent(obj, onEvent, state)) return;
+    if (kind === 'codex' && handleCodexEvent(obj, onEvent, state)) return;
+
+    onEvent({ type: 'raw', line });
+  }
+
+  function feed(chunk: string): void {
+    buffer += chunk;
+    let nl;
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      handleLine(line);
+    }
+  }
+
+  function flush(): void {
+    const rem = buffer.trim();
+    buffer = '';
+    if (rem) handleLine(rem);
+    flushPendingArtifactText(state, onEvent);
+  }
+
+  function childEvidenceCoverage(streamComplete: boolean) {
+    return openCodeChildEvidence?.coverage(streamComplete);
+  }
+
+  // The terminal candidates are the only carrier of the child id, its parent
+  // binding, and the native Task time window. The close handler needs them
+  // after the stream is gone in order to request each child's sanitized
+  // export, so they are read back here rather than re-derived.
+  function childEvidenceCandidates(): readonly OpenCodeTaskTerminalCandidate[] {
+    return openCodeChildEvidence?.candidates() ?? [];
+  }
+
+  return { feed, flush, childEvidenceCoverage, childEvidenceCandidates };
+}

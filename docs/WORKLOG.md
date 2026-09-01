@@ -652,3 +652,7 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 1. 用户真机体验反馈微调；
 2. GitHub Release v1.1.0（本会话收尾发布）；
 3. 上游同步演练（sync-upstream.ps1 假发版模拟）。
+
+### 会话 11 收尾：GitHub Release v1.1.0 已发布
+- 提交 8cad276c 推送 origin/main · Release（stable，附三件套 APK ≈17.9MB×3）：https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.1.0
+- 五维 critique 已过：方向（三方向硬门用户选定全卡雾纸）/ 品牌（全 token 化零新色）/ 层级（徽标 chip 次要于模型 id）/ 动效（200ms ease-out + reduced-motion 兜底）/ 工程（语法校验 + 真机四态 + patch 全登记零裸改）。

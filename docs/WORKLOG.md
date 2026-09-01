@@ -606,3 +606,7 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 - **视觉实证**：条幅探针垫入输入岛玻璃后方 → 系统级 `adb shell screencap` 截图 → 玻璃后条纹明显磨砂化（玻璃外锐利、玻璃内柔化），亮暗双证 `docs/design/verify-frost-phone-{light,dark}.png`；验证后已清理测试元素并恢复 light。
 - **新坑**：CDP `Page.captureScreenshot` 在页面有激活 backdrop-filter 时永久挂起（合成读回互锁，两台设备均复现）——有 blur 的页面截图必须走 `adb shell screencap`。
 - **小坑**：小米 Android 16 已限制 shell 注入按键（`input keyevent` 抛 SecurityException）——亮屏改用 `am start` 拉起 Activity 顺带唤醒（本次有效）+ `svc power stayon true`。
+
+### 会话 10 追记 2：v1.0.0 正式版发布
+- **发布**：versionCode 1→5（衔接 v0.3.0 的 4，避免覆盖安装降级拦截）· assembleRelease 通过（luzzy 签名 + R8 + ABI 三件套 17.1MB）· 模拟器发布包 smoke（首启公告→欢迎向导→新用户默认主题/字体全通过）· CHANGELOG/README 定稿 · 提交 5c7cf43c · **GitHub Release v1.0.0 已发布并附三件套 APK**（stable，非 prerelease）：https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.0.0
+- **遗留顺延**：手机上仍为 debug 包（release 与 debug 签名不同不能覆盖装，卸载 debug 会清用户数据——留给用户决定）；indigo/blue 硬编码点缀与「荧光笔落笔」动效在 v1.1.0 候选。

@@ -4,6 +4,29 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v1.0.0 — 正式版 · 重建落地：暖幕手记主题 × 雾纸玻璃 × RP-Hub 二创壳（上游基线 RP-Hub 1.8.9）
+
+v1.0.0 线定稿（rc1 → rc2 → rc3 → 正式版；rc 期间全部变更随正式版一并交付，细节见下方 rc 条目）。
+相对 v0.3.0（旧 Compose 工程，WIP 不可游玩）为**推倒重建**：引擎与代码库完全更换，旧版数据不通用。
+
+**新增**
+- **RP-Hub 二创壳**：RP-Hub 1.8.9 前端 + Kotlin 单 Activity WebView 壳 + `assets/ext/` 独立扩展层；上游同步走「覆盖 + 登记 patch 重放」（patch 001-011），品牌化 / 禁更新检查 / 扩展挂载全部 patch 化，上游文件零裸改。
+- **全离线**：Vue 3 / Tailwind / marked / DOMPurify / SortableJS / Lora / 阿里系字体全部本地打包，运行时零 CDN 依赖（断网可用）。
+- **主题系统「暖幕手记 × Claude」**：Claude token 体系（cream `#FAF9F5` 画布 + 珊瑚陶土 `#CC785C`/`#A9583E` + ink `#141413`）亮暗双模式；暗色 gray 色阶整体反转适配全部上游工具类；新用户默认新主题，老用户保留经典（迁移逻辑）。
+- **雾纸玻璃层 Frost-Paper**：玻璃只上固定 chrome（顶栏 / 输入岛 / 侧栏抽屉 / 模态面板，blur 16px），聊天气泡回归纸感；突破上游移动端 `backdrop-filter` 全局 kill-switch 与 `!important` 白面死角。
+- **字体系统**：`Luzzy 默认`（AlibabaSans + Alibaba PuHuiTi 3，本地 woff2）/ 经典（原版）/ 经典衬线（Lora）/ 系统，四选项随主题设置。
+- **系统能力桥**：角色卡 PNG/JSON 走 SAF 文件桥导入导出；剪贴板 / Toast / 版本信息 / 系统栏样式联动主题亮暗。
+
+**修复**
+- rc1 → rc3 全程真机热修：主题不生效（Tailwind 透明度工具类必须 RGB 三元组 + `<alpha-value>`）、暗色白块、上游 `!important` 白面死角、移动端磨砂 kill-switch（详见 rc 条目）。
+
+**注意事项**
+- **旧版（≤ v0.3.0 Compose 工程）数据不通用**，全新安装即用。
+- 侧载分发（不上架商店）：安装需允许「未知来源应用」。
+- NSFW 增强预设（上游 `<nsfw_rules>`）原样保留、不可触碰（硬性规定 1）。
+
+**构建**：`assembleRelease` BUILD SUCCESSFUL（luzzy 签名 + R8 + ABI 拆分三件套）· versionCode 5（衔接 v0.3.0 的 4，覆盖安装无降级拦截）· 附 APK。
+
 ### v1.0.0-rc3 — 雾纸玻璃层 Frost-Paper · 液态玻璃方向融合（上游基线 RP-Hub 1.8.9）
 
 在「暖幕手记」主题上融合液态玻璃 / 半透明容器语言：按硬性规定 9 重读 4 项设计 SKILL，出 3 块真实方向板（`docs/design/boards-v3/`，亮暗双框同场景渲染），用户选定**方向 A「雾纸 Frost-Paper」**（参照 Windows 11 Mica，存档 `direction-approved-v3.md`）。

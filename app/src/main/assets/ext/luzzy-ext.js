@@ -8,8 +8,11 @@
  * 功能清单：
  * 1. 桥接自检（开发期诊断；发布期静默）
  * 2. 关于页品牌信息注入
- * 3. 主题系统（data-theme / data-mode 驱动，见 docs/design/theme-tech-plan.md）
- * 4. 字体设置扩展（luzzy 默认字体选项）
+ *
+ * [状态 2026-09-01] 旧主题系统（data-theme/data-mode）已随「暖纸书房」方案
+ * 整体移除；新主题系统待设计 SKILL 三方向硬门产出并经用户选定后重建。
+ * 字体扩展（luzzy 选项）也待新字体方案重新设计后恢复——当前上游
+ * fontFamilies 保持原样（modern/serif/system）。
  */
 (function () {
     'use strict';
@@ -57,73 +60,15 @@
     }
 
     // ============================================================
-    // 3. 主题系统（data-theme / data-mode 驱动）
-    // ============================================================
-    // 主题变量定义在 luzzy-theme.css（扩展层）：
-    //   [data-theme="classic"]            → 原版 RP-Hub 色值（默认）
-    //   [data-theme="luzzy"][data-mode="light"] → 新主题亮色
-    //   [data-theme="luzzy"][data-mode="dark"]  → 新主题暗色
-    // 切换逻辑：读取 localStorage 设置 → 设置 documentElement 属性。
-    // 上游设置存储键：RP-Hub 用 localStorage 存 settings（键名待确认）。
-    var THEME_KEY = 'luzzy_theme';
-    var THEME_MODE_KEY = 'luzzy_theme_mode';
-
-    function applyTheme() {
-        try {
-            var theme = localStorage.getItem(THEME_KEY) || 'luzzy'; // 新用户默认新主题
-            var mode = localStorage.getItem(THEME_MODE_KEY) || 'light';
-            var root = document.documentElement;
-            root.dataset.theme = theme;
-            root.dataset.mode = mode;
-            // 同步系统栏（通过桥接，见 LuzzyBridge.setSystemBarStyle）
-            if (window.LuzzyBridge && window.LuzzyBridge.setSystemBarStyle) {
-                window.LuzzyBridge.setSystemBarStyle(theme === 'luzzy' ? mode : 'light');
-            }
-        } catch (e) {
-            // localStorage 不可用时降级为默认
-        }
-    }
-
-    // ============================================================
-    // 4. 字体设置扩展（luzzy 默认字体选项）
-    // ============================================================
-    // 上游 fontFamilies 选项在 core-utils.js（modern/serif/system）。
-    // 扩展层追加 'luzzy' 选项：Alibaba PuHuiTi 3.0 + AlibabaSans（本地打包）。
-    // 通过 data-app-font="luzzy" 触发 luzzy-theme.css 中的字体栈覆盖。
-    function extendFontOptions() {
-        try {
-            // 上游 applyFontFamily 只认 modern/serif/system，扩展层补 luzzy
-            var origApply = window.RPHubUtils && window.RPHubUtils.applyFontFamily;
-            // 若上游暴露了 applyFontFamily，包装它支持 luzzy
-            if (window.RPHubUtils && typeof window.RPHubUtils.applyFontFamily === 'function') {
-                var orig = window.RPHubUtils.applyFontFamily;
-                window.RPHubUtils.applyFontFamily = function (value) {
-                    if (value === 'luzzy') {
-                        document.documentElement.dataset.appFont = 'luzzy';
-                        return;
-                    }
-                    return orig(value);
-                };
-            }
-        } catch (e) {
-            // 降级：不扩展
-        }
-    }
-
-    // ============================================================
     // 挂载
     // ============================================================
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             selfCheck();
-            applyTheme();
-            extendFontOptions();
             setTimeout(injectAboutBranding, 800);
         });
     } else {
         selfCheck();
-        applyTheme();
-        extendFontOptions();
         setTimeout(injectAboutBranding, 800);
     }
 })();

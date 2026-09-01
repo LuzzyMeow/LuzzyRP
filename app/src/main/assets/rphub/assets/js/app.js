@@ -225,14 +225,6 @@ const app = createApp({
             uiTemplatePlacements: uiTemplatePlacementOptions,
             worldInfoPositions: worldInfoPositionOptions
         } = uiOptions;
-        const themeOptions = Object.freeze([
-            { value: 'luzzy', label: '暖纸书房（Luzzy）' },
-            { value: 'classic', label: '经典（原版）' }
-        ]);
-        const themeModeOptions = Object.freeze([
-            { value: 'light', label: '亮色' },
-            { value: 'dark', label: '暗色' }
-        ]);
         const ACTIVE_TOOL_KEYWORD_TYPE = activeToolConfig.types.keyword;
         const ACTIVE_TOOL_WEB_TYPE = activeToolConfig.types.web;
         const ACTIVE_TOOL_MIN_RESULT_COUNT = activeToolConfig.resultCount.min;
@@ -633,9 +625,7 @@ const app = createApp({
             uiTemplateAnalysisDepth: 4,
             uiTemplateInjectContext: false,
             uiTemplateMainModelAnalysis: true,
-            theme: 'luzzy',
-            themeMode: 'light',
-            fontFamily: 'luzzy',
+            fontFamily: 'modern',
             fontFamilyVersion: 4,
             fontSize: window.innerWidth > 768 ? 16 : 14,
             imageGenKey: '',
@@ -655,7 +645,7 @@ const app = createApp({
             : imageStyleOptions);
         const getImageModelName = (value) => (imageModelOptions.find(option => option.value === value)?.label
             || imageModelOptions[0].label).replace(/（[^）]*）$/, '');
-        const normalizeFontFamily = (value) => ['luzzy', 'modern', 'serif', 'system'].includes(value) ? value : 'modern';
+        const normalizeFontFamily = (value) => ['modern', 'serif', 'system'].includes(value) ? value : 'modern';
         const normalizeFontSize = (value) => {
             const size = Number(value);
             return Number.isFinite(size) ? Math.max(12, Math.min(20, Math.round(size))) : 16;
@@ -663,17 +653,6 @@ const app = createApp({
         const applyFontFamily = (value) => {
             document.documentElement.dataset.appFont = normalizeFontFamily(value);
         };
-        const applyTheme = (value) => {
-            document.documentElement.dataset.theme = value === 'classic' ? 'classic' : 'luzzy';
-        };
-        const applyThemeMode = (value) => {
-            document.documentElement.dataset.mode = value === 'dark' ? 'dark' : 'light';
-            if (window.LuzzyBridge && window.LuzzyBridge.setSystemBarStyle) {
-                window.LuzzyBridge.setSystemBarStyle(value === 'dark' ? 'dark' : 'light');
-            }
-        };
-        watch(() => settings.theme, applyTheme, { immediate: true });
-        watch(() => settings.themeMode, applyThemeMode, { immediate: true });
         watch(() => settings.fontFamily, applyFontFamily, { immediate: true });
 
         const showApiProviderSelector = ref(false);
@@ -1796,12 +1775,6 @@ const app = createApp({
                             settings[key] = savedSettings[key];
                         }
                     });
-                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'theme')) {
-                        settings.theme = 'classic'; // 老用户保留经典主题
-                    }
-                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'themeMode')) {
-                        settings.themeMode = 'light';
-                    }
                     if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
                         const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                         settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
@@ -9681,7 +9654,7 @@ const app = createApp({
             updateModalRef, latestUpdateConfig,
             showConfirmModal, confirmMessage, modelMode, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters,
-            user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
+            user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
             isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,

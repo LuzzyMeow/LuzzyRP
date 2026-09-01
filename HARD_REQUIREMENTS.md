@@ -11,7 +11,7 @@ LuzzyRP v1.0.0 起为对开源项目 [STA1N156/RP-Hub](https://github.com/STA1N1
 
 ---
 
-## 八条硬性规定
+## 九条硬性规定
 
 ### 规定 1 · NSFW 协议不可触碰
 

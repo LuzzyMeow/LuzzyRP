@@ -46,26 +46,3 @@
 #     依赖安卓系统自带 Noto 字体回退（novel 页 art 字体降级为衬线）
 #   - 预期冲突点：上游改子页面依赖时需重打
 #
-# 008-theme-vars.patch
-#   - index.html tailwind.config: gray/primary 色板 hex → var(--tw-gray-*)/var(--tw-primary-*)
-#   - 对应：主题系统（docs/design/theme-tech-plan.md），色板变量化是主题切换的技术底座
-#   - 预期冲突点：上游改色板结构/新增色阶时需重打
-#
-# 009-font-luzzy.patch
-#   - core-utils.js fontFamilies: 增加 { value: 'luzzy', label: 'Luzzy 默认字体' }
-#   - 对应：字体设置（用户指定默认字体 PuHuiTi + AlibabaSans）
-#   - 预期冲突点：上游改 fontFamilies 结构时需重打
-#
-# 010-defaults.patch
-#   - app.js: 默认 fontFamily 'modern' → 'luzzy'；normalizeFontFamily 白名单加 luzzy
-#   - 对应：新用户默认我们的字体（用户要求）
-#   - 预期冲突点：上游改默认值/白名单时需重打
-#
-# 011-theme-ui.patch
-#   - index.html 设置页: 高级参数区块新增「界面主题」custom-select + 模式选择
-#   - app.js: settings 增加 theme/themeMode 字段（默认 luzzy/light）+ themeOptions/
-#     themeModeOptions + applyTheme/applyThemeMode watch + setup return 暴露 +
-#     老用户迁移（savedSettings 无 theme 字段 → classic）
-#   - 对应：设置页主题功能（用户要求）+ 新用户默认新主题 + 老用户保留经典
-#   - 预期冲突点：上游改设置页结构/字体 watch 区域时需重打
-# ------------------------------------------------------------

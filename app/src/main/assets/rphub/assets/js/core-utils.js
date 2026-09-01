@@ -979,7 +979,6 @@ window.RPHubUtils = {
             ]),
             presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
             fontFamilies: Object.freeze([
-                { value: 'luzzy', label: 'Luzzy 默认字体' },
                 { value: 'modern', label: '现代通用字体' },
                 { value: 'serif', label: '衬线字体' },
                 { value: 'system', label: '系统字体' }

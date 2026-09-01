@@ -20,7 +20,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 |------|------|-----------|
 | `README.md` | 项目门面（含二创署名声明） | 版本更新时同步（硬性规定 5） |
 | `CHANGELOG.md` | 更新日志 | 格式：`### vX.Y.Z — 标题` + 「新增/优化/修复/注意事项」分类 + 构建结果与 versionCode；每条注明上游基线版本 |
-| `HARD_REQUIREMENTS.md` | 8 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
+| `HARD_REQUIREMENTS.md` | 9 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
 | `AGENTS.md` | 本文件 | 与 HARD_REQUIREMENTS 同步演进 |
 | `LICENSE` | CC BY-NC 4.0 | **禁止删除/改写**（含上游 LICENSE 保留义务） |
 | `keystore.properties` | 签名配置 | 不入库（.gitignore） |
@@ -124,7 +124,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 3.1 新任务接手（每次会话必做）
 
-1. 读 `HARD_REQUIREMENTS.md`（8 条）与 `AGENTS.md`（本文件）；
+1. 读 `HARD_REQUIREMENTS.md`（9 条）与 `AGENTS.md`（本文件）；
 2. 读 `docs/WORKLOG.md` 末尾，了解上次会话状态与遗留项；
 3. 读 `CHANGELOG.md` 顶部，确认当前版本与上游基线；
 4. 检查 `tools/upstream-fingerprints.txt` 与当前 `assets/rphub/` 是否一致（确认无未登记改动）；

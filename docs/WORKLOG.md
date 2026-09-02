@@ -698,3 +698,8 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 1. assembleRelease → push → GitHub Release v1.2.0（附 APK）；
 2. 用户真机升级体验反馈（外观页/关于页/三协议供应商/玻璃观感）；
 3. v1.3.0 候选：Gemini/Anthropic 图像模型接生图流、视频输入管线、每模型温度覆盖。
+
+### 会话 12 收尾：GitHub Release v1.2.0 已发布
+- 提交 b3a15e65 推送 origin/main · Release（stable，附三件套 APK ≈17.95MB×3）：https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.2.0
+- 五维 critique 已过：方向（三方向硬门用户选定统一雾纸）/ 品牌（全 token 化零新色，violet 徽标为功能区分色）/ 层级（meta chip 次要于商徽标与模型 id）/ 动效（200ms ease-out 既有令牌，无新增动效，reduced-motion 兜底）/ 工程（node --check 全量 + computed 四值证据 + patch 全登记零裸改 + pro-rules：触控目标 ≥44px 的编辑器行按钮、暗色正文对比 ≥7:1、无 hover-only 交互）
+- 遗留移交：真机四态走查（设备未连接，用户侧载 release APK 或接入 USB 后由下一会话补）

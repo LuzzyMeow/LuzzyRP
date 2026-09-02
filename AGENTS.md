@@ -322,78 +322,64 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-03 会话 14 移交快照 · v1.2.1 开发中）
+## 9. 当前状态与已知问题（2026-09-03 会话 15 快照 · v1.2.1 待发布）
 
-> **⚠ 接手必读：v1.2.1 处于「开发中 · 不可游玩」状态。** 全部 v1.2.1 改动在工作区**未提交**。
-> 当前构建存在**布局异常**（部分页面顶部遗漏字段、底部超出屏幕边缘），移交优先修复。
-> 完整过程、根因与诊断线索见 `docs/WORKLOG.md` 「会话 14」及「会话 14 移交补充」两节；
-> 计划文档 `docs/PLAN-v1.2.1.md`。本节取代会话 12 快照。
+> **v1.2.1 布局异常已修复并经模拟器验证**（会话 15）。真根因与「会话 14 移交」的
+> 「缺 2 个 `</div>`」假设不同：为 patch 018 head 注入丢失 `<script>` 开标签。
+> 完整过程见 `docs/WORKLOG.md` 会话 15；计划文档 `docs/PLAN-v1.2.1.md`。本节取代会话 14 快照。
 
-### 版本状态（2026-09-03 · 会话 14 移交）
+### 版本状态（2026-09-03 · 会话 15）
 
-- **v1.2.1（versionCode 8 / EXTRACT_VERSION 13）开发中**。功能代码已完成：
-  ① patch 016 召回块防合并（模拟器罐装验证 ✓）；② patch 017 记忆内容管理器
-  （app.js 数据层 + index.html 卡片与编辑弹窗；模拟器 CRUD 罐装验证 ✓）；
-  ③ 品牌色收编（luffy-theme.css：splash 7 处 + 设置两横幅；luzzy/classic 对照 ✓）；
-  ④ patch 018 开屏防闪蓝（head 主题快照 + luzzy-theme.css 移入 head；模拟器验证 ✓）；
-  ⑤ 标记体系（硬性规定 10：verify-markers.ps1 39 项全绿 + entities 实体重放 +
-  存量标记补全）。CHANGELOG/README 已标注开发中。
-- **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致
-  （verify-markers R1/R2 项）。
-- **真机（小米 df97f3c4）已安装 EXTRACT 13 构建但存在布局异常**；模拟器同构建。
+- **v1.2.1（versionCode 8 / EXTRACT_VERSION 14）待发布**。功能与修复全部就绪：
+  ① patch 016 召回块防合并；② patch 017 记忆内容管理器；③ 品牌色收编；
+  ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
+  （verify-markers.ps1 39 项全绿；entities/012-018-index-html.patch 已重建，
+  正/反向 apply 双 PASS）。
+- **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
+- 结构验证方法（可复用）：parse5（浏览器同源解析器）对 v1.2.0 基线做树级对比，
+  9 个 `.management-view` 结构 = 基线 + 预期插入；body 直接子级一致。
+- 模拟器（LuzzyRP_Test）已装 EXTRACT 14 debug 构建并完成验证：聊天/记忆/外观/关于/
+  设置五页逐页截图核对通过（无顶部缺字段/底部溢出/裸文本，主题 CSS 正常加载）；
+  管理器 CRUD 回归：编辑失败路径（重嵌 fetch 失败 → toast + 不落盘 + 按钮复位）✓、
+  启停 ✓、删除+确认 ✓、统计即时联动 ✓、杀进程重启持久化 ✓。
+- **真机（小米 df97f3c4）未复验**——建议随 v1.2.1 正式包安装复验。
 
-### 已知未解问题（移交优先项）
+### 遗留待办（按优先级）
 
-- **布局异常**：部分页面顶部遗漏字段、底部超出屏幕边缘（用户真机报告；视图未定位）。
-  强怀疑：v1.2.1 对 index.html 的重放改动在 memory 视图之后区域缺 2 个闭合标签
-  （正则计数曾报 AFTER_MEMORY_BALANCE=-2 被误放行；正则计数有盲区不可作为结构依据）。
-  诊断路径与修复原则详见 WORKLOG 会话 14 移交补充节「已知未解问题 #2」。
-  **修复原则：只动 patch 017 插入块及其闭合，禁止再次搬移上游区块；
-  结构验证必须用真实 HTML 解析器（iframe srcdom/WebView），不可用正则计数。**
-- 已修复待复验：记忆面板悬浮于所有页面底部（EXTRACT 12 构建；根因与修复见 WORKLOG）。
-- 悬留待办（v1.2.0 起顺延）：上游 toggle 蓝（peer-checked:bg-blue-*）主题化、
-  「荧光笔落笔」动效、SAF 实机、真实 API 流式观察、anthropic/gemini 真实 key 端到端。
+1. 发布 v1.2.1：构建正式包（assembleRelease）+ GitHub Release（CHANGELOG/README 已去「开发中」标注）；
+2. 真机复验 v1.2.1（EXTRACT 14 会自动重解压）；
+3. 上游 toggle 蓝（peer-checked:bg-blue-*）主题化（v1.2.0 起顺延，设置页叙事视角选中态仍为蓝）；
+4. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
+5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
-### 接手步骤（按序）
+### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-1. `git status` + 读 `docs/WORKLOG.md` 会话 14 两节 + `docs/PLAN-v1.2.1.md`；
-2. 跑 `tools/verify-markers.ps1`（应 39 绿）与 `node --check` 三文件；
-3. 按上述诊断路径修布局异常（EXTRACT_VERSION 随 assets 改动 +1）；
-4. 双端重装逐页截图核对（对照 verify-v120-phone-* 基线）；管理器 CRUD 罐装回归；
-5. 全绿后走发布流程（CHANGELOG/README 已预写，届时去掉「开发中」标注并构建正式包）。
-
-### 高频坑速查（本会话全部实踩，勿再踩）
-
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（本会话第 5 次踩中；现值 13）；
-- **真机 exec-out 管道损坏 PNG**：用设备侧 `screencap -p /sdcard/x.png` + `adb pull`；
-- **正则 div 计数不可作为 HTML 结构依据**（浏览器容错 + 自闭合盲区）；
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 14；改前先确认当前值）；
+- **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
+  git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
+  要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；
+- **真机 exec-out 管道损坏 PNG**：用设备侧 `screencap -p /sdcard/x.png` + `adb pull`
+  （Git Bash 需 `MSYS_NO_PATHCONV=1` 防止 /sdcard 被改写）；
+- **正则 div 计数不可作为 HTML 结构依据**：结构判定用 parse5/jsdom 真实解析器
+  （/tmp/domdiff/analyze.js 思路可复刻：树级对比 management-view 链与 body 子级）；
 - **Vue production 编译丢弃注释**：v-else-if 链后的注释不隔断链，普通元素紧跟会被
-  吸收进条件链（管理卡教训）；transition 弹窗必须放在「视图区之外」的文档尾部
-  （插在视图区中间不渲染）；
-- **CDP element.click() 对部分 Vue 合成事件无效**：关键导航用 UI Automator 真实触摸；
-- **file:// 资源与 pm clear**：排查布局问题前先 pm clear 排除缓存与旧资产干扰；
+  吸收进条件链（管理卡教训）；transition 弹窗必须放在「视图区之外」的文档尾部；
+- **CDP element.click() 对部分 Vue 合成事件无效**：关键导航用 UI Automator 真实触摸
+  （模拟器截图为 900×2000、实机 1080×2400，tap 坐标按 ×1.2 换算或用 uiautomator dump 取 bounds）；
 - entities 生成须 `--ignore-cr-at-eol`、应用须 `--ignore-whitespace`（CRLF/LF 混用坑）。
 
 ### 主题系统架构速览（改主题必读）
 
 - 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性（app.js watch，immediate）；
-- **patch 018 起 head 内联脚本先按 localStorage 快照（luffy-ext.js MutationObserver 维护）
-  设置双属性，luffy-theme.css 已移入 head**——开屏首帧即正确主题色；
-- 变量：luffy-theme.css 定义 `--tw-gray-*` / `--tw-primary-*` 为 RGB 三元组
+- **patch 018 起 head 内联脚本先按 localStorage 快照（luzzy-ext.js MutationObserver 维护）
+  设置双属性，luzzy-theme.css 已移入 head（document.write 注入，块内必须自带 `<script>`
+  开标签）**——开屏首帧即正确主题色；
+- 变量：luzzy-theme.css 定义 `--tw-gray-*` / `--tw-primary-*` 为 RGB 三元组
   （classic=上游原值，luzzy 亮/暗两套）；引用走 patch 008 色板
   `rgb(var(--tw-*) / <alpha-value>)`；
 - 统一雾纸玻璃：`--luzzy-glass-alpha` 0.74 / `--luzzy-glass-blur` 18px 单点变量；
 - 品牌色规则（DESIGN.md Colors 章）：禁新增裸 blue/indigo/violet 色相类；
-  上游遗留蓝由 luffy-theme.css 在 `:root[data-theme="luzzy"]` 内收编（classic 零影响）。
-
-### 待办（按优先级，2026-09-03 会话 14 移交）
-
-1. **修复 v1.2.1 布局异常（顶部缺字段/底部溢出）**——见上文接手步骤；
-2. 双端复验：管理器 CRUD 罐装回归 + 逐页截图对照 v1.2.0 基线；
-3. 全绿后发布 v1.2.1（构建正式包 + GitHub Release，CHANGELOG/README 去掉开发中标注）；
-4. 上游 toggle 蓝（peer-checked:bg-blue-*）主题化（本次范围外遗留）；
-5. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-6. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
+  上游遗留蓝由 luzzy-theme.css 在 `:root[data-theme="luzzy"]` 内收编（classic 零影响）。
 
 ## 8. 交接清单（Agent 结束会话前）
 

@@ -60,5 +60,24 @@
         }
     };
 
+    // ---- 外部链接（系统浏览器打开；WebView 内 window.open 无 onCreateWindow 是 no-op） ----
+    Luzzy.openUrl = function (url) {
+        const target = String(url || '');
+        if (!/^https?:\/\//i.test(target)) return false;
+        if (bridge && typeof bridge.openUrl === 'function') {
+            try {
+                bridge.openUrl(target);
+                return true;
+            } catch (e) { /* fall through */ }
+        }
+        // 降级：浏览器环境直接跳转
+        try {
+            window.open(target, '_blank');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+
     window.Luzzy = Luzzy;
 })();

@@ -703,3 +703,24 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 - 提交 b3a15e65 推送 origin/main · Release（stable，附三件套 APK ≈17.95MB×3）：https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.2.0
 - 五维 critique 已过：方向（三方向硬门用户选定统一雾纸）/ 品牌（全 token 化零新色，violet 徽标为功能区分色）/ 层级（meta chip 次要于商徽标与模型 id）/ 动效（200ms ease-out 既有令牌，无新增动效，reduced-motion 兜底）/ 工程（node --check 全量 + computed 四值证据 + patch 全登记零裸改 + pro-rules：触控目标 ≥44px 的编辑器行按钮、暗色正文对比 ≥7:1、无 hover-only 交互）
 - 遗留移交：真机四态走查（设备未连接，用户侧载 release APK 或接入 USB 后由下一会话补）
+
+### 会话 12 补遗 · 全面自检轮（用户指令：完全检查全部流程/改动）
+
+用户要求对本次任务做完整复查。逐文件 diff 级审查 + 真实调用链回归，**确认并修复 9 处 bug + 1 处壳工程缺失**：
+
+| # | 严重度 | 问题 | 修复 |
+|---|--------|------|------|
+| 1 | ★致命★ | 三协议适配器收到的 url 是调用方 buildApiEndpoint 产物（/v1/chat/completions）——anthropic POST 到错误端点、gemini 拼出损坏 URL（罐装测试传裸 base 未暴露） | 分发器剥 OpenAI 路径得裸 base，CDP 按真实调用链回归：anthroUrl=https://api.anthropic.com ✓ geminiUrl=…/v1beta/models/…:streamGenerateContent ✓ |
+| 2 | 高 | 自定义生图 reroll 崩溃：nextImageUrl.href 对字符串 URL 取 undefined | 两分支统一产出字符串，调用点去 .href |
+| 3 | 高 | 自定义生图 prompt 恒为字面 "$1"：encodeURIComponent 杀死了正则替换占位符 | prompt 原样进替换串；parse 改子串提取+容错解码 |
+| 4 | 高 | 编辑器保存的手动模型不进 providerModels 缓存 → 无 Key 的商手动模型永不进选择器 | 保存时合并入缓存（去重） |
+| 5 | 中 | fetchModelsForProvider 的 manual 条目 {id,manual} 丢失 meta → 选择器 meta chip 不显示 | 展开完整条目 |
+| 6 | 中 | 热检测预设逐字输入锁死短标签（glm-5.3 → glm-5.3-flash 时 label 停在 GLM-5.3） | __presetLabel 追踪自动填充值，长词预设可覆盖；UI 回归：两步输入保存后 label=GLM-5.3-Flash ✓ |
+| 7 | 低 | 预设「撤销」恒作用于最后一行 | providerEditorPresetModel 追踪触发行 |
+| 8 | 低 | 预设填充 extraBody 后输入框回显为空 | 填充时同步 extraBodyText（回归：回显 {"reasoning_effort":"max"} ✓） |
+| 9 | 中 | anthropic thinking 预算可能 ≥ max_tokens（API 400）；连续同角色消息两家 API 均拒绝 | anthropicThinkingConfig 守卫（<2048 不启用）；toAnthropic/toGemini 相邻同角色合并（回归：u1+u2 合并为双 text part ✓） |
+| 10 | 中（壳） | WebView 无 onCreateWindow/setSupportMultipleWindows → window.open no-op，关于页 GitHub 按钮无效（v1.0.0 起 _blank 外链同病） | LuzzyBridge.openUrl（ACTION_VIEW）+ luzzy-bridge.js 封装降级 + openGitHubRepo 接入 |
+
+**方法教训**：罐装测试必须走「真实调用链传参形态」（本次直传裸 base 掩盖了 #1）；EXTRACT_VERSION 反复坑再现（stash 验证轮装回旧资产干扰判断半小时）。
+
+**现场**：fetch 拦截已还原；全部测试供应商已删（UI 删除路径回归）；EXTRACT_VERSION 6→7。

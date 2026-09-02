@@ -713,7 +713,14 @@ const app = createApp({
             if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.8.9';
         };
         const openGitHubRepo = () => {
-            try { window.open('https://github.com/LuzzyMeow/LuzzyRP', '_blank'); } catch (e) { /* 忽略 */ }
+            const url = 'https://github.com/LuzzyMeow/LuzzyRP';
+            try {
+                if (window.Luzzy && typeof window.Luzzy.openUrl === 'function') {
+                    window.Luzzy.openUrl(url);
+                } else {
+                    window.open(url, '_blank');  // 桥不可用时的兜底（WebView 内可能无动作）
+                }
+            } catch (e) { /* 忽略 */ }
         };
 
         const showApiProviderSelector = ref(false);
@@ -2265,12 +2272,25 @@ const app = createApp({
         const parseCustomImageRequest = (requestUrl) => {
             const raw = String(requestUrl || '').slice(CUSTOM_IMAGE_SCHEME.length);
             const queryIndex = raw.indexOf('?');
-            const ref = queryIndex >= 0 ? raw.slice(0, queryIndex) : raw;
-            const params = new URLSearchParams(queryIndex >= 0 ? raw.slice(queryIndex + 1) : '');
-            return { ref, prompt: params.get('prompt') || '', size: params.get('size') || '' };
+            const ref = queryIndex >= 0 ? decodeURIComponent(raw.slice(0, queryIndex)) : raw;
+            if (queryIndex < 0) return { ref, prompt: '', size: '' };
+            // prompt 原样携带（$1 由正则替换为原始 tag 串，可能含裸 &/%，不能用 URLSearchParams）
+            const query = raw.slice(queryIndex + 1);
+            const promptIdx = query.indexOf('prompt=');
+            const sizeIdx = query.indexOf('&size=');
+            const promptRaw = promptIdx >= 0 ? query.slice(promptIdx + 7, sizeIdx >= 0 ? sizeIdx : undefined) : '';
+            let prompt = promptRaw;
+            try { prompt = decodeURIComponent(promptRaw); } catch (e) { /* 裸 % 等非法序列保留原文 */ }
+            let size = '';
+            if (sizeIdx >= 0) {
+                const sizeRaw = query.slice(sizeIdx + 6);
+                try { size = decodeURIComponent(sizeRaw); } catch (e) { size = sizeRaw; }
+            }
+            return { ref, prompt, size };
         };
+        // prompt 不做 encodeURIComponent：正则替换的 $1 必须原样出现在替换串里才能捕获 tag
         const buildCustomImageRequestUrl = (modelRef, prompt, size) =>
-            `${CUSTOM_IMAGE_SCHEME}${encodeURIComponent(modelRef)}?prompt=${encodeURIComponent(prompt)}${size ? `&size=${encodeURIComponent(size)}` : ''}`;
+            `${CUSTOM_IMAGE_SCHEME}${encodeURIComponent(modelRef)}?prompt=${prompt}${size ? `&size=${encodeURIComponent(size)}` : ''}`;
         const sizeToOpenAISize = (sizeLabel) => {
             if (sizeLabel === '横图') return '1792x1024';
             if (sizeLabel === '方图') return '1024x1024';
@@ -2541,7 +2561,7 @@ const app = createApp({
             card.classList.add('is-rerolling');
             button.disabled = true;
 
-            const job = await loadGeneratedImageCard(card, nextImageUrl.href, { fresh: true });
+            const job = await loadGeneratedImageCard(card, nextImageUrl, { fresh: true });
             if (job.status === 'done') {
                 if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                     finishLoading();
@@ -3803,7 +3823,7 @@ const app = createApp({
                 const data = await response.json();
                 models = Array.isArray(data?.data) ? data.data : [];
             }
-            const manual = (Array.isArray(provider.models) ? provider.models : []).map(m => ({ id: m.id, manual: true }));
+            const manual = (Array.isArray(provider.models) ? provider.models : []).map(m => ({ ...m, manual: true }));
             const manualOnly = manual.filter(m => !models.some(existing => existing.id === m.id));
             const merged = [...manualOnly, ...models];
             providerModels.value = { ...providerModels.value, [provider.id]: merged };
@@ -3910,6 +3930,7 @@ const app = createApp({
         const providerEditorDraft = ref(null);
         const providerEditorIsNew = ref(false);
         const providerEditorPresetNotice = ref('');
+        const providerEditorPresetModel = ref(null);   // 撤销目标：最近一次触发预设填充的模型行
         // 五组模型 id 热检测预设（大小写不敏感，长词优先；只填空字段不覆盖已编辑值）
         const MODEL_ID_PRESETS = [
             {
@@ -3938,10 +3959,11 @@ const app = createApp({
             if (!needle) return null;
             return MODEL_ID_PRESETS.find(p => needle.includes(p.match)) || null;
         };
-        const applyModelIdPreset = (model, preset) => {
+        const applyModelIdPreset = (model, preset, autoLabel = '') => {
             const applied = [];
             const f = preset.fill;
-            if (!model.label && f.label) { model.label = f.label; applied.push('显示 id'); }
+            // 渐进输入场景：label 若为上一次预设自动填充值，视为可覆盖（否则 glm-5.3 → glm-5.3-flash 会锁死短标签）
+            if ((!model.label || model.label === autoLabel) && f.label) { model.label = f.label; applied.push('显示 id'); }
             if (!model.contextLength && f.contextLength) { model.contextLength = f.contextLength; applied.push('上下文长度'); }
             if (!model.maxOutput && f.maxOutput) { model.maxOutput = f.maxOutput; applied.push('最大输出长度'); }
             const sameModality = (a, b) => a.length === b.length && a.every(v => b.includes(v));
@@ -3953,13 +3975,19 @@ const app = createApp({
             }
             if (!model.type || model.type === 'text') { if (f.type !== 'text') { model.type = f.type; applied.push('模型类型'); } }
             const hasExtra = model.extraBody && Object.keys(model.extraBody).length > 0;
-            if (!hasExtra && f.extraBody) { model.extraBody = { ...f.extraBody }; applied.push('自定义请求体'); }
+            if (!hasExtra && f.extraBody) {
+                model.extraBody = { ...f.extraBody };
+                model.extraBodyText = JSON.stringify(f.extraBody);
+                applied.push('自定义请求体');
+            }
+            if (applied.includes('显示 id')) model.__presetLabel = f.label;
             return applied;
         };
         const onProviderEditorModelIdInput = (model) => {
             const preset = matchModelIdPreset(model.id);
-            if (!preset) { providerEditorPresetNotice.value = ''; return; }
-            const applied = applyModelIdPreset(model, preset);
+            if (!preset) { providerEditorPresetNotice.value = ''; providerEditorPresetModel.value = null; return; }
+            const applied = applyModelIdPreset(model, preset, model.__presetLabel || '');
+            providerEditorPresetModel.value = model;
             providerEditorPresetNotice.value = applied.length > 0
                 ? `已按预设填充：${applied.join('、')}` : '';
         };
@@ -3968,15 +3996,16 @@ const app = createApp({
             const preset = matchModelIdPreset(model.id);
             if (!preset) return;
             const f = preset.fill;
-            if (model.label === f.label) model.label = '';
+            if (model.__presetLabel && model.label === f.label) { model.label = ''; delete model.__presetLabel; }
             if (model.contextLength === f.contextLength) model.contextLength = null;
             if (model.maxOutput === f.maxOutput) model.maxOutput = null;
             const sameModality = (a, b) => a.length === b.length && a.every(v => b.includes(v));
             if (model.inputModalities && sameModality(model.inputModalities, f.inputModalities)) model.inputModalities = ['text'];
             if (model.type === f.type) model.type = 'text';
             if (model.extraBody && f.extraBody
-                && JSON.stringify(model.extraBody) === JSON.stringify(f.extraBody)) model.extraBody = {};
+                && JSON.stringify(model.extraBody) === JSON.stringify(f.extraBody)) { model.extraBody = {}; model.extraBodyText = ''; }
             providerEditorPresetNotice.value = '';
+            providerEditorPresetModel.value = null;
         };
         const addProviderEditorModel = () => {
             if (!providerEditorDraft.value) return;
@@ -3986,6 +4015,7 @@ const app = createApp({
             if (!providerEditorDraft.value) return;
             providerEditorDraft.value.models.splice(index, 1);
             providerEditorPresetNotice.value = '';
+            providerEditorPresetModel.value = null;
         };
         // 编辑器辅助：长度输入（原样保留文本，失焦/保存时经 parseLengthToken 归一）、模态多选、请求体懒编辑
         const parseLengthSafe = (event) => {
@@ -4149,7 +4179,13 @@ const app = createApp({
                     if (settings.apiProviderId === oldId) settings.apiProviderId = cleanId;
                     rebuildMergedAvailableModels();
                 }
-                // 手动模型并入缓存 → 合并视图热更新（聊天/识图槽位立即可见）
+                // 手动模型并入缓存 → 合并视图热更新（聊天/识图槽位立即可见，无需等 /models 拉取）
+                const cached = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
+                const manualEntries = models.map(m => ({ ...m, manual: true }))
+                    .filter(m => !cached.some(e => e.id === m.id));
+                if (manualEntries.length > 0) {
+                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualEntries, ...cached] };
+                }
                 rebuildMergedAvailableModels();
                 if (settings.apiProviderId === cleanId) {
                     settings.apiUrl = cleanUrl;
@@ -10584,7 +10620,7 @@ const app = createApp({
             showConfirmModal, confirmMessage, modelMode, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
             user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
-            showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
+            showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
             editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,

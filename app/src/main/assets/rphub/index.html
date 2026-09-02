@@ -3096,7 +3096,7 @@
                         </div>
                         <p v-if="providerEditorPresetNotice" class="mb-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-1.5 text-[11px] text-amber-700">
                             {{ providerEditorPresetNotice }}
-                            <button type="button" @click="undoModelIdPreset(providerEditorDraft.models[providerEditorDraft.models.length - 1])" class="ml-1 underline hover:no-underline">撤销</button>
+                            <button type="button" @click="undoModelIdPreset(providerEditorPresetModel)" class="ml-1 underline hover:no-underline">撤销</button>
                         </p>
                         <div v-for="(model, index) in providerEditorDraft.models" :key="index"
                             class="rounded-lg border border-gray-200 bg-white p-3 mb-2 space-y-2.5">

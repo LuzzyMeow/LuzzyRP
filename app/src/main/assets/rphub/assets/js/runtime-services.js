@@ -145,7 +145,17 @@
 
     const requestChatCompletion = async (options) => {
         // [LuzzyRP patch 015] 三协议适配：openai（原路径）| anthropic（Messages API）| gemini（GenerateContent API）
+        // 调用方传入的 url 是 OpenAI 形态（buildApiEndpoint 产物，含 /v1/chat/completions）；
+        // 非 openai 协议先剥掉 OpenAI 路径得到裸 base，再由各适配器拼自己的端点。
         const protocol = options.protocol || 'openai';
+        if (protocol !== 'openai') {
+            const stripped = String(options.url || '')
+                .replace(/\/chat\/completions\s*$/, '')
+                .replace(/\/embeddings\s*$/, '')
+                .replace(/\/v1\s*$/, '')
+                .replace(/\/+$/, '');
+            options = { ...options, url: stripped };
+        }
         if (protocol === 'anthropic') return requestAnthropicCompletion(options);
         if (protocol === 'gemini') return requestGeminiCompletion(options);
         const response = await fetch(options.url, {
@@ -212,11 +222,33 @@
         if (converted.length === 0 || converted[0].role !== 'user') {
             converted.unshift({ role: 'user', content: [{ type: 'text', text: '(begin)' }] });
         }
-        return { system, messages: converted };
+        // 相邻同角色合并（Anthropic 严格交替，上游消息流可能产生连续 user）
+        const mergedRoles = [];
+        converted.forEach(message => {
+            const last = mergedRoles[mergedRoles.length - 1];
+            if (last && last.role === message.role) {
+                const lastParts = Array.isArray(last.content) ? last.content : [{ type: 'text', text: String(last.content || '') }];
+                const msgParts = Array.isArray(message.content) ? message.content : [{ type: 'text', text: String(message.content || '') }];
+                last.content = [...lastParts, ...msgParts];
+            } else {
+                mergedRoles.push(message);
+            }
+        });
+        return { system, messages: mergedRoles };
+    };
+
+    // [LuzzyRP patch 015] Anthropic thinking 预算守卫：budget 必须 < max_tokens 且 ≥1024，
+    // 预算放不下时（max_tokens 过小）直接不启用 thinking，避免 API 400。
+    const anthropicThinkingConfig = (maxTokens) => {
+        const total = Number(maxTokens) || 8192;
+        if (total < 2048) return null;
+        const budget = Math.max(1024, Math.min(64000, Math.round(total * 0.75)));
+        return budget < total ? { type: 'enabled', budget_tokens: budget } : null;
     };
 
     const requestAnthropicCompletion = async (options) => {
         const { system, messages } = toAnthropicMessages(options.messages || []);
+        const thinkingConfig = options.reasoningEffort ? anthropicThinkingConfig(options.maxTokens) : null;
         const response = await fetch(options.url, {
             method: 'POST',
             headers: {
@@ -231,7 +263,7 @@
                 ...(system ? { system } : {}),
                 messages,
                 ...(Number.isFinite(options.temperature) ? { temperature: options.temperature } : {}),
-                ...(options.reasoningEffort ? { thinking: { type: 'enabled', budget_tokens: Math.max(1024, Math.min(64000, Math.round((options.maxTokens || 8192) * 0.75))) } } : {}),
+                ...(thinkingConfig ? { thinking: thinkingConfig } : {}),
                 ...(options.extraBody || {}),
                 stream: options.stream
             }),
@@ -370,7 +402,15 @@
             } else {
                 parts = [{ text: String(message.content || '') }];
             }
-            if (parts.length > 0) contents.push({ role, parts });
+            if (parts.length > 0) {
+                // 相邻同角色合并（Gemini 多轮期望交替，上游消息流可能产生连续 user）
+                const last = contents[contents.length - 1];
+                if (last && last.role === role) {
+                    last.parts = [...last.parts, ...parts];
+                } else {
+                    contents.push({ role, parts });
+                }
+            }
         });
         const body = {
             contents,

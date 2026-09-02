@@ -159,6 +159,29 @@
 #     · anthropic/gemini 非流式响应被服务端以 SSE 返回时逐行兜底解析（原 JSON.parse 直接抛错）
 #     · system 抽出启发式收紧为「首条 user 纯文本 且 messages.length > 1」
 #       （单消息场景正文被误吞进 system；仅 role==='system' 显式角色无条件抽出）
+#   - 全面自检轮修正（会话 12 复查，9 处）：
+#     · ★致命★ requestChatCompletion 分发器：anthropic/gemini 先剥离调用方传入的 OpenAI 路径
+#       （buildApiEndpoint 产物 /v1/chat/completions），否则 anthropic POST 到错误端点、
+#       gemini 拼出 /v1/chat/completions/v1beta/... 完全损坏（罐装测试传裸 base 未暴露，
+#       真实调用链 CDP 回归验证修复后 URL 正确）
+#     · toAnthropicMessages/toGeminiContents 相邻同角色合并（两家 API 严格交替，上游消息流
+#       可能产生连续 user → 400）
+#     · anthropic thinking 预算守卫（anthropicThinkingConfig）：budget 必须 < max_tokens 且 ≥1024，
+#       max_tokens < 2048 时不启用 thinking（原实现 budget 可能 ≥ max_tokens 被拒）
+#     · 自定义生图 reroll 崩溃：loadGeneratedImageCard(card, nextImageUrl.href) 对字符串 URL
+#       取 undefined（两分支已统一产出字符串）
+#     · 自定义生图 URL 的 $1 编码：prompt 不做 encodeURIComponent（否则正则替换不发生，
+#       生图 prompt 恒为字面 "$1"）；parseCustomImageRequest 改子串提取 + 容错解码
+#     · 编辑器保存时手动模型并入 providerModels 缓存（原实现未入缓存，无 Key 的商
+#       手动模型永不进选择器）；fetchModelsForProvider 的 manual 条目携带完整 meta
+#       （原 {id, manual} 丢失 contextLength 等，选择器 meta chip 不显示）
+#     · 热检测预设渐进输入：模型 __presetLabel 追踪自动填充的 label，长词预设可覆盖
+#       短词预设的自动 label（否则逐字输入 glm-5.3-flash 会锁死 GLM-5.3 标签）
+#     · 预设「撤销」目标修正：providerEditorPresetModel 追踪触发行（原实现恒撤销最后一行）
+#     · 预设填充 extraBody 时同步 extraBodyText 回显（原实现输入框显示空但对象已填）
+#   - 壳工程配套（非上游前端）：LuzzyBridge 新增 openUrl（ACTION_VIEW 系统浏览器）——
+#     WebView 无 onCreateWindow/setSupportMultipleWindows，window.open 是 no-op，
+#     关于页 GitHub 入口必须走桥；luzzy-bridge.js 封装含降级
 #   - 预期冲突点：上游改 settings 结构 / 请求管线（requestChatCompletion）/ fetchModels / 记忆嵌入 /
 #     生图正则与任务管线 / 设置页生图区时需重打
 # ------------------------------------------------------------

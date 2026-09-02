@@ -89,6 +89,21 @@ class LuzzyBridge(private val context: Context) {
         return "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     }
 
+    /**
+     * 用系统浏览器打开外部链接（关于页仓库入口等）。
+     * WebView 内 window.open 无 onCreateWindow 支持时是 no-op，外链必须走 Intent。
+     */
+    @JavascriptInterface
+    fun openUrl(url: String) {
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            // 无可处理该 scheme 的应用时静默失败（前端侧有降级提示路径）
+        }
+    }
+
     companion object {
         /** 上游基线版本；每次同步上游后更新。 */
         const val UPSTREAM_VERSION = "1.8.9"

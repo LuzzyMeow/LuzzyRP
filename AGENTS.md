@@ -214,6 +214,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 015 | app.js + runtime-services.js + ui-components.js + index.html | 供应商三协议（OpenAI/Anthropic/Gemini 适配）+ 编辑器二级弹窗（模型增删改/热检测预设/引用重映射）+ max_tokens 注入 + 自定义生图（luzzy-image:// 分流） |
 | 016 | data-services.js | 向量召回块 `_preventContextMerge: true`（防合并吞掉查看器「角色记忆（向量召回）」标注，v1.2.1） |
 | 017 | app.js + index.html | 记忆内容管理器（角色/分支选择器跨角色查看分片与总结；编辑=强制重嵌成功才落盘/启停/删除/清空；v1.2.1） |
+| 018 | index.html head + ext/luzzy-ext.js | 开屏主题防闪蓝（head 内联脚本按 localStorage 快照写 data-theme/data-mode + luzzy-theme.css 由尾部 link 移入 head 首帧注入；快照由 luzzy-ext.js MutationObserver 维护；v1.2.1） |
 
 **新增 patch 的规则**：
 

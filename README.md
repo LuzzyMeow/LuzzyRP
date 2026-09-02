@@ -220,7 +220,7 @@ LuzzyRP/
 │   ├── sync-upstream.ps1         # 上游同步脚本
 │   ├── apply-patches.ps1         # patch 重放脚本
 │   ├── gen-changelog.mjs         # 关于页 CHANGELOG 生成脚本（发版后运行）
-│   ├── patches/                  # 二创登记 patch（001-015）
+│   ├── patches/                  # 二创登记 patch（001-018，entities/ 为 012+ 实体重放）
 │   └── upstream-fingerprints.txt # 上游文件指纹基线
 ├── docs/                         # 规划 / 日志 / 设计存档 / 归档
 ├── keystore/                     # 签名（不入库）

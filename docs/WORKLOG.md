@@ -903,3 +903,43 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
    （流程见本节上文与 PLAN-v1.2.1.md §六）→ verify-markers 全绿；
 4. 全部通过后再走 CHANGELOG/README 发布流程（当前文档已标注「开发中·未发布」）；
 5. 提交拆分建议：结构修复单独一个 commit（含 WORKLOG 修复记录）。
+
+---
+
+### 会话 15 开始 · v1.2.1 布局异常修复（2026-09-03）
+
+任务：接手会话 14 移交，修复「顶部遗漏字段/底部溢出」布局异常 → 模拟器验证 → 推送。
+
+### 会话 15 根因定位与结构修复（2026-09-03）
+
+**根因（parse5 浏览器同源解析器实证，推翻「缺 2 个 </div>」假设）**
+- 用 parse5（与浏览器同族的规范 HTML 解析器，jsdom 内核）对 v1.2.0 基线（39677d41）
+  与当前 index.html 做树级对比：9 个 `.management-view` 中 8 个结构与基线完全一致，
+  唯一差异=记忆视图多 1 个直接子级（patch 017 管理卡，预期插入）；
+  patch 017 管理卡 22 开/22 闭、编辑弹窗 5 开/5 闭，div 全平衡——
+  **会话 14 正则工具的 AFTER_MEMORY_BALANCE=-2 系旧坏构建残留 + 正则盲区，当前文件无缺 div**。
+- **真根因：patch 018 head 注入第二段丢失 `<script>` 开标签**（index.html 原 L103）。
+  `</script>` 后裸露 `document.write(...luzzy-theme.css...)` + 游离 `</script>`：
+  规范解析下 head 内的非空白文本强制关闭 head、提前开启 body，三个后果——
+  ① 裸文本与一个 href 解析损坏的 `<link>` 成为 body 首个子元素，
+     `document.write('` / `');` 作为正文文本渲染（顶部错乱、内容下推）；
+  ② `luzzy-theme.css` 主题底座加载失败 → patch 008 色板的 `--tw-*` 变量全失效
+     → 全应用配色/玻璃层崩坏（布局异常直接来源）；
+  ③ body 提前开始 + 尾部多余高度 → 底部溢出屏幕。
+- 修复：在 `</script>` 与 document.write 之间补回 `    <script>` 一行
+  （只动 patch 018 自身插入块，未触碰任何上游区块——遵守移交修复原则）。
+- git 行尾坑：index.html blob 为 CRLF 为主的混合行尾（i/-text，git 不做 eol 转换），
+  Edit 工具整文件归一会造成 3449 行伪 diff；最终以字节级操作还原 HEAD 后按锚点插入，
+  `git diff --numstat` = 1 行新增（`+    <script>`）。
+
+**验证（修复后）**
+- parse5 树级对比：body 直接子级与基线模式一致（无游离 link/文本），
+  management-view 结构 = 基线 + 管理卡，与意图完全吻合；
+- verify-markers.ps1：39 PASS / 0 FAIL；
+- entities/012-018-index-html.patch 重建（新 post-hash f1b28197，头部路径与旧格式一致），
+  正向 apply（上游基线→结果 CR 归一后 == 当前文件）与反向 apply（当前→== 上游基线）双 PASS；
+- EXTRACT_VERSION 13→14；tools/patches/README.md 补 018 登记条目；
+  AGENTS.md §4.2 补 018 行；README.md patches 注释 001-015→001-018。
+
+**待办**：模拟器重装 EXTRACT 14 构建 → 五页截图精确识图对照 v1.2.0 基线
+（聊天/记忆/设置/外观/关于）→ 管理器 CRUD 罐装回归 → CHANGELOG/README 去开发中标注 → 推送。

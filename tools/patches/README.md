@@ -208,6 +208,15 @@
 #   - 预期冲突点：上游改记忆视图区块 / 记忆存储管线（compact/prepare）/
 #     readStoryBranchesForCharacter / setup return 记忆区时需重打
 #
+# 018-splash-no-flash.patch（2026-09-02，v1.2.1 开屏主题防闪蓝）
+#   - index.html head: ① 内联脚本按 localStorage 主题快照（luzzy_theme_snapshot，
+#     由 ext/luzzy-ext.js MutationObserver 维护）同步写入 data-theme/data-mode
+#     （无快照默认 luzzy+light）；② document.write 注入 ../ext/luzzy-theme.css
+#     （⚠ 本块必须自带 <script> 开标签——曾因缺失致 head 被裸文本截断、body 提前开始、
+#     顶部裸文本渲染 + 主题 CSS 加载失败，即 v1.2.1 布局异常根因，2026-09-03 修复）
+#   - index.html 尾部: luzzy-theme.css <link> 移除（由 head 注入取代，保首帧品牌色）
+#   - 预期冲突点：上游改 head 结构 / 尾部扩展层挂载区时需重打
+#
 # ============================================================
 # 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
 # ============================================================

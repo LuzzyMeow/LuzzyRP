@@ -64,6 +64,8 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `luzzy-bridge.js` | 桥接封装（存在性检测 + 降级） | 新增桥接方法必须同步此文件 |
 | `luzzy-theme.css` | 主题变量 + 字体栈（DESIGN.md token 落地） | classic/亮/暗三套 `--tw-*` 变量为 **RGB 三元组**；暗色组件覆盖在此；token 改动须同步 DESIGN.md |
 | `luzzy-ext.js` | 桥接自检 + 关于页品牌注入 | 主题/字体切换逻辑在 patch 010/011（上游 app.js 内），不在此文件 |
+| `luzzy-changelog.js` | 关于页 CHANGELOG 数据（patch 014 挂载） | **生成文件勿手改**——由 `tools/gen-changelog.mjs` 从仓库根 CHANGELOG.md 生成，发版更新 CHANGELOG 后必须重跑 |
+| `luzzy-logo.png` | 关于页品牌图标 | 从 mipmap 启动图标复制的持久产物 |
 
 ### 1.5 工具与文档
 
@@ -72,6 +74,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `tools/sync-upstream.ps1` | 上游同步脚本 | fetch → 覆盖 → patch 重放 → 报告 |
 | `tools/apply-patches.ps1` | patch 重放脚本 | git apply 全部登记 patch |
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2） |
+| `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行） |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.0.0.md` | v1.0.0 重建计划 | 实施期主文档 |
 | `docs/design/` | 设计存档（spec-v2 合同 / boards-v2 三方向板 / direction-approved-v2 / 验证截图） | 设计演进按硬性规定 9 流程 |
@@ -187,7 +190,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-011，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-015，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -195,13 +198,17 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 002 | index.html `rphub-update-api` meta | 移除（禁用上游更新检查） |
 | 003 | index.html 入口 logo | 品牌化（LUZZY/RP） |
 | 004 | index.html CDN script/link | 本地 vendor/ 引用 |
-| 005 | index.html 尾部 | 挂载扩展层 3 文件 |
+| 005 | index.html 尾部 | 挂载扩展层 3 文件（014 另行挂载 luzzy-changelog.js） |
 | 006 | index.html head 字体 | Google Fonts Lora → 本地 local-fonts.css |
 | 007 | character/novel 子页面 | CDN 本地化 |
 | 008 | index.html tailwind.config | 色板 → `rgb(var(--tw-*) / <alpha-value>)`（主题底座，v3） |
 | 009 | core-utils.js fontFamilies | 内置改「经典」系命名 + 新增 luzzy 默认 |
 | 010 | app.js 默认值/白名单 | 默认 fontFamily 'luzzy' + normalize 白名单 |
 | 011 | index.html + app.js | 设置页主题卡（主题/模式/字体）+ theme 字段 + watch + 老用户迁移 |
+| 012 | app.js + ui-components.js + index.html | 多模型商混用：`providerId::bareId` 引用体系 / 供应商管理器 / 跨商合并模型列表 / 请求点与记忆分桶接入 / `[商名]` 徽标 |
+| 013 | ui-components.js + index.html + app.js | v1.1.0 外观面板（模态弹层+侧栏按钮）——**模态部分已被 014 取代**，登记保留追溯 |
+| 014 | ui-components.js + index.html + app.js | 外观独立页（全应用唯一入口）+ 关于页（应用内 CHANGELOG）+ 侧栏底部簇重排（外观→关于→设置置底） |
+| 015 | app.js + runtime-services.js + ui-components.js + index.html | 供应商三协议（OpenAI/Anthropic/Gemini 适配）+ 编辑器二级弹窗（模型增删改/热检测预设/引用重映射）+ max_tokens 注入 + 自定义生图（luzzy-image:// 分流） |
 
 **新增 patch 的规则**：
 
@@ -309,13 +316,14 @@ Luzzy.copyToClipboard = function (text) {
 
 ## 9. 当前状态与已知问题（2026-09-01 会话 9 移交快照）
 
-> 本节约等于「接手必读」的现场速览。详细过程见 `docs/WORKLOG.md` 会话 9（含两次追记）。
+> 本节约等于「接手必读」的现场速览。详细过程见 `docs/WORKLOG.md` 会话 9–12；本节由最新发布 会话更新。
 
-### 项目状态
+### 项目状态（2026-09-02 · 会话 12 移交快照）
 
-- **v1.0.0-rc2**：壳工程/离线化/品牌化/桥接/同步机制全部完成；主题系统**「暖幕手记 × Claude」**实施完成，模拟器（LuzzyRP_Test）+ 真机（小米 25098PN5AC / Android 16）双端验证通过；CHANGELOG 已记 rc2。
-- **设计真源**：`DESIGN.md`（暖幕手记定稿，Claude token 体系）+ `docs/design/`（`spec-v2.md` 设计合同 / `boards-v2/` 三方向板 / `direction-approved-v2.md` 用户选择记录 / `verify-v3-*.png` 验证截图）。
-- **rc1 旧主题「暖纸书房」已按用户指令整体移除**（patch 008-011 撤销后以 v2/v3 重做），上游参考克隆 diff 归零。
+- **v1.2.0 已发布**（versionCode 7，GitHub Release 附三件套 APK）：统一雾纸玻璃补全 + 外观/关于独立页（应用内 CHANGELOG）+ 三协议供应商（OpenAI/Anthropic/Gemini）+ 供应商编辑器（模型增删改/热检测预设/引用重映射）+ max_tokens 注入 + 自定义生图模型。模拟器全量走查 + 全面自检轮（9+1 处修复）+ 真机（小米/Android 16）玻璃四态与核心回归均通过。
+- **设计真源**：`DESIGN.md`（token 体系 + Glass 统一雾纸配方表 + 外观页/关于页/供应商编辑器章）+ `docs/design/`（direction-approved-v120.md、verify-v120-*.png 证照）。
+- **多模型商混用（v1.1.0 起）**：模型字段存 `providerId::bareId` 复合引用（裸 id=跟随激活商，零迁移）；供应商=4 内置常量 + `settings.apiProviders` 用户商（含 protocol/models/extraBody）；请求经 `resolveModelRequest` 路由。
+- **历史**：rc1「暖纸书房」已移除；v1.0.0/v1.1.0 细节见 CHANGELOG 与 WORKLOG 会话 9–11。
 
 ### 主题系统架构速览（改主题必读）
 
@@ -326,6 +334,8 @@ Luzzy.copyToClipboard = function (text) {
 - 存储：settings.theme/themeMode（上游 IndexedDB 体系）；老用户迁移（savedSettings **存在**且无 theme → classic；新用户默认 luzzy+light+luzzy 字体）。
 - 系统栏：applyThemeMode → LuzzyBridge.setSystemBarStyle（状态栏图标恒白——顶栏深渐隐双向可读；导航栏图标随主题明暗）。
 - 字体：fontFamily 'luzzy' → data-app-font="luzzy" → luzzy-theme.css 字体栈（AlibabaSans + PuHuiTi 3，local-fonts.css @font-face 本地打包）。
+- **统一雾纸玻璃（v1.2.0）**：气泡/typing/思考卡/工具条全部入玻璃族（`--luzzy-glass-alpha` 0.74 / `--luzzy-glass-blur` 18px 单点变量）；流式加厚靠 `:has(.cot-ui.is-live)`（0.88+blur8）；上游移动端 kill-switch 以 `:root[data-theme]`+`!important` 放行；配方表见 DESIGN.md Glass 章。
+- **发版必做**：更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（关于页应用内日志同步）；EXTRACT_VERSION 随 assets 变更 bump（现值 7）。
 
 ### 验证基线（回归时对照）
 
@@ -333,16 +343,18 @@ Luzzy.copyToClipboard = function (text) {
 - 弱文字 4.98:1 / 次级文字 6.8:1 / 正文 12:1（暗色）；截图存档 `docs/design/verify-v3-{light,dark}.png` 与 `verify-v3-phone-{light,dark}.png`。
 - debug 构建开 CDP：`adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`；**熄屏时截图挂起需先唤醒**；CDP 僵死时 force-stop 重启 app 刷新。
 
-### 待办（按优先级）
+### 待办（按优先级，2026-09-02 会话 12 移交）
 
-1. 用户真机体验反馈微调（色板/字体/动效，按 DESIGN.md token 调整）。
-2. 上游硬编码色（indigo/blue/pink 工具类：用户设置页头部渐变、抽屉图标等）是否纳入主题化——待用户决策。
-3. 「荧光笔落笔」招牌动效（DESIGN.md roadmap，需正则/markdown 管线配合）。
-4. 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
-5. 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
-6. 上游同步演练（sync-upstream.ps1 假发版模拟）。
-7. 构建警告清理（onActivityResult / databaseEnabled deprecated）。
-8. v1.0.0 正式发布（assembleRelease + 真机矩阵回归 + GitHub Release 附 APK）。
+1. 用户真机体验反馈微调（玻璃观感/三协议供应商/外观与关于页，按 DESIGN.md token 调整）。
+2. 真实 API 流式生成发热/帧率观察（is-live 加厚已模拟验证；不主动消耗用户配额）。
+3. anthropic/gemini 真实 key 端到端对话验证（罐装 SSE 已覆盖解析路径）。
+4. 上游硬编码色（indigo/blue/pink 工具类：设置页头部渐变、抽屉图标等）主题化——待用户决策。
+5. 「荧光笔落笔」招牌动效（DESIGN.md roadmap）。
+6. 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
+7. 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
+8. 上游同步演练（sync-upstream.ps1 假发版模拟）。
+9. 构建警告清理（onActivityResult / databaseEnabled deprecated）。
+10. v1.3.0 候选：Gemini/Anthropic 图像模型接生图流、视频输入管线、每模型温度覆盖、「原生思考」行 z 层细节。
 
 ---
 

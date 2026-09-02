@@ -79,10 +79,15 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 | 原生安卓封装 | 单 Activity WebView 壳，本地加载，无网络依赖 |
 | 资源离线化 | Vue / Tailwind / marked / DOMPurify / SortableJS / Lora 字体全部本地打包 |
 | 文件桥接 | 角色卡 PNG/JSON 导入导出走系统文件选择器（SAF） |
-| 系统能力桥 | 剪贴板、Toast、版本信息等原生能力通过 JSBridge 暴露给前端 |
-| 独立扩展层 | `luzzy-theme.css` / `luzzy-bridge.js` / `luzzy-ext.js` 独立文件承载二创新功能，与上游零冲突 |
-| **主题系统** | 「暖幕手记 × Claude」主题（亮/暗双模式）+ 经典（原版）主题，设置页一键切换；新用户默认暖幕手记，老用户保留经典 |
+| 系统能力桥 | 剪贴板、Toast、版本信息、系统浏览器打开外链等原生能力通过 JSBridge 暴露给前端 |
+| 独立扩展层 | `luzzy-theme.css` / `luzzy-bridge.js` / `luzzy-ext.js` / `luzzy-changelog.js` 独立文件承载二创新功能，与上游零冲突 |
+| **主题系统** | 「暖幕手记 × Claude」主题（亮/暗双模式）+ 经典（原版）主题；侧边栏「外观」独立页切换；新用户默认暖幕手记，老用户保留经典 |
 | **字体系统** | 「Luzzy 默认」字体（Alibaba Sans 拉丁 + Alibaba PuHuiTi 3 中文，本地打包）；经典（原版）/经典衬线（Lora）/系统可选 |
+| **统一雾纸玻璃** | 聊天页全部表面纳入玻璃族（气泡/生成中/思考卡/工具条，立绘透色），流式自动加厚保可读；经典主题零影响（v1.2.0） |
+| **多模型商混用** | 供应商管理器 + `[商名]` 来源徽标 + `providerId::bareId` 复合引用；聊天/识图/记忆（总结+向量分桶）全槽位跨商（v1.1.0） |
+| **三协议供应商** | 自定义供应商支持 OpenAI / Anthropic / Gemini 接口；二级编辑弹窗管理模型（请求 id/显示 id/上下文长度/最大输出/输入模态/类型/自定义请求体）+ 五组模型 id 热检测预设 + 引用重映射 + 模型列表热更新（v1.2.0） |
+| **自定义生图模型** | 生图来源可选官方 STA1N（NAI 代理）或供应商 image 模型（OpenAI 协议，b64 直出）（v1.2.0） |
+| **外观 / 关于独立页** | 侧边栏独立入口：外观（主题/模式/字体/字号，全应用唯一入口）+ 关于（版本/署名/**应用内 CHANGELOG**）（v1.2.0） |
 | 上游同步机制 | 覆盖 + patch 重放脚本化同步，跟随上游持续迭代 |
 
 ---
@@ -103,13 +108,13 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 │  │  ┌───────────────────────────────────┐  │  │
 │  │  │  二创扩展层（独立文件，零冲突）       │  │  │
 │  │  │  luzzy-ext.js · luzzy-theme.css   │  │  │
-│  │  │  luzzy-bridge.js                   │  │  │
+│  │  │  luzzy-bridge.js · luzzy-changelog.js │  │  │
 │  │  └───────────────────────────────────┘  │  │
 │  └──────────────┬──────────────────────────┘  │
 │                 │ addJavascriptInterface      │
 │  ┌──────────────▼──────────────────────────┐  │
 │  │  JSBridge 原生层（LuzzyBridge.kt）         │  │
-│  │  文件选择 · 导出 · 剪贴板 · 通知 · 深链    │  │
+│  │  文件选择 · 导出 · 剪贴板 · 系统栏 · 外链  │  │
 │  └─────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────┘
 ```
@@ -117,7 +122,7 @@ LuzzyRP 是一款原生安卓 AI 角色扮演应用。它不是一个从零开�
 | 层 | 内容 | 与上游关系 |
 |----|------|-----------|
 | 上游层 | RP-Hub 6 个 JS + styles.css + index.html（仅登记 patch） | 覆盖式同步 |
-| 扩展层 | `luzzy-ext.js` / `luzzy-theme.css` / `luzzy-bridge.js` | 完全独立，零冲突 |
+| 扩展层 | `luzzy-ext.js` / `luzzy-theme.css` / `luzzy-bridge.js` / `luzzy-changelog.js` | 完全独立，零冲突 |
 | 原生层 | WebView 壳 + `LuzzyBridge.kt` + 系统能力 | 完全独立 |
 
 ### 技术栈
@@ -206,12 +211,15 @@ LuzzyRP/
 │           └── ext/                      # 二创扩展层（独立文件）
 │               ├── luzzy-bridge.js
 │               ├── luzzy-theme.css
-│               └── luzzy-ext.js
-├── rp-hub-reference/             # 上游参考克隆（保留 upstream remote）
+│               ├── luzzy-ext.js
+│               ├── luzzy-changelog.js    # 关于页 CHANGELOG（tools/gen-changelog.mjs 生成）
+│               └── luzzy-logo.png
+├── rp-hub-reference/             # 上游参考克隆（保留 upstream remote，不入库）
 ├── tools/
 │   ├── sync-upstream.ps1         # 上游同步脚本
 │   ├── apply-patches.ps1         # patch 重放脚本
-│   ├── patches/                  # 二创登记 patch
+│   ├── gen-changelog.mjs         # 关于页 CHANGELOG 生成脚本（发版后运行）
+│   ├── patches/                  # 二创登记 patch（001-015）
 │   └── upstream-fingerprints.txt # 上游文件指纹基线
 ├── docs/                         # 规划 / 日志 / 设计存档 / 归档
 ├── keystore/                     # 签名（不入库）
@@ -230,7 +238,7 @@ LuzzyRP/
 
 1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 9 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程 / **设计 SKILL 强制条款**），**违反任何一条即为不合格交付**；
 2. [`AGENTS.md`](AGENTS.md) —— 后续开发/更新/维护 Agent 工作指南（文件地图 / 工作流程 / 同步 SOP / 扩展开发规范）；
-3. [`docs/PLAN-v1.0.0.md`](docs/PLAN-v1.0.0.md) —— v1.0.0 重建完整实施计划；
+3. [`docs/PLAN-v1.2.0.md`](docs/PLAN-v1.2.0.md) —— 最近版本（v1.2.0）完整实施计划；
 4. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
 5. [`CHANGELOG.md`](CHANGELOG.md) —— 版本记录（格式：`### vX.Y.Z — 标题` + 分类要点 + 构建结果）。
 

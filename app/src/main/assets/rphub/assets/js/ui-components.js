@@ -321,7 +321,7 @@
             uiTemplateRunning: Boolean,
             user: { type: Object, required: true }
         },
-        emits: ['update:current-view', 'update:collapsed', 'toggle-online', 'toggle-advanced', 'close-mobile', 'open-appearance'],
+        emits: ['update:current-view', 'update:collapsed', 'toggle-online', 'toggle-advanced', 'close-mobile'],
         setup(props, { emit }) {
             window.RPHubUpdateCheck.useUpdateCheck();
             const selectView = (view) => {
@@ -439,16 +439,23 @@
                         </div>
                     </div>
 
+                    <!-- [LuzzyRP patch 014] 侧栏底部簇重排：外观/关于改为独立视图（selectView 带激活态），设置置底 -->
+                    <button @click="selectView('appearance')" title="外观"
+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('appearance'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
+                    </button>
+
+                    <button @click="selectView('about')" title="关于"
+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
+                    </button>
+
                     <button @click="selectView('settings')" title="设置"
                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
-                    </button>
-
-                    <button @click="$emit('open-appearance')" title="外观"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', 'text-gray-600 hover:bg-gray-50 hover:text-gray-900', collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
                     </button>
                 </div>
 
@@ -861,6 +868,26 @@
                 this.draftSlotModels[this.activeSlot] = this.draftSlotModels[this.activeSlot] === modelId ? '' : modelId;
                 this.draftSlotModels = [...this.draftSlotModels];
                 this.$emit('select-slots', [...this.draftSlotModels]);
+            },
+            // [LuzzyRP patch 015] 手动模型 meta 摘要：`1M · 文本+图像` / `128K · 嵌入`
+            modelMetaSummary(model) {
+                if (!model || model.manual !== true) return '';
+                const parts = [];
+                const formatLen = (value) => {
+                    const num = Number(value);
+                    if (!Number.isFinite(num) || num <= 0) return '';
+                    if (num % (1024 * 1024) === 0) return `${num / (1024 * 1024)}M`;
+                    if (num % 1024 === 0) return `${num / 1024}K`;
+                    return String(num);
+                };
+                if (model.contextLength) parts.push(formatLen(model.contextLength));
+                if (model.type === 'embedding') parts.push('嵌入');
+                else {
+                    const mods = Array.isArray(model.inputModalities) ? model.inputModalities : ['text'];
+                    const modLabel = { text: '文本', image: '图像', video: '视频' };
+                    parts.push(mods.map(m => modLabel[m] || m).join('+'));
+                }
+                return parts.join(' · ');
             }
         },
         template: `
@@ -914,6 +941,8 @@
                                     <span class="min-w-0 flex items-center gap-2 overflow-hidden">
                                         <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
                                         <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
+                                        <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
+                                        <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
                                     </span>
                                     <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

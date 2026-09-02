@@ -656,3 +656,45 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 ### 会话 11 收尾：GitHub Release v1.1.0 已发布
 - 提交 8cad276c 推送 origin/main · Release（stable，附三件套 APK ≈17.9MB×3）：https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.1.0
 - 五维 critique 已过：方向（三方向硬门用户选定全卡雾纸）/ 品牌（全 token 化零新色）/ 层级（徽标 chip 次要于模型 id）/ 动效（200ms ease-out + reduced-motion 兜底）/ 工程（语法校验 + 真机四态 + patch 全登记零裸改）。
+
+---
+
+## 会话 12 · v1.2.0 增量更新（2026-09-02 开始）
+
+- 任务：①液态玻璃补全（用户反馈思考卡/对话气泡玻璃不完整，三方向硬门用户选定**统一雾纸**）；②「外观」改侧栏独立页（设置置底、外观在上、全应用唯一入口）+ 新增「关于」独立页（应用内 CHANGELOG）；③供应商管理器大扩展：三协议（OpenAI/Anthropic/Gemini）自定义商、二级编辑弹窗（模型增删改：id/显示id/上下文长度/最大输出长度/输入模态/模型类型/自定义请求体+供应商级请求体）、五组模型 id 热检测预设、编辑商 id 引用重映射、热更新模型列表；④自定义生图模型接入生图流（openai 协议 image 模型）；⑤版本 v1.2.0 / versionCode 7。
+- 设计 SKILL 强制条款：4 项 SKILL 主文档已复读。用户疑问答复定案：**不设「最大输入长度」字段**（上下文长度=输入+输出总预算，服务端 tokenizer 硬计数，客户端按上下文−最大输出推导）。长度字段深度=注入+展示（用户选定）。
+- 三方向硬门与选择记录落盘 `docs/design/direction-approved-v120.md`；详细计划落盘 `docs/PLAN-v1.2.0.md`。
+
+### 会话 12 完成 · v1.2.0 开发与模拟器全量走查
+
+**完成**
+1. **统一雾纸玻璃补全**（luzzy-theme.css，零 patch）：气泡/typing/思考卡 0.74+blur18、思考卡 is-open 0.80、is-live 0.94+blur6+珊瑚描边、流式 `:has(.cot-ui.is-live)` 行加厚 0.88+blur8、名字 chip 0.82、操作工具条收编 0.6+blur14；`--luzzy-glass-alpha/--luzzy-glass-blur` 单点调参；@supports 降级扩展；v1.0.0 的气泡强制实底规则作废。亮暗 computed 四值实测命中（模拟器 CDP 探针：亮 rgba(245,240,232,.74)+blur18/暗 rgba(43,40,36,.74)）。
+2. **patch 014**：侧栏底部簇重排（外观→关于→设置置底，均 selectView+itemClass）；外观独立页（预览条+四控件，弹窗/设置页入口/重复字号下拉全删，全应用唯一入口）；关于页（logo/版本/上游基线/署名/GitHub/CHANGELOG 渲染）；`ext/luzzy-changelog.js` 生成链（tools/gen-changelog.mjs）；app.js 删 showAppearancePanel、增关于页惰性渲染 watch。
+3. **patch 015**：apiProviders 条目扩展（protocol/models/extraBody，normalize 白名单保全）；parseLengthToken/formatLengthToken；供应商编辑器二级弹窗（z-[60]，五组热检测预设长词优先只填空字段+撤销，模型增删改/输入模态多选/类型单选/键值行懒编辑）；id 重映射（槽位前缀+key+缓存键+激活商）；fetchModels/checkApiStatus 三协议分型；requestChatCompletion 三协议适配（anthropic Messages/gemini GenerateContent，system 抽出、图片 base64、thinking/thought→reasoning、thinkingBudget 映射）；四个裸 fetch 点接入；工坊 remap 仅 openai；max_tokens 注入+选择器 meta chip；自定义生图（luzzy-image:// 伪 URL 分流+startCustomImageTask+生图设置模型来源）。
+4. **版本**：versionCode 7 / versionName 1.2.0；EXTRACT_VERSION 5→6；patches README 登记 014/015（含 013 取代交叉引用与 015 实施中修正）；node --check 全量。
+
+**验证（模拟器 LuzzyRP_Test / Android 15 / WebView）**
+- 外观独立页：标题/五组控件/预览条渲染，设置页确认无双入口（入口卡改为跳转）；
+- 关于页：v1.2.0-debug 版本、上游 1.8.9（桥读取）、CHANGELOG 14K 渲染（v1.1.0/v1.0.0 章节在列）、GitHub 按钮；
+- 侧栏顺序：…高级组→外观→关于→设置 ✓ 激活态 ✓；
+- 编辑器端到端：添加→编辑器（三协议按钮/模型区/请求体区/保存）；热检测 GLM-5.3-FLASH→自动填五项+轻提示；长词优先 DEEPSEEK-V4-FLASH-VISION-EXP→DeepSeek-V4-Flash-Vision-Exp；anthropic 商保存→管理器卡片（violet 徽标/编辑/检测/设为当前/key 掩码）；Key 编辑即存；UI 删除→确认→卡片消失（删除路径回归）；编辑已有商 id 冲突误报已修（__source 排除自身）；
+- 三协议解析（罐装 SSE 探针）：anthropic text_delta→content/thinking_delta→reasoning/usage；gemini part.thought→reasoning/usage；请求体结构（anthropic max_tokens+system+thinking budget；gemini systemInstruction+generationConfig.thinkingConfig）；system 启发式（首条 user 字符串且多消息；单消息保留正文）；max_tokens 注入（有 meta 注入/无 meta 不发）+extraBody 合并（模型级 reasoning_effort:max）；
+- 玻璃：亮暗 computed 全命中；证照 verify-v120-appearance.png / verify-v120-about.png；
+- 实施中修复四项：新增供应商占位条目未入列（致命，已修）、id 冲突误报、SSE 兜底解析缺失、system 启发式吞单消息正文。
+
+**决策**
+1. 玻璃方向=统一雾纸（三方向硬门，direction-approved-v120.md）；长度字段=注入+展示；不设「最大输入长度」字段（上下文=输入+输出总预算，服务端 tokenizer 硬计数）；
+2. 侧栏底部簇顺序 外观→关于→设置（设置置底满足用户要求，关于紧邻设置；用户可一句话调整）；
+3. 残留 body transition 自定义元素（6526/14390 字节）为 v1.1.0 起 WebView 解析固有现象（HEAD 构建同样存在，不影响功能）——排查时曾被误判为回归，纠正记录在案；
+4. EXTRACT_VERSION 排查教训：v1.1.0 验证手法（改资产必须 bump）在本次反复重建中再次生效，凡 filesDir 现象先查 .extracted_vN 标记。
+
+**遗留**
+- 真机（小米）玻璃四态 screencap + 流式性能 + 核心回归：设备当前未连接 USB，发布后接入即补（玻璃管线与 v1.1.0 真机已验证链路同族，computed 级证据已备）；
+- anthropic/gemini 真实 key 端到端对话（罐装 SSE 已覆盖解析路径）；
+- 「原生思考 250字」行的 z 层与头部名字叠压（用户截图细节，顺延）；
+- AGENTS.md §9 待办顺延：SAF 文件桥、推广外链清理、上游同步演练、indigo/blue 主题化、荧光笔动效。
+
+**下一步**
+1. assembleRelease → push → GitHub Release v1.2.0（附 APK）；
+2. 用户真机升级体验反馈（外观页/关于页/三协议供应商/玻璃观感）；
+3. v1.3.0 候选：Gemini/Anthropic 图像模型接生图流、视频输入管线、每模型温度覆盖。

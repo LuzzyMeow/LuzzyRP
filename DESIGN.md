@@ -124,7 +124,28 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 | chrome 半透白面（`bg-white/50-95`：顶栏 / 输入岛 / 侧栏抽屉 / 徽章） | `rgba(250,249,245,.86)` | `rgba(32,30,27,.86)` |
 | 模态面板（modal-shell 直子 `.bg-white`） | `rgba(250,249,245,.88)` + blur 16 | `rgba(32,30,27,.88)` + blur 16 |
 | chrome 发丝线（玻璃面自携 `border-gray-100/80`） | `rgba(230,223,216,.8)` | `rgba(62,58,52,.8)` |
-| 聊天气泡（`.msg-bubble-glass`） | `#F5F0E8` 不透纸面，**去 blur** | `#2B2824` 不透纸面，**去 blur** |
+| 聊天气泡（`.msg-bubble-glass`）· v1.2.0 起入玻璃族 | `rgba(245,240,232,.74)` + blur 18 + 发丝线 `.7` | `rgba(43,40,36,.74)` + blur 18 |
+
+### 统一雾纸 · 聊天页玻璃补全（v1.2.0，方向选择记录 `direction-approved-v120.md`）
+
+v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v1.2.0 以**统一雾纸**配方
+把聊天页全部表面纳入玻璃族（用户选定方向：最克制、与 chrome 玻璃同族、可读性最稳）：
+
+| 表面 | 亮 | 暗 |
+|------|----|----|
+| AI/用户/system 气泡 + typing 气泡 + 思考卡外层 | `gray-100/.74` + `blur(18px) saturate(1.2)` | `gray-200/.74` 同 blur |
+| 思考卡 is-open | `.80` | `.80` |
+| 思考卡 is-live（流式） | `.94` + blur 6 + coral 描边 | `.94` |
+| 流式加厚（`:has(.cot-ui.is-live)` 所在行气泡） | `.88` + blur 8 | `.88` |
+| 名字 chip | 白 `.82` | `#2B2824` `.82` |
+| 消息操作工具条（上游自带 blur 被移动端 kill-switch 打死，v1.2.0 收编） | `gray-50/.6` + blur 14 | `gray-100/.6` |
+
+- **单点调参**：`--luzzy-glass-alpha`（0.74）/ `--luzzy-glass-blur`（18px）两个变量统管全部
+  基础面——流式掉帧时整体上调即可；
+- 对比度：0.74 alpha 在深色立绘上正文 ≥7:1（CDP 实测亮暗两套 computed 命中
+  `docs/design/verify-v120-*.png`）；
+- 输入岛维持 chrome 级高不透明（键盘邻接面），不入玻璃族；
+- `@supports` 降级扩展至气泡/工具条（实底 `#F5F0E8`/`#2B2824`）。
 
 - **枚举而非通配**：只接管 `bg-white/50` `-60` `-70` `-90` `-95`；`/20` `/40` 是照片上的
   白 chip（白字语义），保持上游值——通配 `[class*="bg-white/"]` 会打碎图片浮层对比度；
@@ -153,29 +174,47 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 - **降级**：`@supports not (backdrop-filter…)` → `#F5F0E8` / `#2B2824` 实底（同雾纸降级配方）；
 - 选择器族：`.cot-ui.native-thinking-card`（+ `.cot-header` / `.is-open` / `.is-live` / 卡内 `.bg-gray-50`）。
 
-## 外观面板与模型商徽标（v1.1.0）
+## 外观独立页 · 关于页 · 供应商编辑器（v1.2.0）
 
-### 外观面板
+### 外观独立页（外观设置全应用唯一入口）
 
-- **入口**：侧边栏「设置」按钮下新增「外观」按钮（swatch 图标）；设置页「高级参数」原主题卡
-  替换为同名入口卡（两入口开同一面板）；
-- **形态**：模态弹层（`modal-shell` + 雾纸弹窗层自动主题化），背后实时预览；
-- **内容**：界面主题 / 模式（仅 luzzy 显示）/ 界面字体 / 对话字号——全部绑定既有
-  `settings.theme/themeMode/fontFamily/fontSize`，复用 watch + deep-watch 持久化 + 系统栏联动，
-  **零新机制**；修改即时生效并自动保存。
+- **入口收敛**：v1.1.0 的弹窗与设置页入口卡**全部移除**，唯一入口 = 侧边栏「外观」；
+  侧栏底部簇顺序：高级组 → **外观 → 关于 → 设置（置底）**，均为视图切换（itemClass 激活态）；
+- **页面结构**：`management-view` 惯例（settings-page-header + max-w-2xl 卡列）——
+  顶部主题预览条（亮/暗色卡 + 当前字体样张，纯展示），下接界面主题 / 模式（仅 luzzy）/
+  界面字体 / 对话字号四张设置卡（控件自 v1.1.0 弹窗原样迁入，绑定与持久化机制零变化）。
 
-### 模型商徽标（`[商名]` 前缀）
+### 关于页（`currentView === 'about'`）
 
-- **语义**：跨商混用后，同一模型 id 在不同商下是不同资源；所有模型展示位以
-  `[商名] bareId` 标注来源（如 `[硅基流动] deepseek-ai/DeepSeek-V3`）；
-- **存储**：`providerId::bareId` 复合引用（首个 `::` 分隔）；裸 id = 跟随当前激活商（向后兼容）；
-- **展示位**（全覆盖）：模型选择弹窗（商名为 primary-50 徽标 chip + bareId 等宽字体）、
-  快捷三槽位、聊天页齿轮弹层、设置页聊天/识图/UI 模板/嵌入/总结副模型入口、用量统计日志；
-- **chip 样式**：`bg-primary-50` 底 + `primary-700` 文字 + `primary-100` 边线，10px 粗体，
-  `max-w-[45%] truncate`——商名可读但不与模型 id 争主；商已删除显示 `[未知]`；
-- **供应商管理器**：设置页供应商下拉「管理供应商…」进入；内置 4 商仅可改 Key，
-  用户自定义商可增删改名改 URL；每商「检测」按钮（/v1/models 连通性 + 模型数）；
-  配置点（绿/灰）指示 Key 是否就绪。
+- 品牌区：logo（ext/luzzy-logo.png）+ versionName（LuzzyBridge.getVersion，降级 fallback）+
+  上游 RP-Hub 基线链接 + CC BY-NC 4.0 署名声明；
+- **应用内 CHANGELOG**：`ext/luzzy-changelog.js`（`tools/gen-changelog.mjs` 从仓库根
+  CHANGELOG.md 生成，勿手改），进入视图时经 `renderMarkdown`（marked+DOMPurify 管线）
+  渲染——用户在应用内即可读更新日志。
+
+### 供应商编辑器（二级弹窗，z-[60]）
+
+- 管理器每行加「编辑」；添加供应商**直接进编辑器**（占位条目先行入列，取消即移除）；
+- 字段：供应商 ID（引用前缀）/ 显示名称 / 协议（openai·anthropic·gemini 三选一，徽标
+  violet 大写 chip）/ API URL（placeholder 随协议联动）/ API Key（即改即存）/
+  **供应商级自定义请求体**（键值行，值可空=懒编辑）；
+- **模型卡**：模型 ID（请求 id，输入即热检测预设）/ 显示 ID / 上下文长度（1024000·100K·1M
+  宽松解析，K=1024 M=1024²）/ 最大输出长度 / 输入模态（text·image·video 多选，teal 选中）/
+  模型类型（text·image·embedding 单选，violet 选中）/ 模型级自定义请求体（JSON 或 `键:值` 懒编辑）；
+- **热检测预设**：五组 id（glm-5.3 / glm-5.3-flash / deepseek-v4-pro / deepseek-v4-flash /
+  deepseek-v4-flash-vision-exp）大小写不敏感、**长词优先**；只填空字段不覆盖已编辑值 +
+  「已按预设填充」amber 轻提示 + 一键撤销；
+- **保存即热更新**：手动模型并入合并模型列表（聊天/识图槽位立即可选，meta chip
+  `1M · 文本+图像`）；改 id 时全槽位引用 `旧id::` 前缀与 key/缓存键自动重映射（确认弹窗列出
+  受影响槽位）；不设「最大输入长度」字段（上下文长度即输入+输出总预算，已与用户确认）。
+
+### 模型商徽标（v1.1.0 引入，v1.2.0 沿用）
+
+- **语义**：跨商混用后同一模型 id 在不同商下是不同资源；所有模型展示位以
+  `[商名] bareId` 标注来源；存储为 `providerId::bareId` 复合引用（裸 id = 跟随激活商）；
+- **chip**：`bg-primary-50` + `primary-700` + `primary-100` 边，10px 粗体，`max-w-[45%] truncate`；
+  商已删除显示 `[未知]`；选择器列表项 meta chip（v1.2.0）为 `bg-gray-100` 中性灰，
+  次要于商名徽标与模型 id。
 
 ## Motion（动效令牌）
 

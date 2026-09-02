@@ -1,17 +1,22 @@
-# 更新日志（CHANGELOG）
+/**
+ * LuzzyRP 扩展层 · 应用内更新日志（patch 014，由 tools/gen-changelog.mjs 自动生成）
+ * 来源：仓库根 CHANGELOG.md —— 请勿手改本文件，改 CHANGELOG.md 后重新运行生成脚本。
+ */
+(function () {
+    window.LuzzyChangelog = { md: `# 更新日志（CHANGELOG）
 
-> LuzzyRP 遵循语义化版本（`MAJOR.MINOR.PATCH`）；`x.y.0` 视为稳定版并附 APK。
-> 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
+> LuzzyRP 遵循语义化版本（\`MAJOR.MINOR.PATCH\`）；\`x.y.0\` 视为稳定版并附 APK。
+> 格式：\`### vX.Y.Z — 标题\` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
 ### v1.2.0 — 聊天页统一雾纸玻璃 × 外观/关于独立页 × 三协议供应商 × 自定义生图（上游基线 RP-Hub 1.8.9）
 
 **新增**
 - **聊天页液态玻璃补全（统一雾纸）**：AI/用户/system 气泡、生成中 loading 气泡、思考卡片、
-  名字标签全部纳入雾纸玻璃族（`rgba(纸色 token/.74)` + `blur(18px) saturate(1.2)` + 发丝线，
+  名字标签全部纳入雾纸玻璃族（\`rgba(纸色 token/.74)\` + \`blur(18px) saturate(1.2)\` + 发丝线，
   暗色同构）；角色立绘可从气泡后透出；流式生成中自动加厚至 0.88 保正文可读，完成后回落全玻璃；
-  消息操作工具条收编（上游自带 blur 被移动端 kill-switch 打死）；支持 `@supports` 实底降级；
-  配方单点可调（`--luzzy-glass-alpha/--luzzy-glass-blur`）。
+  消息操作工具条收编（上游自带 blur 被移动端 kill-switch 打死）；支持 \`@supports\` 实底降级；
+  配方单点可调（\`--luzzy-glass-alpha/--luzzy-glass-blur\`）。
 - **侧边栏「外观」独立页**：主题/模式/字体/对话字号独立成页（侧栏底部簇：高级组 → 外观 →
   关于 → 设置置底），外观设置全应用唯一入口；主题预览条实时展示亮暗色卡与字体样张；
   v1.1.0 的外观弹窗与设置页入口卡移除。
@@ -23,19 +28,19 @@
 - **供应商编辑器（二级弹窗）**：编辑供应商 ID/名称/协议/API URL/API Key；**模型手动增删改**
   （请求 id / 显示 id / 上下文长度 / 最大输出长度 / 输入模态 文本·图像·视频多选 / 模型类型
   文本·图像·嵌入 单选 / 自定义请求体）；供应商级+模型级自定义请求体（键值行懒编辑，如
-  `reasoning_effort: max`）；**模型 id 热检测预设**（glm-5.3 / glm-5.3-flash / deepseek-v4-pro /
+  \`reasoning_effort: max\`）；**模型 id 热检测预设**（glm-5.3 / glm-5.3-flash / deepseek-v4-pro /
   deepseek-v4-flash / deepseek-v4-flash-vision-exp，大小写不敏感、长词优先，只填空字段可撤销）。
-- **长度字段生效（注入+展示）**：最大输出长度按协议注入 `max_tokens` / `maxOutputTokens`
-  （Anthropic 必填字段自动补默认）；上下文长度在模型选择器以 meta chip 展示（如 `1M · 文本+图像`）。
+- **长度字段生效（注入+展示）**：最大输出长度按协议注入 \`max_tokens\` / \`maxOutputTokens\`
+  （Anthropic 必填字段自动补默认）；上下文长度在模型选择器以 meta chip 展示（如 \`1M · 文本+图像\`）。
 - **模型列表热更新**：编辑器保存后手动模型即时进入聊天/识图模型选择器（与 /models 拉取结果
   合并展示）；编辑供应商 ID 时全部槽位引用与 Key 自动重映射。
 - **自定义生图模型**：生图设置新增「模型来源」——STA1N 官方（默认不变）/ 自定义模型
-  （OpenAI 协议 image 类型模型，走 `images/generations`，b64 直出，重生成/比例同步支持）。
+  （OpenAI 协议 image 类型模型，走 \`images/generations\`，b64 直出，重生成/比例同步支持）。
 
 **优化**
 - 供应商管理列表改卡片式回显（名称/协议徽标/URL/Key 掩码/检测按钮），Key 编辑收进编辑器；
   「添加供应商」按钮文案更新为三协议。
-- 经典主题零影响：全部玻璃配方仍以 `:root[data-theme="luzzy"]` 作用域。
+- 经典主题零影响：全部玻璃配方仍以 \`:root[data-theme="luzzy"]\` 作用域。
 
 **修复**
 - 「外观」按钮无激活高亮（v1.1.0 遗留）。
@@ -48,11 +53,11 @@
 - 自定义生图当前仅支持 OpenAI 协议模型；Gemini/Anthropic 图像模型接入列入后续版本。
 
 **构建**：assembleRelease 通过（arm64-v8a / universal / x86_64 三件套）；versionCode 7；
-`EXTRACT_VERSION` 5→6（升级后自动重新解压资产，IndexedDB 用户数据不受影响）。
+\`EXTRACT_VERSION\` 5→6（升级后自动重新解压资产，IndexedDB 用户数据不受影响）。
 模拟器（LuzzyRP_Test / Android 15）全量走查通过：外观/关于页渲染与持久化、供应商编辑器
 端到端（三协议新增/编辑/删除、五组热检测预设、Key 写回、删除回落）、三协议罐装 SSE 解析
 （text/reasoning/usage/请求体结构）、max_tokens 注入与请求体合并、玻璃亮暗 computed 四值命中；
-证照 `docs/design/verify-v120-*.png`。
+证照 \`docs/design/verify-v120-*.png\`。
 
 ### v1.1.0 — 多模型商混用 × 思考卡雾纸玻璃 × 外观独立面板（上游基线 RP-Hub 1.8.9）
 
@@ -60,7 +65,7 @@
 
 **新增**
 - **多模型商混用（供应商管理器）**：设置页供应商下拉新增「管理供应商…」，支持任意数量自定义 OpenAI 兼容商（新增 / 改名 / 改地址 / 改 Key / 删除），内置 STA1N / DeepSeek / OpenRouter / SiliconFlow 可分别配 Key；每商「检测」按钮一键验证连通性并返回模型数，配置状态点（绿/灰）直观可见。
-- **模型来源标注 `[商名]`**：模型存储升级为 `商id::模型id` 复合引用，全部模型展示位（模型选择弹窗 / 快捷三槽位 / 聊天页齿轮弹层 / 设置页聊天·识图·UI模板·嵌入·总结副模型入口 / 用量统计日志）以 `[商名] 模型id` 标注来源，商名为珊瑚色徽标 chip——同一模型型号来自不同模型商从此一目了然，可跨商混选。
+- **模型来源标注 \`[商名]\`**：模型存储升级为 \`商id::模型id\` 复合引用，全部模型展示位（模型选择弹窗 / 快捷三槽位 / 聊天页齿轮弹层 / 设置页聊天·识图·UI模板·嵌入·总结副模型入口 / 用量统计日志）以 \`[商名] 模型id\` 标注来源，商名为珊瑚色徽标 chip——同一模型型号来自不同模型商从此一目了然，可跨商混选。
 - **跨商合并模型列表**：模型选择器展示全部已配置商的模型合集（按商缓存、打开时惰性拉取），族谱标签与搜索照常可用，搜索可命中商名；手动「刷新可用模型列表」一次拉取全部供应商。
 - **请求级解析层**：主聊天 / 识图 / UI 模板副模型 / 记忆总结 / 记忆嵌入全部按模型引用自动路由到对应供应商的地址与 Key（未配置或裸 id 回落当前激活商，老数据零迁移直接可用）。
 - **记忆双模式跨商**：总结模式副模型、向量模式嵌入模型均可选自任意供应商；向量检索按（供应商, 模型）分桶、每桶以该商该模型现算查询向量（桶内自比较，跨商余弦有效）；旧向量分片自动归入 legacy 桶按原行为检索。
@@ -78,7 +83,7 @@
 - 删除仍被引用的自定义供应商时，相关模型槽位会回落为「跟随当前 API 预设」并弹确认告知；
 - 生图模型走独立网关，不参与多商混用（与上游行为一致）。
 
-**构建**：`assembleRelease`（luzzy 签名 + R8 + ABI 拆分）· versionCode 6 · 附 APK。EXTRACT_VERSION 4→5（assets 变更触发重新解压，用户数据不受影响）。真机（小米 25098PN5AC / Android 16）实测：玻璃四态 computed 命中、外观面板 / 供应商管理器 / 跨商徽标列表全通过。
+**构建**：\`assembleRelease\`（luzzy 签名 + R8 + ABI 拆分）· versionCode 6 · 附 APK。EXTRACT_VERSION 4→5（assets 变更触发重新解压，用户数据不受影响）。真机（小米 25098PN5AC / Android 16）实测：玻璃四态 computed 命中、外观面板 / 供应商管理器 / 跨商徽标列表全通过。
 
 ### v1.0.0 — 正式版 · 重建落地：暖幕手记主题 × 雾纸玻璃 × RP-Hub 二创壳（上游基线 RP-Hub 1.8.9）
 
@@ -86,40 +91,40 @@ v1.0.0 线定稿（rc1 → rc2 → rc3 → 正式版；rc 期间全部变更随�
 相对 v0.3.0（旧 Compose 工程，WIP 不可游玩）为**推倒重建**：引擎与代码库完全更换，旧版数据不通用。
 
 **新增**
-- **RP-Hub 二创壳**：RP-Hub 1.8.9 前端 + Kotlin 单 Activity WebView 壳 + `assets/ext/` 独立扩展层；上游同步走「覆盖 + 登记 patch 重放」（patch 001-011），品牌化 / 禁更新检查 / 扩展挂载全部 patch 化，上游文件零裸改。
+- **RP-Hub 二创壳**：RP-Hub 1.8.9 前端 + Kotlin 单 Activity WebView 壳 + \`assets/ext/\` 独立扩展层；上游同步走「覆盖 + 登记 patch 重放」（patch 001-011），品牌化 / 禁更新检查 / 扩展挂载全部 patch 化，上游文件零裸改。
 - **全离线**：Vue 3 / Tailwind / marked / DOMPurify / SortableJS / Lora / 阿里系字体全部本地打包，运行时零 CDN 依赖（断网可用）。
-- **主题系统「暖幕手记 × Claude」**：Claude token 体系（cream `#FAF9F5` 画布 + 珊瑚陶土 `#CC785C`/`#A9583E` + ink `#141413`）亮暗双模式；暗色 gray 色阶整体反转适配全部上游工具类；新用户默认新主题，老用户保留经典（迁移逻辑）。
-- **雾纸玻璃层 Frost-Paper**：玻璃只上固定 chrome（顶栏 / 输入岛 / 侧栏抽屉 / 模态面板，blur 16px），聊天气泡回归纸感；突破上游移动端 `backdrop-filter` 全局 kill-switch 与 `!important` 白面死角。
-- **字体系统**：`Luzzy 默认`（AlibabaSans + Alibaba PuHuiTi 3，本地 woff2）/ 经典（原版）/ 经典衬线（Lora）/ 系统，四选项随主题设置。
+- **主题系统「暖幕手记 × Claude」**：Claude token 体系（cream \`#FAF9F5\` 画布 + 珊瑚陶土 \`#CC785C\`/\`#A9583E\` + ink \`#141413\`）亮暗双模式；暗色 gray 色阶整体反转适配全部上游工具类；新用户默认新主题，老用户保留经典（迁移逻辑）。
+- **雾纸玻璃层 Frost-Paper**：玻璃只上固定 chrome（顶栏 / 输入岛 / 侧栏抽屉 / 模态面板，blur 16px），聊天气泡回归纸感；突破上游移动端 \`backdrop-filter\` 全局 kill-switch 与 \`!important\` 白面死角。
+- **字体系统**：\`Luzzy 默认\`（AlibabaSans + Alibaba PuHuiTi 3，本地 woff2）/ 经典（原版）/ 经典衬线（Lora）/ 系统，四选项随主题设置。
 - **系统能力桥**：角色卡 PNG/JSON 走 SAF 文件桥导入导出；剪贴板 / Toast / 版本信息 / 系统栏样式联动主题亮暗。
 
 **修复**
-- rc1 → rc3 全程真机热修：主题不生效（Tailwind 透明度工具类必须 RGB 三元组 + `<alpha-value>`）、暗色白块、上游 `!important` 白面死角、移动端磨砂 kill-switch（详见 rc 条目）。
+- rc1 → rc3 全程真机热修：主题不生效（Tailwind 透明度工具类必须 RGB 三元组 + \`<alpha-value>\`）、暗色白块、上游 \`!important\` 白面死角、移动端磨砂 kill-switch（详见 rc 条目）。
 
 **注意事项**
 - **旧版（≤ v0.3.0 Compose 工程）数据不通用**，全新安装即用。
 - 侧载分发（不上架商店）：安装需允许「未知来源应用」。
-- NSFW 增强预设（上游 `<nsfw_rules>`）原样保留、不可触碰（硬性规定 1）。
+- NSFW 增强预设（上游 \`<nsfw_rules>\`）原样保留、不可触碰（硬性规定 1）。
 
-**构建**：`assembleRelease` BUILD SUCCESSFUL（luzzy 签名 + R8 + ABI 拆分三件套）· versionCode 5（衔接 v0.3.0 的 4，覆盖安装无降级拦截）· 附 APK。
+**构建**：\`assembleRelease\` BUILD SUCCESSFUL（luzzy 签名 + R8 + ABI 拆分三件套）· versionCode 5（衔接 v0.3.0 的 4，覆盖安装无降级拦截）· 附 APK。
 
 ### v1.0.0-rc3 — 雾纸玻璃层 Frost-Paper · 液态玻璃方向融合（上游基线 RP-Hub 1.8.9）
 
-在「暖幕手记」主题上融合液态玻璃 / 半透明容器语言：按硬性规定 9 重读 4 项设计 SKILL，出 3 块真实方向板（`docs/design/boards-v3/`，亮暗双框同场景渲染），用户选定**方向 A「雾纸 Frost-Paper」**（参照 Windows 11 Mica，存档 `direction-approved-v3.md`）。
+在「暖幕手记」主题上融合液态玻璃 / 半透明容器语言：按硬性规定 9 重读 4 项设计 SKILL，出 3 块真实方向板（\`docs/design/boards-v3/\`，亮暗双框同场景渲染），用户选定**方向 A「雾纸 Frost-Paper」**（参照 Windows 11 Mica，存档 \`direction-approved-v3.md\`）。
 
 **新增**
-- 雾纸玻璃层：玻璃只上**固定 chrome**——顶栏 / 输入岛 / 侧栏抽屉 / 模态面板（亮 cream `rgba(250,249,245,.86-.88)` / 暗 暖纸 `rgba(32,30,27,.86-.88)` + blur 统一 16px + 发丝线边）；聊天气泡**回归不透纸面**并移除 backdrop blur（亮 `#F5F0E8` / 暗 `#2B2824`，GPU 同步减负）；`@supports` 不支持时自动实底降级。全部落在 `luzzy-theme.css` 扩展层（硬性规定 3），**零新 patch**；DESIGN.md 新增 Glass 章作为真源。
+- 雾纸玻璃层：玻璃只上**固定 chrome**——顶栏 / 输入岛 / 侧栏抽屉 / 模态面板（亮 cream \`rgba(250,249,245,.86-.88)\` / 暗 暖纸 \`rgba(32,30,27,.86-.88)\` + blur 统一 16px + 发丝线边）；聊天气泡**回归不透纸面**并移除 backdrop blur（亮 \`#F5F0E8\` / 暗 \`#2B2824\`，GPU 同步减负）；\`@supports\` 不支持时自动实底降级。全部落在 \`luzzy-theme.css\` 扩展层（硬性规定 3），**零新 patch**；DESIGN.md 新增 Glass 章作为真源。
 
 **修复**
-- rc2 暗色死角：上游 styles.css 在移动端媒体查询内以 `!important` 写死一批白面（`.input-island` 输入岛、`.typing-bubble`、`.msg-name-tag`、`.typing-timer-badge`、`.toast-item`、`.desc-panel`、`.wi-footer`），暗色下仍呈白色——主题层以同等级 `!important` + 更高特异性成建制收编（CDP 实证 `.input-island` 由白 0.9 → 暖纸 0.88）。
+- rc2 暗色死角：上游 styles.css 在移动端媒体查询内以 \`!important\` 写死一批白面（\`.input-island\` 输入岛、\`.typing-bubble\`、\`.msg-name-tag\`、\`.typing-timer-badge\`、\`.toast-item\`、\`.desc-panel\`、\`.wi-footer\`），暗色下仍呈白色——主题层以同等级 \`!important\` + 更高特异性成建制收编（CDP 实证 \`.input-island\` 由白 0.9 → 暖纸 0.88）。
 - 抽屉遮罩由上游 slate 冷蓝改为墨色暖黑（亮暗通用）。
-- **上游移动端 backdrop-filter 全局 kill-switch**（`* { backdrop-filter: none !important }`）导致手机上从未有过磨砂——雾纸层以更高特异性 `!important` 仅对 chrome 表面精准放行；真机（小米 25098PN5AC / WebView 150）实测磨砂渲染生效（条幅探针证照 `docs/design/verify-frost-phone-{light,dark}.png`）。
+- **上游移动端 backdrop-filter 全局 kill-switch**（\`* { backdrop-filter: none !important }\`）导致手机上从未有过磨砂——雾纸层以更高特异性 \`!important\` 仅对 chrome 表面精准放行；真机（小米 25098PN5AC / WebView 150）实测磨砂渲染生效（条幅探针证照 \`docs/design/verify-frost-phone-{light,dark}.png\`）。
 
 **注意事项**
-- `EXTRACT_VERSION` 2→4（assets 变更触发重新解压，IndexedDB 用户数据不受影响）。
-- CDP `captureScreenshot` 在页面有激活 backdrop-filter 时会挂起（Chromium 合成读回互锁）——真机视觉验证走 `adb shell screencap`。
+- \`EXTRACT_VERSION\` 2→4（assets 变更触发重新解压，IndexedDB 用户数据不受影响）。
+- CDP \`captureScreenshot\` 在页面有激活 backdrop-filter 时会挂起（Chromium 合成读回互锁）——真机视觉验证走 \`adb shell screencap\`。
 
-**构建**：`assembleDebug` 通过（universal 42,750,291 字节 ≈ 40.8MB）；versionCode 1（debug 后缀）。
+**构建**：\`assembleDebug\` 通过（universal 42,750,291 字节 ≈ 40.8MB）；versionCode 1（debug 后缀）。
 
 ### v1.0.0-rc2 — 全新主题「暖幕手记 × Claude」· 设计 SKILL 三方向硬门（上游基线 RP-Hub 1.8.9）
 
@@ -127,45 +132,45 @@ v1.0.0 线定稿（rc1 → rc2 → rc3 → 正式版；rc 期间全部变更随�
 
 **新增**
 
-- **设计流程物**：三方向差异化方向板（A 锐白 Swiss Monochrome / B 午夜场 ElevenLabs 参照 / C 暖幕手记 Collins）＋共享骨架＋设计合同 spec-v2（`docs/design/boards-v2/`、`docs/design/spec-v2.md`）；用户选定「C，进一步增强 Claude 风格」，落档 `direction-approved-v2.md`。
+- **设计流程物**：三方向差异化方向板（A 锐白 Swiss Monochrome / B 午夜场 ElevenLabs 参照 / C 暖幕手记 Collins）＋共享骨架＋设计合同 spec-v2（\`docs/design/boards-v2/\`、\`docs/design/spec-v2.md\`）；用户选定「C，进一步增强 Claude 风格」，落档 \`direction-approved-v2.md\`。
 - **新主题「暖幕手记」**（C × Claude token 体系，DESIGN.md 真源重写）：亮色 = tinted cream 画布 #FAF9F5 + 暖表面三层（#F5F0E8/#EFE9DE/#E8E0D2）+ Claude coral #CC785C（图形）/ #A9583E（按钮，白字 4.7:1）+ ink #141413；暗色 = Claude 暗表面系（#181715/#1F1E1B/#252320）+ coral 提亮 #D97757，gray 色阶反转使上游全部工具类自动适配；名字标签走 Lora 衬线（剧作手记的文学声音）；正文对比度亮暗分别 ≥4.5:1。
 - **设置页主题卡重构**：「界面主题」卡——主题选择（暖幕手记/经典）+ 模式选择（亮/暗，仅 Luzzy 主题显示）+ 界面字体（附属设置并入主题卡）；新用户默认暖幕手记+亮色，老用户（savedSettings 无 theme 字段）迁移保留经典。
-- **字体选项改版**：上游内置字体改「经典」系命名——`经典（原版）`/`经典衬线（Lora）`/`系统`，新增 `Luzzy 默认`（AlibabaSans 拉丁 + Alibaba PuHuiTi 3.0 中文，本地打包）；新用户默认 Luzzy 字体。
-- **暗色白块治理**：patch 008 升级 v3（RGB 三元组 + `<alpha-value>`）——v2 纯 var() 下带透明度修饰符的工具类（bg-gray-50/60 等）被 Tailwind JIT 回退纯白，是暗色白块的机制性根因；另以 !important 覆盖暗色 `bg-white`/`bg-white/*` 与上游写死白色的 segmented 滑块，暗色画面纯白块清零（CDP 全 DOM 扫描实证）。
+- **字体选项改版**：上游内置字体改「经典」系命名——\`经典（原版）\`/\`经典衬线（Lora）\`/\`系统\`，新增 \`Luzzy 默认\`（AlibabaSans 拉丁 + Alibaba PuHuiTi 3.0 中文，本地打包）；新用户默认 Luzzy 字体。
+- **暗色白块治理**：patch 008 升级 v3（RGB 三元组 + \`<alpha-value>\`）——v2 纯 var() 下带透明度修饰符的工具类（bg-gray-50/60 等）被 Tailwind JIT 回退纯白，是暗色白块的机制性根因；另以 !important 覆盖暗色 \`bg-white\`/\`bg-white/*\` 与上游写死白色的 segmented 滑块，暗色画面纯白块清零（CDP 全 DOM 扫描实证）。
 - **壳层配套**：debug 构建开启 WebView 远程调试（CDP，release 不受影响）；系统栏桥接改「状态栏图标恒白（顶栏深渐隐双向可读）+ 导航栏图标随主题明暗」；windowBackground 渐变暖化为 #8B8886→#7D7A77→#FAF9F5 与 cream 画布衔接。
 
 **修复**
 
-- 旧实现的隐患修正：上游参考克隆 diff 归零验证；迁移逻辑改置于 `if (savedSettings)` 块内（避免新用户无存储时 `hasOwnProperty.call(undefined)` 抛 TypeError）。
+- 旧实现的隐患修正：上游参考克隆 diff 归零验证；迁移逻辑改置于 \`if (savedSettings)\` 块内（避免新用户无存储时 \`hasOwnProperty.call(undefined)\` 抛 TypeError）。
 - Tailwind Play CDN 对 var() 色值的兼容性经 jsdom 实证**成立**（推翻 v1.0.0-rc1 移交的「CDN 拒绝 var()」根因假设）；rc1 真机「主题未生效」的真因判定为 CSS 变量未定义（透明透出 windowBackground，黑渐隐叠加色数学与实测截图吻合）。
 
 **注意**
 
-- 主题验证基线（模拟器 + 真机双端，CDP 数据面）：亮 `body=#FAF9F5`、暗 `body=#171614`、经典回退 `#f9fafb`；暗色层次重调后弱/次级文字对比 4.9:1 / 6.8:1、卡片与画布拉开展次、透明度变体正常着色、纯白残留 0；真机（小米 25098PN5AC）走 EXTRACT_VERSION 2 保数据升级，老用户设置正确沿用——对照 rc1 同机 #BCBDBE，P0 确证修复；截图存档 `docs/design/verify-v3-{light,dark}.png` 与 `verify-v3-phone-{light,dark}.png`。
-- 修改 assets 后必须卸载重装或 bump `AssetExtractor.EXTRACT_VERSION`，否则 filesDir 不会重新解压（本版验证时踩过）。
+- 主题验证基线（模拟器 + 真机双端，CDP 数据面）：亮 \`body=#FAF9F5\`、暗 \`body=#171614\`、经典回退 \`#f9fafb\`；暗色层次重调后弱/次级文字对比 4.9:1 / 6.8:1、卡片与画布拉开展次、透明度变体正常着色、纯白残留 0；真机（小米 25098PN5AC）走 EXTRACT_VERSION 2 保数据升级，老用户设置正确沿用——对照 rc1 同机 #BCBDBE，P0 确证修复；截图存档 \`docs/design/verify-v3-{light,dark}.png\` 与 \`verify-v3-phone-{light,dark}.png\`。
+- 修改 assets 后必须卸载重装或 bump \`AssetExtractor.EXTRACT_VERSION\`，否则 filesDir 不会重新解压（本版验证时踩过）。
 - 上游硬编码的非 gray/primary 色（indigo/blue/pink 工具类）不在 v1 主题范围，保持原样；后续可按 DESIGN.md 扩展。
 
-构建：`assembleDebug` BUILD SUCCESSFUL · versionCode 1（debug）
+构建：\`assembleDebug\` BUILD SUCCESSFUL · versionCode 1（debug）
 
 ---
 
 ### v1.0.0 — 重建 · RP-Hub 二次开发 · 原生 WebView 壳（上游基线 RP-Hub 1.8.9）
 
-全面推翻旧 Kotlin/Compose 工程，转为对开源项目 RP-Hub（STA1N156，CC BY-NC 4.0）的二次开发：原生 WebView 壳 + 独立扩展层。旧工程备份于 git tag `legacy-v0.3.0`。
+全面推翻旧 Kotlin/Compose 工程，转为对开源项目 RP-Hub（STA1N156，CC BY-NC 4.0）的二次开发：原生 WebView 壳 + 独立扩展层。旧工程备份于 git tag \`legacy-v0.3.0\`。
 
 **新增**
 
-- **主题系统**：设置页新增「界面主题」——经典（原版 RP-Hub 浅色）/ 暖纸书房（Luzzy 新主题，亮/暗双模式）；新用户默认暖纸书房；老用户保留经典（迁移逻辑）。主题由 `data-theme` + `data-mode` 双属性驱动，tailwind.config 色板 var() 化（patch 008-011）。
+- **主题系统**：设置页新增「界面主题」——经典（原版 RP-Hub 浅色）/ 暖纸书房（Luzzy 新主题，亮/暗双模式）；新用户默认暖纸书房；老用户保留经典（迁移逻辑）。主题由 \`data-theme\` + \`data-mode\` 双属性驱动，tailwind.config 色板 var() 化（patch 008-011）。
 - **暖纸书房主题**（方向 A，用户选定）：米纸底 #FAF9F5 + 烤橙 #D97757（图形 accent）/ #B85C3E（按钮）/ #A8543A（文字）双档策略过 4.5:1；暗色深暖灰 #262624 + 暖橙 #E08A5F；卡片式分层布局（气泡悬浮卡 + 输入区悬浮工具栏）；动效令牌进入 200ms / 退出 140ms / ease-out cubic-bezier(0.23,1,0.32,1)；系统栏图标深浅联动（LuzzyBridge.setSystemBarStyle）。
 - **字体设置**：界面字体新增「Luzzy 默认字体」选项（Alibaba PuHuiTi 3.0 中文 + AlibabaSans 拉丁，本地打包 15.8MB）；新用户默认 Luzzy 字体；经典（modern/serif/system）保留。
-- **壳工程**：单 Activity WebView 宿主（Kotlin，仅 4 个最小依赖）；首次启动 assets 解压到 filesDir（标记版本幂等，localStorage 持久化保障）；返回键 WebView 回退；`onActivityResult` 文件选择桥。
+- **壳工程**：单 Activity WebView 宿主（Kotlin，仅 4 个最小依赖）；首次启动 assets 解压到 filesDir（标记版本幂等，localStorage 持久化保障）；返回键 WebView 回退；\`onActivityResult\` 文件选择桥。
 - **JSBridge 原生层**：剪贴板 / Toast / 版本信息（versionName、versionCode、上游版本）/ 设备信息 / 系统栏样式；R8 keep 规则保护方法名。
-- **文件桥**：`onShowFileChooser` SAF 导入（角色卡 PNG/JSON）；DownloadManager 导出落盘 Download/LuzzyRP/。
-- **资源离线化**：Vue 3 / Tailwind CDN / marked / DOMPurify 3.0.6 / SortableJS / daisyUI 4.7.2 / localforage 1.10.0 全部本地打包至 `vendor/`；Lora 可变字体（400-700 + italic）本地打包；主页面 + character + novel 子页面 CDN 引用全部本地化（静态资源 CDN 清零）。
-- **品牌化**：标题 / 入口 logo（LUZZY·RP）/ 应用名 / 图标复用；`rphub-update-api` 移除（禁用上游更新检查）。
-- **扩展层**：`luzzy-bridge.js`（桥接封装 + 降级）/ `luzzy-theme.css`（字体栈覆盖 + 主题变量）/ `luzzy-ext.js`（桥接自检 + 关于页品牌注入 + 主题应用）；index.html 尾部挂载，与上游零冲突。
+- **文件桥**：\`onShowFileChooser\` SAF 导入（角色卡 PNG/JSON）；DownloadManager 导出落盘 Download/LuzzyRP/。
+- **资源离线化**：Vue 3 / Tailwind CDN / marked / DOMPurify 3.0.6 / SortableJS / daisyUI 4.7.2 / localforage 1.10.0 全部本地打包至 \`vendor/\`；Lora 可变字体（400-700 + italic）本地打包；主页面 + character + novel 子页面 CDN 引用全部本地化（静态资源 CDN 清零）。
+- **品牌化**：标题 / 入口 logo（LUZZY·RP）/ 应用名 / 图标复用；\`rphub-update-api\` 移除（禁用上游更新检查）。
+- **扩展层**：\`luzzy-bridge.js\`（桥接封装 + 降级）/ \`luzzy-theme.css\`（字体栈覆盖 + 主题变量）/ \`luzzy-ext.js\`（桥接自检 + 关于页品牌注入 + 主题应用）；index.html 尾部挂载，与上游零冲突。
 - **文档体系**：README 重写（二创署名声明 + 完整门面）；AGENTS.md（后续 Agent 工作指南 + 硬性规定 9 设计 SKILL 强制条款）；HARD_REQUIREMENTS 重写（9 条）；PLAN-v1.0.0（10 决策 + 9 Phase）；DESIGN.md 设计真源（暖纸书房定稿）；docs/design/（theme-spec / theme-tech-plan / theme-motion-plan / direction-approved / direction-summary）。
-- **同步机制**：`tools/sync-upstream.ps1`（fetch → 覆盖复制 → patch 重放 → 指纹更新 → 回归清单）；`tools/apply-patches.ps1`（幂等 patch 重放，001-011 登记）；`tools/upstream-fingerprints.txt`（11 文件 SHA-256 基线，NSFW 协议守护配套）。
+- **同步机制**：\`tools/sync-upstream.ps1\`（fetch → 覆盖复制 → patch 重放 → 指纹更新 → 回归清单）；\`tools/apply-patches.ps1\`（幂等 patch 重放，001-011 登记）；\`tools/upstream-fingerprints.txt\`（11 文件 SHA-256 基线，NSFW 协议守护配套）。
 
 **优化**
 
@@ -178,13 +183,13 @@ v1.0.0 线定稿（rc1 → rc2 → rc3 → 正式版；rc 期间全部变更随�
 - CJK 分片字体（Ma Shan Zheng / Noto Serif SC）未本地化，novel 页艺术字体降级为系统衬线（已登记 patch 007 决策）。
 - 主题系统依赖 patch 008-011，上游同步后必须重放（apply-patches.ps1 已登记）。
 
-构建：`assembleDebug` BUILD SUCCESSFUL（AGP 9 内置 Kotlin）· versionCode 1
+构建：\`assembleDebug\` BUILD SUCCESSFUL（AGP 9 内置 Kotlin）· versionCode 1
 
 ---
 
 ## 历史区（v0.x · 旧 Kotlin/Compose 工程）
 
-旧工程全部记录保留于 git tag `legacy-v0.3.0` 对应版本的 CHANGELOG 页。以下为存档：
+旧工程全部记录保留于 git tag \`legacy-v0.3.0\` 对应版本的 CHANGELOG 页。以下为存档：
 
 ### v0.2.0 — 设计重构 · 角色卡生态 · 预设与档案
 
@@ -192,10 +197,10 @@ v1.0.0 线定稿（rc1 → rc2 → rc3 → 正式版；rc 期间全部变更随�
 
 **新增**
 
-- **设计体系落地**：4 项设计 SKILL（huashu-design / open-design / awesome-design-md / ui-ux-pro-max-skill）全部存档至 docs/skills/ 并写入硬性规定 13；新增仓库根 `DESIGN.md` 设计契约与 `docs/AGENT-GUIDE.md` 开发指南。
+- **设计体系落地**：4 项设计 SKILL（huashu-design / open-design / awesome-design-md / ui-ux-pro-max-skill）全部存档至 docs/skills/ 并写入硬性规定 13；新增仓库根 \`DESIGN.md\` 设计契约与 \`docs/AGENT-GUIDE.md\` 开发指南。
 - **图标黑边修复**：815 枚图标管线升级——索引色 PNG → RGBA 清洗（透明区杂色归零）+ 字形 bbox 归一化居中（全库视觉大小统一）+ 透明边缘平滑；启动图标黑晕清除、底色改 AuroraPink。
 - **启动直达**：应用启动自动打开上次会话；首次启动默认创建并进入「鹿溪」对话。
-- **角色卡生态**：手动新建角色卡；头像选择（自动 1:1 裁剪）；聊天背景图（默认回落头像）+ 透明度；`<CUT>` 分割多条开场白（多气泡输出）；世界书整体并入角色卡二级页。
+- **角色卡生态**：手动新建角色卡；头像选择（自动 1:1 裁剪）；聊天背景图（默认回落头像）+ 透明度；\`<CUT>\` 分割多条开场白（多气泡输出）；世界书整体并入角色卡二级页。
 - **世界书编辑器**：条目全字段管理——条目名称/内容/激活策略（常驻+关键词，可叠加）/激活概率 0-100/注入位置（↑Char、↓Char、↑EM、↓EM、@Depth×system/user/assistant + 深度）/独立启停；SillyTavern 世界书 JSON 导入（外部条目默认启用）。
 - **提示词预设**：预设 = 名称 + 条目列表；条目独立启停/命名/角色（SYSTEM/USER/ASSISTANT）/注入位置（相对 + @Depth×3）/内容编辑；单选激活注入 system。
 - **用户档案**：头像/名字/身份，注入 system 稳定前缀。
@@ -211,7 +216,7 @@ v1.0.0 线定稿（rc1 → rc2 → rc3 → 正式版；rc 期间全部变更随�
 
 - Room v1 → v2 手写迁移（worldbook_entries.depthRole 列 + prompt_presets 表），老用户数据无损升级。
 
-构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 3
+构建：\`assembleRelease\` BUILD SUCCESSFUL（R8 minify）· versionCode 3
 
 
 ### v0.1.1 — 首航热修：模拟器实测三缺陷修复
@@ -220,15 +225,15 @@ v0.1.0 在 Android 15 模拟器全流程实测（安装 → 启动 → 新建会
 
 **修复**
 
-- **启动崩溃**：`painterResource(R.mipmap.ic_launcher)` 无法加载自适应图标（AdaptiveIconDrawable 既非 Vector 亦非位图，首帧即抛 IllegalArgumentException）→ 品牌 logo 以 PNG 资源（`luzzy_logo`）入 drawable，全部 Compose 引用替换。
-- **顶栏遮挡**：edge-to-edge 下未处理 WindowInsets，首页/聊天页顶栏切入状态栏 → 全局 Shell 增加 `systemBarsPadding()`。
-- **种子数据缺失**：内置角色卡「鹿溪」/ 其世界书 / 正则内置预设的 `ensure*()` 从未被调用 → 应用启动时幂等初始化（新建会话现在正确显示「与鹿溪 的故事」并携带完整开场白）。
+- **启动崩溃**：\`painterResource(R.mipmap.ic_launcher)\` 无法加载自适应图标（AdaptiveIconDrawable 既非 Vector 亦非位图，首帧即抛 IllegalArgumentException）→ 品牌 logo 以 PNG 资源（\`luzzy_logo\`）入 drawable，全部 Compose 引用替换。
+- **顶栏遮挡**：edge-to-edge 下未处理 WindowInsets，首页/聊天页顶栏切入状态栏 → 全局 Shell 增加 \`systemBarsPadding()\`。
+- **种子数据缺失**：内置角色卡「鹿溪」/ 其世界书 / 正则内置预设的 \`ensure*()\` 从未被调用 → 应用启动时幂等初始化（新建会话现在正确显示「与鹿溪 的故事」并携带完整开场白）。
 
 **优化**
 
 - 发送后无可用供应商时以错误条提示（errorContainer），不再静默。
 
-构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 2
+构建：\`assembleRelease\` BUILD SUCCESSFUL（R8 minify）· versionCode 2
 
 
 ### v0.1.0 — 首航：全新引擎 · 全新起点
@@ -237,10 +242,10 @@ LuzzyRP 的第一个正式版本。全新代码库，以 rikkahub 已验证的�
 
 **新增**
 
-- **真流式输出引擎**：callbackFlow + OkHttp SSE EventSources + `trySend` 逐 event 零节流 + `readTimeout = 10 MINUTES`；思考卡片与正文气泡均以 1 字 = 1 次更新直连单一真源 `MutableStateFlow<Conversation>`。
+- **真流式输出引擎**：callbackFlow + OkHttp SSE EventSources + \`trySend\` 逐 event 零节流 + \`readTimeout = 10 MINUTES\`；思考卡片与正文气泡均以 1 字 = 1 次更新直连单一真源 \`MutableStateFlow<Conversation>\`。
 - **三协议供应商层**：OpenAI 兼容（一等公民，覆盖 DeepSeek / 火山方舟 CodingPlan / GLM / OpenRouter 及任意兼容端点）、Anthropic messages API、Google Gemini SSE；主机思考参数自适应（thinking.type / reasoning_effort / reasoning.effort）。
-- **Agentic 闭环**：`maxSteps = 256` 硬上限、工具结果**原地回填**（绝不新建 TOOL 消息）、三 break 条件、`ToolApprovalState` 五状态机审批与续跑、禁用 `tool_choice = required`；RP 模式两阶段闭环 `maxLoops = 3`（工具轮次上限 → 阶段二基于结果生成正文）。
-- **文本标签兜底**：`<tool_calls>` 标签流式解析器（GLM-5.2 等无原生 function calling 模型），支持跨增量切分安全、行式/JSON 数组双格式、截断尽力解析，协议文本永不上屏。
+- **Agentic 闭环**：\`maxSteps = 256\` 硬上限、工具结果**原地回填**（绝不新建 TOOL 消息）、三 break 条件、\`ToolApprovalState\` 五状态机审批与续跑、禁用 \`tool_choice = required\`；RP 模式两阶段闭环 \`maxLoops = 3\`（工具轮次上限 → 阶段二基于结果生成正文）。
+- **文本标签兜底**：\`<tool_calls>\` 标签流式解析器（GLM-5.2 等无原生 function calling 模型），支持跨增量切分安全、行式/JSON 数组双格式、截断尽力解析，协议文本永不上屏。
 - **内置提示词强化**：Agentic 行为协议（>2 轮思考、>1 次主动工具调用）注入稳定前缀；NSFW 块占位文件（由用户手动填写，任何逻辑不可触碰）。
 - **角色卡生态**：SillyTavern v2/v3 PNG 导入导出（自研 PNG tEXt chunk 读写器）+ JSON 导入导出、头像 1:1 裁剪、内置默认角色卡「鹿溪」（只读保护）。
 - **世界书三策略召回**：常驻 / 关键词（含递归扫描与概率 roll）/ 向量（sqlite-vec Top-K + 相似度阈值）；注入位置分层与 KV 缓存结构对齐。
@@ -259,15 +264,15 @@ LuzzyRP 的第一个正式版本。全新代码库，以 rikkahub 已验证的�
 **守护**
 
 - 单元测试全绿：流式合并代数、标签兜底解析、PNG tEXt 往返、KV 前缀稳定性 Golden（同历史两次组装逐字节相等）、Agentic 循环（原地回填/审批续跑/两阶段收口）。
-- 不变性落点文件均带 `[INVARIANT-STREAMING]` / `[INVARIANT-AGENTIC]` / `[INVARIANT-KV]` / `[INVARIANT-NSFW]` 守护注释块。
+- 不变性落点文件均带 \`[INVARIANT-STREAMING]\` / \`[INVARIANT-AGENTIC]\` / \`[INVARIANT-KV]\` / \`[INVARIANT-NSFW]\` 守护注释块。
 
 **注意事项**
 
 - 使用前请在「设置 → 供应商」配置 API Key（内置 DeepSeek 与火山方舟 CodingPlan 档案，均可编辑）。
 - 向量召回（记忆/世界书）需在设置中另行配置嵌入模型；未配置时自动退化为关键词召回。
-- NSFW 提示词块为占位状态，由用户手动填写（`NsfwBlock.kt`），项目本身不做任何内容过滤。
+- NSFW 提示词块为占位状态，由用户手动填写（\`NsfwBlock.kt\`），项目本身不做任何内容过滤。
 
-构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 1
+构建：\`assembleRelease\` BUILD SUCCESSFUL（R8 minify）· versionCode 1
 ---
 
 ### v0.3.0 — Aurora v2 主题重制 · 三态动效体系 · 图层设计
@@ -296,5 +301,7 @@ LuzzyRP 的第一个正式版本。全新代码库，以 rikkahub 已验证的�
 - **首页**：时段问候 + 极光渐变品牌标题；会话空态引导。
 - **页面转场 v2**：fade+slide 六分之一屏、缓动曲线化（快出慢入不对称节奏）。
 
-构建：`assembleRelease` BUILD SUCCESSFUL（R8 minify）· versionCode 4
+构建：\`assembleRelease\` BUILD SUCCESSFUL（R8 minify）· versionCode 4
 
+` };
+})();

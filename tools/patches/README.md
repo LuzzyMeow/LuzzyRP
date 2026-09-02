@@ -96,12 +96,69 @@
 #   - 对应：用户需求「多模型商混用模型」（设置页/聊天页/记忆双模式/未提及点位一并更新）
 #   - 预期冲突点：上游改 settings 结构 / fetchModels / 请求装配 / 记忆检索管线 / ModelSelectorModal 时需重打
 #
-# 013-appearance-panel.patch（2026-09-02，v1.1.0 外观独立面板）
+# 013-appearance-panel.patch（2026-09-02，v1.1.0 外观独立面板；v1.2.0 起**模态面板部分已被 014 取代**）
 #   - ui-components.js: AppSidebar 设置按钮下新增「外观」按钮（emit open-appearance）
-#   - index.html: app-sidebar 接 @open-appearance；新增外观模态面板
-#     （界面主题/模式/字体/对话字号，绑定既有 settings 字段复用 watch+deep-watch 持久化）；
-#     设置页原主题卡（patch 011 v2 区）替换为「外观」入口卡
-#   - app.js: showAppearancePanel ref + setup return 暴露
-#   - 对应：用户需求「主题、字体相关设置独立为侧边菜单栏独立入口」；视觉复用雾纸弹窗层（零新增主题适配）
-#   - 预期冲突点：上游改 AppSidebar 模板 / 全局弹窗区 / 设置页高级参数区时需重打
+#     ⚠ v1.2.0（patch 014）已将该按钮改为 selectView('appearance')，open-appearance emit 已删除
+#   - index.html: app-sidebar 接 @open-appearance（⚠ v1.2.0 已移除接线）；新增外观模态面板
+#     （⚠ v1.2.0 该弹窗整体移除，设置迁至独立视图）
+#   - app.js: showAppearancePanel ref + setup return 暴露（⚠ v1.2.0 已删除）
+#   - 保留本登记用于追溯 v1.1.0 形态；同步重放时以 014 为准
+#
+# 014-appearance-about-views.patch（2026-09-02，v1.2.0 外观/关于独立页 + 侧栏重排）
+#   - ui-components.js: AppSidebar 底部簇重排：高级组 → 外观 → 关于 → 设置（设置置底）；
+#     外观/关于均为 selectView 独立视图（itemClass 激活态）；删除 open-appearance emit
+#   - index.html: app-sidebar 移除 @open-appearance 接线；新增 'appearance' 独立视图区块
+#     （主题预览条 + 界面主题/模式/字体/对话字号四控件，自 013 弹窗整体迁入，全应用唯一外观入口；
+#     设置页入口卡改为跳转 currentView='appearance'，重复字号下拉删除）；
+#     新增 'about' 独立视图区块（logo + 版本（LuzzyBridge.getVersion 降级）+ 上游基线链接 +
+#     CC BY-NC 4.0 署名 + GitHub 仓库 + CHANGELOG（v-html renderMarkdown，源 ext/luzzy-changelog.js））；
+#     尾部扩展层挂载 luzzy-changelog.js（patch 005 区旁）
+#   - app.js: 删 showAppearancePanel；新增 appVersionLabel/upstreamVersionLabel/changelogHtml/
+#     openGitHubRepo + about 视图惰性渲染 watch（renderMarkdown 可用后定义处）
+#   - ext/: 新增 luzzy-changelog.js（tools/gen-changelog.mjs 从 CHANGELOG.md 生成，勿手改）+ luzzy-logo.png
+#   - 对应：用户需求「外观改独立页面、设置置底、外观从原设置剥离；新增关于页含 CHANGELOG」
+#   - 预期冲突点：上游改 AppSidebar 模板 / 视图区块结构 / 扩展层挂载区 / setup return 时需重打
+#
+# 015-provider-protocol-models.patch（2026-09-02，v1.2.0 供应商三协议 + 模型管理 + 自定义生图）
+#   - app.js:
+#     · 数据模型：settings.apiProviders 条目扩展 protocol（openai|anthropic|gemini）/ models（手动模型条目：
+#       id 请求id、label 显示id、contextLength、maxOutput、inputModalities 多选、type 单选、extraBody）/
+#       extraBody（供应商级请求体）；normalizeUserApiProviders 字段保全（新字段加入映射白名单）；
+#       settings.imageModelSource / customImageModelRef
+#     · 长度解析：parseLengthToken / formatLengthToken（1024000|100K|1M|100k|1m → 数字，K=1024 M=1024²）
+#     · 供应商编辑器：showProviderEditor/draft（浅拷贝防取消污染）/保存写回；模型增删改 UI 状态；
+#       热检测预设五组（glm-5.3 / glm-5.3-flash / deepseek-v4-pro / deepseek-v4-flash /
+#       deepseek-v4-flash-vision-exp，大小写不敏感长词优先，只填空字段+轻提示+撤销）；
+#       编辑商 id → collectModelRefsByProvider 全槽位扫描 + `旧id::` 前缀与 key/缓存键整体重映射；
+#       保存后 rebuildMergedAvailableModels 热更新（聊天/识图槽位立即可见）
+#     · fetchModelsForProvider / checkApiStatus 按协议分型拉取（openai GET /v1/models；anthropic GET /v1/models
+#       x-api-key 头；gemini GET /v1beta/models key 参数 + name 去前缀）；手动模型并入缓存
+#     · 请求点接入三协议字段（protocol/maxTokens/extraBody）：主聊天 / 识图 / UI模板分析（改走适配层）/
+#       记忆总结（改走适配层）/ 记忆嵌入（gemini 走 batchEmbedContents；anthropic 显式禁用并提示）
+#     · 用量记录加 protocol 维度；工坊 remap 仅对 protocol==='openai' 的激活用户商生效
+#   - runtime-services.js: requestChatCompletion 三协议适配——openai 原路径 + max_tokens + extraBody 合并；
+#     anthropic Messages API（x-api-key + anthropic-version + anthropic-dangerous-direct-browser-access 头，
+#     system 抽出、图片转 base64 source、max_tokens 必填缺省 8192、thinking budget 映射、
+#     content_block_delta text_delta/thinking_delta SSE 解析）；gemini GenerateContent API
+#     （:streamGenerateContent?alt=sse & :generateContent，contents/systemInstruction/generationConfig，
+#     part.thought → reasoning，thinkingConfig.thinkingBudget 映射）
+#   - index.html: 供应商管理器行加「编辑」按钮 + 协议徽标 + key 只读回显；新增供应商编辑器二级弹窗
+#     （z-[60]：id/名称/协议三选一/URL/Key/供应商级请求体键值行/模型增删改卡）；生图设置加「模型来源」
+#     （STA1N 官方 / 自定义模型），自定义时隐藏 NAI 专属字段（版本/风格）显示自定义模型下拉
+#   - ui-components.js: ModelSelectorModal 列表项加手动模型 meta 摘要 chip（1M · 文本+图像）
+#   - 生图：startCustomImageTask（POST {provider}/v1/images/generations，b64_json→dataURL），
+#     data-image-request 伪 URL `luzzy-image://` 分流（loadGeneratedImageCard / renderGeneratedImageJob /
+#     aspectRatio / reroll 四处适配）；enforceSpecialRules 按 imageModelSource 生成对应替换 URL
+#   - 对应：用户需求「供应商支持自定义新增（OpenAI/Anthropic/Gemini）/编辑/删除 + 二级编辑弹窗 +
+#   模型增删改（id/显示id/上下文长度/最大输出长度/输入模态/模型类型/自定义请求体懒编辑/供应商级请求体）+
+#   五组热检测预设 + 热更新模型列表 + 自定义生图模型接入生图流」；不设「最大输入长度」字段（用户已确认）
+#   - 实施中修正（模拟器走查发现，均已修复）：
+#     · addUserApiProvider 占位条目必须先 push 进 settings.apiProviders 再进编辑器
+#       （否则保存只改 draft 引用，供应商永不入列）；取消时移除空占位条目
+#     · providerEditorIdConflict 以 __source 排除自身（原实现编辑已有商时误报 id 冲突）
+#     · anthropic/gemini 非流式响应被服务端以 SSE 返回时逐行兜底解析（原 JSON.parse 直接抛错）
+#     · system 抽出启发式收紧为「首条 user 纯文本 且 messages.length > 1」
+#       （单消息场景正文被误吞进 system；仅 role==='system' 显式角色无条件抽出）
+#   - 预期冲突点：上游改 settings 结构 / 请求管线（requestChatCompletion）/ fetchModels / 记忆嵌入 /
+#     生图正则与任务管线 / 设置页生图区时需重打
 # ------------------------------------------------------------

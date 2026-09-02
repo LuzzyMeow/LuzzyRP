@@ -644,6 +644,8 @@ const app = createApp({
             imageStyle: 'vertical',
             customImageArtists: '',
             imageModel: 'nai-diffusion-4-5-full',
+            imageModelSource: 'sta1n',   // [LuzzyRP patch 015] 'sta1n'（官方 NAI 代理）| 'custom'（供应商 image 模型，存于 customImageModelRef）
+            customImageModelRef: '',     // 复合引用 providerId::bareId
             imageSize: '竖图',
             imageGenCount: 2,
             qualityModel: DEFAULT_API_CONFIG.qualityModel,
@@ -657,6 +659,20 @@ const app = createApp({
             : imageStyleOptions);
         const getImageModelName = (value) => (imageModelOptions.find(option => option.value === value)?.label
             || imageModelOptions[0].label).replace(/（[^）]*）$/, '');
+        // [LuzzyRP patch 015] 自定义生图候选：全部供应商中 type==='image' 的模型（openai 协议限定）
+        const customImageModelOptions = computed(() => {
+            const options = [];
+            allApiProviders.value.forEach(provider => {
+                if (normalizeProviderProtocol(provider.protocol) !== 'openai') return;
+                (provider.models || []).filter(m => m.type === 'image' && m.id).forEach(m => {
+                    options.push({
+                        value: `${provider.id}::${m.id}`,
+                        label: `[${provider.name}] ${m.label || m.id}`
+                    });
+                });
+            });
+            return options;
+        });
         const normalizeFontFamily = (value) => ['luzzy', 'modern', 'serif', 'system'].includes(value) ? value : 'modern';
         const normalizeFontSize = (value) => {
             const size = Number(value);
@@ -678,8 +694,27 @@ const app = createApp({
         watch(() => settings.theme, applyTheme, { immediate: true });
         watch(() => settings.themeMode, applyThemeMode, { immediate: true });
 
-        // [LuzzyRP patch 013] 外观独立面板（主题/模式/字体/对话字号），绑定既有 settings 字段零新机制
-        const showAppearancePanel = ref(false);
+        // [LuzzyRP patch 013] 外观面板 ref 已随 v1.2.0 patch 014 改为独立视图（showAppearancePanel 移除）
+
+        // [LuzzyRP patch 014] 关于页数据：版本标签 + 应用内 CHANGELOG 渲染
+        const appVersionLabel = ref('');
+        const upstreamVersionLabel = ref('');
+        const changelogHtml = ref('');
+        const readBridgeVersion = async () => {
+            try {
+                const bridge = window.Luzzy;
+                if (bridge && typeof bridge.getVersion === 'function') {
+                    const info = await bridge.getVersion();
+                    appVersionLabel.value = info && info.versionName ? `v${info.versionName}` : '';
+                    upstreamVersionLabel.value = info && info.upstreamVersion ? info.upstreamVersion : '';
+                }
+            } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
+            if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.0';
+            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.8.9';
+        };
+        const openGitHubRepo = () => {
+            try { window.open('https://github.com/LuzzyMeow/LuzzyRP', '_blank'); } catch (e) { /* 忽略 */ }
+        };
 
         const showApiProviderSelector = ref(false);
         const selectedApiProviderId = ref(DEFAULT_API_PROVIDER_ID);
@@ -700,16 +735,45 @@ const app = createApp({
         const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
         const normalizeApiProviderUrl = (url) => String(url || '').replace(/\/+$/, '').toLowerCase();
         // [LuzzyRP patch 012] 多模型商混用：用户自定义供应商（任意数量）+ 统一注册表 + 模型引用解析层
+        // [LuzzyRP patch 015] 供应商条目扩展：protocol（openai|anthropic|gemini）+ models（手动模型条目）+ extraBody（供应商级请求体）
         let customProviderIdSeed = 0;
         const createUserApiProviderId = () => `p_${Date.now().toString(36)}${(customProviderIdSeed++).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+        const API_PROVIDER_PROTOCOLS = ['openai', 'anthropic', 'gemini'];
+        const normalizeProviderProtocol = (value) => API_PROVIDER_PROTOCOLS.includes(value) ? value : 'openai';
+        // 模型条目归一：{id 请求id, label 显示id, contextLength, maxOutput, inputModalities[], type, extraBody}
+        const normalizeProviderModelEntry = (entry) => {
+            const modalities = Array.isArray(entry?.inputModalities)
+                ? entry.inputModalities.map(m => String(m)).filter(m => ['text', 'image', 'video'].includes(m)) : [];
+            if (!modalities.includes('text')) modalities.unshift('text');
+            const type = ['text', 'image', 'embedding'].includes(entry?.type) ? entry.type : 'text';
+            const extraBody = (entry?.extraBody && typeof entry.extraBody === 'object' && !Array.isArray(entry.extraBody))
+                ? Object.fromEntries(Object.entries(entry.extraBody).map(([k, v]) => [String(k), v])) : {};
+            return {
+                id: String(entry?.id || '').trim(),
+                label: String(entry?.label || '').trim(),
+                contextLength: Number.isFinite(Number(entry?.contextLength)) && Number(entry?.contextLength) > 0 ? Number(entry.contextLength) : null,
+                maxOutput: Number.isFinite(Number(entry?.maxOutput)) && Number(entry?.maxOutput) > 0 ? Number(entry.maxOutput) : null,
+                inputModalities: modalities,
+                type,
+                extraBody
+            };
+        };
         const normalizeUserApiProviders = (list) => {
             if (!Array.isArray(list)) return [];
             const seen = new Set();
-            return list.map(item => ({
-                id: String(item?.id || '').trim(),
-                name: String(item?.name || '').trim() || '未命名供应商',
-                apiUrl: String(item?.apiUrl || '').trim()
-            })).filter(item => {
+            return list.map(item => {
+                // ⚠ 字段保全：新字段 protocol/models/extraBody 必须在此映射，否则保存后丢失
+                const normalized = {
+                    id: String(item?.id || '').trim(),
+                    name: String(item?.name || '').trim() || '未命名供应商',
+                    apiUrl: String(item?.apiUrl || '').trim(),
+                    protocol: normalizeProviderProtocol(item?.protocol),
+                    models: Array.isArray(item?.models) ? item.models.map(normalizeProviderModelEntry).filter(m => m.id) : [],
+                    extraBody: (item?.extraBody && typeof item.extraBody === 'object' && !Array.isArray(item.extraBody))
+                        ? Object.fromEntries(Object.entries(item.extraBody).map(([k, v]) => [String(k), v])) : {}
+                };
+                return normalized;
+            }).filter(item => {
                 if (!item.id || !item.apiUrl || seen.has(item.id) || isCustomApiProviderId(item.id)) return false;
                 seen.add(item.id);
                 return true;
@@ -764,16 +828,59 @@ const app = createApp({
             const label = provider?.name || '未知';
             return `[${label}] ${record.model || ''}`;
         };
+        // [LuzzyRP patch 015] 长度字段解析：`1024000` / `100K` / `1M` / `100k` / `1m` → 数字（K=1024, M=1024²）
+        const parseLengthToken = (value) => {
+            const raw = String(value ?? '').trim().toUpperCase();
+            if (!raw) return null;
+            const match = raw.match(/^(\d+(?:\.\d+)?)\s*(K|M)?$/);
+            if (!match) return null;
+            const num = Number(match[1]);
+            if (!Number.isFinite(num) || num <= 0) return null;
+            if (match[2] === 'K') return Math.round(num * 1024);
+            if (match[2] === 'M') return Math.round(num * 1024 * 1024);
+            return Math.round(num);
+        };
+        const formatLengthToken = (value) => {
+            const num = Number(value);
+            if (!Number.isFinite(num) || num <= 0) return '';
+            if (num % (1024 * 1024) === 0) return `${num / (1024 * 1024)}M`;
+            if (num % 1024 === 0) return `${num / 1024}K`;
+            return String(num);
+        };
+        // 查找模型的元数据（手动模型条目优先，返回归一后的条目）
+        const getProviderModelMeta = (providerId, bareId) => {
+            if (!providerId) return null;
+            const provider = getApiProviderById(providerId);
+            if (!provider || !Array.isArray(provider.models)) return null;
+            const needle = String(bareId || '').trim().toLowerCase();
+            return provider.models.find(m => String(m.id || '').trim().toLowerCase() === needle) || null;
+        };
+        // 合并请求体附加字段：模型级 > 供应商级（模型级覆盖同名键）
+        const mergeModelExtraBody = (modelMeta, provider) => {
+            const merged = {};
+            if (provider && provider.extraBody && typeof provider.extraBody === 'object') Object.assign(merged, provider.extraBody);
+            if (modelMeta && modelMeta.extraBody && typeof modelMeta.extraBody === 'object') Object.assign(merged, modelMeta.extraBody);
+            return merged;
+        };
         const resolveModelRequest = (modelRef) => {
             const { providerId, bareId } = parseModelRef(modelRef);
             if (providerId) {
                 const provider = getApiProviderById(providerId);
                 const apiKey = String((settings.apiProviderKeys || {})[providerId] || '').trim();
                 if (provider?.apiUrl && apiKey) {
-                    return { url: provider.apiUrl, apiKey, model: bareId, providerId };
+                    const modelMeta = getProviderModelMeta(providerId, bareId);
+                    return {
+                        url: provider.apiUrl, apiKey, model: bareId, providerId,
+                        protocol: normalizeProviderProtocol(provider.protocol),
+                        modelMeta,
+                        extraBody: mergeModelExtraBody(modelMeta, provider)
+                    };
                 }
             }
-            return { url: settings.apiUrl, apiKey: settings.apiKey, model: bareId, providerId: null };
+            return {
+                url: settings.apiUrl, apiKey: settings.apiKey, model: bareId, providerId: null,
+                protocol: 'openai', modelMeta: null, extraBody: {}
+            };
         };
         const syncCurrentApiKeyToProvider = () => {
             const providerId = settings.apiProviderId || selectedApiProvider.value.id || DEFAULT_API_PROVIDER_ID;
@@ -935,12 +1042,13 @@ const app = createApp({
                     }))
                 ];
                 // [LuzzyRP patch 012] 工坊不感知用户自定义商：激活商为用户商时映射为 custom 槽位传递
+                // [LuzzyRP patch 015] 工坊只讲 OpenAI 方言：非 openai 协议的激活商不 remap（工坊回落 custom 槽原值）
                 const workshopKeys = JSON.parse(JSON.stringify(settings.apiProviderKeys || {}));
                 let workshopProviderId = settings.apiProviderId;
                 let workshopCustomUrl = settings.customApiUrl;
                 if (!isCustomApiProviderId(settings.apiProviderId) && !apiProviderOptions.some(p => p.id === settings.apiProviderId)) {
                     const activeUserProvider = userApiProviders.value.find(p => p.id === settings.apiProviderId);
-                    if (activeUserProvider) {
+                    if (activeUserProvider && normalizeProviderProtocol(activeUserProvider.protocol) === 'openai') {
                         workshopProviderId = 'custom';
                         workshopCustomUrl = activeUserProvider.apiUrl;
                         workshopKeys.custom = settings.apiKey || '';
@@ -2150,6 +2258,75 @@ const app = createApp({
             return payload;
         };
 
+        // [LuzzyRP patch 015] 自定义生图模型（OpenAI images/generations 通道）：
+        // data-image-request 存 `luzzy-image://<ref>?prompt=<encoded>` 伪 URL，hydrate 时分流到这里。
+        const CUSTOM_IMAGE_SCHEME = 'luzzy-image://';
+        const isCustomImageRequest = (requestUrl) => String(requestUrl || '').startsWith(CUSTOM_IMAGE_SCHEME);
+        const parseCustomImageRequest = (requestUrl) => {
+            const raw = String(requestUrl || '').slice(CUSTOM_IMAGE_SCHEME.length);
+            const queryIndex = raw.indexOf('?');
+            const ref = queryIndex >= 0 ? raw.slice(0, queryIndex) : raw;
+            const params = new URLSearchParams(queryIndex >= 0 ? raw.slice(queryIndex + 1) : '');
+            return { ref, prompt: params.get('prompt') || '', size: params.get('size') || '' };
+        };
+        const buildCustomImageRequestUrl = (modelRef, prompt, size) =>
+            `${CUSTOM_IMAGE_SCHEME}${encodeURIComponent(modelRef)}?prompt=${encodeURIComponent(prompt)}${size ? `&size=${encodeURIComponent(size)}` : ''}`;
+        const sizeToOpenAISize = (sizeLabel) => {
+            if (sizeLabel === '横图') return '1792x1024';
+            if (sizeLabel === '方图') return '1024x1024';
+            return '1024x1792';
+        };
+        const startCustomImageTask = (requestUrl, fresh = false) => {
+            const { ref, prompt, size } = parseCustomImageRequest(requestUrl);
+            const cacheKey = `${requestUrl}${fresh ? `#${Date.now()}-${Math.random()}` : ''}`;
+            if (generatedImageTasks.has(cacheKey)) return generatedImageTasks.get(cacheKey);
+            const task = { key: cacheKey, requestUrl, cards: new Set(), job: null, custom: true };
+            const publish = (job) => {
+                task.job = job;
+                [...task.cards].forEach(card => renderGeneratedImageJob(card, task, job));
+            };
+            task.promise = (async () => {
+                const resolved = resolveModelRequest(ref);
+                if (!resolved.url || !resolved.apiKey) throw new Error('该生图供应商未配置 API 地址或 Key');
+                if (resolved.protocol !== 'openai') throw new Error('自定义生图当前仅支持 OpenAI 协议模型');
+                publish({ id: '', status: 'running', generationProgress: { percent: 15 } });
+                const response = await fetch(buildApiEndpoint(resolved.url, 'images/generations'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${resolved.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: resolved.model,
+                        prompt,
+                        n: 1,
+                        ...(size ? { size: sizeToOpenAISize(size) } : {}),
+                        response_format: 'b64_json',
+                        ...(resolved.extraBody || {})
+                    })
+                });
+                const text = await response.text();
+                let payload = {};
+                try { payload = text ? JSON.parse(text) : {}; } catch { /* 下方统一报错 */ }
+                if (!response.ok) {
+                    const apiError = extractApiErrorMessage(payload, response.status);
+                    throw new Error(apiError || `HTTP ${response.status}`);
+                }
+                const item = payload.data?.[0] || {};
+                const b64 = item.b64_json || '';
+                const imageUrl = b64 ? `data:image/png;base64,${b64}` : (item.url || '');
+                if (!imageUrl) throw new Error('生图接口没有返回图片数据');
+                publish({ id: 'custom', status: 'done', imageUrl, generationProgress: { percent: 100 } });
+                return { status: 'done', imageUrl };
+            })().catch((error) => {
+                const job = { status: 'failed', error: error.message || '生成失败' };
+                publish(job);
+                return job;
+            });
+            generatedImageTasks.set(cacheKey, task);
+            return task;
+        };
+
         const renderGeneratedImageJob = (card, task, job) => {
             if (!card?.isConnected) return task.cards.delete(card);
             task.job = job;
@@ -2167,15 +2344,21 @@ const app = createApp({
                 return;
             }
             if (job.status === 'running') {
-                if (label) label.textContent = `生成中 ${Math.round(progress)}%`;
+                if (label) label.textContent = task.custom
+                    ? `生成中 ${Math.round(progress)}%`
+                    : `生成中 ${Math.round(progress)}%`;
+                if (task.custom && !bar) { /* custom 无百分比进度，保持 indeterminate */ }
                 return;
             }
 
-            const imageUrl = job.imageUrl
-                ? new URL(job.imageUrl, task.baseUrl).href
-                : job.id
-                    ? `${task.baseUrl}/api/jobs/${encodeURIComponent(job.id)}/content?token=${encodeURIComponent(task.token)}`
-                    : '';
+            // [LuzzyRP patch 015] 自定义生图：imageUrl 由 startCustomImageTask 直接给出（b64 dataURL 或远程 url）
+            const imageUrl = task.custom
+                ? (job.imageUrl || '')
+                : (job.imageUrl
+                    ? new URL(job.imageUrl, task.baseUrl).href
+                    : job.id
+                        ? `${task.baseUrl}/api/jobs/${encodeURIComponent(job.id)}/content?token=${encodeURIComponent(task.token)}`
+                        : '');
             if (!imageUrl) {
                 card.classList.remove('is-generating');
                 card.classList.add('is-generation-error');
@@ -2256,7 +2439,10 @@ const app = createApp({
             card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
             const label = card.querySelector('.generated-image-progress-label');
             const bar = card.querySelector('.generated-image-progress-bar');
-            const task = startGeneratedImageTask(requestUrl, options.fresh === true);
+            // [LuzzyRP patch 015] 伪 URL（luzzy-image://）分流到自定义生图任务
+            const task = isCustomImageRequest(requestUrl)
+                ? startCustomImageTask(requestUrl, options.fresh === true)
+                : startGeneratedImageTask(requestUrl, options.fresh === true);
             if (!task.job) {
             if (label) label.textContent = '等待生成';
                 if (bar) bar.style.width = '0%';
@@ -2266,7 +2452,9 @@ const app = createApp({
             card.dataset.imageJobState = 'loading';
             card.classList.add('is-generating');
             card.classList.remove('is-generation-error');
-            const size = new URL(requestUrl, window.location.href).searchParams.get('size');
+            const size = isCustomImageRequest(requestUrl)
+                ? parseCustomImageRequest(requestUrl).size
+                : new URL(requestUrl, window.location.href).searchParams.get('size');
             card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
             if (task.job) renderGeneratedImageJob(card, task, task.job);
             return task.promise;
@@ -2328,9 +2516,22 @@ const app = createApp({
             if (mainStart < 0) return;
             const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
             if (!sourceUrl) return;
-            const nextImageUrl = new URL(sourceUrl, window.location.href);
-            nextImageUrl.searchParams.set('tag', tags.join(', '));
-            nextImageUrl.searchParams.set('nocache', '1');
+            // [LuzzyRP patch 015] 自定义生图 reroll：保留伪 URL 结构，仅更新 prompt 随机参数
+            let nextImageUrl;
+            if (isCustomImageRequest(sourceUrl)) {
+                const parsed = parseCustomImageRequest(sourceUrl);
+                const shuffled = parsed.prompt.split(',').map(t => t.trim()).filter(Boolean);
+                if (shuffled.length >= 2) {
+                    const swapIndex = Math.floor(Math.random() * (shuffled.length - 1));
+                    [shuffled[swapIndex], shuffled[swapIndex + 1]] = [shuffled[swapIndex + 1], shuffled[swapIndex]];
+                }
+                nextImageUrl = buildCustomImageRequestUrl(parsed.ref, shuffled.join(', '), parsed.size);
+            } else {
+                nextImageUrl = new URL(sourceUrl, window.location.href);
+                nextImageUrl.searchParams.set('tag', tags.join(', '));
+                nextImageUrl.searchParams.set('nocache', '1');
+                nextImageUrl = nextImageUrl.href;
+            }
 
             const originalContent = message.content;
             const finishLoading = () => {
@@ -2441,6 +2642,16 @@ const app = createApp({
             const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
             if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
                 showToast(`生图版本已切换：${getImageModelName(imageModel)}`, 'success');
+            }
+        }, { flush: 'sync' });
+
+        watch(() => [settings.imageModelSource, settings.customImageModelRef], () => {
+            // [LuzzyRP patch 015] 自定义生图模型切换 → 重写正则替换 URL，用户切换时同步切换模型
+            const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
+            if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
+                showToast(settings.imageModelSource === 'custom'
+                    ? '已切换为自定义生图模型'
+                    : '已切换为 STA1N 官方生图', 'success');
             }
         }, { flush: 'sync' });
 
@@ -3468,6 +3679,18 @@ const app = createApp({
             clearMessageRenderCaches();
         }, { deep: true });
 
+        // [LuzzyRP patch 014] 关于页 CHANGELOG：renderMarkdown 在此才可用，进入 about 视图时惰性渲染
+        watch(currentView, (view) => {
+            if (view === 'about' && !changelogHtml.value) {
+                readBridgeVersion();
+                try {
+                    const md = window.LuzzyChangelog && typeof window.LuzzyChangelog.md === 'string'
+                        ? window.LuzzyChangelog.md : '';
+                    changelogHtml.value = md ? renderMarkdown(md, 'assistant', true) : '';
+                } catch (e) { changelogHtml.value = ''; }
+            }
+        });
+
         const messageUsesHtmlFrame = (msg) => {
             if (!msg || !msg.content) return false;
             if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
@@ -3549,15 +3772,43 @@ const app = createApp({
         const fetchModelsForProvider = async (provider) => {
             const apiKey = String((settings.apiProviderKeys || {})[provider.id] || '').trim();
             if (!provider?.apiUrl || !apiKey) throw new Error('未配置 API 地址或 Key');
-            const response = await fetch(buildApiEndpoint(provider.apiUrl, 'models'), {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            const models = Array.isArray(data?.data) ? data.data : [];
-            providerModels.value = { ...providerModels.value, [provider.id]: models };
+            // [LuzzyRP patch 015] 按协议分型拉取模型列表（含手动模型合并）
+            const protocol = normalizeProviderProtocol(provider.protocol);
+            const base = String(provider.apiUrl || '').replace(/\/+$/, '');
+            let models = [];
+            if (protocol === 'gemini') {
+                const response = await fetch(`${base}/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=200`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                models = (Array.isArray(data?.models) ? data.models : []).map(entry => ({
+                    id: String(entry?.name || '').replace(/^models\//, ''),
+                    geminiMethods: Array.isArray(entry?.supportedGenerationMethods) ? entry.supportedGenerationMethods : []
+                }));
+            } else if (protocol === 'anthropic') {
+                const response = await fetch(`${base}/v1/models?limit=200`, {
+                    headers: {
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                models = (Array.isArray(data?.data) ? data.data : []).map(entry => ({ id: String(entry?.id || '') }));
+            } else {
+                const response = await fetch(buildApiEndpoint(provider.apiUrl, 'models'), {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                models = Array.isArray(data?.data) ? data.data : [];
+            }
+            const manual = (Array.isArray(provider.models) ? provider.models : []).map(m => ({ id: m.id, manual: true }));
+            const manualOnly = manual.filter(m => !models.some(existing => existing.id === m.id));
+            const merged = [...manualOnly, ...models];
+            providerModels.value = { ...providerModels.value, [provider.id]: merged };
             rebuildMergedAvailableModels();
-            return models.length;
+            return merged.length;
         };
         const ensureProviderModelsLoaded = () => {
             allApiProviders.value.filter(isProviderConfigured).forEach(provider => {
@@ -3634,16 +3885,283 @@ const app = createApp({
             showProviderManager.value = true;
         };
         const addUserApiProvider = () => {
-            settings.apiProviders.push({
+            // [LuzzyRP patch 015] 新增即进编辑器：先 push 占位条目（响应式），保存时在原对象上写字段；
+            // 用户在编辑器中点「取消」则移除占位条目
+            const placeholder = reactive({
                 id: createUserApiProviderId(),
                 name: '新供应商',
-                apiUrl: ''
+                apiUrl: '',
+                protocol: 'openai',
+                models: [],
+                extraBody: {}
             });
+            settings.apiProviders.push(placeholder);
+            openProviderEditor(placeholder, true);
         };
         const updateProviderKey = (providerId, value) => {
             settings.apiProviderKeys[providerId] = value || '';
             if (settings.apiProviderId === providerId) {
                 settings.apiKey = value || '';
+            }
+        };
+
+        // [LuzzyRP patch 015] 供应商编辑器（二级弹窗）：draft 编辑 → 保存写回 + 热更新模型列表
+        const showProviderEditor = ref(false);
+        const providerEditorDraft = ref(null);
+        const providerEditorIsNew = ref(false);
+        const providerEditorPresetNotice = ref('');
+        // 五组模型 id 热检测预设（大小写不敏感，长词优先；只填空字段不覆盖已编辑值）
+        const MODEL_ID_PRESETS = [
+            {
+                match: 'deepseek-v4-flash-vision-exp',
+                fill: { label: 'DeepSeek-V4-Flash-Vision-Exp', contextLength: 1024 * 1024, maxOutput: 384 * 1024, inputModalities: ['text', 'image'], type: 'text', extraBody: { reasoning_effort: 'max' } }
+            },
+            {
+                match: 'deepseek-v4-flash',
+                fill: { label: 'DeepSeek-V4-Flash', contextLength: 1024 * 1024, maxOutput: 384 * 1024, inputModalities: ['text'], type: 'text', extraBody: { reasoning_effort: 'max' } }
+            },
+            {
+                match: 'deepseek-v4-pro',
+                fill: { label: 'DeepSeek-V4-Pro', contextLength: 1024 * 1024, maxOutput: 384 * 1024, inputModalities: ['text'], type: 'text', extraBody: { reasoning_effort: 'max' } }
+            },
+            {
+                match: 'glm-5.3-flash',
+                fill: { label: 'GLM-5.3-Flash', contextLength: 1024 * 1024, maxOutput: 128 * 1024, inputModalities: ['text', 'image'], type: 'text', extraBody: { reasoning_effort: 'max' } }
+            },
+            {
+                match: 'glm-5.3',
+                fill: { label: 'GLM-5.3', contextLength: 1024 * 1024, maxOutput: 128 * 1024, inputModalities: ['text'], type: 'text', extraBody: { reasoning_effort: 'max' } }
+            }
+        ];
+        const matchModelIdPreset = (modelId) => {
+            const needle = String(modelId || '').trim().toLowerCase();
+            if (!needle) return null;
+            return MODEL_ID_PRESETS.find(p => needle.includes(p.match)) || null;
+        };
+        const applyModelIdPreset = (model, preset) => {
+            const applied = [];
+            const f = preset.fill;
+            if (!model.label && f.label) { model.label = f.label; applied.push('显示 id'); }
+            if (!model.contextLength && f.contextLength) { model.contextLength = f.contextLength; applied.push('上下文长度'); }
+            if (!model.maxOutput && f.maxOutput) { model.maxOutput = f.maxOutput; applied.push('最大输出长度'); }
+            const sameModality = (a, b) => a.length === b.length && a.every(v => b.includes(v));
+            if (!model.inputModalities || model.inputModalities.length === 0 || sameModality(model.inputModalities, ['text'])) {
+                if (!sameModality(model.inputModalities || ['text'], f.inputModalities)) {
+                    model.inputModalities = [...f.inputModalities];
+                    applied.push('输入模态');
+                }
+            }
+            if (!model.type || model.type === 'text') { if (f.type !== 'text') { model.type = f.type; applied.push('模型类型'); } }
+            const hasExtra = model.extraBody && Object.keys(model.extraBody).length > 0;
+            if (!hasExtra && f.extraBody) { model.extraBody = { ...f.extraBody }; applied.push('自定义请求体'); }
+            return applied;
+        };
+        const onProviderEditorModelIdInput = (model) => {
+            const preset = matchModelIdPreset(model.id);
+            if (!preset) { providerEditorPresetNotice.value = ''; return; }
+            const applied = applyModelIdPreset(model, preset);
+            providerEditorPresetNotice.value = applied.length > 0
+                ? `已按预设填充：${applied.join('、')}` : '';
+        };
+        const undoModelIdPreset = (model) => {
+            if (!model || !model.id) return;
+            const preset = matchModelIdPreset(model.id);
+            if (!preset) return;
+            const f = preset.fill;
+            if (model.label === f.label) model.label = '';
+            if (model.contextLength === f.contextLength) model.contextLength = null;
+            if (model.maxOutput === f.maxOutput) model.maxOutput = null;
+            const sameModality = (a, b) => a.length === b.length && a.every(v => b.includes(v));
+            if (model.inputModalities && sameModality(model.inputModalities, f.inputModalities)) model.inputModalities = ['text'];
+            if (model.type === f.type) model.type = 'text';
+            if (model.extraBody && f.extraBody
+                && JSON.stringify(model.extraBody) === JSON.stringify(f.extraBody)) model.extraBody = {};
+            providerEditorPresetNotice.value = '';
+        };
+        const addProviderEditorModel = () => {
+            if (!providerEditorDraft.value) return;
+            providerEditorDraft.value.models.push(normalizeProviderModelEntry({ id: '', label: '', inputModalities: ['text'], type: 'text' }));
+        };
+        const removeProviderEditorModel = (index) => {
+            if (!providerEditorDraft.value) return;
+            providerEditorDraft.value.models.splice(index, 1);
+            providerEditorPresetNotice.value = '';
+        };
+        // 编辑器辅助：长度输入（原样保留文本，失焦/保存时经 parseLengthToken 归一）、模态多选、请求体懒编辑
+        const parseLengthSafe = (event) => {
+            const raw = String(event?.target?.value ?? '').trim();
+            if (!raw) return null;
+            const parsed = parseLengthToken(raw);
+            return parsed === null ? raw : parsed;
+        };
+        const toggleModelModality = (model, modality) => {
+            if (!Array.isArray(model.inputModalities)) model.inputModalities = ['text'];
+            const index = model.inputModalities.indexOf(modality);
+            if (index >= 0) {
+                if (model.inputModalities.length > 1) model.inputModalities.splice(index, 1);
+            } else {
+                model.inputModalities.push(modality);
+            }
+        };
+        const setModelExtraBodyText = (model, text) => {
+            // 懒编辑三态：`{"k":"v"}` JSON / `k:v` 单键值 / 空=清空
+            const raw = String(text || '').trim();
+            model.extraBodyText = text;
+            if (!raw) { model.extraBody = {}; return; }
+            if (raw.startsWith('{')) {
+                try { model.extraBody = JSON.parse(raw); return; } catch (e) { return; /* 未完成输入，暂不解析 */ }
+            }
+            const sep = raw.indexOf(':');
+            if (sep > 0) {
+                model.extraBody = { [raw.slice(0, sep).trim()]: raw.slice(sep + 1).trim() };
+            }
+        };
+        // 供应商级/模型级自定义请求体：键值行编辑（值可空 = 懒编辑）
+        const getExtraBodyRows = (obj) => Object.keys(obj || {}).map(k => ({ key: k, value: obj[k] }));
+        const setExtraBodyRows = (obj, rows) => {
+            const next = {};
+            rows.forEach(row => {
+                const key = String(row.key || '').trim();
+                if (!key) return;
+                next[key] = row.value;
+            });
+            Object.keys(obj).forEach(k => delete obj[k]);
+            Object.assign(obj, next);
+        };
+        const providerEditorExtraRows = ref([]);
+        const syncExtraRowsFromDraft = () => {
+            providerEditorExtraRows.value = getExtraBodyRows(providerEditorDraft.value?.extraBody || {});
+        };
+        const commitExtraRowsToDraft = () => {
+            if (!providerEditorDraft.value) return;
+            if (!providerEditorDraft.value.extraBody || typeof providerEditorDraft.value.extraBody !== 'object') {
+                providerEditorDraft.value.extraBody = {};
+            }
+            setExtraBodyRows(providerEditorDraft.value.extraBody, providerEditorExtraRows.value);
+        };
+        const addProviderEditorExtraRow = () => providerEditorExtraRows.value.push({ key: '', value: '' });
+        const removeProviderEditorExtraRow = (index) => providerEditorExtraRows.value.splice(index, 1);
+        // 协议切换：URL 占位与默认地址提示联动
+        const PROTOCOL_URL_HINTS = {
+            openai: { placeholder: 'https://api.example.com/v1', hint: 'OpenAI 兼容端点（GET /v1/models 拉取列表）' },
+            anthropic: { placeholder: 'https://api.anthropic.com', hint: 'Anthropic Messages API（/v1/messages）' },
+            gemini: { placeholder: 'https://generativelanguage.googleapis.com', hint: 'Google Gemini API（/v1beta）' }
+        };
+        const providerEditorProtocolHint = computed(() =>
+            PROTOCOL_URL_HINTS[providerEditorDraft.value?.protocol || 'openai'] || PROTOCOL_URL_HINTS.openai);
+        // 编辑商 id：引用重映射预览（collectModelRefsByProvider 扫描全部槽位）
+        const providerEditorIdConflict = computed(() => {
+            const draft = providerEditorDraft.value;
+            if (!draft || !draft.id) return false;
+            // 排除自身（__source 即编辑中的原条目）；只与其他商比较 id
+            const self = draft.__source;
+            return allApiProviders.value.some(p => p.id === draft.id && p !== self);
+        });
+        const openProviderEditor = (provider, isNew) => {
+            // draft 为浅拷贝（models 逐条拷贝），取消不污染原数据；extraBodyText 供懒编辑输入框回显
+            providerEditorDraft.value = {
+                id: provider.id, name: provider.name, apiUrl: provider.apiUrl || '',
+                protocol: normalizeProviderProtocol(provider.protocol),
+                models: (provider.models || []).map(m => ({
+                    ...m,
+                    inputModalities: [...(m.inputModalities || ['text'])],
+                    extraBody: { ...(m.extraBody || {}) },
+                    extraBodyText: Object.keys(m.extraBody || {}).length > 0 ? JSON.stringify(m.extraBody) : ''
+                })),
+                extraBody: { ...(provider.extraBody || {}) },
+                __source: provider
+            };
+            providerEditorIsNew.value = !!isNew;
+            providerEditorPresetNotice.value = '';
+            syncExtraRowsFromDraft();
+            showProviderEditor.value = true;
+        };
+        const editUserApiProvider = (provider) => {
+            const source = settings.apiProviders.find(item => item.id === provider.id);
+            if (!source) return;
+            openProviderEditor(source, false);
+        };
+        const cancelProviderEditor = () => {
+            // [LuzzyRP patch 015] 新增流程取消：移除占位条目（apiUrl 仍为空，未成为有效商）
+            if (providerEditorIsNew.value && providerEditorDraft.value?.__source) {
+                const src = providerEditorDraft.value.__source;
+                settings.apiProviders = settings.apiProviders.filter(item => item !== src);
+            }
+            showProviderEditor.value = false;
+            providerEditorDraft.value = null;
+            providerEditorPresetNotice.value = '';
+        };
+        const saveProviderEditor = () => {
+            const draft = providerEditorDraft.value;
+            if (!draft) return;
+            const cleanId = String(draft.id || '').trim();
+            const cleanName = String(draft.name || '').trim();
+            const cleanUrl = String(draft.apiUrl || '').trim();
+            if (!cleanId) { showToast('供应商 id 不能为空', 'error'); return; }
+            if (/\s/.test(cleanId) || cleanId.includes(':')) { showToast('供应商 id 不能含空格或冒号', 'error'); return; }
+            if (!cleanName) { showToast('供应商名称不能为空', 'error'); return; }
+            if (!cleanUrl) { showToast('API URL 不能为空', 'error'); return; }
+            if (providerEditorIdConflict.value) { showToast('供应商 id 与现有供应商重复', 'error'); return; }
+            commitExtraRowsToDraft();
+            const source = draft.__source;
+            const oldId = source.id;
+            const idChanged = cleanId !== oldId;
+            // 模型条目归一 + 去重（同 id 保留首个）；长度字段先经 parseLengthToken（"1M"/"384K" → 数字）
+            const seenModels = new Set();
+            const models = draft.models.map(m => ({
+                ...m,
+                contextLength: parseLengthToken(m.contextLength) ?? null,
+                maxOutput: parseLengthToken(m.maxOutput) ?? null
+            })).map(normalizeProviderModelEntry).filter(m => {
+                if (!m.id || seenModels.has(m.id)) return false;
+                seenModels.add(m.id);
+                return true;
+            });
+            const affectedLabels = idChanged ? collectModelRefsByProvider(oldId) : [];
+            const doApply = () => {
+                source.id = cleanId;
+                source.name = cleanName;
+                source.apiUrl = cleanUrl;
+                source.protocol = normalizeProviderProtocol(draft.protocol);
+                source.models = models;
+                source.extraBody = { ...(draft.extraBody || {}) };
+                // 引用重映射：槽位 `旧id::bareId` → `新id::bareId` + key 键改名
+                if (idChanged) {
+                    const remap = (ref) => {
+                        const parsed = parseModelRef(ref);
+                        return parsed.providerId === oldId ? `${cleanId}::${parsed.bareId}` : ref;
+                    };
+                    Object.keys(MODEL_REF_FIELD_LABELS).forEach(field => { settings[field] = remap(settings[field]); });
+                    memorySettings.embeddingModel = remap(memorySettings.embeddingModel);
+                    memorySettings.classicModel = remap(memorySettings.classicModel);
+                    const keys = { ...settings.apiProviderKeys };
+                    if (Object.prototype.hasOwnProperty.call(keys, oldId)) {
+                        keys[cleanId] = keys[oldId];
+                        delete keys[oldId];
+                    }
+                    settings.apiProviderKeys = keys;
+                    const caches = { ...providerModels.value };
+                    if (Object.prototype.hasOwnProperty.call(caches, oldId)) {
+                        caches[cleanId] = caches[oldId];
+                        delete caches[oldId];
+                    }
+                    providerModels.value = caches;
+                    if (settings.apiProviderId === oldId) settings.apiProviderId = cleanId;
+                    rebuildMergedAvailableModels();
+                }
+                // 手动模型并入缓存 → 合并视图热更新（聊天/识图槽位立即可见）
+                rebuildMergedAvailableModels();
+                if (settings.apiProviderId === cleanId) {
+                    settings.apiUrl = cleanUrl;
+                }
+                showProviderEditor.value = false;
+                providerEditorDraft.value = null;
+                showToast(idChanged ? `已保存供应商（id 已重映射 ${affectedLabels.length} 个相关槽位）` : '已保存供应商', 'success');
+            };
+            if (idChanged && affectedLabels.length > 0) {
+                confirmAction(`供应商 id 将从「${oldId}」改为「${cleanId}」，以下引用该商的槽位将自动重映射：${affectedLabels.join('、')}。确定保存？`, doApply);
+            } else {
+                doApply();
             }
         };
         const testProviderConnection = async (providerId) => {
@@ -3749,11 +4267,26 @@ const app = createApp({
                 apiStatus.value = 'error';
                 return;
             }
+            // [LuzzyRP patch 015] 激活商为用户商时按其协议分型检测
+            const activeProvider = getApiProviderById(settings.apiProviderId);
+            const protocol = activeProvider ? normalizeProviderProtocol(activeProvider.protocol) : 'openai';
             await checkConnectionStatus(apiStatus, apiLatency, 'API', signal => (
-            fetch(buildApiEndpoint(settings.apiUrl, 'models'), {
-                    headers: { 'Authorization': `Bearer ${settings.apiKey}` },
-                    signal
-                })
+                protocol === 'gemini'
+                    ? fetch(`${String(settings.apiUrl).replace(/\/+$/, '')}/v1beta/models?key=${encodeURIComponent(settings.apiKey)}&pageSize=1`, { signal })
+                    : (protocol === 'anthropic'
+                        ? fetch(`${String(settings.apiUrl).replace(/\/+$/, '')}/v1/models?limit=1`, {
+                            headers: {
+                                'x-api-key': settings.apiKey,
+                                'anthropic-version': '2023-06-01',
+                                'anthropic-dangerous-direct-browser-access': 'true'
+                            },
+                            signal
+                        })
+                        : fetch(buildApiEndpoint(settings.apiUrl, 'models'), {
+                            headers: { 'Authorization': `Bearer ${settings.apiKey}` },
+                            signal
+                        })
+                    )
             ));
         };
 
@@ -3873,6 +4406,9 @@ const app = createApp({
                 url: buildApiEndpoint(visionResolved.url, 'chat/completions'),
                     apiKey: visionResolved.apiKey,
                     model: visionResolved.model,
+                    protocol: visionResolved.protocol,
+                    maxTokens: visionResolved.modelMeta?.maxOutput || null,
+                    extraBody: visionResolved.extraBody,
                     temperature: 0.2,
                     stream: false,
                     messages: [{
@@ -3901,6 +4437,7 @@ const app = createApp({
                     type: 'image_recognition',
                     model: visionResolved.model,
                     provider: visionResolved.providerId || '',
+                    protocol: visionResolved.protocol,
                     isStream: false,
                     durationMs: Date.now() - requestStartedAt,
                     outputCharacters: description.length
@@ -4292,48 +4829,45 @@ const app = createApp({
                     try {
                         const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                         const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
-                        const response = await fetch(url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${uiTemplateResolved.apiKey}`
-                            },
-                            body: JSON.stringify({
-                                model,
-                                temperature: 0.2,
-                                stream: false,
-                                messages: [
-                                    {
-                                        role: 'system',
-                                        content: replaceUserNamePlaceholder(BUILTIN_PROMPTS.buildUiTemplateAnalysisSystemPrompt({
-                                            templateId: template.id,
-                                            userInfo: buildUserInfoPrompt(),
-                                            currentVariableJson,
-                                            variableSchemaText,
-                                            userName: user.name
-                                        }))
-                                    },
-                                    {
-                                        role: 'user',
-                                        content: JSON.stringify({
-                                            recentMessages
-                                        }, null, 2)
-                                    }
-                                ]
-                            }),
+                        // [LuzzyRP patch 015] 走三协议适配层（原裸 fetch 仅支持 openai）
+                        const responseResult = await requestChatCompletion({
+                            url,
+                            apiKey: uiTemplateResolved.apiKey,
+                            model,
+                            protocol: uiTemplateResolved.protocol,
+                            maxTokens: uiTemplateResolved.modelMeta?.maxOutput || null,
+                            extraBody: uiTemplateResolved.extraBody,
+                            temperature: 0.2,
+                            stream: false,
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: replaceUserNamePlaceholder(BUILTIN_PROMPTS.buildUiTemplateAnalysisSystemPrompt({
+                                        templateId: template.id,
+                                        userInfo: buildUserInfoPrompt(),
+                                        currentVariableJson,
+                                        variableSchemaText,
+                                        userName: user.name
+                                    }))
+                                },
+                                {
+                                    role: 'user',
+                                    content: JSON.stringify({
+                                        recentMessages
+                                    }, null, 2)
+                                }
+                            ],
                             signal: updateRun.signal
                         });
                         if (!isCurrentRun()) return;
-                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
-                        const data = await response.json();
-                        if (!isCurrentRun()) return;
-                        let content = data.choices?.[0]?.message?.content || '';
+                        let content = responseResult.content || '';
                         const parsed = parseUiTemplateUpdates(content);
                         const updates = normalizeUiTemplateUpdates(parsed, template);
-                        recordApiUsage(getApiUsagePayload(data), {
+                        recordApiUsage(responseResult.usage, {
                             type: 'ui_template',
                             model,
                             provider: uiTemplateResolved.providerId || '',
+                            protocol: uiTemplateResolved.protocol,
                             isStream: false,
                             durationMs: Date.now() - requestStartedAt,
                             outputCharacters: content.length
@@ -5300,6 +5834,9 @@ const app = createApp({
                 url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
                     apiKey: requestModelResolved.apiKey,
                     model: requestModel,
+                    protocol: requestModelResolved.protocol,
+                    maxTokens: requestModelResolved.modelMeta?.maxOutput || null,
+                    extraBody: requestModelResolved.extraBody,
                     messages: apiMessages,
                     temperature: settings.temperature,
                     reasoningEffort: settings.reasoningEffort,
@@ -5364,6 +5901,7 @@ const app = createApp({
                     type: activeToolDepth > 0 ? 'tool_continuation' : 'chat',
                     model: requestModel,
                     provider: requestModelResolved.providerId || '',
+                    protocol: requestModelResolved.protocol,
                     isStream: responseResult.isStream,
                     durationMs: duration,
                     outputCharacters
@@ -5675,31 +6213,30 @@ const app = createApp({
             const model = classicResolved.model;
 
             const requestStartedAt = Date.now();
-            const response = await fetch(buildApiEndpoint(classicResolved.url, 'chat/completions'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${classicResolved.apiKey}`
-                },
-                body: JSON.stringify({ model, temperature: 0.2, stream: false, messages: requestMessages }),
+            // [LuzzyRP patch 015] 走三协议适配层（原裸 fetch 仅支持 openai）
+            const result = await requestChatCompletion({
+                url: buildApiEndpoint(classicResolved.url, 'chat/completions'),
+                apiKey: classicResolved.apiKey,
+                model,
+                protocol: classicResolved.protocol,
+                maxTokens: classicResolved.modelMeta?.maxOutput || null,
+                extraBody: classicResolved.extraBody,
+                temperature: 0.2,
+                stream: false,
+                messages: requestMessages,
                 signal
             });
-            const rawText = await response.text();
-            if (!response.ok) {
-                let payload = null;
-                try { payload = JSON.parse(rawText); } catch (_) { }
-                throw new Error(extractApiErrorMessage(payload, response.status) || `API Error: ${response.status}`);
-            }
-            const summary = getClassicSummaryResponseContent(rawText)
+            const summary = String(result.content || '')
                 .replace(/^```(?:text|markdown)?\s*/i, '')
                 .replace(/\s*```$/, '')
                 .replace(/^(?:最新对话总结|总结)[:：]\s*/i, '')
                 .trim();
             if (!summary) throw new Error('副模型没有返回有效总结');
-            recordApiUsage(extractApiUsageFromText(rawText), {
+            recordApiUsage(result.usage, {
                 type: 'summary',
                 model,
                 provider: classicResolved.providerId || '',
+                protocol: classicResolved.protocol,
                 isStream: false,
                 durationMs: Date.now() - requestStartedAt,
                 outputCharacters: summary.length
@@ -6085,35 +6622,65 @@ const app = createApp({
             if (!embeddingResolved.url || !embeddingResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
             if (!embeddingResolved.model) throw new Error('请先选择向量嵌入模型');
             const model = embeddingResolved.model;
+            if (embeddingResolved.protocol === 'anthropic') throw new Error('Anthropic 接口不提供嵌入模型');
 
             const normalizedInputs = inputs.map(input => String(input || '').trim());
             if (normalizedInputs.some(input => !input)) throw new Error('嵌入内容不能为空');
 
             const requestStartedAt = Date.now();
-            const response = await fetch(buildApiEndpoint(embeddingResolved.url, 'embeddings'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${embeddingResolved.apiKey}`
-                },
-                body: JSON.stringify({
-                    model,
-                    input: normalizedInputs.length === 1 ? normalizedInputs[0] : normalizedInputs
-                }),
-                signal
-            });
+            // [LuzzyRP patch 015] gemini 协议走 batchEmbedContents；openai 系走 /v1/embeddings
+            let vectors = [];
+            let usagePayload = null;
+            if (embeddingResolved.protocol === 'gemini') {
+                const base = String(embeddingResolved.url || '').replace(/\/+$/, '');
+                const response = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:batchEmbedContents?key=${encodeURIComponent(embeddingResolved.apiKey)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        requests: normalizedInputs.map(text => ({
+                            model: `models/${model}`,
+                            content: { parts: [{ text }] }
+                        }))
+                    }),
+                    signal
+                });
+                if (!response.ok) {
+                    let errorPayload = null;
+                    try { errorPayload = await response.json(); } catch (_) { }
+                    const apiError = extractApiErrorMessage(errorPayload, response.status);
+                    throw new Error(apiError || `Embedding API Error: ${response.status}`);
+                }
+                const data = await response.json();
+                usagePayload = getApiUsagePayload(data);
+                const embeddings = (data.embeddings || []).map(entry => normalizeEmbedding(entry.values));
+                vectors = embeddings;
+            } else {
+                const response = await fetch(buildApiEndpoint(embeddingResolved.url, 'embeddings'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${embeddingResolved.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model,
+                        input: normalizedInputs.length === 1 ? normalizedInputs[0] : normalizedInputs
+                    }),
+                    signal
+                });
 
-            if (!response.ok) {
-                let errorPayload = null;
-                try { errorPayload = await response.json(); } catch (_) { }
-                const apiError = extractApiErrorMessage(errorPayload, response.status);
-                throw new Error(apiError || `Embedding API Error: ${response.status}`);
+                if (!response.ok) {
+                    let errorPayload = null;
+                    try { errorPayload = await response.json(); } catch (_) { }
+                    const apiError = extractApiErrorMessage(errorPayload, response.status);
+                    throw new Error(apiError || `Embedding API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                usagePayload = getApiUsagePayload(data);
+                const rows = Array.isArray(data.data) ? [...data.data] : [];
+                rows.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+                vectors = rows.map(row => normalizeEmbedding(row.embedding));
             }
-
-            const data = await response.json();
-            const rows = Array.isArray(data.data) ? [...data.data] : [];
-            rows.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-            const vectors = rows.map(row => normalizeEmbedding(row.embedding));
 
             if (signal?.aborted) {
                 const abortError = new Error('Aborted');
@@ -6124,10 +6691,11 @@ const app = createApp({
                 throw new Error('嵌入接口返回的数据不完整');
             }
 
-            recordApiUsage(getApiUsagePayload(data), {
+            recordApiUsage(usagePayload, {
                 type: 'embedding',
                 model,
                 provider: embeddingResolved.providerId || '',
+                protocol: embeddingResolved.protocol,
                 isStream: false,
                 durationMs: Date.now() - requestStartedAt,
                 outputCharacters: 0
@@ -8450,7 +9018,10 @@ const app = createApp({
             const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
 
             const encodedTargetArtists = encodeURIComponent(targetArtists);
-            const imageRequestUrl = `${baseUrl}/generate?tag=$1&token=${encodeURIComponent(imageGenToken)}&model=${settings.imageModel}&artist=${encodedTargetArtists}&size=${settings.imageSize}&steps=40&scale=6&cfg=0&sampler=k_dpmpp_2m_sde&negative={{{{bad anatomy}}}},{bad feet},bad hands,{{{bad proportions}}},{blurry},cloned face,cropped,{{{deformed}}},{{{disfigured}}},error,{{{extra arms}}},{extra digit},{{{extra legs}}},extra limbs,{{extra limbs}},{fewer digits},{{{fused fingers}}},gross proportions,ink eyes,ink hair,jpeg artifacts,{{{{long neck}}}},low quality,{malformed limbs},{{missing arms}},{missing fingers}},{{missing legs}},{{{more than 2 nipples}}},mutated hands,{{{mutation}}},normal quality,owres,{{poorly drawn face}},{{poorly drawn hands}},reen eyes,signature,text,{{too many fingers}},{{{ugly}}},username,uta,watermark,worst quality,{{{more than 2 legs}}},awkward hand sign,weird hand gesture,contorted hand,unnatural finger pose,deformed hand gesture,{shaka},{hang loose},{{rock on}},{shaka sign}&nocache=0&noise_schedule=karras`;
+            // [LuzzyRP patch 015] 生图模型来源：官方 STA1N（NAI 代理 URL 模板）| 自定义供应商 image 模型（伪 URL → startCustomImageTask）
+            const imageRequestUrl = settings.imageModelSource === 'custom' && settings.customImageModelRef
+                ? buildCustomImageRequestUrl(settings.customImageModelRef, '$1', settings.imageSize)
+                : `${baseUrl}/generate?tag=$1&token=${encodeURIComponent(imageGenToken)}&model=${settings.imageModel}&artist=${encodedTargetArtists}&size=${settings.imageSize}&steps=40&scale=6&cfg=0&sampler=k_dpmpp_2m_sde&negative={{{{bad anatomy}}}},{bad feet},bad hands,{{{bad proportions}}},{blurry},cloned face,cropped,{{{deformed}}},{{{disfigured}}},error,{{{extra arms}}},{extra digit},{{{extra legs}}},extra limbs,{{extra limbs}},{fewer digits},{{{fused fingers}}},gross proportions,ink eyes,ink hair,jpeg artifacts,{{{{long neck}}}},low quality,{malformed limbs},{{missing arms}},{missing fingers}},{{missing legs}},{{{more than 2 nipples}}},mutated hands,{{{mutation}}},normal quality,owres,{{poorly drawn face}},{{poorly drawn hands}},reen eyes,signature,text,{{too many fingers}},{{{ugly}}},username,uta,watermark,worst quality,{{{more than 2 legs}}},awkward hand sign,weird hand gesture,contorted hand,unnatural finger pose,deformed hand gesture,{shaka},{hang loose},{{rock on}},{shaka sign}&nocache=0&noise_schedule=karras`;
             const imageGenRegexContent = {
                 name: imageGenRegexName,
                 regex: '/image###([^\\r\\n]*?)(?:###|(?=\\r?\\n)|$)/g',
@@ -9988,7 +10559,8 @@ const app = createApp({
         return {
             switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
             processMainContent, replaceUserNamePlaceholder,
-            currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor, showAppearancePanel,
+            currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
+            appVersionLabel, upstreamVersionLabel, changelogHtml, openGitHubRepo,
             showActiveToolEditor,
             showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
             showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
@@ -10011,7 +10583,9 @@ const app = createApp({
             updateModalRef, latestUpdateConfig,
             showConfirmModal, confirmMessage, modelMode, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
-            user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
+            user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
+            showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
+            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
             isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,

@@ -144,6 +144,10 @@
     };
 
     const requestChatCompletion = async (options) => {
+        // [LuzzyRP patch 015] 三协议适配：openai（原路径）| anthropic（Messages API）| gemini（GenerateContent API）
+        const protocol = options.protocol || 'openai';
+        if (protocol === 'anthropic') return requestAnthropicCompletion(options);
+        if (protocol === 'gemini') return requestGeminiCompletion(options);
         const response = await fetch(options.url, {
             method: 'POST',
             headers: {
@@ -155,6 +159,8 @@
                 messages: options.messages,
                 temperature: options.temperature,
                 ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
+                ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
+                ...(options.extraBody || {}),
                 stream: options.stream,
                 ...(options.stream ? { stream_options: { include_usage: true } } : {})
             }),
@@ -168,6 +174,312 @@
             ? await readStreamingResponse(response, options.onDelta)
             : await readNonStreamingResponse(response);
         return { ...result, isStream };
+    };
+
+    // --- [LuzzyRP patch 015] Anthropic Messages 协议适配 ---
+    // 图片消息转为 base64 source；system 从 messages 抽出；max_tokens 必填。
+    const toAnthropicMessages = (messages) => {
+        let system = '';
+        const converted = [];
+        messages.forEach((message, index) => {
+            const role = message.role === 'assistant' ? 'assistant' : 'user';
+            // 仅首条 user 纯文本消息视为 system（上游把 system prompt 放在 messages[0]）
+            if (role === 'user' && typeof message.content === 'string' && index === 0 && messages.length > 1) {
+                system = message.content;
+                return;
+            }
+            let content = message.content;
+            if (Array.isArray(content)) {
+                content = content.map(part => {
+                    if (part?.type === 'text') return { type: 'text', text: part.text || '' };
+                    if (part?.type === 'image_url') {
+                        const url = String(part.image_url?.url || '');
+                        const match = url.match(/^data:([^;]+);base64,(.*)$/);
+                        if (match) {
+                            return { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } };
+                        }
+                        return null;
+                    }
+                    return null;
+                }).filter(Boolean);
+            }
+            // user 文本消息直接用字符串，避免空 content 数组
+            converted.push({ role, content: Array.isArray(content)
+                ? (content.length > 0 ? content : [{ type: 'text', text: '' }])
+                : content });
+        });
+        // Anthropic 要求首条为 user：前置占位兜底（仅在全是 assistant 或为空时）
+        if (converted.length === 0 || converted[0].role !== 'user') {
+            converted.unshift({ role: 'user', content: [{ type: 'text', text: '(begin)' }] });
+        }
+        return { system, messages: converted };
+    };
+
+    const requestAnthropicCompletion = async (options) => {
+        const { system, messages } = toAnthropicMessages(options.messages || []);
+        const response = await fetch(options.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': options.apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+                model: options.model,
+                max_tokens: options.maxTokens || 8192,
+                ...(system ? { system } : {}),
+                messages,
+                ...(Number.isFinite(options.temperature) ? { temperature: options.temperature } : {}),
+                ...(options.reasoningEffort ? { thinking: { type: 'enabled', budget_tokens: Math.max(1024, Math.min(64000, Math.round((options.maxTokens || 8192) * 0.75))) } } : {}),
+                ...(options.extraBody || {}),
+                stream: options.stream
+            }),
+            signal: options.signal
+        });
+        if (!response.ok) await readFailedResponse(response);
+
+        const parseAnthropicSseChunk = (text, status) => {
+            const data = JSON.parse(text);
+            const apiError = extractApiErrorMessage(data, status);
+            if (apiError) throwApiError(apiError);
+            let content = '';
+            let reasoning = '';
+            if (data.type === 'content_block_delta') {
+                const delta = data.delta || {};
+                if (delta.type === 'text_delta') content = delta.text || '';
+                else if (delta.type === 'thinking_delta') reasoning = delta.thinking || '';
+            } else if (data.type === 'message') {
+                (data.content || []).forEach(block => {
+                    if (block.type === 'text') content += block.text || '';
+                    else if (block.type === 'thinking') reasoning += block.thinking || '';
+                });
+            }
+            return { data, content, reasoning };
+        };
+
+        const contentType = response.headers.get('content-type');
+        const isStream = !!(options.stream && contentType?.includes('text/event-stream'));
+        if (!isStream) {
+            const rawText = await response.text();
+            // 服务端可能无视 stream:false 返回 SSE：复用上游逐行兜底解析
+            if (contentType?.includes('text/event-stream')) {
+                let content = '';
+                let reasoning = '';
+                let usage = null;
+                for (const line of rawText.split('\n')) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine.startsWith('data: ')) continue;
+                    const payload = trimmedLine.slice(6);
+                    if (payload === '[DONE]') continue;
+                    try {
+                        const chunk = parseAnthropicSseChunk(payload, response.status);
+                        usage = getApiUsagePayload(chunk.data) || usage;
+                        content += chunk.content;
+                        reasoning += chunk.reasoning;
+                    } catch (error) {
+                        if (error.isApiError) throw error;
+                        if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
+                    }
+                }
+                return { content, reasoning, usage, isStream: true };
+            }
+            const data = parsePayload(rawText, response.status);
+            let content = '';
+            let reasoning = '';
+            (data.content || []).forEach(block => {
+                if (block.type === 'text') content += block.text || '';
+                else if (block.type === 'thinking') reasoning += block.thinking || '';
+            });
+            return { content, reasoning, usage: getApiUsagePayload(data) || null, isStream: false };
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let usage = null;
+        let pendingContent = '';
+        let pendingReasoning = '';
+        let flushPromise = Promise.resolve();
+        const flushPending = () => {
+            if (!pendingContent && !pendingReasoning) return;
+            const delta = { content: pendingContent, reasoning: pendingReasoning };
+            pendingContent = '';
+            pendingReasoning = '';
+            flushPromise = flushPromise.then(() => options.onDelta?.(delta));
+        };
+        const flushInterval = setInterval(flushPending, STREAM_RENDER_INTERVAL);
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine.startsWith('data: ')) continue;
+                    const payload = trimmedLine.slice(6);
+                    if (payload === '[DONE]') continue;
+                    try {
+                        const chunk = parseAnthropicSseChunk(payload, response.status);
+                        usage = getApiUsagePayload(chunk.data) || usage;
+                        pendingContent += chunk.content;
+                        pendingReasoning += chunk.reasoning;
+                    } catch (error) {
+                        if (error.isApiError) throw error;
+                        if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
+                        console.warn('Error parsing anthropic stream chunk:', error);
+                    }
+                }
+            }
+            return { content: '', reasoning: '', usage, isStream: true };
+        } finally {
+            clearInterval(flushInterval);
+            flushPending();
+            await flushPromise;
+        }
+    };
+
+    // --- [LuzzyRP patch 015] Google Gemini 协议适配 ---
+    // url 形如 {base}/v1beta/models/{id}:streamGenerateContent?alt=sse&key=...；system 抽出为 systemInstruction。
+    const GEMINI_THINKING_BUDGETS = { low: 1024, medium: 8192, high: 24576, max: 32768 };
+    const requestGeminiCompletion = async (options) => {
+        const base = String(options.url || '').replace(/\/+$/, '');
+        const method = options.stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?';
+        const url = `${base}/v1beta/models/${encodeURIComponent(options.model)}:${method}key=${encodeURIComponent(options.apiKey)}`;
+        const contents = [];
+        let systemInstruction = null;
+        (options.messages || []).forEach((message, index) => {
+            const role = message.role === 'assistant' ? 'model' : 'user';
+            // 仅首条 user 纯文本消息视为 systemInstruction（上游把 system prompt 放在 messages[0]）
+            if (role === 'user' && typeof message.content === 'string' && index === 0 && (options.messages || []).length > 1) {
+                systemInstruction = { parts: [{ text: message.content }] };
+                return;
+            }
+            let parts;
+            if (Array.isArray(message.content)) {
+                parts = message.content.map(part => {
+                    if (part?.type === 'text') return { text: part.text || '' };
+                    if (part?.type === 'image_url') {
+                        const match = String(part.image_url?.url || '').match(/^data:([^;]+);base64,(.*)$/);
+                        if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
+                        return null;
+                    }
+                    return null;
+                }).filter(Boolean);
+            } else {
+                parts = [{ text: String(message.content || '') }];
+            }
+            if (parts.length > 0) contents.push({ role, parts });
+        });
+        const body = {
+            contents,
+            ...(systemInstruction ? { systemInstruction } : {}),
+            generationConfig: {
+                ...(Number.isFinite(options.temperature) ? { temperature: options.temperature } : {}),
+                ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
+                ...(options.reasoningEffort && GEMINI_THINKING_BUDGETS[options.reasoningEffort]
+                    ? { thinkingConfig: { thinkingBudget: GEMINI_THINKING_BUDGETS[options.reasoningEffort] } } : {})
+            },
+            ...(options.extraBody || {})
+        };
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: options.signal
+        });
+        if (!response.ok) await readFailedResponse(response);
+
+        const parseGeminiChunk = (text, status) => {
+            const data = JSON.parse(text);
+            const apiError = extractApiErrorMessage(data, status);
+            if (apiError) throwApiError(apiError);
+            let content = '';
+            let reasoning = '';
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            parts.forEach(part => {
+                if (typeof part.text !== 'string') return;
+                if (part.thought === true) reasoning += part.text;
+                else content += part.text;
+            });
+            return { data, content, reasoning };
+        };
+
+        const contentType = response.headers.get('content-type');
+        const isStream = !!(options.stream && contentType?.includes('text/event-stream'));
+        if (!isStream) {
+            const rawText = await response.text();
+            // 服务端可能无视 stream:false 返回 SSE：复用逐行兜底解析
+            if (contentType?.includes('text/event-stream')) {
+                let content = '';
+                let reasoning = '';
+                let usage = null;
+                for (const line of rawText.split('\n')) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine.startsWith('data: ')) continue;
+                    const payload = trimmedLine.slice(6);
+                    if (payload === '[DONE]') continue;
+                    try {
+                        const chunk = parseGeminiChunk(payload, response.status);
+                        usage = getApiUsagePayload(chunk.data) || usage;
+                        content += chunk.content;
+                        reasoning += chunk.reasoning;
+                    } catch (error) {
+                        if (error.isApiError) throw error;
+                        if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
+                    }
+                }
+                return { content, reasoning, usage, isStream: true };
+            }
+            const parsed = parseGeminiChunk(rawText, response.status);
+            return { content: parsed.content, reasoning: parsed.reasoning, usage: getApiUsagePayload(parsed.data) || null, isStream: false };
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let usage = null;
+        let pendingContent = '';
+        let pendingReasoning = '';
+        let flushPromise = Promise.resolve();
+        const flushPending = () => {
+            if (!pendingContent && !pendingReasoning) return;
+            const delta = { content: pendingContent, reasoning: pendingReasoning };
+            pendingContent = '';
+            pendingReasoning = '';
+            flushPromise = flushPromise.then(() => options.onDelta?.(delta));
+        };
+        const flushInterval = setInterval(flushPending, STREAM_RENDER_INTERVAL);
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine.startsWith('data: ')) continue;
+                    const payload = trimmedLine.slice(6);
+                    if (payload === '[DONE]') continue;
+                    try {
+                        const chunk = parseGeminiChunk(payload, response.status);
+                        usage = getApiUsagePayload(chunk.data) || usage;
+                        pendingContent += chunk.content;
+                        pendingReasoning += chunk.reasoning;
+                    } catch (error) {
+                        if (error.isApiError) throw error;
+                        if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
+                        console.warn('Error parsing gemini stream chunk:', error);
+                    }
+                }
+            }
+            return { content: '', reasoning: '', usage, isStream: true };
+        } finally {
+            clearInterval(flushInterval);
+            flushPending();
+            await flushPromise;
+        }
     };
 
     window.RPHubApiClient = Object.freeze({ requestChatCompletion });

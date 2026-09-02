@@ -139,7 +139,15 @@
 }
 
 /* ============================================================
- * 雾纸玻璃层 Frost-Paper（方向板 A，docs/design/boards-v3/direction-approved-v3）
+ * 统一雾纸玻璃变量（v1.2.0 玻璃补全）：单点调参——流式掉帧时整体上调 alpha
+ * ============================================================ */
+:root[data-theme="luzzy"] {
+    --luzzy-glass-alpha: 0.74;   /* 基础面不透明度（气泡/思考卡） */
+    --luzzy-glass-blur: 18px;    /* 基础面模糊半径 */
+}
+
+/* ============================================================
+ * 雾纸玻璃层 Frost-Paper（方向板 A，docs/design/boards-v3/direction-approved-v3)
  * 玻璃只上固定 chrome：顶栏 / 输入岛 / 侧栏抽屉 / 模态面板；聊天气泡维持纸感。
  * blur 统一 16px（上游 chrome 为 backdrop-blur-xl=24px，雾纸配方收准到 16，
  * 中端机 GPU 代价同步下降）。@supports 不支持时降级实底。
@@ -152,6 +160,21 @@
 :root[data-theme="luzzy"] .backdrop-blur-xl {
     -webkit-backdrop-filter: blur(16px) !important;
     backdrop-filter: blur(16px) !important;
+}
+
+/* 消息操作工具条收编（v1.2.0）：上游 .message-action-bar 本有 blur(10px)，
+   但被移动端 kill-switch 打死且从未被收编——纳入雾纸家族（gray-50/0.6 + blur14）。 */
+:root[data-theme="luzzy"] .message-action-bar {
+    -webkit-backdrop-filter: blur(14px) saturate(1.15) !important;
+    backdrop-filter: blur(14px) saturate(1.15) !important;
+}
+:root[data-theme="luzzy"][data-mode="light"] .message-action-bar {
+    background-color: rgba(var(--tw-gray-50) / 0.6) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.7) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .message-action-bar {
+    background-color: rgba(var(--tw-gray-100) / 0.6) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.7) !important;
 }
 
 /* chrome 半透白面 → 雾纸 tint（亮 cream / 暗 暖纸），alpha 收至 .86；
@@ -203,16 +226,20 @@
     backdrop-filter: blur(16px) !important;
 }
 
-/* 聊天气泡回归纸感：不透明纸面 + 去 blur（与雾纸方向一致，GPU 同步减负） */
+/* 聊天气泡 · 统一雾纸玻璃（v1.2.0）：与 chrome 玻璃同族配方，
+   立绘透色（blur 18 + saturate 1.2），流式加厚见下方 :has 规则。
+   v1.0.0 此处曾强制实底（backdrop-filter:none）——v1.2.0 玻璃补全后作废。 */
 :root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
-    background-color: #F5F0E8 !important;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    background-color: rgba(var(--tw-gray-100) / var(--luzzy-glass-alpha)) !important;
+    -webkit-backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.7) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
-    background-color: #2B2824 !important;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    background-color: rgba(var(--tw-gray-200) / var(--luzzy-glass-alpha)) !important;
+    -webkit-backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    border-color: rgba(var(--tw-gray-300) / 0.7) !important;
 }
 
 /* 上游 styles.css 在移动端媒体查询内以 !important 写死一批白面
@@ -229,20 +256,21 @@
     border-color: rgba(62, 58, 52, 0.8) !important;
 }
 
+/* v1.2.0 玻璃补全：typing 气泡与消息气泡统一雾纸（原为实底夺回，现为玻璃 tint） */
 :root[data-theme="luzzy"][data-mode="light"] .typing-bubble,
 :root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
-    background-color: #F5F0E8 !important;
+    background-color: rgba(var(--tw-gray-100) / var(--luzzy-glass-alpha)) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .typing-bubble,
 :root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
-    background-color: #2B2824 !important;
+    background-color: rgba(var(--tw-gray-200) / var(--luzzy-glass-alpha)) !important;
 }
 
 :root[data-theme="luzzy"][data-mode="light"] .msg-name-tag {
-    background-color: rgba(250, 249, 245, 0.92) !important;
+    background-color: rgba(250, 249, 245, 0.82) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .msg-name-tag {
-    background-color: rgba(43, 40, 36, 0.92) !important;
+    background-color: rgba(43, 40, 36, 0.82) !important;
 }
 
 :root[data-theme="luzzy"][data-mode="light"] .typing-timer-badge {
@@ -307,16 +335,18 @@
 }
 
 /* ============================================================
- * 思考卡片 · 全卡雾纸玻璃（v1.1.0 · 三方向硬门用户选定「全卡雾纸玻璃」）
+ * 思考卡片 · 雾纸玻璃（v1.1.0 三方向硬门选定「全卡雾纸玻璃」；
+ * v1.2.0 对齐统一雾纸基线：alpha 0.86/0.88 → 0.74/0.80，blur 16→18，
+ * 与气泡同族——用户反馈「玻璃不完整」根因之一即 alpha 过高）
  * 上游 .cot-ui 系为纯白实底 + is-open 蓝调；此处整卡半透磨砂化，
  * 流式（.is-live）自动降级近实底规避逐帧重排的 GPU 代价。
  * 破上游移动端 kill-switch（styles.css `* { backdrop-filter:none !important }`）
  * 沿用既定手段：:root[data-theme] 前缀 + !important 更高特异性。
  * ============================================================ */
 :root[data-theme="luzzy"] .cot-ui.native-thinking-card {
-    background-color: rgba(var(--tw-gray-100) / 0.86) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(1.15) !important;
-    backdrop-filter: blur(16px) saturate(1.15) !important;
+    background-color: rgba(var(--tw-gray-100) / var(--luzzy-glass-alpha)) !important;
+    -webkit-backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
     border-color: rgba(var(--tw-gray-300) / 0.8) !important;
     box-shadow: 0 1px 2px rgba(var(--tw-gray-900) / 0.04), 0 8px 24px rgba(var(--tw-gray-900) / 0.05) !important;
     transition:
@@ -327,7 +357,7 @@
 
 /* 展开态：上游蓝 border/shadow → 暖发丝线 + 暖阴影 */
 :root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-open {
-    background-color: rgba(var(--tw-gray-100) / 0.88) !important;
+    background-color: rgba(var(--tw-gray-100) / 0.8) !important;
     border-color: rgba(var(--tw-gray-300) / 0.9) !important;
     box-shadow: 0 2px 6px rgba(var(--tw-gray-900) / 0.05), 0 12px 32px rgba(var(--tw-gray-900) / 0.07) !important;
 }
@@ -346,13 +376,13 @@
 
 /* 卡内步骤详情面板（上游 bg-gray-50 实底）：半透化让整卡玻璃透出 */
 :root[data-theme="luzzy"] .cot-ui.native-thinking-card .bg-gray-50 {
-    background-color: rgba(var(--tw-gray-50) / 0.55) !important;
+    background-color: rgba(var(--tw-gray-50) / 0.45) !important;
     border-color: rgba(var(--tw-gray-300) / 0.55) !important;
 }
 
 /* 流式生成中：alpha 提至近实底 + 模糊收窄；珊瑚描边点缀（--tw-primary-500） */
 :root[data-theme="luzzy"] .cot-ui.native-thinking-card.is-live {
-    background-color: rgba(var(--tw-gray-100) / 0.96) !important;
+    background-color: rgba(var(--tw-gray-100) / 0.94) !important;
     -webkit-backdrop-filter: blur(6px) saturate(1.05) !important;
     backdrop-filter: blur(6px) saturate(1.05) !important;
     border-color: rgba(var(--tw-primary-500) / 0.45) !important;
@@ -361,10 +391,10 @@
 
 /* 暗色：tint 换 gray-200 基底（与输入岛同族色），头部/详情随之调整 */
 :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card {
-    background-color: rgba(var(--tw-gray-200) / 0.86) !important;
+    background-color: rgba(var(--tw-gray-200) / var(--luzzy-glass-alpha)) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-open {
-    background-color: rgba(var(--tw-gray-200) / 0.88) !important;
+    background-color: rgba(var(--tw-gray-200) / 0.8) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card .cot-header:hover {
     background-color: rgba(var(--tw-gray-300) / 0.45) !important;
@@ -374,11 +404,24 @@
     color: rgb(var(--tw-gray-900)) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card .bg-gray-50 {
-    background-color: rgba(var(--tw-gray-100) / 0.5) !important;
+    background-color: rgba(var(--tw-gray-100) / 0.4) !important;
     border-color: rgba(var(--tw-gray-300) / 0.5) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-live {
-    background-color: rgba(var(--tw-gray-200) / 0.96) !important;
+    background-color: rgba(var(--tw-gray-200) / 0.94) !important;
+}
+
+/* 流式加厚（v1.2.0 玻璃补全）：生成中的消息行，所在气泡自动提至近实底——
+   正文可读性优先，完成后回落全玻璃。纯 CSS :has（WebView 150 支持），零 patch。 */
+:root[data-theme="luzzy"][data-mode="light"] .chat-view-root:has(.cot-ui.is-live) .msg-bubble-glass {
+    background-color: rgba(var(--tw-gray-100) / 0.88) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(1.1) !important;
+    backdrop-filter: blur(8px) saturate(1.1) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .chat-view-root:has(.cot-ui.is-live) .msg-bubble-glass {
+    background-color: rgba(var(--tw-gray-200) / 0.88) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(1.1) !important;
+    backdrop-filter: blur(8px) saturate(1.1) !important;
 }
 
 /* 降级：不支持 backdrop-filter → 雾纸实底（与既有 Frost-Paper 降级同配方） */
@@ -391,6 +434,28 @@
     :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card,
     :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-open,
     :root[data-theme="luzzy"][data-mode="dark"] .cot-ui.native-thinking-card.is-live {
+        background-color: #2B2824 !important;
+    }
+
+    /* v1.2.0 玻璃补全降级：气泡/typing/工具条 → 实底纸色 */
+    :root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass,
+    :root[data-theme="luzzy"][data-mode="light"] .typing-bubble,
+    :root[data-theme="luzzy"][data-mode="light"] .chat-view-root:has(.cot-ui.is-live) .msg-bubble-glass {
+        background-color: #F5F0E8 !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+    :root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass,
+    :root[data-theme="luzzy"][data-mode="dark"] .typing-bubble,
+    :root[data-theme="luzzy"][data-mode="dark"] .chat-view-root:has(.cot-ui.is-live) .msg-bubble-glass {
+        background-color: #2B2824 !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+    :root[data-theme="luzzy"][data-mode="light"] .message-action-bar {
+        background-color: #F5F0E8 !important;
+    }
+    :root[data-theme="luzzy"][data-mode="dark"] .message-action-bar {
         background-color: #2B2824 !important;
     }
 }

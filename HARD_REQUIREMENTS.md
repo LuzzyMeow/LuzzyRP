@@ -11,7 +11,7 @@ LuzzyRP v1.0.0 起为对开源项目 [STA1N156/RP-Hub](https://github.com/STA1N1
 
 ---
 
-## 九条硬性规定
+## 十条硬性规定
 
 ### 规定 1 · NSFW 协议不可触碰
 
@@ -75,6 +75,17 @@ RP-Hub 上游文件（`index.html`、`assets/js/*.js`、`assets/css/styles.css`�
 **与规定 4（字体锁定）的关系**：字体锁定是上游合规约束，设计 SKILL 条款是设计质量约束；冲突时以更严格者为准。
 
 - 守护落点：`docs/skills/` 四目录 + `AGENTS.md` §2.1 + 仓库根 `DESIGN.md`。
+
+### 规定 10 · 改动标记与上游同步适配（2026-09-02 用户新增）
+
+所有落在上游文件（`app/src/main/assets/rphub/`）内的二创改动必须**提前做好显式标记**，保证后续上游 RP-Hub 更新同步时我们的内容不被顶掉、且能快速完成兼容适配：
+
+1. **标记强制**：patch 触及的上游文件区域必须携带 `[LuzzyRP patch NNN]` 标记注释（JS 用 `//`、HTML 用 `<!-- -->`、CSS 用 `/* */`）；自 patch 016（v1.2.1）起新增 patch 强制执行，存量 patch 在同步适配审计中逐步补齐；
+2. **重放通道唯一**：每个登记 patch 必须同步实现为 `tools/apply-patches.ps1` 内的重放块；`tools/patches/README.md` 登记表必须注明该 patch 的「标记串 + 最低出现次数」，禁止只登记不重放；
+3. **同步校验门**：上游同步（`tools/sync-upstream.ps1`）+ patch 重放完成后，**必须运行 `tools/verify-markers.ps1` 且全部 PASS** 才算同步完成（硬性规定 6 的组成部分）；任何 FAIL = 标记或重放块需修复；
+4. **冲突适配清单**：重放失败 → 手工合并该区域 → 更新 `apply-patches.ps1` 对应重放块与标记 → 复跑 `verify-markers.ps1` 全绿 → WORKLOG 登记冲突点与适配方式。
+
+- 守护落点：`tools/patches/README.md`（登记表）+ `tools/apply-patches.ps1`（重放块）+ `tools/verify-markers.ps1`（校验门）+ `AGENTS.md` §4。
 
 ---
 

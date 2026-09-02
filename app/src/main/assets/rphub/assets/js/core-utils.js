@@ -979,6 +979,7 @@ window.RPHubUtils = {
             ]),
             presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
             fontFamilies: Object.freeze([
+            // [LuzzyRP patch 009] 字体选项：内置改「经典」系 + 新增 luzzy 默认（上游: modern/serif/system）
                 { value: 'luzzy', label: 'Luzzy 默认' },
                 { value: 'modern', label: '经典（原版）' },
                 { value: 'serif', label: '经典衬线（Lora）' },

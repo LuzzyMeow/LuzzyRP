@@ -870,6 +870,7 @@
                 this.$emit('select-slots', [...this.draftSlotModels]);
             },
             // [LuzzyRP patch 015] 手动模型 meta 摘要：`1M · 文本+图像` / `128K · 嵌入`
+            // [LuzzyRP patch 012] 手动模型元信息摘要（1M · 文本+图像 chip）
             modelMetaSummary(model) {
                 if (!model || model.manual !== true) return '';
                 const parts = [];

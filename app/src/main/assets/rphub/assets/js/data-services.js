@@ -1024,6 +1024,9 @@
             }).join('\n\n');
             finalMessages.splice(findDepthIndex(Number(vectorDepth) || 4), 0, {
                 role: 'user',
+                // [LuzzyRP patch 016] 召回块禁止与相邻用户消息合并：一旦被并入前一条 user 消息，
+                // 上下文查看器的「角色记忆（向量召回）」startsWith 标注即失效（v1.2.1）
+                _preventContextMerge: true,
                 content: [
                     ROLE_MEMORY_VECTOR_RECALL_OPEN_TAG,
                     '  <description>',

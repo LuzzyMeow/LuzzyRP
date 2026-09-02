@@ -72,8 +72,9 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
 | `tools/sync-upstream.ps1` | 上游同步脚本 | fetch → 覆盖 → patch 重放 → 报告 |
-| `tools/apply-patches.ps1` | patch 重放脚本 | git apply 全部登记 patch |
-| `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2） |
+| `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-017 实体 patch（`patches/entities/`，指纹基线判定） |
+| `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
+| `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行） |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.0.0.md` | v1.0.0 重建计划 | 实施期主文档 |
@@ -97,6 +98,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 7 | 工作区整洁 | 清理冗余，docs 分类归档 |
 | 8 | 发布流程 | 编译 → 推送 → Release（仅稳定版附 APK） |
 | 9 | **设计 SKILL 强制条款** | 凡涉及 UI 设计 / 前端设计 / 主题 / 视觉 / 动效 / 交互 / 转场 / 页面设计等内容，**必须先完整阅读并应用以下 4 项设计 SKILL 才可继续讨论、计划、工作**（见 §2.1） |
+| 10 | **改动标记与同步适配** | 上游文件内二创改动必须带 `[LuzzyRP patch NNN]` 标记注释；重放通道唯一（apply-patches.ps1）；同步后 verify-markers.ps1 全绿才算完成（见 §4.2/§4.3） |
 
 ### 2.1 设计 SKILL 强制条款（硬性规定 9 的展开）
 
@@ -180,12 +182,13 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 2. git diff upstream/main --stat          # 看改动范围
 3. 读上游 built-in-content.js 底部更新公告  # 了解新功能
 4. 覆盖上游文件（index.html + assets/，排除 vendor/ 与 fonts/）
-5. 重放 patches（tools/apply-patches.ps1）
-6. 检查 vendor/ 依赖版本（上游可能换 CDN 版本）
-7. 实测：数据兼容（localStorage 结构）+ 核心功能回归
-8. 更新 upstream-fingerprints.txt
-9. 更新 CHANGELOG（同步记录 + 上游版本号）
-10. 重新构建 APK
+5. 重放 patches（tools/apply-patches.ps1，001-011 字符串段 + 实体段）；
+6. 运行 tools/verify-markers.ps1 校验标记完整性（硬性规定 10，全绿才算同步完成）；
+7. 检查 vendor/ 依赖版本（上游可能换 CDN 版本）
+8. 实测：数据兼容（localStorage 结构）+ 核心功能回归
+9. 更新 upstream-fingerprints.txt
+10. 更新 CHANGELOG（同步记录 + 上游版本号）
+11. 重新构建 APK
 ```
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
@@ -209,20 +212,24 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 013 | ui-components.js + index.html + app.js | v1.1.0 外观面板（模态弹层+侧栏按钮）——**模态部分已被 014 取代**，登记保留追溯 |
 | 014 | ui-components.js + index.html + app.js | 外观独立页（全应用唯一入口）+ 关于页（应用内 CHANGELOG）+ 侧栏底部簇重排（外观→关于→设置置底） |
 | 015 | app.js + runtime-services.js + ui-components.js + index.html | 供应商三协议（OpenAI/Anthropic/Gemini 适配）+ 编辑器二级弹窗（模型增删改/热检测预设/引用重映射）+ max_tokens 注入 + 自定义生图（luzzy-image:// 分流） |
+| 016 | data-services.js | 向量召回块 `_preventContextMerge: true`（防合并吞掉查看器「角色记忆（向量召回）」标注，v1.2.1） |
+| 017 | app.js + index.html | 记忆内容管理器（角色/分支选择器跨角色查看分片与总结；编辑=强制重嵌成功才落盘/启停/删除/清空；v1.2.1） |
 
 **新增 patch 的规则**：
 
 1. 先评估能否用扩展层实现——**能就不用 patch**；
 2. 必须动上游文件时，用 `git diff` 生成最小 patch，编号登记到 `tools/patches/`；
 3. patch 文件头部写注释：目的 / 对应硬性规定 / 预期冲突点；
-4. 同步时 patch 重放失败 → 手工合并 → 更新 patch 文件 → WORKLOG 登记；
-5. **NSFW 相关点位（built-in-content.js 内 nsfw_rules）永远不在 patch 范围内**。
+4. **标记强制（硬性规定 10）**：patch 触及区域必须携带 `[LuzzyRP patch NNN]` 标记注释（JS `//`、HTML `<!-- -->`、CSS `/* */`），并同步实现为 apply-patches.ps1 重放能力——001-011 走字符串块，012 起必须生成/更新 `patches/entities/` 实体 diff（以 rp-hub-reference 对应基线为源）；
+5. 同步时 patch 重放失败 → 手工合并 → 更新文件与重放块/实体 → 复跑 verify-markers.ps1 全绿 → WORKLOG 登记；
+6. **NSFW 相关点位（built-in-content.js 内 nsfw_rules）永远不在 patch 范围内**。
 
 ### 4.3 冲突处理
 
 | 情况 | 处理 |
 |------|------|
 | patch 重放失败 | 手工合并该 patch，更新文件，WORKLOG 登记 |
+| 实体重放失败（上游已发新版） | 手工合并该文件全部二创改动 → 以新版基线重新生成 entities 实体 → verify-markers.ps1 全绿 → WORKLOG 登记 |
 | 上游新增文件 | 纳入（先审计外链/推广） |
 | 上游删除文件 | 确认无扩展层引用后删除 |
 | 上游改 localStorage 数据结构 | 实测老数据兼容；不兼容则扩展层写迁移脚本 |
@@ -314,49 +321,78 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-01 会话 9 移交快照）
+## 9. 当前状态与已知问题（2026-09-03 会话 14 移交快照 · v1.2.1 开发中）
 
-> 本节约等于「接手必读」的现场速览。详细过程见 `docs/WORKLOG.md` 会话 9–12；本节由最新发布 会话更新。
+> **⚠ 接手必读：v1.2.1 处于「开发中 · 不可游玩」状态。** 全部 v1.2.1 改动在工作区**未提交**。
+> 当前构建存在**布局异常**（部分页面顶部遗漏字段、底部超出屏幕边缘），移交优先修复。
+> 完整过程、根因与诊断线索见 `docs/WORKLOG.md` 「会话 14」及「会话 14 移交补充」两节；
+> 计划文档 `docs/PLAN-v1.2.1.md`。本节取代会话 12 快照。
 
-### 项目状态（2026-09-02 · 会话 12 移交快照）
+### 版本状态（2026-09-03 · 会话 14 移交）
 
-- **v1.2.0 已发布**（versionCode 7，GitHub Release 附三件套 APK）：统一雾纸玻璃补全 + 外观/关于独立页（应用内 CHANGELOG）+ 三协议供应商（OpenAI/Anthropic/Gemini）+ 供应商编辑器（模型增删改/热检测预设/引用重映射）+ max_tokens 注入 + 自定义生图模型。模拟器全量走查 + 全面自检轮（9+1 处修复）+ 真机（小米/Android 16）玻璃四态与核心回归均通过。
-- **设计真源**：`DESIGN.md`（token 体系 + Glass 统一雾纸配方表 + 外观页/关于页/供应商编辑器章）+ `docs/design/`（direction-approved-v120.md、verify-v120-*.png 证照）。
-- **多模型商混用（v1.1.0 起）**：模型字段存 `providerId::bareId` 复合引用（裸 id=跟随激活商，零迁移）；供应商=4 内置常量 + `settings.apiProviders` 用户商（含 protocol/models/extraBody）；请求经 `resolveModelRequest` 路由。
-- **历史**：rc1「暖纸书房」已移除；v1.0.0/v1.1.0 细节见 CHANGELOG 与 WORKLOG 会话 9–11。
+- **v1.2.1（versionCode 8 / EXTRACT_VERSION 13）开发中**。功能代码已完成：
+  ① patch 016 召回块防合并（模拟器罐装验证 ✓）；② patch 017 记忆内容管理器
+  （app.js 数据层 + index.html 卡片与编辑弹窗；模拟器 CRUD 罐装验证 ✓）；
+  ③ 品牌色收编（luffy-theme.css：splash 7 处 + 设置两横幅；luzzy/classic 对照 ✓）；
+  ④ patch 018 开屏防闪蓝（head 主题快照 + luzzy-theme.css 移入 head；模拟器验证 ✓）；
+  ⑤ 标记体系（硬性规定 10：verify-markers.ps1 39 项全绿 + entities 实体重放 +
+  存量标记补全）。CHANGELOG/README 已标注开发中。
+- **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致
+  （verify-markers R1/R2 项）。
+- **真机（小米 df97f3c4）已安装 EXTRACT 13 构建但存在布局异常**；模拟器同构建。
+
+### 已知未解问题（移交优先项）
+
+- **布局异常**：部分页面顶部遗漏字段、底部超出屏幕边缘（用户真机报告；视图未定位）。
+  强怀疑：v1.2.1 对 index.html 的重放改动在 memory 视图之后区域缺 2 个闭合标签
+  （正则计数曾报 AFTER_MEMORY_BALANCE=-2 被误放行；正则计数有盲区不可作为结构依据）。
+  诊断路径与修复原则详见 WORKLOG 会话 14 移交补充节「已知未解问题 #2」。
+  **修复原则：只动 patch 017 插入块及其闭合，禁止再次搬移上游区块；
+  结构验证必须用真实 HTML 解析器（iframe srcdom/WebView），不可用正则计数。**
+- 已修复待复验：记忆面板悬浮于所有页面底部（EXTRACT 12 构建；根因与修复见 WORKLOG）。
+- 悬留待办（v1.2.0 起顺延）：上游 toggle 蓝（peer-checked:bg-blue-*）主题化、
+  「荧光笔落笔」动效、SAF 实机、真实 API 流式观察、anthropic/gemini 真实 key 端到端。
+
+### 接手步骤（按序）
+
+1. `git status` + 读 `docs/WORKLOG.md` 会话 14 两节 + `docs/PLAN-v1.2.1.md`；
+2. 跑 `tools/verify-markers.ps1`（应 39 绿）与 `node --check` 三文件；
+3. 按上述诊断路径修布局异常（EXTRACT_VERSION 随 assets 改动 +1）；
+4. 双端重装逐页截图核对（对照 verify-v120-phone-* 基线）；管理器 CRUD 罐装回归；
+5. 全绿后走发布流程（CHANGELOG/README 已预写，届时去掉「开发中」标注并构建正式包）。
+
+### 高频坑速查（本会话全部实踩，勿再踩）
+
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（本会话第 5 次踩中；现值 13）；
+- **真机 exec-out 管道损坏 PNG**：用设备侧 `screencap -p /sdcard/x.png` + `adb pull`；
+- **正则 div 计数不可作为 HTML 结构依据**（浏览器容错 + 自闭合盲区）；
+- **Vue production 编译丢弃注释**：v-else-if 链后的注释不隔断链，普通元素紧跟会被
+  吸收进条件链（管理卡教训）；transition 弹窗必须放在「视图区之外」的文档尾部
+  （插在视图区中间不渲染）；
+- **CDP element.click() 对部分 Vue 合成事件无效**：关键导航用 UI Automator 真实触摸；
+- **file:// 资源与 pm clear**：排查布局问题前先 pm clear 排除缓存与旧资产干扰；
+- entities 生成须 `--ignore-cr-at-eol`、应用须 `--ignore-whitespace`（CRLF/LF 混用坑）。
 
 ### 主题系统架构速览（改主题必读）
 
-- 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性（app.js `applyTheme`/`applyThemeMode` watch，immediate 执行）。
-- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*` 为 **RGB 三元组**（classic=上游原值，luzzy 亮/暗两套；暗色 gray 色阶整体反转）。
-- 引用：tailwind.config 色板 = `rgb(var(--tw-*) / <alpha-value>)`（patch 008 **v3**）。**禁止改回纯 var()**——透明度修饰符工具类（`bg-gray-50/60` 等）会被 JIT 静默回退纯白（rc2 暗色白块根因）。
-- 组件覆盖：名字标签 Lora 衬线、暗色 `bg-white`/`bg-white/*`/segmented 白滑块 `!important` 覆盖（上游 glass/blur 优先级更高，`!important` 是扩展层合法取胜手段）。
-- 存储：settings.theme/themeMode（上游 IndexedDB 体系）；老用户迁移（savedSettings **存在**且无 theme → classic；新用户默认 luzzy+light+luzzy 字体）。
-- 系统栏：applyThemeMode → LuzzyBridge.setSystemBarStyle（状态栏图标恒白——顶栏深渐隐双向可读；导航栏图标随主题明暗）。
-- 字体：fontFamily 'luzzy' → data-app-font="luzzy" → luzzy-theme.css 字体栈（AlibabaSans + PuHuiTi 3，local-fonts.css @font-face 本地打包）。
-- **统一雾纸玻璃（v1.2.0）**：气泡/typing/思考卡/工具条全部入玻璃族（`--luzzy-glass-alpha` 0.74 / `--luzzy-glass-blur` 18px 单点变量）；流式加厚靠 `:has(.cot-ui.is-live)`（0.88+blur8）；上游移动端 kill-switch 以 `:root[data-theme]`+`!important` 放行；配方表见 DESIGN.md Glass 章。
-- **发版必做**：更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（关于页应用内日志同步）；EXTRACT_VERSION 随 assets 变更 bump（现值 7）。
+- 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性（app.js watch，immediate）；
+- **patch 018 起 head 内联脚本先按 localStorage 快照（luffy-ext.js MutationObserver 维护）
+  设置双属性，luffy-theme.css 已移入 head**——开屏首帧即正确主题色；
+- 变量：luffy-theme.css 定义 `--tw-gray-*` / `--tw-primary-*` 为 RGB 三元组
+  （classic=上游原值，luzzy 亮/暗两套）；引用走 patch 008 色板
+  `rgb(var(--tw-*) / <alpha-value>)`；
+- 统一雾纸玻璃：`--luzzy-glass-alpha` 0.74 / `--luzzy-glass-blur` 18px 单点变量；
+- 品牌色规则（DESIGN.md Colors 章）：禁新增裸 blue/indigo/violet 色相类；
+  上游遗留蓝由 luffy-theme.css 在 `:root[data-theme="luzzy"]` 内收编（classic 零影响）。
 
-### 验证基线（回归时对照）
+### 待办（按优先级，2026-09-03 会话 14 移交）
 
-- 亮 `body=#FAF9F5`；暗 `body=#171614`、输入岛 rgba(43,40,36,.72)、纯白残留=0；经典回退 `#f9fafb`。
-- 弱文字 4.98:1 / 次级文字 6.8:1 / 正文 12:1（暗色）；截图存档 `docs/design/verify-v3-{light,dark}.png` 与 `verify-v3-phone-{light,dark}.png`。
-- debug 构建开 CDP：`adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`；**熄屏时截图挂起需先唤醒**；CDP 僵死时 force-stop 重启 app 刷新。
-
-### 待办（按优先级，2026-09-02 会话 12 移交）
-
-1. 用户真机体验反馈微调（玻璃观感/三协议供应商/外观与关于页，按 DESIGN.md token 调整）。
-2. 真实 API 流式生成发热/帧率观察（is-live 加厚已模拟验证；不主动消耗用户配额）。
-3. anthropic/gemini 真实 key 端到端对话验证（罐装 SSE 已覆盖解析路径）。
-4. 上游硬编码色（indigo/blue/pink 工具类：设置页头部渐变、抽屉图标等）主题化——待用户决策。
-5. 「荧光笔落笔」招牌动效（DESIGN.md roadmap）。
-6. 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
-7. 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
-8. 上游同步演练（sync-upstream.ps1 假发版模拟）。
-9. 构建警告清理（onActivityResult / databaseEnabled deprecated）。
-10. v1.3.0 候选：Gemini/Anthropic 图像模型接生图流、视频输入管线、每模型温度覆盖、「原生思考」行 z 层细节。
-
----
+1. **修复 v1.2.1 布局异常（顶部缺字段/底部溢出）**——见上文接手步骤；
+2. 双端复验：管理器 CRUD 罐装回归 + 逐页截图对照 v1.2.0 基线；
+3. 全绿后发布 v1.2.1（构建正式包 + GitHub Release，CHANGELOG/README 去掉开发中标注）；
+4. 上游 toggle 蓝（peer-checked:bg-blue-*）主题化（本次范围外遗留）；
+5. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
+6. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ## 8. 交接清单（Agent 结束会话前）
 

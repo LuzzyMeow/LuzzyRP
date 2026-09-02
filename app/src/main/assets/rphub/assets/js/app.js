@@ -225,6 +225,7 @@ const app = createApp({
             uiTemplatePlacements: uiTemplatePlacementOptions,
             worldInfoPositions: worldInfoPositionOptions
         } = uiOptions;
+        // [LuzzyRP patch 011] 主题/模式选项常量（上游无此块）
         const themeOptions = Object.freeze([
             { value: 'luzzy', label: '暖幕手记（Luzzy）' },
             { value: 'classic', label: '经典（原版）' }
@@ -637,6 +638,7 @@ const app = createApp({
             uiTemplateMainModelAnalysis: true,
             theme: 'luzzy',
             themeMode: 'light',
+        // [LuzzyRP patch 010/011] 默认字体 luzzy + theme/themeMode 默认值（上游: fontFamily modern，无 theme 字段）
             fontFamily: 'luzzy',
             fontFamilyVersion: 4,
             fontSize: window.innerWidth > 768 ? 16 : 14,
@@ -673,6 +675,7 @@ const app = createApp({
             });
             return options;
         });
+        // [LuzzyRP patch 010] 字体白名单含 luzzy（上游: modern/serif/system）
         const normalizeFontFamily = (value) => ['luzzy', 'modern', 'serif', 'system'].includes(value) ? value : 'modern';
         const normalizeFontSize = (value) => {
             const size = Number(value);
@@ -682,6 +685,7 @@ const app = createApp({
             document.documentElement.dataset.appFont = normalizeFontFamily(value);
         };
         watch(() => settings.fontFamily, applyFontFamily, { immediate: true });
+        // [LuzzyRP patch 011] 主题应用与系统栏联动（上游无此块）
         const applyTheme = (value) => {
             document.documentElement.dataset.theme = value === 'classic' ? 'classic' : 'luzzy';
         };
@@ -7258,6 +7262,264 @@ const app = createApp({
             isVectorMemorySearching.value = false;
         };
 
+        // [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
+        // 写路径双轨：当前角色走内存数组 + save*Now（保持会话内响应式联动），
+        // 其他角色走 scoped 存储直写（setScopedStoredValue + compact/clone），互不污染。
+        const memoryManager = reactive({
+            visible: false,
+            selectedCharId: '',
+            branchId: '',
+            loading: false,
+            saving: false,
+            branches: [],
+            vectorList: [],
+            classicList: [],
+            vectorPage: 1,
+            classicPage: 1,
+            expandedShardId: '',
+            editor: null
+        });
+        const ensureCharacterUuids = () => {
+            characters.value.forEach(char => { if (char && !char.uuid) char.uuid = generateUUID(); });
+        };
+        const memoryManagerCharacterOptions = computed(() => characters.value
+            .filter(char => char && char.uuid)
+            .map(char => ({ value: char.uuid, label: char.name || '未命名角色' })));
+        const charactersValueFind = (uuid) => characters.value.find(char => char && char.uuid === uuid) || null;
+        const resolveMemoryManagerChar = () => charactersValueFind(memoryManager.selectedCharId);
+        const getMemoryManagerScopeId = () => {
+            const char = resolveMemoryManagerChar();
+            if (!char) return '';
+            return getStoryBranchScopeId(char.uuid, memoryManager.branchId);
+        };
+        const isMemoryManagerCurrentScope = (scopeId) => Boolean(scopeId) && scopeId === getCurrentStoryBranchScopeId();
+        const isMemoryManagerCurrentCharacter = computed(() => {
+            const currentUuid = currentCharacter.value?.uuid || '';
+            return Boolean(currentUuid) && currentUuid === memoryManager.selectedCharId;
+        });
+        const memoryManagerBranchOptions = computed(() => memoryManager.branches
+            .map(branch => ({ value: branch.id, label: branch.name || '分支' })));
+        const memoryManagerShardModelLabel = (memory) => {
+            const ref = getBucketEmbeddingRef(memory || {});
+            return ref ? formatModelRefText(ref) : '未记录嵌入模型';
+        };
+        const memoryManagerClassicTurnLabel = (memory) => {
+            if (!memory) return '?';
+            const start = memory.displayTurnStart ?? memory.turnStart ?? memory.turn;
+            const end = memory.displayTurnEnd ?? memory.turnEnd ?? memory.turn;
+            return start === end ? `第 ${start ?? '?'} 轮` : `第 ${start ?? '?'}-${end ?? '?'} 轮`;
+        };
+        const sortMemoryManagerVector = (items) => [...(Array.isArray(items) ? items : [])].sort((a, b) => {
+            const turnDiff = (Number(a?.turn) || 0) - (Number(b?.turn) || 0);
+            if (turnDiff !== 0) return turnDiff;
+            return (Number(a?.sequence) || 0) - (Number(b?.sequence) || 0);
+        });
+        const sortMemoryManagerClassic = (items) => [...(Array.isArray(items) ? items : [])].sort((a, b) => {
+            const turnA = Number(a?.turnStart ?? a?.turn) || 0;
+            const turnB = Number(b?.turnStart ?? b?.turn) || 0;
+            return turnA - turnB;
+        });
+        const loadMemoryManagerData = async () => {
+            const char = resolveMemoryManagerChar();
+            if (!char) {
+                memoryManager.branches = [];
+                memoryManager.vectorList = [];
+                memoryManager.classicList = [];
+                return;
+            }
+            memoryManager.loading = true;
+            try {
+                const branchState = await readStoryBranchesForCharacter(char);
+                memoryManager.branches = (branchState.branches || []).map(branch => ({ id: branch.id, name: branch.name || '分支' }));
+                if (!memoryManager.branches.some(branch => branch.id === memoryManager.branchId)) {
+                    memoryManager.branchId = branchState.activeBranchId || STORY_BRANCH_MAIN_ID;
+                }
+                const scopeId = getStoryBranchScopeId(char.uuid, memoryManager.branchId);
+                if (isMemoryManagerCurrentScope(scopeId)) {
+                    memoryManager.vectorList = [...memories.value];
+                    memoryManager.classicList = [...classicMemories.value];
+                } else {
+                    const [vectorSaved, classicSaved] = await Promise.all([
+                        getScopedStoredValue('memories', scopeId),
+                        getScopedStoredValue('classic_memories', scopeId)
+                    ]);
+                    memoryManager.vectorList = Array.isArray(vectorSaved) ? prepareMemoriesForRuntime(vectorSaved) : [];
+                    memoryManager.classicList = Array.isArray(classicSaved) ? prepareClassicMemoriesForRuntime(classicSaved) : [];
+                }
+                memoryManager.vectorPage = 1;
+                memoryManager.classicPage = 1;
+            } catch (error) {
+                console.error('[LuzzyRP patch 017] 记忆管理器加载失败:', error);
+                showToast('记忆内容加载失败: ' + (error?.message || error), 'error');
+            } finally {
+                memoryManager.loading = false;
+            }
+        };
+        const toggleMemoryManager = () => {
+            memoryManager.visible = !memoryManager.visible;
+            if (!memoryManager.visible) return;
+            ensureCharacterUuids();
+            if (!memoryManager.selectedCharId || !resolveMemoryManagerChar()) {
+                memoryManager.selectedCharId = currentCharacter.value?.uuid
+                    || memoryManagerCharacterOptions.value[0]?.value
+                    || '';
+                memoryManager.branchId = '';
+            }
+            loadMemoryManagerData();
+        };
+        const selectMemoryManagerCharacter = async (uuid) => {
+            if (memoryManager.selectedCharId === uuid) return;
+            memoryManager.selectedCharId = uuid;
+            memoryManager.branchId = '';
+            memoryManager.expandedShardId = '';
+            await loadMemoryManagerData();
+        };
+        const selectMemoryManagerBranch = async (branchId) => {
+            if (memoryManager.branchId === branchId) return;
+            memoryManager.branchId = branchId;
+            memoryManager.expandedShardId = '';
+            await loadMemoryManagerData();
+        };
+        const writeMemoryManagerVector = async (list) => {
+            const scopeId = getMemoryManagerScopeId();
+            if (!scopeId) return;
+            const nextList = sortMemoryManagerVector(list);
+            if (isMemoryManagerCurrentScope(scopeId)) {
+                memories.value = nextList;
+                await saveMemoriesNow();
+            } else {
+                await setScopedStoredValue('memories', scopeId, await compactMemoriesForStorageAsync(nextList), { clone: false });
+            }
+            memoryManager.vectorList = [...nextList];
+            memoryManager.vectorPage = Math.min(memoryManager.vectorPage, Math.max(1, Math.ceil(nextList.length / LIST_PAGE_SIZE)));
+        };
+        const writeMemoryManagerClassic = async (list) => {
+            const scopeId = getMemoryManagerScopeId();
+            if (!scopeId) return;
+            const nextList = sortMemoryManagerClassic(list);
+            if (isMemoryManagerCurrentScope(scopeId)) {
+                classicMemories.value = nextList;
+                await saveClassicMemoriesNow();
+            } else {
+                await setScopedStoredValue('classic_memories', scopeId, cloneForStorage(nextList), { clone: false });
+            }
+            memoryManager.classicList = [...nextList];
+            memoryManager.classicPage = Math.min(memoryManager.classicPage, Math.max(1, Math.ceil(nextList.length / LIST_PAGE_SIZE)));
+        };
+        const memoryManagerVectorPageCount = computed(() => Math.max(1, Math.ceil(memoryManager.vectorList.length / LIST_PAGE_SIZE)));
+        const memoryManagerClassicPageCount = computed(() => Math.max(1, Math.ceil(memoryManager.classicList.length / LIST_PAGE_SIZE)));
+        const displayedMemoryManagerVector = computed(() => sortMemoryManagerVector(memoryManager.vectorList)
+            .slice((memoryManager.vectorPage - 1) * LIST_PAGE_SIZE, memoryManager.vectorPage * LIST_PAGE_SIZE));
+        const displayedMemoryManagerClassic = computed(() => sortMemoryManagerClassic(memoryManager.classicList)
+            .slice((memoryManager.classicPage - 1) * LIST_PAGE_SIZE, memoryManager.classicPage * LIST_PAGE_SIZE));
+        const openMemoryManagerEditor = (type, memory) => {
+            memoryManager.expandedShardId = '';
+            memoryManager.editor = {
+                type,
+                id: memory?.id || '',
+                text: type === 'vector'
+                    ? String(memory?.paragraph || memory?.summary || '')
+                    : String(memory?.summary || ''),
+                memory
+            };
+        };
+        const closeMemoryManagerEditor = () => { memoryManager.editor = null; };
+        const saveMemoryManagerEditor = async () => {
+            const editor = memoryManager.editor;
+            if (!editor || memoryManager.saving) return;
+            const text = String(editor.text || '').trim();
+            if (!text) { showToast('内容不能为空', 'warning'); return; }
+            if (editor.type === 'vector') {
+                const memory = memoryManager.vectorList.find(item => item && item.id === editor.id);
+                if (!memory) { showToast('分片不存在或已被删除', 'error'); return; }
+                const originalText = String(memory.paragraph || memory.summary || '');
+                memoryManager.saving = true;
+                try {
+                    if (text !== originalText) {
+                        // 强制重嵌成功才保存：文本变更必须配新向量，杜绝文本/向量错配的脏分片
+                        const embeddingRef = getBucketEmbeddingRef(memory) || getMemoryEmbeddingModel();
+                        const [vector] = await requestMemoryEmbeddings([text], undefined, embeddingRef || null);
+                        if (!isEmbeddingLike(vector) || vector.length === 0) throw new Error('嵌入接口返回数据异常');
+                        memory.embedding = vector;
+                        memory.contentFingerprint = '';
+                        memory.paragraph = text;
+                        memory.summary = trimMemoryText(text, 900);
+                        memory.sourceText = ['第 ' + (Number(memory.turn) || '?') + ' 轮', text].filter(Boolean).join('\n');
+                    }
+                    await writeMemoryManagerVector(memoryManager.vectorList);
+                    showToast('分片已保存，嵌入向量已同步更新', 'success');
+                    memoryManager.editor = null;
+                } catch (error) {
+                    if (error?.name === 'AbortError') return;
+                    console.error('[LuzzyRP patch 017] 分片保存失败:', error);
+                    showToast('保存失败：' + (error?.message || '重新生成嵌入向量出错，请检查嵌入模型与网络'), 'error', 5000);
+                } finally {
+                    memoryManager.saving = false;
+                }
+                return;
+            }
+            const classicMemory = memoryManager.classicList.find(item => item && item.id === editor.id);
+            if (!classicMemory) { showToast('总结记忆不存在或已被删除', 'error'); return; }
+            memoryManager.saving = true;
+            try {
+                classicMemory.summary = text;
+                await writeMemoryManagerClassic(memoryManager.classicList);
+                showToast('总结记忆已保存', 'success');
+                memoryManager.editor = null;
+            } catch (error) {
+                console.error('[LuzzyRP patch 017] 总结保存失败:', error);
+                showToast('保存失败: ' + (error?.message || error), 'error');
+            } finally {
+                memoryManager.saving = false;
+            }
+        };
+        const toggleMemoryManagerVectorEnabled = async (memory) => {
+            if (!memory) return;
+            memory.enabled = memory.enabled === false;
+            try {
+                await writeMemoryManagerVector(memoryManager.vectorList);
+            } catch (error) {
+                memory.enabled = !memory.enabled;
+                showToast('状态保存失败: ' + (error?.message || error), 'error');
+            }
+        };
+        const deleteMemoryManagerVectorItem = (memory) => {
+            if (!memory) return;
+            confirmAction('确定删除这条记忆分片吗？删除后该轮内容可在记忆补录中重新生成。此操作无法撤销。', async () => {
+                const list = memoryManager.vectorList.filter(item => item?.id !== memory.id);
+                await writeMemoryManagerVector(list);
+                showToast('记忆分片已删除', 'success');
+            });
+        };
+        const deleteMemoryManagerClassicItem = (memory) => {
+            if (!memory) return;
+            confirmAction('确定删除这条总结记忆吗？此操作无法撤销。', async () => {
+                const list = memoryManager.classicList.filter(item => item?.id !== memory.id);
+                await writeMemoryManagerClassic(list);
+                showToast('总结记忆已删除', 'success');
+            });
+        };
+        const clearMemoryManagerAll = () => {
+            const char = resolveMemoryManagerChar();
+            if (!char) return;
+            const vectorCount = memoryManager.vectorList.length;
+            const classicCount = memoryManager.classicList.length;
+            if (vectorCount + classicCount === 0) { showToast('该角色没有可清空的记忆', 'info'); return; }
+            showVueConfirmModal(
+                '清空角色记忆',
+                `将删除「${char.name || '未命名角色'}」当前分支的全部记忆：向量分片 ${vectorCount} 条、总结记忆 ${classicCount} 条。此操作无法撤销。`
+            ).then(async (confirmed) => {
+                if (!confirmed) return;
+                if (isMemoryManagerCurrentScope(getMemoryManagerScopeId())) {
+                    abortVectorBatchExtraction();
+                    abortClassicBatchExtraction();
+                }
+                await writeMemoryManagerVector([]);
+                await writeMemoryManagerClassic([]);
+                showToast('该角色记忆已清空', 'success');
+            });
+        };
+
         const extractKeywordToolTerms = (query) => {
             const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
             if (!cleanQuery) return [];
@@ -10643,6 +10905,14 @@ const app = createApp({
             vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
             startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
             activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
+            // [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结
+            memoryManager, memoryManagerCharacterOptions, memoryManagerBranchOptions,
+            isMemoryManagerCurrentCharacter, memoryManagerVectorPageCount, memoryManagerClassicPageCount,
+            displayedMemoryManagerVector, displayedMemoryManagerClassic, memoryManagerShardModelLabel,
+            memoryManagerClassicTurnLabel,
+            toggleMemoryManager, selectMemoryManagerCharacter, selectMemoryManagerBranch, clearMemoryManagerAll,
+            openMemoryManagerEditor, closeMemoryManagerEditor, saveMemoryManagerEditor,
+            deleteMemoryManagerVectorItem, deleteMemoryManagerClassicItem, toggleMemoryManagerVectorEnabled,
             // 滑块值映射：4-10 为变量分析消息层数。
             uiTemplateAnalysisDepthSlider: computed({
                 get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),

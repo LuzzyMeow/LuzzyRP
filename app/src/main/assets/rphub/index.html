@@ -7,17 +7,21 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     
     <title>LuzzyRP</title>
+<!-- [LuzzyRP patch 001] 品牌标题（上游: <title>RP Hub</title>） -->
     <!-- GitHub Pages rebuild marker for CSS-only animation update. -->
     <!-- <link rel="icon" href="logo.jpg" type="image/jpeg"> -->
 
 
+<!-- [LuzzyRP patch 006] Lora 本地字体（上游: Google Fonts CDN 引用） -->
     <link rel="stylesheet" href="assets/css/local-fonts.css">
+<!-- [LuzzyRP patch 004] CDN 本地化 → vendor/（上游: Tailwind/Vue/marked 等 CDN script 引用） -->
     <script src="vendor/tailwind.js"></script>
     <script src="vendor/vue.global.prod.js"></script>
     <script src="vendor/marked.min.js"></script>
     <script src="vendor/purify.min.js"></script>
     <script src="vendor/Sortable.min.js"></script>
     <script>
+<!-- [LuzzyRP patch 008] 色板 var() 化 v3：rgb(var(--tw-*) / <alpha-value>)，变量由 ext/luzzy-theme.css 提供 -->
         tailwind.config = {
             theme: {
                 extend: {
@@ -85,6 +89,19 @@
     <script>
         document.write('<link rel="stylesheet" href="assets/css/styles.css?v=' + new Date().getTime() + '">');
     </script>
+    <!-- [LuzzyRP patch 018] 开屏主题防闪蓝：① localStorage 主题快照内联同步写入 data-theme
+         （快照由 ext/luzzy-ext.js 的 MutationObserver 维护；无快照默认 luzzy+light，与 settings 默认一致）
+         ② luzzy-theme.css 由尾部移入 head，保证品牌色覆盖在首帧渲染前就绪 -->
+    <script>
+        try {
+            var _luzzySnap = null;
+            try { _luzzySnap = JSON.parse(localStorage.getItem('luzzy_theme_snapshot') || 'null'); } catch (e) { }
+            document.documentElement.dataset.theme = (_luzzySnap && _luzzySnap.theme === 'classic') ? 'classic' : 'luzzy';
+            document.documentElement.dataset.mode = (_luzzySnap && _luzzySnap.mode === 'dark') ? 'dark' : 'light';
+        } catch (e) { }
+    </script>
+        document.write('<link rel="stylesheet" href="../ext/luzzy-theme.css?v=' + new Date().getTime() + '">');
+    </script>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans selection:bg-primary-200 selection:text-primary-900">
     <svg aria-hidden="true" style="display: none">
@@ -122,6 +139,7 @@
     <div class="entry-transition" aria-hidden="true">
         <div class="entry-transition-brand">
             <div class="entry-transition-logo">
+<!-- [LuzzyRP patch 003] 入口 logo 品牌化（上游: RP/HUB） -->
                 <span class="entry-logo-rp">LUZZY</span>
                 <span class="entry-logo-hub">RP</span>
                 <i></i>
@@ -2782,6 +2800,141 @@
                         </div>
                     </div>
                 </div>
+                    <!-- [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
+                         ⚠ v-if="true" 为显式断链：本卡紧邻上方 classic 卡的 v-else-if，production 编译
+                         丢弃中间注释后两元素直接相邻，会被 Vue 并入条件链（enabled=false 时整卡消失） -->
+                    <div v-if="true" class="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        <button type="button" @click="toggleMemoryManager"
+                            :class="['w-full flex justify-between items-center px-4 py-3 rounded-xl transition-all font-bold',
+                                memoryManager.visible ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50']">
+                            <span class="flex items-center min-w-0">
+                                <div :class="['p-1.5 rounded-lg mr-3 transition-colors', memoryManager.visible ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500']">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                                    </svg>
+                                </div>
+                                <span class="truncate">记忆内容管理</span>
+                                <span class="ml-2 hidden md:inline text-[11px] font-medium text-gray-400">跨角色查看 · 编辑 · 删除</span>
+                            </span>
+                            <svg :class="{'transform rotate-180': memoryManager.visible}"
+                                class="w-5 h-5 transition-transform duration-300 flex-shrink-0" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div v-show="memoryManager.visible" class="px-3 pb-3 pt-2 border-t border-gray-100 animate-fade-in">
+                            <div class="grid gap-2 md:grid-cols-2 mb-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">角色卡</label>
+                                    <custom-select :model-value="memoryManager.selectedCharId"
+                                        @update:model-value="selectMemoryManagerCharacter"
+                                        :options="memoryManagerCharacterOptions"
+                                        button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm"></custom-select>
+                                </div>
+                                <div v-if="memoryManagerBranchOptions.length > 1">
+                                    <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">剧情分支</label>
+                                    <custom-select :model-value="memoryManager.branchId"
+                                        @update:model-value="selectMemoryManagerBranch"
+                                        :options="memoryManagerBranchOptions"
+                                        button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm"></custom-select>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 rounded-xl bg-gray-50/60 border border-gray-100 px-3 py-2">
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    <span class="font-bold text-gray-700">分片 {{ memoryManager.vectorList.length }}</span>
+                                    <span class="text-gray-300" aria-hidden="true">|</span>
+                                    <span class="font-bold text-gray-700">总结 {{ memoryManager.classicList.length }}</span>
+                                    <span v-if="isMemoryManagerCurrentCharacter" class="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-600">当前角色</span>
+                                </div>
+                                <button type="button" @click="clearMemoryManagerAll"
+                                    :disabled="memoryManager.loading || (memoryManager.vectorList.length + memoryManager.classicList.length) === 0"
+                                    class="inline-flex h-7 items-center rounded-lg border border-red-100 bg-white px-2.5 text-xs font-medium text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">
+                                    清空此角色记忆
+                                </button>
+                            </div>
+                            <div v-if="memoryManager.loading" class="py-8 text-center text-sm text-gray-400">正在读取记忆…</div>
+                            <template v-else>
+                                <div class="mb-2 flex items-center justify-between px-1">
+                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">向量分片</h4>
+                                    <span class="text-[11px] text-gray-400">{{ memoryManager.vectorPage }} / {{ memoryManagerVectorPageCount }} 页</span>
+                                </div>
+                                <div v-if="displayedMemoryManagerVector.length === 0"
+                                    class="py-5 text-center text-sm text-gray-400">该角色当前分支没有向量分片</div>
+                                <div v-else class="space-y-2 mb-3">
+                                    <article v-for="shard in displayedMemoryManagerVector" :key="shard.id"
+                                        class="rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-sm">
+                                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <span class="rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-500 flex-shrink-0">第 {{ shard.turn || '?' }} 轮</span>
+                                                <span class="truncate text-[11px] text-gray-400">{{ memoryManagerShardModelLabel(shard) }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                                <button type="button" @click="toggleMemoryManagerVectorEnabled(shard)"
+                                                    :class="['inline-flex h-7 items-center rounded-lg border px-2 text-xs font-medium transition-colors',
+                                                        shard.enabled !== false
+                                                            ? 'border-primary-200 bg-primary-50 text-primary-600'
+                                                            : 'border-gray-200 bg-white text-gray-400']">
+                                                    {{ shard.enabled !== false ? '参与召回' : '已停用' }}
+                                                </button>
+                                                <button type="button" @click="openMemoryManagerEditor('vector', shard)"
+                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600">
+                                                    编辑
+                                                </button>
+                                                <button type="button" @click="deleteMemoryManagerVectorItem(shard)"
+                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-400 transition-colors hover:border-red-200 hover:text-red-500">
+                                                    删除
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs text-gray-700 leading-relaxed cursor-pointer"
+                                            :class="memoryManager.expandedShardId === shard.id ? 'whitespace-pre-line' : ''"
+                                            :style="memoryManager.expandedShardId !== shard.id ? 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden' : ''"
+                                            @click="memoryManager.expandedShardId = memoryManager.expandedShardId === shard.id ? '' : shard.id">{{ shard.paragraph || shard.summary }}</p>
+                                    </article>
+                                    <pagination-controls :current="memoryManager.vectorPage" :total="memoryManagerVectorPageCount"
+                                        label="记忆分片分页" @change="memoryManager.vectorPage = $event"></pagination-controls>
+                                </div>
+                                <div class="mb-2 flex items-center justify-between px-1">
+                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">总结记忆</h4>
+                                    <span class="text-[11px] text-gray-400">{{ memoryManager.classicPage }} / {{ memoryManagerClassicPageCount }} 页</span>
+                                </div>
+                                <div v-if="displayedMemoryManagerClassic.length === 0"
+                                    class="py-5 text-center text-sm text-gray-400">该角色当前分支没有总结记忆</div>
+                                <div v-else class="space-y-2">
+                                    <article v-for="memory in displayedMemoryManagerClassic" :key="memory.id"
+                                        class="rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-sm">
+                                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>
+                                                <span class="text-sm font-medium text-gray-800">{{ memoryManagerClassicTurnLabel(memory) }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                                <button v-if="isMemoryManagerCurrentCharacter" type="button" @click="retryClassicMemory(memory)"
+                                                    :disabled="Boolean(retryingClassicMemoryId) || isAnyMemoryProcessing"
+                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+                                                    重试
+                                                </button>
+                                                <button type="button" @click="openMemoryManagerEditor('classic', memory)"
+                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600">
+                                                    编辑
+                                                </button>
+                                                <button type="button" @click="deleteMemoryManagerClassicItem(memory)"
+                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-400 transition-colors hover:border-red-200 hover:text-red-500">
+                                                    删除
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="rounded-lg border border-primary-100 bg-primary-50/50 px-3 py-2">
+                                            <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{{ memory.summary }}</p>
+                                        </div>
+                                    </article>
+                                    <pagination-controls :current="memoryManager.classicPage" :total="memoryManagerClassicPageCount"
+                                        label="总结记忆分页" @change="memoryManager.classicPage = $event"></pagination-controls>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
 
             </div>
 
@@ -3012,6 +3165,43 @@
                 </div>
             </modal-shell>
         </transition>
+
+
+            <!-- [LuzzyRP patch 017] 记忆内容编辑弹窗（分片/总结通用，z-[60]） -->
+            <transition name="fade">
+                <modal-shell v-if="memoryManager.editor" overlay-class="z-[60] bg-black/40 backdrop-blur-sm p-4"
+                    panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-800">{{ memoryManager.editor.type === 'vector' ? '编辑记忆分片' : '编辑总结记忆' }}</h3>
+                        <button @click="closeMemoryManagerEditor"
+                            class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                        <div v-if="memoryManager.editor.type === 'vector'"
+                            class="rounded-lg bg-gray-50/60 border border-gray-100 px-3 py-2 text-[11px] text-gray-500 space-y-1">
+                            <p>轮次：第 {{ memoryManager.editor.memory?.turn || '?' }} 轮 · {{ memoryManagerShardModelLabel(memoryManager.editor.memory) }}</p>
+                            <p class="text-amber-600">保存时将使用原嵌入模型重新生成向量；嵌入模型不可用或网络失败时不会保存。</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">{{ memoryManager.editor.type === 'vector' ? '分片内容' : '总结内容' }}</label>
+                            <textarea v-model="memoryManager.editor.text" rows="8"
+                                class="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 leading-relaxed focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all resize-y"></textarea>
+                        </div>
+                    </div>
+                    <div class="p-4 border-t border-gray-100 flex justify-end gap-2">
+                        <button type="button" @click="closeMemoryManagerEditor"
+                            class="h-9 px-4 rounded-lg border border-gray-200 text-sm font-bold text-gray-500 hover:bg-gray-50 transition-colors">取消</button>
+                        <button type="button" @click="saveMemoryManagerEditor" :disabled="memoryManager.saving"
+                            class="h-9 px-4 rounded-lg bg-primary-600 text-sm font-bold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            {{ memoryManager.saving ? (memoryManager.editor.type === 'vector' ? '正在重新嵌入…' : '保存中…') : '保存' }}
+                        </button>
+                    </div>
+                </modal-shell>
+            </transition>
 
         <!-- [LuzzyRP patch 015] 供应商编辑器（二级弹窗，z-[60] 叠管理器之上） -->
         <transition name="fade">
@@ -3262,9 +3452,10 @@
     </script>
 
     <!-- LuzzyRP 扩展层（AGENTS.md §5：独立文件，与上游零冲突） -->
-    <link rel="stylesheet" href="../ext/luzzy-theme.css">
+    <!-- luzzy-theme.css 已移入 head（patch 018） -->
     <script src="../ext/luzzy-bridge.js"></script>
     <script src="../ext/luzzy-changelog.js"></script>
+<!-- [LuzzyRP patch 005] 扩展层挂载（theme/bridge/ext + patch 014 changelog） -->
     <script src="../ext/luzzy-ext.js"></script>
 </body>
 

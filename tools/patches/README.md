@@ -184,4 +184,42 @@
 #     关于页 GitHub 入口必须走桥；luzzy-bridge.js 封装含降级
 #   - 预期冲突点：上游改 settings 结构 / 请求管线（requestChatCompletion）/ fetchModels / 记忆嵌入 /
 #     生图正则与任务管线 / 设置页生图区时需重打
+#
 # ------------------------------------------------------------
+# 016-vector-recall-nomerge.patch（2026-09-02，v1.2.1 召回块防合并）
+#   - data-services.js injectContextMessages: 向量召回 splice 消息加 _preventContextMerge: true
+#   - 对应：会话 13 排查——召回块被并入相邻用户消息后，上下文查看器的
+#     「角色记忆（向量召回）」startsWith 标注失效（用户看不到记忆分片标签的主因之一）
+#   - 预期冲突点：上游重写 injectContextMessages / postprocessContextMessages 时需重打
+#
+# 017-memory-content-manager.patch（2026-09-02，v1.2.1 记忆内容管理器）
+#   - app.js: memoryManager reactive（visible/selectedCharId/branchId/loading/saving/branches/
+#     vectorList/classicList/分页/expandedShardId/editor）+ 角色选择器数据（ensureCharacterUuids）+
+#     懒加载（readStoryBranchesForCharacter → scopeId → getScopedStoredValue，当前角色走内存数组）+
+#     统一写路径（writeMemoryManagerVector/Classic：当前角色→内存+save*Now；其他角色→
+#     setScopedStoredValue+compact/clone）+ CRUD（编辑分片强制重嵌成功才落盘/contentFingerprint 置空/
+#     summary 重算；启停 enabled；删除 confirmAction；清空角色 showVueConfirmModal）+
+#     分页 computed（LIST_PAGE_SIZE 沿用）+ setup return 暴露
+#   - index.html: 记忆系统页新增「记忆内容管理」折叠卡（角色/分支选择器 + 统计 + 分片列表
+#     [轮次/嵌入模型徽标/参与召回开关/两行预览展开/编辑/删除] + 总结列表[轮次标签/重试(仅当前角色)/
+#     编辑/删除] + 分页）；记忆内容编辑弹窗（z-[60]，分片含重嵌提示）
+#   - 对应：用户需求「可选择角色查看指定角色的记忆内容，查看/编辑/删除总结模式与分片模式全部记忆」
+#     + 编辑保存策略=强制重嵌成功才保存（用户已确认）
+#   - 预期冲突点：上游改记忆视图区块 / 记忆存储管线（compact/prepare）/
+#     readStoryBranchesForCharacter / setup return 记忆区时需重打
+#
+# ============================================================
+# 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
+# ============================================================
+# 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释
+#    （2026-09-02 补全审计：001-012 结构性点位 + core-utils/ui-components 补齐；
+#    013-017 实施时自带）。verify-markers.ps1 按本登记表逐项校验。
+# 2. 实体重放：tools/patches/entities/*.patch 为「上游 1.8.9 基线 → 当前态」
+#    的逐文件完整 diff（由 rp-hub-reference 克隆生成，含全部标记），覆盖
+#    007/009/012-017；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
+#    同步新版上游重放失败时：手工合并 → 用 rp-hub-reference 检出对应新版基线
+#    重新生成实体 → 复跑 verify-markers.ps1 全绿。
+# 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节
+#    一致（verify-markers.ps1 的 R1/R2 项）。
+# ------------------------------------------------------------
+

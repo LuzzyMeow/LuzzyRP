@@ -1,0 +1,19 @@
+diff --git a/rp-hub-reference/assets/js/core-utils.js b/app/src/main/assets/rphub/assets/js/core-utils.js
+index 9fcb41af..ddd9e29f 100644
+--- a/assets/js/core-utils.js
++++ b/assets/js/core-utils.js
+@@ -979,9 +979,11 @@ window.RPHubUtils = {
+             ]),
+             presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
+             fontFamilies: Object.freeze([
+-                { value: 'modern', label: '现代通用字体' },
+-                { value: 'serif', label: '衬线字体' },
+-                { value: 'system', label: '系统字体' }
++            // [LuzzyRP patch 009] 字体选项：内置改「经典」系 + 新增 luzzy 默认（上游: modern/serif/system）
++                { value: 'luzzy', label: 'Luzzy 默认' },
++                { value: 'modern', label: '经典（原版）' },
++                { value: 'serif', label: '经典衬线（Lora）' },
++                { value: 'system', label: '系统' }
+             ]),
+             fontSizes: Object.freeze([12, 13, 14, 15, 16, 17, 18, 19, 20].map(size => ({
+                 value: size,

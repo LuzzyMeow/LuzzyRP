@@ -358,5 +358,68 @@ if ($appContent -match "theme: 'luzzy'") {
     Write-Host "[ OK ] 011b-theme-logic"
 }
 
+# ------------------------------------------------------------------
+# 实体 patch（entities/，v1.2.1 硬性规定 10）
+# ------------------------------------------------------------------
+# 覆盖 007/009/012-017 的全部二创改动（与上游 1.8.9 基线的逐文件 diff，
+# 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
+# 判定规则：
+#   目标文件已含对应标记           -> SKIP（已应用）
+#   目标文件 hash == 上游基线指纹  -> git apply 实体（全新上游覆盖态）
+#   其余（上游已发新版）           -> FAIL，按 AGENTS.md §4.3 手工合并
+# 注意：手工合并后必须用 rp-hub-reference 重新生成实体并复跑 verify-markers.ps1。
+# ------------------------------------------------------------------
+$entitiesDir = Join-Path $PSScriptRoot "patches\entities"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$fingerprintPath = Join-Path $repoRoot "tools\upstream-fingerprints.txt"
+$fingerprints = @{}
+if (Test-Path $fingerprintPath) {
+    Get-Content $fingerprintPath | ForEach-Object {
+        if ($_ -match '^([0-9A-Fa-f]{64})\s+\*?(.+)$') {
+            $fingerprints[$Matches[2].Trim().Replace('\', '/').ToLower()] = $Matches[1].ToUpper()
+        }
+    }
+}
+function Get-FileSha256Local([string]$Path) {
+    if (-not (Test-Path $Path)) { return $null }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try { return (($sha.ComputeHash($stream)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $stream.Dispose() }
+    } finally { $sha.Dispose() }
+}
+$entityItems = @(
+    @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
+    @{ File = 'novel/index.html';             Entity = '007-novel-html.patch';            Marker = '[LuzzyRP patch 007]' },
+    @{ File = 'assets/js/core-utils.js';      Entity = '009-core-utils-js.patch';         Marker = '[LuzzyRP patch 009]' },
+    @{ File = 'index.html';                   Entity = '012-017-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-017-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/ui-components.js';   Entity = '012-017-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/runtime-services.js'; Entity = '012-017-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
+)
+Write-Host ""
+Write-Host "== 实体 patch（007/009/012-017）=="
+foreach ($item in $entityItems) {
+    $relKey = $item.File.ToLower()
+    $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')
+    $entityPath = Join-Path $entitiesDir $item.Entity
+    if (-not (Test-Path $targetPath)) { Write-Host "[FAIL] $($item.Entity): 目标文件不存在"; continue }
+    if (([System.IO.File]::ReadAllText($targetPath)).Contains($item.Marker)) {
+        Write-Host "[SKIP] $($item.Entity) (已应用)"
+        continue
+    }
+    $currentHash = (Get-FileSha256Local $targetPath)
+    $baseline = $fingerprints[$relKey]
+    if ($baseline -and $currentHash -ne $baseline) {
+        Write-Host "[FAIL] $($item.Entity): 目标文件与上游基线不一致（上游可能已更新），请手工合并该文件全部二创改动"
+        continue
+    }
+    if (-not (Test-Path $entityPath)) { Write-Host "[FAIL] $($item.Entity): 实体文件缺失"; continue }
+    $gitOut = & git -C $repoRoot apply --ignore-whitespace --directory="app/src/main/assets/rphub" $entityPath 2>&1
+    if ($LASTEXITCODE -eq 0) { Write-Host "[ OK ] $($item.Entity)" }
+    else { Write-Host "[FAIL] $($item.Entity): git apply 失败 — $gitOut" }
+}
+
 Write-Host "== patch 重放完成 =="
-Write-Host "提示: 重放后请执行 sync 回归清单（AGENTS.md §6.2）"
+Write-Host "提示: 重放后请运行 verify-markers.ps1（硬性规定 10）并执行 sync 回归清单（AGENTS.md §6.2）"

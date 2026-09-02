@@ -1,0 +1,873 @@
+diff --git a/rp-hub-reference/index.html b/app/src/main/assets/rphub/index.html
+index b290e220..4890cf7b 100644
+--- a/index.html
++++ b/index.html
+@@ -5,19 +5,23 @@
+     <meta charset="UTF-8">
+     <meta name="viewport"
+         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+-    <meta name="rphub-update-api" content="https://rphub-presence.zeabur.app">
+-    <title>RP Hub</title>
++    
++    <title>LuzzyRP</title>
++<!-- [LuzzyRP patch 001] 品牌标题（上游: <title>RP Hub</title>） -->
+     <!-- GitHub Pages rebuild marker for CSS-only animation update. -->
+     <!-- <link rel="icon" href="logo.jpg" type="image/jpeg"> -->
+-    <link rel="preconnect" href="https://fonts.googleapis.com">
+-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+-    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+-    <script src="https://cdn.tailwindcss.com"></script>
+-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
++
++
++<!-- [LuzzyRP patch 006] Lora 本地字体（上游: Google Fonts CDN 引用） -->
++    <link rel="stylesheet" href="assets/css/local-fonts.css">
++<!-- [LuzzyRP patch 004] CDN 本地化 → vendor/（上游: Tailwind/Vue/marked 等 CDN script 引用） -->
++    <script src="vendor/tailwind.js"></script>
++    <script src="vendor/vue.global.prod.js"></script>
++    <script src="vendor/marked.min.js"></script>
++    <script src="vendor/purify.min.js"></script>
++    <script src="vendor/Sortable.min.js"></script>
+     <script>
++<!-- [LuzzyRP patch 008] 色板 var() 化 v3：rgb(var(--tw-*) / <alpha-value>)，变量由 ext/luzzy-theme.css 提供 -->
+         tailwind.config = {
+             theme: {
+                 extend: {
+@@ -27,28 +31,28 @@
+                     },
+                     colors: {
+                         gray: {
+-                            50: '#f9fafb',
+-                            100: '#f3f4f6',
+-                            200: '#e5e7eb',
+-                            300: '#d1d5db',
+-                            400: '#9ca3af',
+-                            500: '#6b7280',
+-                            600: '#4b5563',
+-                            700: '#374151',
+-                            800: '#1f2937',
+-                            900: '#111827',
++                            50: 'rgb(var(--tw-gray-50) / <alpha-value>)',
++                            100: 'rgb(var(--tw-gray-100) / <alpha-value>)',
++                            200: 'rgb(var(--tw-gray-200) / <alpha-value>)',
++                            300: 'rgb(var(--tw-gray-300) / <alpha-value>)',
++                            400: 'rgb(var(--tw-gray-400) / <alpha-value>)',
++                            500: 'rgb(var(--tw-gray-500) / <alpha-value>)',
++                            600: 'rgb(var(--tw-gray-600) / <alpha-value>)',
++                            700: 'rgb(var(--tw-gray-700) / <alpha-value>)',
++                            800: 'rgb(var(--tw-gray-800) / <alpha-value>)',
++                            900: 'rgb(var(--tw-gray-900) / <alpha-value>)',
+                         },
+                         primary: {
+-                            50: '#eff6ff',
+-                            100: '#dbeafe',
+-                            200: '#bfdbfe',
+-                            300: '#93c5fd',
+-                            400: '#60a5fa',
+-                            500: '#3b82f6',
+-                            600: '#2563eb',
+-                            700: '#1d4ed8',
+-                            800: '#1e40af',
+-                            900: '#1e3a8a',
++                            50: 'rgb(var(--tw-primary-50) / <alpha-value>)',
++                            100: 'rgb(var(--tw-primary-100) / <alpha-value>)',
++                            200: 'rgb(var(--tw-primary-200) / <alpha-value>)',
++                            300: 'rgb(var(--tw-primary-300) / <alpha-value>)',
++                            400: 'rgb(var(--tw-primary-400) / <alpha-value>)',
++                            500: 'rgb(var(--tw-primary-500) / <alpha-value>)',
++                            600: 'rgb(var(--tw-primary-600) / <alpha-value>)',
++                            700: 'rgb(var(--tw-primary-700) / <alpha-value>)',
++                            800: 'rgb(var(--tw-primary-800) / <alpha-value>)',
++                            900: 'rgb(var(--tw-primary-900) / <alpha-value>)',
+                         }
+                     },
+                     animation: {
+@@ -85,6 +89,19 @@
+     <script>
+         document.write('<link rel="stylesheet" href="assets/css/styles.css?v=' + new Date().getTime() + '">');
+     </script>
++    <!-- [LuzzyRP patch 018] 开屏主题防闪蓝：① localStorage 主题快照内联同步写入 data-theme
++         （快照由 ext/luzzy-ext.js 的 MutationObserver 维护；无快照默认 luzzy+light，与 settings 默认一致）
++         ② luzzy-theme.css 由尾部移入 head，保证品牌色覆盖在首帧渲染前就绪 -->
++    <script>
++        try {
++            var _luzzySnap = null;
++            try { _luzzySnap = JSON.parse(localStorage.getItem('luzzy_theme_snapshot') || 'null'); } catch (e) { }
++            document.documentElement.dataset.theme = (_luzzySnap && _luzzySnap.theme === 'classic') ? 'classic' : 'luzzy';
++            document.documentElement.dataset.mode = (_luzzySnap && _luzzySnap.mode === 'dark') ? 'dark' : 'light';
++        } catch (e) { }
++    </script>
++        document.write('<link rel="stylesheet" href="../ext/luzzy-theme.css?v=' + new Date().getTime() + '">');
++    </script>
+ </head>
+ <body class="bg-gray-50 text-gray-900 font-sans selection:bg-primary-200 selection:text-primary-900">
+     <svg aria-hidden="true" style="display: none">
+@@ -122,8 +139,9 @@
+     <div class="entry-transition" aria-hidden="true">
+         <div class="entry-transition-brand">
+             <div class="entry-transition-logo">
+-                <span class="entry-logo-rp">RP</span>
+-                <span class="entry-logo-hub">HUB</span>
++<!-- [LuzzyRP patch 003] 入口 logo 品牌化（上游: RP/HUB） -->
++                <span class="entry-logo-rp">LUZZY</span>
++                <span class="entry-logo-hub">RP</span>
+                 <i></i>
+             </div>
+         </div>
+@@ -957,7 +975,7 @@
+                                                         :disabled="!slot.model"
+                                                         :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
+                                                         <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
+-                                                        <span class="min-w-0 flex-1 truncate text-right text-xs font-mono" :title="slot.model">{{ slot.model || '未配置' }}</span>
++                                                        <span class="min-w-0 flex-1 truncate text-right text-xs font-mono" :title="slot.model ? formatModelRefText(slot.model) : ''">{{ slot.model ? formatModelRefText(slot.model) : '未配置' }}</span>
+                                                     </button>
+                                                 </div>
+                                                 <div class="border-t border-gray-100 pt-4 space-y-5">
+@@ -1635,7 +1653,7 @@
+                                                         stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                 </svg>
+                                             </button>
+-                                            <button v-for="provider in customApiProviderOptions" :key="provider.id"
++                                            <button v-for="provider in userApiProviders" :key="provider.id"
+                                                 type="button" @click="selectApiProvider(provider)"
+                                                 :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
+                                                 <span
+@@ -1650,7 +1668,7 @@
+                                                 </span>
+                                                 <span class="min-w-0 flex-1">
+                                                     <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
+-                                                    <span class="block text-xs text-gray-400 truncate">手动输入 API 地址</span>
++                                                    <span class="block text-xs text-gray-400 font-mono truncate">{{ provider.apiUrl }}</span>
+                                                 </span>
+                                                 <svg v-if="selectedApiProvider.id === provider.id"
+                                                     class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
+@@ -1659,9 +1677,29 @@
+                                                         stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                 </svg>
+                                             </button>
++                                            <button type="button" @click="openProviderManager"
++                                                class="w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all hover:bg-gray-50 text-gray-700">
++                                                <span
++                                                    class="w-8 h-8 rounded-lg bg-white border border-gray-100 shadow-sm flex items-center justify-center mr-3 shrink-0">
++                                                    <svg class="w-5 h-5 text-gray-500" fill="none"
++                                                        stroke="currentColor" viewBox="0 0 24 24">
++                                                        <path stroke-linecap="round" stroke-linejoin="round"
++                                                            stroke-width="2"
++                                                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
++                                                        </path>
++                                                        <path stroke-linecap="round" stroke-linejoin="round"
++                                                            stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
++                                                        </path>
++                                                    </svg>
++                                                </span>
++                                                <span class="min-w-0 flex-1">
++                                                    <span class="block text-sm font-bold truncate">管理供应商…</span>
++                                                    <span class="block text-xs text-gray-400 truncate">添加 / 编辑 / 检测自定义供应商</span>
++                                                </span>
++                                            </button>
+                                         </div>
+                                     </div>
+-                                    <div v-if="isCustomApiProvider" class="relative">
++                                    <div v-if="isCustomApiProvider || isUserApiProvider" class="relative">
+                                         <div
+                                             class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
+                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+@@ -1732,7 +1770,7 @@
+                                             </div>
+                                             <div
+                                                 class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
+-                                                <span class="truncate mr-2 font-mono text-sm">{{ settings.visionModel || '请选择模型' }}</span>
++                                                <span class="truncate mr-2 font-mono text-sm">{{ settings.visionModel ? formatModelRefText(settings.visionModel) : '请选择模型' }}</span>
+                                                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                 </svg>
+@@ -1775,6 +1813,19 @@
+                                         </a>
+                                     </div>
+                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
++                                        <!-- [LuzzyRP patch 015] 模型来源：STA1N 官方 / 自定义模型 -->
++                                        <div class="generation-setting-card">
++                                            <label
++                                                class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">模型来源</label>
++                                            <custom-select v-model="settings.imageModelSource" :options="[
++                                                { value: 'sta1n', label: 'STA1N 官方（NAI 代理）' },
++                                                { value: 'custom', label: '自定义模型（OpenAI 协议）' }
++                                            ]"
++                                                button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-teal-400 focus:ring-teal-100"
++                                                menu-class="text-sm">
++                                            </custom-select>
++                                        </div>
++
+                                         <!-- Image Key -->
+                                         <div
+                                             class="generation-setting-card">
+@@ -1786,7 +1837,7 @@
+                                         </div>
+ 
+                                         <!-- Image Model -->
+-                                        <div class="generation-setting-card">
++                                        <div class="generation-setting-card" v-if="settings.imageModelSource !== 'custom'">
+                                             <label
+                                                 class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
+                                             <custom-select v-model="settings.imageModel" :options="imageModelOptions"
+@@ -1795,9 +1846,23 @@
+                                             </custom-select>
+                                         </div>
+ 
+-                                        <!-- Image Style -->
++                                        <!-- [LuzzyRP patch 015] 自定义生图模型 -->
++                                        <div class="generation-setting-card" v-else>
++                                            <label
++                                                class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">自定义生图模型</label>
++                                            <custom-select v-model="settings.customImageModelRef" :options="customImageModelOptions"
++                                                button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-teal-400 focus:ring-teal-100"
++                                                menu-class="text-sm">
++                                            </custom-select>
++                                            <p v-if="customImageModelOptions.length === 0" class="mt-2 text-[11px] text-amber-600">
++                                                暂无可用模型：先在「管理供应商」编辑器中添加模型类型为 image 的模型（OpenAI 协议）。
++                                            </p>
++                                            <p v-else class="mt-2 text-[11px] text-gray-400">走该供应商的 images/generations 接口；比例映射为 size 参数。</p>
++                                        </div>
++
++                                        <!-- Image Style（仅 STA1N 需要，画师串是 NAI 概念） -->
+                                         <div
+-                                            class="generation-setting-card">
++                                            class="generation-setting-card" v-if="settings.imageModelSource !== 'custom'">
+                                             <label
+                                                 class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
+                                             <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
+@@ -1910,27 +1975,23 @@
+                                     高级参数
+                                 </h4>
+                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+-                                    <!-- Font Family Setting -->
+-                                    <div
+-                                        class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">
+-                                        <label
+-                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面字体</label>
+-                                        <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"
+-                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
+-                                            menu-class="text-sm">
+-                                        </custom-select>
+-                                    </div>
+-
+-                                    <!-- Font Size Setting -->
+-                                    <div
+-                                        class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">
++                                    <!-- [LuzzyRP patch 014] 外观设置已整体迁至侧边栏「外观」独立页（v1.2.0），设置页不再保留入口/字号重复项 -->
++                                    <button type="button" @click="currentView = 'appearance'"
++                                        class="text-left bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200 active:scale-[0.99]">
+                                         <label
+-                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">对话字体大小</label>
+-                                        <custom-select v-model="settings.fontSize" :options="fontSizeOptions"
+-                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
+-                                            menu-class="text-sm">
+-                                        </custom-select>
+-                                    </div>
++                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">外观</label>
++                                        <span class="flex items-center justify-between gap-2">
++                                            <span class="text-sm font-medium text-gray-700">主题 · 模式 · 字体</span>
++                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none"
++                                                stroke="currentColor" viewBox="0 0 24 24">
++                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
++                                                    d="M9 5l7 7-7 7"></path>
++                                            </svg>
++                                        </span>
++                                        <span class="block text-xs text-gray-400 mt-1.5">已迁至侧边栏「外观」页面</span>
++                                    </button>
++                                    <!-- Font Size Setting（编辑锚点：字号控件已迁至外观页，保留空位维持网格布局） -->
++                                    <div></div>
+                                 </div>
+                             </div>
+ 
+@@ -2003,6 +2064,101 @@
+                 </div>
+             </div>
+ 
++            <!-- [LuzzyRP patch 014] Appearance View（外观独立页，v1.2.0 自弹窗/设置页整体迁入，全应用唯一外观入口） -->
++            <div v-if="currentView === 'appearance'" class="management-view">
++                <settings-page-header title="外观" @menu="toggleMobileMenu">
++                    <template #icon>
++                        <svg class="w-6 h-6 md:w-7 md:h-7 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
++                        </svg>
++                    </template>
++                </settings-page-header>
++
++                <div class="max-w-2xl space-y-4">
++                    <!-- 主题预览条：亮/暗色卡 + 当前字体样张（纯展示） -->
++                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">预览</label>
++                        <div class="grid grid-cols-2 gap-3">
++                            <div class="rounded-lg border border-gray-200 p-3 transition-all" :class="settings.theme === 'luzzy' && settings.themeMode === 'light' ? 'ring-2 ring-primary-400' : ''" style="background:#FAF9F5">
++                                <div class="text-xs font-bold mb-1.5" style="color:#3D3A36">亮色 · 暖幕手记</div>
++                                <div class="text-[11px]" style="color:#6C6A64">暖米纸面 · 珊瑚点缀</div>
++                                <div class="mt-2 h-1.5 rounded-full w-3/4" style="background:#E5B099"></div>
++                            </div>
++                            <div class="rounded-lg border border-gray-200 p-3 transition-all" :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'ring-2 ring-primary-400' : ''" style="background:#171614">
++                                <div class="text-xs font-bold mb-1.5" style="color:#FAF9F5">暗色 · 暖幕手记</div>
++                                <div class="text-[11px]" style="color:#A5A198">暖黑纸面 · 珊瑚提亮</div>
++                                <div class="mt-2 h-1.5 rounded-full w-3/4" style="background:#D97757"></div>
++                            </div>
++                        </div>
++                        <p class="mt-3 text-[11px] text-gray-400" :style="{ fontFamily: 'var(--app-font-family)' }">当前字体样张：霜降的夜里，他抬起下巴打量着来客。—— The quick brown fox 0123456789</p>
++                    </div>
++
++                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>
++                        <custom-select v-model="settings.theme" :options="themeOptions"
++                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
++                        </custom-select>
++                    </div>
++                    <div v-if="settings.theme === 'luzzy'" class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">模式</label>
++                        <custom-select v-model="settings.themeMode" :options="themeModeOptions"
++                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
++                        </custom-select>
++                    </div>
++                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面字体</label>
++                        <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"
++                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
++                        </custom-select>
++                    </div>
++                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">对话字体大小</label>
++                        <custom-select v-model="settings.fontSize" :options="fontSizeOptions"
++                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
++                        </custom-select>
++                    </div>
++                    <p class="text-xs text-gray-400 leading-relaxed px-1">修改即时生效并自动保存；经典主题为上游原版配色，不含雾纸玻璃。</p>
++                </div>
++            </div>
++
++            <!-- [LuzzyRP patch 014] About View（关于独立页：品牌/版本/上游基线/署名/仓库 + 应用内 CHANGELOG） -->
++            <div v-if="currentView === 'about'" class="management-view about-view">
++                <settings-page-header title="关于" @menu="toggleMobileMenu">
++                    <template #icon>
++                        <svg class="w-6 h-6 md:w-7 md:h-7 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
++                        </svg>
++                    </template>
++                </settings-page-header>
++
++                <div class="max-w-2xl space-y-4">
++                    <div class="bg-gray-50/60 p-5 rounded-xl border border-gray-100 flex items-center gap-4">
++                        <img src="../ext/luzzy-logo.png" alt="LuzzyRP" class="w-14 h-14 rounded-2xl shadow-sm flex-shrink-0"
++                            onerror="this.style.display='none'">
++                        <div class="min-w-0">
++                            <div class="text-lg font-bold text-gray-800">LuzzyRP <span class="text-sm font-semibold text-gray-500">{{ appVersionLabel }}</span></div>
++                            <div class="text-xs text-gray-500 mt-0.5">基于 <a href="https://github.com/STA1N156/RP-Hub" target="_blank" rel="noopener" class="text-primary-600 hover:underline">RP-Hub</a> {{ upstreamVersionLabel }} 二次开发 · 纯前端 + 原生壳</div>
++                            <div class="text-xs text-gray-400 mt-0.5">CC BY-NC 4.0 · 仅限侧载分发，禁止商用与上架商店</div>
++                        </div>
++                    </div>
++
++                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">更新日志（CHANGELOG）</label>
++                        <div v-if="changelogHtml" class="markdown-body text-sm text-gray-600 leading-relaxed changelog-body" v-html="changelogHtml"></div>
++                        <p v-else class="text-xs text-gray-400">暂无更新日志。</p>
++                    </div>
++
++                    <div class="flex items-center gap-3 px-1">
++                        <button @click="openGitHubRepo" class="text-sm text-primary-600 hover:text-primary-700 hover:underline inline-flex items-center gap-1.5">
++                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
++                            GitHub 仓库
++                        </button>
++                        <span class="text-xs text-gray-300">·</span>
++                        <span class="text-xs text-gray-400">问题反馈请附上版本号与复现步骤</span>
++                    </div>
++                </div>
++            </div>
++
+             <!-- Presets View -->
+             <div v-if="currentView === 'presets'" class="management-view">
+                 <settings-page-header title="预设管理" @menu="toggleMobileMenu">
+@@ -2072,6 +2228,7 @@
+                 :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
+                 :settings="settings" :update-status="uiTemplateUpdateStatus"
+                 :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
++                :format-model-text="formatModelRefText"
+                 @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
+                 @import="importUiTemplates" @create="createUiTemplate"
+                 @update:show-settings="showUiTemplateSettings = $event"
+@@ -2255,6 +2412,7 @@
+                 :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
+                 :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
+                 :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
++                :format-model-label="formatUsageModelLabel"
+                 :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
+                 @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
+                 @update:time-filter="tokenUsageTimeFilter = $event"
+@@ -2414,7 +2572,7 @@
+                                         :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
+                                         <span
+                                             :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
+-                                            memorySettings.embeddingModel || '请选择向量嵌入模型' }}</span>
++                                            memorySettings.embeddingModel ? formatModelRefText(memorySettings.embeddingModel) : '请选择向量嵌入模型' }}</span>
+                                     </button>
+                                 </div>
+                                 <div class="settings-field">
+@@ -2446,7 +2604,7 @@
+                                     class="settings-model-button truncate"
+                                     :title="memorySettings.classicModel || '请选择总结模式副模型'">
+                                     <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
+-                                        memorySettings.classicModel || '请选择总结模式副模型' }}</span>
++                                        memorySettings.classicModel ? formatModelRefText(memorySettings.classicModel) : '请选择总结模式副模型' }}</span>
+                                 </button>
+                             </div>
+ 
+@@ -2642,6 +2800,141 @@
+                         </div>
+                     </div>
+                 </div>
++                    <!-- [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
++                         ⚠ v-if="true" 为显式断链：本卡紧邻上方 classic 卡的 v-else-if，production 编译
++                         丢弃中间注释后两元素直接相邻，会被 Vue 并入条件链（enabled=false 时整卡消失） -->
++                    <div v-if="true" class="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
++                        <button type="button" @click="toggleMemoryManager"
++                            :class="['w-full flex justify-between items-center px-4 py-3 rounded-xl transition-all font-bold',
++                                memoryManager.visible ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50']">
++                            <span class="flex items-center min-w-0">
++                                <div :class="['p-1.5 rounded-lg mr-3 transition-colors', memoryManager.visible ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500']">
++                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
++                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
++                                    </svg>
++                                </div>
++                                <span class="truncate">记忆内容管理</span>
++                                <span class="ml-2 hidden md:inline text-[11px] font-medium text-gray-400">跨角色查看 · 编辑 · 删除</span>
++                            </span>
++                            <svg :class="{'transform rotate-180': memoryManager.visible}"
++                                class="w-5 h-5 transition-transform duration-300 flex-shrink-0" fill="none" stroke="currentColor"
++                                viewBox="0 0 24 24" aria-hidden="true">
++                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
++                            </svg>
++                        </button>
++                        <div v-show="memoryManager.visible" class="px-3 pb-3 pt-2 border-t border-gray-100 animate-fade-in">
++                            <div class="grid gap-2 md:grid-cols-2 mb-3">
++                                <div>
++                                    <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">角色卡</label>
++                                    <custom-select :model-value="memoryManager.selectedCharId"
++                                        @update:model-value="selectMemoryManagerCharacter"
++                                        :options="memoryManagerCharacterOptions"
++                                        button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm"></custom-select>
++                                </div>
++                                <div v-if="memoryManagerBranchOptions.length > 1">
++                                    <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">剧情分支</label>
++                                    <custom-select :model-value="memoryManager.branchId"
++                                        @update:model-value="selectMemoryManagerBranch"
++                                        :options="memoryManagerBranchOptions"
++                                        button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm"></custom-select>
++                                </div>
++                            </div>
++                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 rounded-xl bg-gray-50/60 border border-gray-100 px-3 py-2">
++                                <div class="flex items-center gap-2 text-xs text-gray-500">
++                                    <span class="font-bold text-gray-700">分片 {{ memoryManager.vectorList.length }}</span>
++                                    <span class="text-gray-300" aria-hidden="true">|</span>
++                                    <span class="font-bold text-gray-700">总结 {{ memoryManager.classicList.length }}</span>
++                                    <span v-if="isMemoryManagerCurrentCharacter" class="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-600">当前角色</span>
++                                </div>
++                                <button type="button" @click="clearMemoryManagerAll"
++                                    :disabled="memoryManager.loading || (memoryManager.vectorList.length + memoryManager.classicList.length) === 0"
++                                    class="inline-flex h-7 items-center rounded-lg border border-red-100 bg-white px-2.5 text-xs font-medium text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">
++                                    清空此角色记忆
++                                </button>
++                            </div>
++                            <div v-if="memoryManager.loading" class="py-8 text-center text-sm text-gray-400">正在读取记忆…</div>
++                            <template v-else>
++                                <div class="mb-2 flex items-center justify-between px-1">
++                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">向量分片</h4>
++                                    <span class="text-[11px] text-gray-400">{{ memoryManager.vectorPage }} / {{ memoryManagerVectorPageCount }} 页</span>
++                                </div>
++                                <div v-if="displayedMemoryManagerVector.length === 0"
++                                    class="py-5 text-center text-sm text-gray-400">该角色当前分支没有向量分片</div>
++                                <div v-else class="space-y-2 mb-3">
++                                    <article v-for="shard in displayedMemoryManagerVector" :key="shard.id"
++                                        class="rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-sm">
++                                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
++                                            <div class="flex items-center gap-2 min-w-0">
++                                                <span class="rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-500 flex-shrink-0">第 {{ shard.turn || '?' }} 轮</span>
++                                                <span class="truncate text-[11px] text-gray-400">{{ memoryManagerShardModelLabel(shard) }}</span>
++                                            </div>
++                                            <div class="flex items-center gap-1.5 flex-shrink-0">
++                                                <button type="button" @click="toggleMemoryManagerVectorEnabled(shard)"
++                                                    :class="['inline-flex h-7 items-center rounded-lg border px-2 text-xs font-medium transition-colors',
++                                                        shard.enabled !== false
++                                                            ? 'border-primary-200 bg-primary-50 text-primary-600'
++                                                            : 'border-gray-200 bg-white text-gray-400']">
++                                                    {{ shard.enabled !== false ? '参与召回' : '已停用' }}
++                                                </button>
++                                                <button type="button" @click="openMemoryManagerEditor('vector', shard)"
++                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600">
++                                                    编辑
++                                                </button>
++                                                <button type="button" @click="deleteMemoryManagerVectorItem(shard)"
++                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-400 transition-colors hover:border-red-200 hover:text-red-500">
++                                                    删除
++                                                </button>
++                                            </div>
++                                        </div>
++                                        <p class="text-xs text-gray-700 leading-relaxed cursor-pointer"
++                                            :class="memoryManager.expandedShardId === shard.id ? 'whitespace-pre-line' : ''"
++                                            :style="memoryManager.expandedShardId !== shard.id ? 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden' : ''"
++                                            @click="memoryManager.expandedShardId = memoryManager.expandedShardId === shard.id ? '' : shard.id">{{ shard.paragraph || shard.summary }}</p>
++                                    </article>
++                                    <pagination-controls :current="memoryManager.vectorPage" :total="memoryManagerVectorPageCount"
++                                        label="记忆分片分页" @change="memoryManager.vectorPage = $event"></pagination-controls>
++                                </div>
++                                <div class="mb-2 flex items-center justify-between px-1">
++                                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">总结记忆</h4>
++                                    <span class="text-[11px] text-gray-400">{{ memoryManager.classicPage }} / {{ memoryManagerClassicPageCount }} 页</span>
++                                </div>
++                                <div v-if="displayedMemoryManagerClassic.length === 0"
++                                    class="py-5 text-center text-sm text-gray-400">该角色当前分支没有总结记忆</div>
++                                <div v-else class="space-y-2">
++                                    <article v-for="memory in displayedMemoryManagerClassic" :key="memory.id"
++                                        class="rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-sm">
++                                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
++                                            <div class="flex items-center gap-2 min-w-0">
++                                                <span class="h-1.5 w-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>
++                                                <span class="text-sm font-medium text-gray-800">{{ memoryManagerClassicTurnLabel(memory) }}</span>
++                                            </div>
++                                            <div class="flex items-center gap-1.5 flex-shrink-0">
++                                                <button v-if="isMemoryManagerCurrentCharacter" type="button" @click="retryClassicMemory(memory)"
++                                                    :disabled="Boolean(retryingClassicMemoryId) || isAnyMemoryProcessing"
++                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
++                                                    重试
++                                                </button>
++                                                <button type="button" @click="openMemoryManagerEditor('classic', memory)"
++                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600">
++                                                    编辑
++                                                </button>
++                                                <button type="button" @click="deleteMemoryManagerClassicItem(memory)"
++                                                    class="inline-flex h-7 items-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-400 transition-colors hover:border-red-200 hover:text-red-500">
++                                                    删除
++                                                </button>
++                                            </div>
++                                        </div>
++                                        <div class="rounded-lg border border-primary-100 bg-primary-50/50 px-3 py-2">
++                                            <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{{ memory.summary }}</p>
++                                        </div>
++                                    </article>
++                                    <pagination-controls :current="memoryManager.classicPage" :total="memoryManagerClassicPageCount"
++                                        label="总结记忆分页" @change="memoryManager.classicPage = $event"></pagination-controls>
++                                </div>
++                            </template>
++                        </div>
++                    </div>
++
+ 
+             </div>
+ 
+@@ -2786,11 +3079,295 @@
+             :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
+             :models="filteredModels"
+             :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
++            :format-model-text="formatModelRefText"
+             :current-model="modelSelectionTarget === 'memoryEmbeddingModel' ? memorySettings.embeddingModel : (modelSelectionTarget === 'memoryClassicModel' ? memorySettings.classicModel : settings[modelSelectionTarget])"
+             @close="showModelSelector = false" @select="selectModel" @select-slots="selectQuickModels"
+             @update:search-query="modelSearchQuery = $event"
+             @update:active-tag="activeModelTag = $event"></model-selector-modal>
+ 
++        <!-- [LuzzyRP patch 012] 供应商管理器 -->
++        <transition name="fade">
++            <modal-shell v-if="showProviderManager" overlay-class="z-50 bg-black/50 backdrop-blur-sm p-4"
++                panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-xl max-h-[85vh] h-[85vh] flex flex-col shadow-2xl">
++                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
++                    <h3 class="text-lg font-bold text-gray-800">管理供应商</h3>
++                    <button @click="showProviderManager = false"
++                        class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
++                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
++                        </svg>
++                    </button>
++                </div>
++                <div class="flex-1 overflow-y-auto p-4 space-y-3">
++                    <p class="text-xs text-gray-400 leading-relaxed">
++                        为每个供应商分别填写 API 地址与 Key 后，即可在任意模型槽位跨商混用模型；模型列表会以
++                        <span class="font-mono">[商名] 模型id</span> 标注来源。
++                    </p>
++                    <div v-for="provider in allApiProviders" :key="provider.id"
++                        class="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
++                        <div class="flex items-center gap-2">
++                            <span class="min-w-0 flex-1 flex items-center gap-2">
++                                <span class="min-w-0 flex-1 truncate text-sm font-bold text-gray-800">{{ provider.name }}</span>
++                                <!-- [LuzzyRP patch 015] 协议徽标 -->
++                                <span v-if="provider.protocol && provider.protocol !== 'openai'"
++                                    class="flex-shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-600 uppercase">{{ provider.protocol }}</span>
++                                <span v-if="!apiProviderOptions.some(item => item.id === provider.id)"
++                                    class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">自定义</span>
++                                <span v-if="selectedApiProvider.id === provider.id"
++                                    class="flex-shrink-0 rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700">当前</span>
++                                <span class="flex-shrink-0 h-1.5 w-1.5 rounded-full"
++                                    :class="isProviderConfigured(provider) ? 'bg-emerald-500' : 'bg-gray-300'"
++                                    :title="isProviderConfigured(provider) ? '已配置 Key' : '未配置 Key'"></span>
++                            </span>
++                            <button type="button" @click="testProviderConnection(provider.id)"
++                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
++                                检测
++                            </button>
++                            <button v-if="!apiProviderOptions.some(item => item.id === provider.id)" type="button"
++                                @click="editUserApiProvider(provider)"
++                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
++                                编辑
++                            </button>
++                            <button v-if="selectedApiProvider.id !== provider.id" type="button"
++                                @click="selectApiProvider(provider); showProviderManager = false"
++                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
++                                设为当前
++                            </button>
++                            <button v-if="!apiProviderOptions.some(item => item.id === provider.id)" type="button"
++                                @click="removeUserApiProvider(provider)"
++                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-red-500 hover:border-red-200 hover:bg-red-50 transition-all active:scale-95"
++                                title="删除供应商">
++                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
++                                </svg>
++                            </button>
++                        </div>
++                        <div v-if="!apiProviderOptions.some(item => item.id === provider.id)" class="text-xs font-mono text-gray-400 truncate">{{ provider.apiUrl || '未配置 API 地址（点「编辑」填写）' }}</div>
++                        <div v-else class="text-xs font-mono text-gray-400 truncate">{{ provider.apiUrl }}</div>
++                        <!-- [LuzzyRP patch 015] key 收进编辑器，列表行保留只读回显 -->
++                        <div class="flex items-center gap-2">
++                            <span class="min-w-0 flex-1 text-xs font-mono text-gray-400 truncate">
++                                {{ (settings.apiProviderKeys[provider.id] || '') ? '••••••••••••••••' : '未配置 Key' }}
++                            </span>
++                            <span v-if="providerTestStatus[provider.id]"
++                                class="flex-shrink-0 text-xs font-medium whitespace-nowrap"
++                                :class="providerTestStatus[provider.id].status === 'ok' ? 'text-emerald-600' : (providerTestStatus[provider.id].status === 'error' ? 'text-red-500' : 'text-gray-400')">
++                                {{ providerTestStatus[provider.id].status === 'checking' ? '检测中…'
++                                    : (providerTestStatus[provider.id].status === 'ok' ? `✓ ${providerTestStatus[provider.id].count} 个模型`
++                                        : `✗ ${providerTestStatus[provider.id].message || '失败'}`) }}
++                            </span>
++                        </div>
++                    </div>
++                    <button type="button" @click="addUserApiProvider"
++                        class="w-full px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-medium text-gray-500 hover:border-teal-300 hover:text-teal-600 hover:bg-teal-50/50 transition-all active:scale-[0.99]">
++                        + 添加供应商（OpenAI / Anthropic / Gemini）
++                    </button>
++                </div>
++            </modal-shell>
++        </transition>
++
++
++            <!-- [LuzzyRP patch 017] 记忆内容编辑弹窗（分片/总结通用，z-[60]） -->
++            <transition name="fade">
++                <modal-shell v-if="memoryManager.editor" overlay-class="z-[60] bg-black/40 backdrop-blur-sm p-4"
++                    panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
++                    <div class="p-4 border-b border-gray-100 flex justify-between items-center">
++                        <h3 class="text-lg font-bold text-gray-800">{{ memoryManager.editor.type === 'vector' ? '编辑记忆分片' : '编辑总结记忆' }}</h3>
++                        <button @click="closeMemoryManagerEditor"
++                            class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
++                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
++                            </svg>
++                        </button>
++                    </div>
++                    <div class="flex-1 overflow-y-auto p-4 space-y-3">
++                        <div v-if="memoryManager.editor.type === 'vector'"
++                            class="rounded-lg bg-gray-50/60 border border-gray-100 px-3 py-2 text-[11px] text-gray-500 space-y-1">
++                            <p>轮次：第 {{ memoryManager.editor.memory?.turn || '?' }} 轮 · {{ memoryManagerShardModelLabel(memoryManager.editor.memory) }}</p>
++                            <p class="text-amber-600">保存时将使用原嵌入模型重新生成向量；嵌入模型不可用或网络失败时不会保存。</p>
++                        </div>
++                        <div>
++                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">{{ memoryManager.editor.type === 'vector' ? '分片内容' : '总结内容' }}</label>
++                            <textarea v-model="memoryManager.editor.text" rows="8"
++                                class="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 leading-relaxed focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all resize-y"></textarea>
++                        </div>
++                    </div>
++                    <div class="p-4 border-t border-gray-100 flex justify-end gap-2">
++                        <button type="button" @click="closeMemoryManagerEditor"
++                            class="h-9 px-4 rounded-lg border border-gray-200 text-sm font-bold text-gray-500 hover:bg-gray-50 transition-colors">取消</button>
++                        <button type="button" @click="saveMemoryManagerEditor" :disabled="memoryManager.saving"
++                            class="h-9 px-4 rounded-lg bg-primary-600 text-sm font-bold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
++                            {{ memoryManager.saving ? (memoryManager.editor.type === 'vector' ? '正在重新嵌入…' : '保存中…') : '保存' }}
++                        </button>
++                    </div>
++                </modal-shell>
++            </transition>
++
++        <!-- [LuzzyRP patch 015] 供应商编辑器（二级弹窗，z-[60] 叠管理器之上） -->
++        <transition name="fade">
++            <modal-shell v-if="showProviderEditor && providerEditorDraft" overlay-class="z-[60] bg-black/40 backdrop-blur-sm p-4"
++                panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-xl max-h-[90vh] h-[90vh] flex flex-col shadow-2xl">
++                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
++                    <h3 class="text-lg font-bold text-gray-800">{{ providerEditorIsNew ? '添加供应商' : '编辑供应商' }}</h3>
++                    <button @click="cancelProviderEditor"
++                        class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
++                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
++                        </svg>
++                    </button>
++                </div>
++                <div class="flex-1 overflow-y-auto p-4 space-y-4">
++                    <!-- 基础信息 -->
++                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
++                        <div>
++                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">供应商 ID <span class="text-gray-300 normal-case font-normal">（引用前缀，保存后自动重映射）</span></label>
++                            <input v-model="providerEditorDraft.id" type="text"
++                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all"
++                                placeholder="如 my-provider">
++                            <p v-if="providerEditorIdConflict" class="mt-1 text-[11px] text-red-500">该 id 已被其他供应商占用</p>
++                        </div>
++                        <div>
++                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">显示名称</label>
++                            <input v-model="providerEditorDraft.name" type="text"
++                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-sm text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all"
++                                placeholder="供应商名称">
++                        </div>
++                    </div>
++                    <div>
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">接口协议</label>
++                        <div class="grid grid-cols-3 gap-2">
++                            <button v-for="p in ['openai', 'anthropic', 'gemini']" :key="p" type="button"
++                                @click="providerEditorDraft.protocol = p"
++                                class="h-9 rounded-lg border text-xs font-bold uppercase transition-all active:scale-[0.98]"
++                                :class="providerEditorDraft.protocol === p
++                                    ? 'border-teal-400 bg-teal-50 text-teal-700 ring-1 ring-teal-200'
++                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'">{{ p }}</button>
++                        </div>
++                    </div>
++                    <div>
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">API URL</label>
++                        <input v-model="providerEditorDraft.apiUrl" type="text"
++                            class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all placeholder-gray-400"
++                            :placeholder="providerEditorProtocolHint.placeholder">
++                        <p class="mt-1 text-[11px] text-gray-400">{{ providerEditorProtocolHint.hint }}</p>
++                    </div>
++                    <div>
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">API Key</label>
++                        <input :value="settings.apiProviderKeys[providerEditorDraft.__source.id] || (providerEditorIsNew ? '' : '')"
++                            @input="updateProviderKey(providerEditorDraft.__source.id, $event.target.value)" type="password"
++                            class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all placeholder-gray-400"
++                            placeholder="该供应商的 API Key（sk-...）">
++                        <p class="mt-1 text-[11px] text-gray-400">Key 即改即存，无需点保存。</p>
++                    </div>
++
++                    <!-- 供应商级自定义请求体（键值行，值可空 = 懒编辑） -->
++                    <div class="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
++                        <div class="flex items-center justify-between mb-2">
++                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">供应商级自定义请求体 <span class="text-gray-300 normal-case font-normal">（合并进该商全部请求）</span></label>
++                            <button type="button" @click="addProviderEditorExtraRow"
++                                class="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:border-teal-200 hover:text-teal-700 transition-all active:scale-95">+ 加键值</button>
++                        </div>
++                        <div v-for="(row, index) in providerEditorExtraRows" :key="index" class="flex items-center gap-2 mb-2">
++                            <input v-model="row.key" type="text" class="min-w-0 flex-1 h-8 bg-white border border-gray-200 rounded-lg px-2.5 text-xs font-mono text-gray-700 focus:border-teal-500 focus:outline-none transition-all" placeholder="键（如 reasoning_effort）">
++                            <input v-model="row.value" type="text" class="min-w-0 flex-1 h-8 bg-white border border-gray-200 rounded-lg px-2.5 text-xs font-mono text-gray-700 focus:border-teal-500 focus:outline-none transition-all" placeholder="值（可留空）">
++                            <button type="button" @click="removeProviderEditorExtraRow(index)" class="flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors" title="删除">
++                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
++                            </button>
++                        </div>
++                        <p v-if="providerEditorExtraRows.length === 0" class="text-[11px] text-gray-400">未配置。值留空表示仅声明键（服务端默认值）。</p>
++                    </div>
++
++                    <!-- 模型列表增删改 -->
++                    <div class="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
++                        <div class="flex items-center justify-between mb-2">
++                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">模型列表 <span class="text-gray-300 normal-case font-normal">（手动配置，保存后即时进选择器）</span></label>
++                            <button type="button" @click="addProviderEditorModel"
++                                class="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:border-teal-200 hover:text-teal-700 transition-all active:scale-95">+ 加模型</button>
++                        </div>
++                        <p v-if="providerEditorPresetNotice" class="mb-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-1.5 text-[11px] text-amber-700">
++                            {{ providerEditorPresetNotice }}
++                            <button type="button" @click="undoModelIdPreset(providerEditorPresetModel)" class="ml-1 underline hover:no-underline">撤销</button>
++                        </p>
++                        <div v-for="(model, index) in providerEditorDraft.models" :key="index"
++                            class="rounded-lg border border-gray-200 bg-white p-3 mb-2 space-y-2.5">
++                            <div class="flex items-center gap-2">
++                                <span class="flex-1 text-xs font-bold text-gray-700 truncate">{{ model.label || model.id || '新模型' }}</span>
++                                <button type="button" @click="removeProviderEditorModel(index)"
++                                    class="flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors" title="删除模型">
++                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
++                                </button>
++                            </div>
++                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
++                                <div>
++                                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">模型 ID（请求 id，输入自动识别预设）</label>
++                                    <input v-model="model.id" @input="onProviderEditorModelIdInput(model)" type="text"
++                                        class="w-full h-8 bg-gray-50 border border-gray-200 rounded-lg px-2.5 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all"
++                                        placeholder="如 glm-5.3-flash / deepseek-v4-pro">
++                                </div>
++                                <div>
++                                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">显示 ID（各页面展示名）</label>
++                                    <input v-model="model.label" type="text"
++                                        class="w-full h-8 bg-gray-50 border border-gray-200 rounded-lg px-2.5 text-xs text-gray-700 focus:border-teal-500 focus:outline-none transition-all"
++                                        placeholder="如 GLM-5.3-Flash">
++                                </div>
++                                <div>
++                                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">上下文长度（1024000 / 100K / 1M）</label>
++                                    <input v-model="model.contextLength" @input="model.contextLength = parseLengthSafe($event)" type="text"
++                                        class="w-full h-8 bg-gray-50 border border-gray-200 rounded-lg px-2.5 text-xs font-mono text-gray-700 focus:border-teal-500 focus:outline-none transition-all"
++                                        :placeholder="model.contextLength ? formatLengthToken(model.contextLength) : '1M'">
++                                    <p v-if="model.contextLength" class="mt-0.5 text-[10px] text-gray-400">= {{ formatLengthToken(model.contextLength) }}</p>
++                                </div>
++                                <div>
++                                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">最大输出长度（128K / 384K…）</label>
++                                    <input v-model="model.maxOutput" @input="model.maxOutput = parseLengthSafe($event)" type="text"
++                                        class="w-full h-8 bg-gray-50 border border-gray-200 rounded-lg px-2.5 text-xs font-mono text-gray-700 focus:border-teal-500 focus:outline-none transition-all"
++                                        :placeholder="model.maxOutput ? formatLengthToken(model.maxOutput) : '128K'">
++                                    <p v-if="model.maxOutput" class="mt-0.5 text-[10px] text-gray-400">= {{ formatLengthToken(model.maxOutput) }}</p>
++                                </div>
++                            </div>
++                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
++                                <div>
++                                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">输入模态（多选）</label>
++                                    <div class="flex gap-1.5">
++                                        <button v-for="m in ['text', 'image', 'video']" :key="m" type="button"
++                                            @click="toggleModelModality(model, m)"
++                                            class="h-7 px-2.5 rounded-lg border text-[11px] font-medium transition-all active:scale-95"
++                                            :class="(model.inputModalities || []).includes(m)
++                                                ? 'border-teal-400 bg-teal-50 text-teal-700'
++                                                : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'">{{ m }}</button>
++                                    </div>
++                                </div>
++                                <div>
++                                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">模型类型（单选）</label>
++                                    <div class="flex gap-1.5">
++                                        <button v-for="t in ['text', 'image', 'embedding']" :key="t" type="button"
++                                            @click="model.type = t"
++                                            class="h-7 px-2.5 rounded-lg border text-[11px] font-medium transition-all active:scale-95"
++                                            :class="model.type === t
++                                                ? 'border-violet-400 bg-violet-50 text-violet-700'
++                                                : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'">{{ t }}</button>
++                                    </div>
++                                </div>
++                            </div>
++                            <div>
++                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">模型级自定义请求体（JSON 或 键:值，懒编辑）</label>
++                                <input v-model="model.extraBodyText" @input="setModelExtraBodyText(model, $event.target.value)" type="text"
++                                    class="w-full h-8 bg-gray-50 border border-gray-200 rounded-lg px-2.5 text-xs font-mono text-gray-700 focus:border-teal-500 focus:outline-none transition-all"
++                                    placeholder='如 {"reasoning_effort": "max"} 或 reasoning_effort:max'>
++                            </div>
++                        </div>
++                        <p v-if="providerEditorDraft.models.length === 0" class="text-[11px] text-gray-400">暂无手动模型。仍可拉取该商 /models 列表；手动模型会与拉取结果合并展示。</p>
++                    </div>
++                </div>
++                <div class="p-4 border-t border-gray-100 flex justify-end gap-2">
++                    <button type="button" @click="cancelProviderEditor"
++                        class="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:border-gray-300 transition-all active:scale-95">取消</button>
++                    <button type="button" @click="saveProviderEditor"
++                        class="px-4 py-2 rounded-lg bg-teal-600 text-sm font-bold text-white hover:bg-teal-700 transition-all active:scale-95">保存供应商</button>
++                </div>
++            </modal-shell>
++        </transition>
++
+         <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
+             @create="createNewCharacter(); showAddCharacterMenu = false"
+             @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
+@@ -2873,6 +3450,13 @@
+         document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
+         document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
+     </script>
++
++    <!-- LuzzyRP 扩展层（AGENTS.md §5：独立文件，与上游零冲突） -->
++    <!-- luzzy-theme.css 已移入 head（patch 018） -->
++    <script src="../ext/luzzy-bridge.js"></script>
++    <script src="../ext/luzzy-changelog.js"></script>
++<!-- [LuzzyRP patch 005] 扩展层挂载（theme/bridge/ext + patch 014 changelog） -->
++    <script src="../ext/luzzy-ext.js"></script>
+ </body>
+ 
+ </html>

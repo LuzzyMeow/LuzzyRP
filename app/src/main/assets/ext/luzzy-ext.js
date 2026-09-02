@@ -72,3 +72,28 @@
         setTimeout(injectAboutBranding, 800);
     }
 })();
+// ============================================================
+// [LuzzyRP patch 018] 主题快照维护（配合 index.html head 内联脚本防开屏闪蓝）
+// luzzy-ext.js 挂载于尾部（DOM 就绪后），用 MutationObserver 跟随
+// <html> 的 data-theme/data-mode 变化，把当前主题写入 localStorage 快照；
+// 下次冷启动由 head 内联脚本同步读取，开屏首帧即为正确主题色。
+// localStorage 不可用时静默降级（内联脚本回退默认 luzzy+light）。
+// ============================================================
+(function () {
+    var writeSnapshot = function () {
+        try {
+            var root = document.documentElement;
+            localStorage.setItem('luzzy_theme_snapshot', JSON.stringify({
+                theme: root.dataset.theme === 'classic' ? 'classic' : 'luzzy',
+                mode: root.dataset.mode === 'dark' ? 'dark' : 'light'
+            }));
+        } catch (e) { /* 隐私模式等场景静默降级 */ }
+    };
+    writeSnapshot();
+    try {
+        new MutationObserver(writeSnapshot).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme', 'data-mode']
+        });
+    } catch (e) { /* 旧内核降级：仅启动时写一次 */ }
+})();

@@ -232,7 +232,14 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 ✅ coral 稀缺使用（按钮/选中/链接/头像环）；✅ 记号克制；✅ 亮暗分别过 4.5:1；
 ✅ 色值只用本文件与 luzzy-theme.css 的 token，不临场发明颜色。
 ❌ 紫渐变 / emoji 图标 / 左彩边圆角卡 / 均匀深蓝底+霓虹 glow（GitHub-dark 套壳）；
-❌ 裸改上游文件（规定 2）；❌ 触碰 built-in-content.js（规定 1）；❌ 字体走 CDN（规定 4）。
+❌ 裸改上游文件（规定 2）；❌ 触碰 built-in-content.js（规定 1）；❌ 字体走 CDN（规定 4）；
+❌ **新增 UI 使用裸 `blue-*` / `indigo-*` / `violet-*` 色相工具类**（v1.2.1 起）——一律用
+  `primary-*`（luzzy 主题下即品牌珊瑚陶土色，classic 主题下为上游蓝，语义正确）；
+  上游存量蓝色由 luzzy-theme.css 在 `:root[data-theme="luzzy"]` 作用域内收编（不改上游
+  类名，classic 保持原样），收编清单：styles.css 开屏 `.entry-transition` 家族 7 处
+  （背景渐变蓝晕 / sheen / 底盘阴影 / `.entry-logo-hub` 字标与渐变 / 下划线条 /
+  `.embedded-loading-spinner`）+ index.html 设置页两处渐变横幅
+  （用户设置 `from-blue-500 to-indigo-600`、高级设置 `from-indigo-600 to-violet-700`）。
 
 ## 主题系统技术契约
 

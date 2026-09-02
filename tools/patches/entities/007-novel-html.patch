@@ -1,0 +1,28 @@
+diff --git a/rp-hub-reference/novel/index.html b/app/src/main/assets/rphub/novel/index.html
+index a172348b..dc25833b 100644
+--- a/novel/index.html
++++ b/novel/index.html
+@@ -5,16 +5,17 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+     <title>小说生成</title>
+     <!-- Vue 3 -->
+-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
++    <script src="../vendor/vue.global.prod.js"></script>
+     <!-- Tailwind CSS -->
+-    <script src="https://cdn.tailwindcss.com"></script>
++<!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
++    <script src="../vendor/tailwind.js"></script>
+     <!-- Marked for Markdown rendering -->
+-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
++    <script src="../vendor/marked.min.js"></script>
+     <script src="../assets/js/api-utils.js"></script>
+     <!-- Google Fonts -->
+-    <link rel="preconnect" href="https://fonts.googleapis.com">
+-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
++
++
++
+     
+     <style>
+         :root {

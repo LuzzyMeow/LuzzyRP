@@ -476,3 +476,68 @@
         animation-duration: 0.01ms !important;
     }
 }
+
+/* ============================================================
+   品牌色收编 · 上游遗留蓝色 → Luzzy 品牌珊瑚陶土色（v1.2.1）
+   ------------------------------------------------------------
+   范围：仅 :root[data-theme="luzzy"]；classic 选择器不匹配零影响。
+   对象：① styles.css 开屏 .entry-transition 家族的硬编码 blue hex/rgba
+        ② index.html 设置页两处渐变横幅（from-blue-500/to-indigo-600、
+          from-indigo-600/to-violet-700，不改类名，覆盖 gradient 自定义属性）
+   规则来源：DESIGN.md Colors 章「禁新增裸 blue/indigo/violet 色相」。
+   ============================================================ */
+
+/* —— 开屏品牌底盘与渐变 —— */
+:root[data-theme="luzzy"] .entry-transition {
+    background:
+        linear-gradient(118deg, transparent 0 28%, rgba(255, 255, 255, 0.78) 44%, rgb(var(--tw-gray-100) / 0.52) 52%, transparent 66%),
+        radial-gradient(ellipse at 50% 47%, rgba(255, 255, 255, 0.98) 0 18%, rgb(var(--tw-gray-100) / 0.64) 42%, transparent 68%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.995), rgb(var(--tw-gray-50) / 0.99) 54%, rgb(var(--tw-gray-100) / 0.99)) !important;
+}
+
+:root[data-theme="luzzy"] .entry-transition::before {
+    background:
+        linear-gradient(112deg, transparent 30%, rgba(255, 255, 255, 0.82) 42%, rgb(var(--tw-primary-500) / 0.14) 50%, transparent 62%) !important;
+}
+
+:root[data-theme="luzzy"] .entry-transition-brand::before {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.86),
+        0 24px 58px -42px rgb(var(--tw-primary-600) / 0.6) !important;
+}
+
+/* —— LUZZY/RP 字标：RP 段从蓝渐变换为珊瑚→陶土→深赭（去掉非品牌 teal） —— */
+:root[data-theme="luzzy"] .entry-logo-hub {
+    color: rgb(var(--tw-primary-600)) !important;
+    background: linear-gradient(135deg, rgb(var(--tw-primary-600)) 0%, rgb(var(--tw-primary-500)) 58%, rgb(var(--tw-primary-700)) 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* —— 下划线进度条 —— */
+:root[data-theme="luzzy"] .entry-transition-logo i::before {
+    background: linear-gradient(90deg, rgb(var(--tw-primary-600)), rgb(var(--tw-primary-500)), rgb(var(--tw-primary-700))) !important;
+}
+
+/* —— 嵌入页加载 spinner —— */
+:root[data-theme="luzzy"] .embedded-loading-spinner {
+    color: rgb(var(--tw-primary-600)) !important;
+}
+
+/* —— 设置页渐变横幅（用户设置 / 高级设置）—— */
+:root[data-theme="luzzy"] .from-blue-500 {
+    --tw-gradient-from: rgb(var(--tw-primary-500) / 1) var(--tw-gradient-from-position) !important;
+}
+
+:root[data-theme="luzzy"] .to-indigo-600 {
+    --tw-gradient-to: rgb(var(--tw-primary-600) / 1) var(--tw-gradient-to-position) !important;
+}
+
+:root[data-theme="luzzy"] .from-indigo-600 {
+    --tw-gradient-from: rgb(var(--tw-primary-600) / 1) var(--tw-gradient-from-position) !important;
+}
+
+:root[data-theme="luzzy"] .to-violet-700 {
+    --tw-gradient-to: rgb(var(--tw-primary-700) / 1) var(--tw-gradient-to-position) !important;
+}

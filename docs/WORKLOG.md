@@ -748,3 +748,158 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 - 「原生思考 N字」行 z 层与头部名字叠压细节（上游交互，顺延）。
 
 **结论**：v1.2.0 真机走查通过，发布状态维持。
+
+### 会话 13 · 记忆链路与主动工具排查（2026-09-02）
+
+**任务**：用户反馈「对话时没见到记忆工具调用卡片；真实上下文请求里没有记忆分片」（向量记忆模式、确认有分片、嵌入模型正常）。排查 + 模拟器端到端复现。
+
+**方法**：静态定位（app.js/data-services.js 记忆链路）+ 模拟器罐装复现（播种测试角色/分片，CDP fetch 拦截罐装嵌入向量 [1,0,…8 维] 与 SSE 回复，抓 chat 请求体验证）。
+
+**结论：记忆链路本身全部正常，无 v1.2.0 回归**
+1. 自动提取→嵌入（resolveModelRequest 裸引用/复合引用）→int8 量化存储→按楼分桶检索→打分→注入，全链路打通；请求体实证含 `<role_memory_vector_recall>` + `<memory_fragment similarity="103.0%">` 分片；
+2. 「没工具卡片」：主动工具（关键词检索 tool_grep / 联网 tool_web）**默认 enabled:false**（工具页手动启用）；且是提示词协议——模型必须先输出 `<reason:…>` 行再输出 `<tool_grep_add:…>` 标签（缺 reason 行不进捕获模式，本次罐装实测验证）；卡片检索的是**对话原文**（searchDialogueByKeywordForTool），不是记忆分片——RP-Hub 记忆无工具调用机制，靠向量召回自动注入；
+3. 「看不到分片」四个解释（按可能性）：
+   a. **查看器标注缺陷**（上游 wart，可修）：召回块 role=user 无 `_preventContextMerge`，深度 4 注入点紧邻前一条用户消息时被 `postprocessContextMessages`（data-services.js:703 mergeConsecutiveRoleMessages）合并 → `buildContextViewerState.isMemory` 的 `startsWith('<role_memory_vector_recall>')` 失效 → 显示为普通 USER 楼层（分片其实在请求里，用户没认出 `<memory_fragment` 原文）；
+   b. **保留窗口**：`vectorKeepFloors`（默认 50）楼内的轮次不重复注入（防重复，设计使然）——新/短会话所有分片都是「近期」，全部被排除 → 什么都不注入；
+   c. **阈值 0.45 硬编码**（MEMORY_VECTOR_SIMILARITY_THRESHOLD=45），低于即静默丢弃；
+   d. **静默失败**：分桶检索按 (embeddingProvider, embeddingModel) 现算查询向量，桶请求失败仅 console.warn（`向量分桶检索失败`），用户不可见——分片记录的嵌入商/模型与当前配置对不上时整桶跳过（patch 012 跨商分桶的 UX 空缺）。
+
+**可修项（候选 patch 016，待用户点头）**：① `injectContextMessages` 召回块加 `_preventContextMerge: true`（一处，恢复查看器「角色记忆（向量召回）」标注）；② 检索失败外化为 toast；③ 查看器记忆判定 startsWith→includes（与 ① 二选一即可）。
+
+**给用户的自查清单**：确认记忆开关+向量模式+嵌入模型已选；会话超过保留窗口（默认 50 楼）再观察；测试消息与分片内容高度相似；工具页启用「关键词检索」才有卡片（注意它查对话原文）。
+
+**现场**：模拟器测试数据已清（RPHubDB deleteDatabase，应用恢复首启态）；fetch 拦截随 force-stop 清除；仓库零改动（纯排查）。
+
+### 会话 14 开始 · v1.2.1（2026-09-02）
+
+任务：① 召回块 `_preventContextMerge`（会话 13 结论落地）；② 记忆内容管理器（角色选择器查看指定角色的分片/总结，查看/编辑/删除/启停/清空）；③ 开屏加载动画与设置页两处蓝色收编品牌色（仅 luzzy 主题）；④ 上游标记体系（新硬性规定 10 + verify-markers.ps1 + 存量补全）。计划已批准，展开落盘 `docs/PLAN-v1.2.1.md`。
+
+### 会话 14 完成 · v1.2.1 实施与双端验证（2026-09-02）
+
+**完成（按批准计划 docs/PLAN-v1.2.1.md）**
+1. **patch 016**（data-services.js）：召回块 `_preventContextMerge: true`——模拟器罐装复现：
+   上下文查看器恢复「角色记忆（向量召回）·已注入 1 个向量分片」紫色标注与分片高亮
+   （`docs/design/verify-v121-context-label.png`）。
+2. **patch 017**（index.html + app.js）：记忆内容管理器——角色/分支选择器、分片列表
+  （轮次/[商名]嵌入模型徽标/参与召回开关/展开预览/编辑/删除）、总结列表（轮次标签/编辑/删除/
+   重试仅当前角色）、清空此角色记忆。模拟器 CRUD 全链路验证：跨角色切换（scoped 直写）、
+   编辑强制重嵌成功才落盘（罐装嵌入 ×1、qLen 12/dims 8）、启停持久化、删除确认。
+3. **品牌色收编**（luzzy-theme.css 零 patch）：splash 7 处 + 设置页两横幅 → 品牌 token；
+   验证：luzzy 亮色 splash/横幅暖赭（截图 verify-v121-splash-luzzy-light.png、
+   verify-v121-settings-light.png、verify-v121-settings-advanced-light.png）；
+   **classic 对照全部回上游原蓝**（verify-v121-settings-classic-banner.png、
+   verify-v121-splash-classic.png——CDP 动画重放法）。
+4. **patch 018**（index.html head + ext/luzzy-ext.js）：开屏主题防闪蓝——head 内联
+   localStorage 主题快照同步设 data-theme + luffy-theme.css 移入 head + 扩展层
+   MutationObserver 维护快照。冷启动首帧即品牌色（无快照默认 luzzy+light）。
+5. **标记体系（硬性规定 10）**：HARD_REQUIREMENTS 新增第 10 条（CHANGELOG 已声明）；
+   AGENTS.md §1.5/§2/§4.1/§4.2/§4.3 同步；存量补全 001-012 显式标记 14 处；
+   `tools/patches/entities/` 实体 diff（上游 1.8.9 基线→当前态逐文件，8 个文件，
+   反向 apply 全 PASS）；apply-patches.ps1 加实体重放段（指纹判定）；
+   `tools/verify-markers.ps1` 校验门 **39 PASS / 0 FAIL**（含 R1/R2 敏感文件指纹一致性）。
+
+**实施中发现的两个 Vue 模板坑（均已修复并登记 patch 017）**
+- 管理卡紧跟 classic 卡的 `v-else-if`：production 编译丢弃中间注释后两元素直接相邻，
+  被编译器并入条件链（enabled=false 整卡消失）→ **卡片移到链区域之外**（记忆页首卡）。
+- 编辑弹窗 transition 插在「视图区中间」不渲染 → **移到文档尾部与供应商编辑器弹窗同级**
+  （供应商弹窗旁，位置已验证工作）。
+- 连带踩坑记录：改 assets 未 bump EXTRACT_VERSION 导致 filesDir 旧资产反复误判
+  （本次 7→8→9→10→11→12 五连 bump 的根源）；真机 exec-out 管道污染 PNG（改设备侧
+  screencap+pull）；「保存」按钮全局匹配点错欢迎弹窗按钮（改 modal 内精确匹配）。
+
+**真机走查（小米 df97f3c4 / 1.2.1-debug，只读不碰用户数据）**
+- 安装成功，EXTRACT 12 重解压，用户数据完好（李書원会话/记忆 8 分片 4 轮）；
+- 记忆内容管理器：当前角色分片 8 条与记忆面板一致、嵌入徽标 `[STA1N API] gemini-embedding-2`
+  正确、行操作齐全（verify-v121-phone-manager.png）；
+- 关于页 v1.2.1-debug + 应用内 CHANGELOG 渲染（verify-v121-phone-about.png）；
+- 主题 luzzy 暖色（用户当前设置）。
+
+**遗留/顺延**
+- 上游「自动获取模型/流式输出」等 toggle 仍为蓝色（peer-checked:bg-blue-*，属待办
+  「indigo/blue 主题化」范围，本次两处横幅+splash 范围外）；
+- classic 总结记忆在管理器中的显示依赖提取管线生成的完整结构（手工种子对象被
+  prepare 过滤为空列表——真实数据无此问题，罐装提取验证可后续补）；
+- 稳定版 APK 构建与 GitHub Release：待用户指示（当前仅 debug 验证包）。
+
+**现场**：模拟器（LuzzyRP_Test）测试数据已 pm clear+重播种验证用，无用户数据；
+真机仅安装+只读走查；仓库改动全部登记（016/017/018 + 标记补全 + entities）。
+
+---
+
+### ⚠ 会话 14 移交补充 · 悬浮面板回归与修复中断（2026-09-03，移交下一 Agent）
+
+> **本节为正式移交记录。** 用户叫停修复，要求完整记录现状后移交。上一节（会话 14 完成）中
+> 「真机走查通过」的结论**作废**——那轮验证使用的是坏结构构建，且我漏看了截图里的明显异常。
+
+#### 移交时仓库状态
+
+- 分支 main，**全部 v1.2.1 改动未提交**（含代码/文档/entities）；提交前请先读「已知未解问题」。
+- versionCode 8 / versionName 1.2.1（**未发布**，无 Release 无 tag）；EXTRACT_VERSION = **13**。
+- 真机（小米 df97f3c4）安装的 1.2.1-debug = EXTRACT 13 构建；模拟器（LuzzyRP_Test）同。
+- verify-markers.ps1：**39 PASS / 0 FAIL**；entities 8 个全部反向 apply PASS
+  （生成时已加 `--ignore-cr-at-eol`，apply-patches.ps1 实体段已加 `--ignore-whitespace`
+  ——**行尾坑**：checkout 产物 CRLF 与 rp-hub-reference LF 混用会让实体 diff 膨胀成全文件 diff）。
+
+#### 已完成且验证过的内容（坏结构构建上验证，逻辑不受结构影响的部分仍可信）
+
+1. patch 016（data-services.js）召回块防合并：罐装场景下上下文查看器恢复
+   「角色记忆（向量召回）· 已注入 N 个向量分片」标注（verify-v121-context-label.png）。
+2. patch 017（app.js）记忆内容管理器数据层：跨角色切换/编辑强制重嵌成功才落盘/启停/删除，
+   罐装验证全部通过（IndexedDB 持久化断言过）。
+3. patch 018（index.html head + ext/luzzy-ext.js）开屏防闪蓝：模拟器验证冷启动首帧即品牌色。
+4. 品牌色收编（luffy-theme.css）：luzzy/classic 对照截图齐备。
+5. 标记体系：硬性规定 10 + verify-markers + entities + 存量补全。
+
+#### 用户发现的回归 #1（已修复，待真机复验）：记忆面板悬浮于所有页面底部
+
+- **现象**（真机截图 handoff 证据：verify-v121-phone-home/manager/about.png，EXTRACT 12 构建）：
+  「记忆引擎设置 + 向量记忆检索」面板出现在聊天页/记忆页/关于页底部；v1.2.0 基线
+  （verify-v120-phone-chat-light/about.png）底部干净。
+- **根因**：会话 14 中把管理卡「物理搬移」到记忆页首位的脚本，把 memory 视图的
+  wrapper/视图闭合 `</div>` 一起搬走 → 引擎设置卡/向量卡/classic 卡脱离 `v-if="currentView==='memory'"`
+  成为顶层常驻渲染（祖先链直连主布局容器，CDP 实测）。
+- **修复动作**：index.html `git checkout HEAD` 还原 v1.2.0 基线 → 重放：
+  ① 管理卡块+弹窗块（从坏文件按 div 平衡切割提取，卡片插回 classic 卡之后并保留
+  `v-if="true"` 断链；弹窗插 015 供应商编辑器注释前）② 001-012 标记补全重跑
+  ③ patch 018 head 注入重做。EXTRACT_VERSION 12→13。
+  - ⚠ **v-if="true" 断链本身是有效的**（bump 9 后曾验证 enabled=false 卡片正常渲染）；
+    当时的「物理搬移」是被链理论带偏的多余动作，且搬移脚本有缺陷。**不要再次搬移。**
+- **修复后模拟器复验（EXTRACT 13）**：聊天页底部干净 ✓、关于页无引擎条 ✓、
+  引擎设置卡回到 memory 视图内（祖先链含 management-view）✓、管理卡在位 ✓。
+- **EXTRACT 坑再次发作**：修复 index.html 后未 bump EXTRACT_VERSION（12=12），
+  install -r 后 filesDir 仍跑坏结构旧资产，造成「修了没生效」假象浪费一轮排查
+  ——**改 assets 必 bump EXTRACT_VERSION，本案第五次踩中**。
+
+#### 已知未解问题 #2（用户报告，移交后第一优先）：EXTRACT 13 构建的布局异常
+
+- **现象（用户 2026-09-03 口头报告，真机 EXTRACT 13 构建）**：
+  ① 「屏幕上方遗漏了字段」（顶部内容缺失/被裁切）；
+  ② 「下方超出了屏幕边缘」（底部内容溢出屏幕）。
+  设备随即断开，未能截图与定位视图；模拟器同构建未复现观察（未逐页核对）。
+- **首要怀疑线索（强烈建议先查这个）**：重建 index.html 的**正则 div 计数**显示
+  「World Info 视图之后区域累计 -2」（工具输出 `AFTER_MEMORY_BALANCE: -2 NEG: true`），
+  当时误判为「上游文件本就依赖浏览器解析容错」而放过。**正则计数有盲区**
+  （自闭合、非 div 标签、行内顺序），该 -2 很可能对应真实缺失的 2 个 `</div>`，
+  顶部裁切/底部溢出与容器层级错误高度吻合。
+- **建议诊断路径**：
+  1. 用真实 HTML 解析器对比 `rp-hub-reference/index.html`（v1.2.0 基线）与当前
+     `app/src/main/assets/rphub/index.html` 的 DOM 树：iframe srcdoc 注入后
+     逐层 diff（重点：各 `.management-view` 的父级与层级、body 直接子级清单）；
+  2. 从「Classic Memory View」注释起到文件尾，逐视图用 CDP 检查
+     `document.querySelector(...).parentElement` 链与预期不符处；
+  3. 修复原则：**只动 patch 017 插入的块与它带来的闭合**，禁止再次搬移上游区块；
+  4. 修复后 EXTRACT_VERSION +1 → 双端重装 → 逐页截图核对
+     （聊天/关于/记忆/设置/外观 五页，对照 verify-v120-phone-* 基线）。
+- **替代修复方案**（若结构修复仍失败）：放弃从坏文件提取的块，按
+  `docs/PLAN-v1.2.1.md` §二 从 v1.2.0 基线**重新手写** patch 017 的两段插入
+  （管理卡 + 编辑弹窗），插入内容语义见 tools/patches/README.md 017 条目；
+  app.js 数据层无需重做。
+
+#### 移交检查清单（下一 Agent 接手步骤）
+
+1. `git status` 确认未提交改动即本节描述状态；先跑 `tools/verify-markers.ps1`（应 39 绿）；
+2. 按「已知未解问题 #2」诊断路径定位布局异常（先 iframe DOM diff，再 CDP 逐视图）；
+3. 修复后：EXTRACT_VERSION+1 → 双端重装 → 五页截图核对 → 记忆管理器 CRUD 罐装回归
+   （流程见本节上文与 PLAN-v1.2.1.md §六）→ verify-markers 全绿；
+4. 全部通过后再走 CHANGELOG/README 发布流程（当前文档已标注「开发中·未发布」）；
+5. 提交拆分建议：结构修复单独一个 commit（含 WORKLOG 修复记录）。

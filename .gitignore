@@ -48,3 +48,6 @@ Thumbs.db
 
 # 方向板本地字体（与 app/src/main/assets/rphub/assets/fonts 重复，PNG 为持久产物）
 docs/design/boards-v2/fonts/
+
+# ZCode 会话本地数据（计划/缓存等，仅本机）
+.zcode/

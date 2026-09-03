@@ -37,7 +37,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/FileChooserHandler.kt` | 文件选择（角色卡导入） | `onShowFileChooser` + SAF |
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/DownloadHandler.kt` | 文件导出 | `DownloadListener` + SAF 保存 |
 | `app/src/main/java/com/luzzymeow/luzzyrp/util/AssetExtractor.kt` | assets 解压到 filesDir | 首次启动幂等执行；版本升级时按版本号增量更新 |
-| `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`，**禁止重新生成** |
+| `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`，**禁止重新生成**（2026-09-03 用户要求：自适应图标背景 ic_launcher_background=透明 #00000000，还原透明贴纸效果；仅背景色可调，画作资源禁改） |
 | `app/build.gradle.kts` | 壳构建配置 | 签名 / ABI 拆分 / versionCode 管理 |
 
 ### 1.3 上游文件（app/src/main/assets/rphub/）

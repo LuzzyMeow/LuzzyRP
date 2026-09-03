@@ -1017,3 +1017,22 @@ index.html 编辑再遇整文件行尾翻转 → 字节级锚点替换解决（n
 CHANGELOG v1.2.1 并入 019 条目（标题改「侧栏品牌化 × 主题预览交互化 × …」）；README 版本表
 更新为正式版；gen-changelog.mjs 重跑；提交 b1c74c53 推送；**GitHub Release v1.2.1 已发布**
 （附三件套 APK，仅稳定版附 APK，硬性规定 8）；发布状态回写 CHANGELOG/README/AGENTS §9。
+
+### 会话 16 补充 · 应用图标粉底修复（2026-09-03）
+
+**现象**：新装包（release/debug）图标出现粉红底，用户要求恢复透明贴纸效果。
+
+**根因**：自适应图标背景色 `ic_launcher_background`（values/colors.xml）在 v0.2.0-wave1
+（2e85c21f）由 v0.1.0 的深梅紫 #2A0E22 改为粉红 #FF6EC7。自适应图标 = 背景色 +
+前景贴纸（ic_launcher_foreground 本身透明底），透明区露出背景色。用户原应用的桌面
+图标是 MIUI 桌面旧缓存渲染，新装包触发重新渲染后粉底显形——非本次 v1.2.1 引入。
+
+**修复**：colors.xml 背景色改全透明 #00000000（一色值改动，图标画作资源零触碰，
+仍遵守「禁止重新生成」）。模拟器 AOSP 桌面（Launcher3）把透明合成到黑底属该桌面
+无 alpha 处理的局限；MIUI 支持 alpha 合成，真机效果待用户复装确认（若 MIUI 仍异常，
+后备方案=以 luzzy_logo.png 原作为源机械派生透明版 mipmap PNG，需用户确认后做）。
+
+**附带**：CHANGELOG v1.2.1 补修复条目 + gen-changelog 重跑；debug/release 双包重建
+（versionCode 仍 8，可直接覆盖安装）；桌面两份 APK 已刷新为修复后构建；
+GitHub Release v1.2.1 三件套已 clobber 替换。设计条款豁免说明：用户明确指定
+恢复透明（缺陷修复式资源呈现修正，非新视觉设计），4 项设计 SKILL 本会话已读。

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 自适应启动图标背景色（AuroraPink 同源的深粉底） -->
-    <color name="ic_launcher_background">#FF6EC7</color>
+    <!-- 自适应启动图标背景：全透明（2026-09-03 用户要求还原透明贴纸效果；
+         历史值 #2A0E22 → #FF6EC7 → transparent。前景 ic_launcher_foreground
+         本身即透明底贴纸，透明背景后桌面渲染 = 裸贴纸。图标画作资源仍未触碰） -->
+    <color name="ic_launcher_background">#00000000</color>
 </resources>

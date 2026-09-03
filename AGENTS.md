@@ -337,9 +337,10 @@ Luzzy.copyToClipboard = function (text) {
   ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
   （verify-markers.ps1 43 项全绿；entities/012-020-*.patch 正/反向 apply 双 PASS）；
   ⑥ 应用图标粉底修复（自适应背景改全透明，Release APK 已 clobber 替换，versionCode 不变）。
-- **v1.2.2 开发中**（会话 18）：patch 008 v4（blue/indigo 色板收编——上游 toggle 蓝/
-  叙事视角等遗留蓝在 luzzy 主题下随主题变珊瑚）+ patch 020（向量检索失败 toast 外化）；
-  EXTRACT_VERSION 16；未发版（versionCode 仍 8）。
+- **v1.2.2 开发中**（会话 18）：patch 008 v4（blue/indigo 色板收编）+ patch 020（向量检索
+  失败 toast 外化）+ 真机实测驱动的 4 族 styles.css 硬编码蓝收编（侧栏激活项/segmented
+  选中态/settings-toggle 家族/弹窗主按钮，均 luzzy-theme.css 组件级）；EXTRACT_VERSION 19；
+  真机（小米）luzzy 亮/暗验证通过；未发版（versionCode 仍 8）。
 - **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
 - 结构验证方法（可复用）：parse5（浏览器同源解析器）对 v1.2.0 基线做树级对比，
   9 个 `.management-view` 结构 = 基线 + 预期插入；body 直接子级一致。
@@ -352,14 +353,14 @@ Luzzy.copyToClipboard = function (text) {
 ### 遗留待办（按优先级 · 会话 18 复核）
 
 1. 图标透明底修复真机复装确认（MIUI 若仍异常 → 后备方案：以 luzzy_logo.png 原作为源机械派生透明版 mipmap PNG，需用户确认后做）；
-2. v1.2.2 收尾：发布流程（versionCode 9 / assembleRelease / 模拟器+真机走查 toggle 珊瑚化与检索失败 toast / CHANGELOG 去「开发中」/ GitHub Release）；
+2. v1.2.2 收尾：发布流程（versionCode 9 / assembleRelease / CHANGELOG 去「开发中」/ GitHub Release）；真机珊瑚化走查已过，剩余=patch 020 toast 罐装验证（模拟器）+ classic 目测复核（用户日常手动切换即可）；
 3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
 4. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
 5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 16；改前先确认当前值）；
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 19；改前先确认当前值）；
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
   git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
   要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；

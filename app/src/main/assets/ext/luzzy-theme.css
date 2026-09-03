@@ -240,6 +240,58 @@
     letter-spacing: 0.02em;
 }
 
+/* 侧栏激活项（[LuzzyRP patch 008 v4 配套 · v1.2.2]）：styles.css 以
+   .sidebar-nav-button.bg-primary-50 选择器挂硬编码蓝渐变/阴影/竖条，特异性压过
+   工具类——luzzy 下按 primary 语义收编为品牌珊瑚（classic 原样） */
+:root[data-theme="luzzy"] .sidebar-nav-button.bg-primary-50 {
+    background: linear-gradient(135deg,
+        rgb(var(--tw-primary-50) / 0.98),
+        rgb(var(--tw-primary-100) / 0.92));
+    box-shadow:
+        inset 0 0 0 1px rgb(var(--tw-primary-500) / 0.12),
+        0 8px 22px -18px rgb(var(--tw-primary-600) / 0.45);
+}
+
+:root[data-theme="luzzy"] .sidebar-nav-button.bg-primary-50::before {
+    background: rgb(var(--tw-primary-600));
+}
+
+/* 分段选择器选中态（叙事视角等 segmented-switch）：styles.css 硬编码 #2563eb
+   → primary-600（仅 luzzy） */
+:root[data-theme="luzzy"] .segmented-switch__option.is-active {
+    color: rgb(var(--tw-primary-600));
+}
+
+/* settings-toggle 家族（自动获取模型/流式输出/使用封面背景等）：styles.css checked 态
+   硬编码蓝（#2563eb / #3b82f6→#2563eb 渐变 / #6366f1）→ primary（仅 luzzy） */
+:root[data-theme="luzzy"] .settings-toggle-input:checked + .settings-toggle {
+    background: rgb(var(--tw-primary-600));
+}
+
+:root[data-theme="luzzy"] .settings-toggle-input:checked + .settings-toggle--compact {
+    background: linear-gradient(to right,
+        rgb(var(--tw-primary-500)),
+        rgb(var(--tw-primary-600)));
+}
+
+:root[data-theme="luzzy"] .settings-toggle-input:checked + .settings-toggle--indigo,
+:root[data-theme="luzzy"] .settings-toggle-input:checked + .settings-toggle--solid {
+    background: rgb(var(--tw-primary-600));
+}
+
+:root[data-theme="luzzy"] .settings-toggle-input:focus-visible + .settings-toggle {
+    box-shadow: 0 0 0 2px rgb(var(--tw-primary-300));
+}
+
+/* 模态主按钮（确认/删除等弹窗 CTA）：styles.css 硬编码 #2563eb/#1d4ed8 → primary */
+:root[data-theme="luzzy"] .modal-primary-button {
+    background: rgb(var(--tw-primary-600));
+}
+
+:root[data-theme="luzzy"] .modal-primary-button:hover {
+    background: rgb(var(--tw-primary-700));
+}
+
 /* ============================================================
  * 统一雾纸玻璃变量（v1.2.0 玻璃补全）：单点调参——流式掉帧时整体上调 alpha
  * ============================================================ */

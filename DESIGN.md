@@ -252,6 +252,11 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   `rgb(var(--tw-*) / <alpha-value>)`，luzzy 主题下 `--tw-blue-*`/`--tw-indigo-*` 与
   primary 同值（toggle 选中态/叙事视角等 41+8 处上游遗留蓝全部随主题变珊瑚）；
   violet-* 保留为协议徽标功能区分色（v1.2.0 critique 备案例外）。
+  ⚠ styles.css 另有 ~70 处硬编码蓝字面量（不走色板工具类）：已随 v1.2.2 在
+  luzzy-theme.css 组件级收编——侧栏激活项 `.sidebar-nav-button.bg-primary-50` 家族
+  （渐变/阴影/::before 竖条）、`segmented-switch__option.is-active`（叙事视角等）、
+  `settings-toggle` checked 家族（自动获取模型/流式输出等含 --compact/--indigo/--solid）、
+  `modal-primary-button`（弹窗主按钮）；其余低频组件清点入 v1.3.0 遗留（WORKLOG 会话 18）。
 
 ## 主题系统技术契约
 

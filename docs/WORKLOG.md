@@ -1148,6 +1148,37 @@ classic 下=Tailwind 原值。
    GitHub Release）；
 3. 图标复装确认（用户）、classic 总结补测（需模拟器）、上游同步演练（需网络）。
 
-**现场**：EXTRACT_VERSION=16（assets 已变更，下次任何安装自动重解压）；versionCode
+**现场**：EXTRACT_VERSION=19（v4 实施后连升 16→17→18→19，见下）；versionCode
 仍 8（未发版）；仓库改动全部登记（008 v4 + 020 + 登记链 + entities 重建）；无未登记
 上游改动（verify-markers 43 绿）。
+
+### 会话 18 补充 · 真机验证（小米 25098PN5AC / Android 16 / df97f3c4，EXTRACT 19 debug）
+
+用户接入真机，安装 EXTRACT 19 debug 包（install -r，数据保留）实测：
+
+- **启动回归 ✓**：重解压后首启正常，用户真实会话/立绘/雾纸玻璃完好，无布局异常；
+- **侧栏激活项 ✓**：luzzy 亮色下「聊天/设置」激活态=暖珊瑚底+珊瑚竖条+珊瑚图标
+  （修复前实测为硬编码蓝——styles.css `.sidebar-nav-button.bg-primary-50` 家族，
+  详见下「实施中发现」）；暗色下同族=暗珊瑚 ramp ✓；
+- **叙事视角选中态 ✓**：用户设置页 segmented-switch 选中项由蓝变珊瑚
+  （styles.css `segmented-switch__option.is-active{color:#2563eb}` 收编）；
+- **settings-toggle 家族 ✓**：自动获取模型/流式输出/使用封面背景三枚 checked 开关
+  由蓝/indigo 变珊瑚（含 --compact/--indigo/--solid 变体收编）；未勾选「沉浸模式」
+  保持中性灰=正确；
+- **暗色全页 ✓**：暗纸底+暗珊瑚横幅/toggle，无白块无破损；
+- **用户状态已恢复**：外观页点亮色卡回到 Luzzy+亮色（用户原始设置）；
+- **classic 对照未在真机执行**：外观页自定义下拉对 adb input tap 无响应（已知坑族）；
+  机制保证：全部收编规则 scoped 于 `:root[data-theme="luzzy"]`，classic 作用域变量
+  = Tailwind 原值（与 v1.2.1 逐字节同源）；建议用户日常手动切 classic 目测一次；
+- **toast（patch 020）真机未触发**：需制造检索失败（断网/改嵌入配置），涉及用户
+  真实数据与网络，不做；留待模拟器罐装或用户日常使用观察；
+- ⚠ **操作事故披露**：验证中途一次 back 键退出应用落到系统「修改闹钟」对话框
+  （已按返回取消、未保存；期间一次 tap 可能触到时间轮盘）——**若用户闹钟原本不是
+  08:02 请自查**。后续真机操作已改为每步截图确认。
+
+**实施中发现（真机实测驱动，已全部收编）**：styles.css 存在 ~70 处硬编码蓝字面量
+（不走色板工具类，patch 008 色板机制覆盖不到）。本次按「实测可见优先」收编 4 族——
+①侧栏激活项 `.sidebar-nav-button.bg-primary-50`（渐变/阴影/::before 竖条）；
+②`.segmented-switch__option.is-active`；③`.settings-toggle` checked 家族
+（--compact/--indigo/--solid + focus ring）；④`.modal-primary-button`（弹窗主按钮）。
+其余低频组件清点入 v1.3.0 遗留（DESIGN.md 已同步）。EXTRACT 16→19 连升记录迭代过程。

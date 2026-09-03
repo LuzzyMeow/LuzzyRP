@@ -20,7 +20,7 @@
 > - 修改范围：安卓壳封装、资源离线化、品牌化、独立扩展层（详见 [CHANGELOG](CHANGELOG.md)）；
 > - 上游原 LICENSE 文件保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布。
 
-![Status](https://img.shields.io/badge/Status-v1.2.1--开发中·不可游玩-F59E0B)
+![Status](https://img.shields.io/badge/Status-v1.2.1--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.8.9-4FC08D?logo=vue.js&logoColor=white)
@@ -226,7 +226,7 @@ LuzzyRP/
 ├── keystore/                     # 签名（不入库）
 ├── CHANGELOG.md                  # 更新日志（沿用既有格式）
 ├── AGENTS.md                     # 后续开发 Agent 指南
-├── HARD_REQUIREMENTS.md          # 硬性规定（9 条）
+├── HARD_REQUIREMENTS.md          # 硬性规定（10 条）
 ├── LICENSE                        # CC BY-NC 4.0
 └── README.md                     # 本文件
 ```
@@ -237,7 +237,7 @@ LuzzyRP/
 
 **接手开发前必读**（按顺序）：
 
-1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 9 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程 / **设计 SKILL 强制条款**），**违反任何一条即为不合格交付**；
+1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 10 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程 / **设计 SKILL 强制条款** / **改动标记与上游同步适配**），**违反任何一条即为不合格交付**；
 2. [`AGENTS.md`](AGENTS.md) —— 后续开发/更新/维护 Agent 工作指南（文件地图 / 工作流程 / 同步 SOP / 扩展开发规范）；
 3. [`docs/PLAN-v1.2.1.md`](docs/PLAN-v1.2.1.md) —— 最近版本（v1.2.1）完整实施计划；
 4. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
@@ -252,7 +252,7 @@ LuzzyRP/
 | v1.0.0 | 重建首版：壳 + 离线化 + 品牌 + 桥接 + 主题/字体/雾纸玻璃系统 + 同步机制（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.1.0 | 扩展功能第一批：多模型商混用（供应商管理器 / `[商名]` 来源徽标 / 跨商请求解析 / 记忆双模式跨商）+ 思考卡全卡雾纸玻璃 + 外观独立面板（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.2.0 | 玻璃补全 + 独立页 + 三协议：聊天页统一雾纸玻璃（气泡/loading/思考卡/工具条）+ 外观/关于独立页（应用内 CHANGELOG）+ 供应商三协议（OpenAI/Anthropic/Gemini）+ 模型管理编辑器（热检测预设/引用重映射/热更新）+ 自定义生图模型（✅ 已发布，附 APK） | ✓（稳定版） |
-| v1.2.1 | 召回块防合并修复 + 记忆内容管理器 + 品牌色收编蓝色（开屏/设置横幅）+ 上游标记体系（硬性规定 10 / 实体重放 / verify-markers）（🚧 开发中：布局异常待修，见 WORKLOG） | — |
+| v1.2.1 | 召回块防合并修复 + 记忆内容管理器 + 品牌色收编蓝色（开屏/设置横幅）+ 上游标记体系（硬性规定 10 / 实体重放 / verify-markers）+ 侧栏品牌化/预览交互化 + 应用图标粉底修复（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.3.0+ | 跟随上游节奏迭代 + 独立功能持续扩展（候选遗留：「荧光笔落笔」招牌动效、深链、自建更新检查、Gemini/Anthropic 图像模型接生图流） | 按稳定版 |
 
 版本号独立于上游（LuzzyRP v1.0.0 基于 RP-Hub 1.8.9），CHANGELOG 每条记录注明上游基线版本。

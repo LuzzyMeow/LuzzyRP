@@ -20,7 +20,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 |------|------|-----------|
 | `README.md` | 项目门面（含二创署名声明） | 版本更新时同步（硬性规定 5） |
 | `CHANGELOG.md` | 更新日志 | 格式：`### vX.Y.Z — 标题` + 「新增/优化/修复/注意事项」分类 + 构建结果与 versionCode；每条注明上游基线版本 |
-| `HARD_REQUIREMENTS.md` | 9 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
+| `HARD_REQUIREMENTS.md` | 10 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
 | `AGENTS.md` | 本文件 | 与 HARD_REQUIREMENTS 同步演进 |
 | `DESIGN.md` | 设计真源（唯一设计契约，Claude token 体系） | 任何 UI 改动必须遵循；修改需按硬性规定 9 走设计流程 |
 | `LICENSE` | CC BY-NC 4.0 | **禁止删除/改写**（含上游 LICENSE 保留义务） |
@@ -77,7 +77,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行） |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
-| `docs/PLAN-v1.0.0.md` | v1.0.0 重建计划 | 实施期主文档 |
+| `docs/PLAN-v1.2.1.md` | 最近版本（v1.2.1）实施计划 | 最新版本主文档；历史 PLAN（v1.0.0~v1.2.0）并存备查 |
 | `docs/design/` | 设计存档（spec-v2 合同 / boards-v2 三方向板 / direction-approved-v2 / 验证截图） | 设计演进按硬性规定 9 流程 |
 | `docs/WORKLOG.md` | 工作日志 | 每次会话追加「日期 / 完成 / 决策 / 遗留 / 下一步」 |
 | `docs/archive/` | 归档（旧工程备份等） | gitignore，仅本地 |
@@ -131,7 +131,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 3.1 新任务接手（每次会话必做）
 
-1. 读 `HARD_REQUIREMENTS.md`（9 条）与 `AGENTS.md`（本文件）；
+1. 读 `HARD_REQUIREMENTS.md`（10 条）与 `AGENTS.md`（本文件）；
 2. 读 `docs/WORKLOG.md` 末尾，了解上次会话状态与遗留项；
 3. 读 `CHANGELOG.md` 顶部，确认当前版本与上游基线；
 4. 检查 `tools/upstream-fingerprints.txt` 与当前 `assets/rphub/` 是否一致（确认无未登记改动）；
@@ -323,39 +323,40 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-03 会话 16 快照 · v1.2.1 已发布）
+## 9. 当前状态与已知问题（2026-09-03 会话 17 快照 · v1.2.1 已发布）
 
 > **v1.2.1 布局异常已修复并经模拟器验证**（会话 15）。真根因与「会话 14 移交」的
 > 「缺 2 个 `</div>`」假设不同：为 patch 018 head 注入丢失 `<script>` 开标签。
 > 完整过程见 `docs/WORKLOG.md` 会话 15/16；计划文档 `docs/PLAN-v1.2.1.md`。v1.2.1 已发布（GitHub Release v1.2.1 附 APK）。本节取代会话 15 快照。
 
-### 版本状态（2026-09-03 · 会话 15）
+### 版本状态（2026-09-03 · 会话 17 复核）
 
 - **v1.2.1（versionCode 8 / EXTRACT_VERSION 15）已发布**（2026-09-03，Release v1.2.1 附三件套 APK；会话 16 补入 patch 019 侧栏品牌化/导航顺序/预览交互化，双端验证通过）：
   ① patch 016 召回块防合并；② patch 017 记忆内容管理器；③ 品牌色收编；
   ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
-  （verify-markers.ps1 39 项全绿；entities/012-018-index-html.patch 已重建，
-  正/反向 apply 双 PASS）。
+  （verify-markers.ps1 41 项全绿；entities/012-019-*.patch 正/反向 apply 双 PASS）；
+  ⑥ 应用图标粉底修复（自适应背景改全透明，Release APK 已 clobber 替换，versionCode 不变）。
 - **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
 - 结构验证方法（可复用）：parse5（浏览器同源解析器）对 v1.2.0 基线做树级对比，
   9 个 `.management-view` 结构 = 基线 + 预期插入；body 直接子级一致。
-- 模拟器（LuzzyRP_Test）已装 EXTRACT 14 debug 构建并完成验证：聊天/记忆/外观/关于/
+- 模拟器（LuzzyRP_Test）已装 EXTRACT 15 debug 构建并完成验证：聊天/记忆/外观/关于/
   设置五页逐页截图核对通过（无顶部缺字段/底部溢出/裸文本，主题 CSS 正常加载）；
   管理器 CRUD 回归：编辑失败路径（重嵌 fetch 失败 → toast + 不落盘 + 按钮复位）✓、
   启停 ✓、删除+确认 ✓、统计即时联动 ✓、杀进程重启持久化 ✓。
-- **真机（小米 df97f3c4）未复验**——建议随 v1.2.1 正式包安装复验。
+- **真机（小米 df97f3c4）已复验**（会话 16，release 包 arm64：patch 019 品牌字样/导航/预览交互/持久化全流程通过）；图标透明底修复待用户复装确认。
 
-### 遗留待办（按优先级）
+### 遗留待办（按优先级 · 会话 17 复核）
 
-1. 发布 v1.2.1：构建正式包（assembleRelease）+ GitHub Release（CHANGELOG/README 已去「开发中」标注）；
-2. 真机复验 v1.2.1（EXTRACT 14 会自动重解压）；
-3. 上游 toggle 蓝（peer-checked:bg-blue-*）主题化（v1.2.0 起顺延，设置页叙事视角选中态仍为蓝）；
+1. 图标透明底修复真机复装确认（MIUI 若仍异常 → 后备方案：以 luzzy_logo.png 原作为源机械派生透明版 mipmap PNG，需用户确认后做）；
+2. 上游 toggle 蓝（peer-checked:bg-blue-*）主题化（v1.2.0 起顺延，设置页叙事视角选中态仍为蓝；实施前按硬性规定 9 复读 4 项设计 SKILL）；
+3. 向量分桶检索失败 toast 外化（会话 13 结论②，候选 patch 020）；
 4. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
+5. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
+6. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 14；改前先确认当前值）；
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 15；改前先确认当前值）；
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
   git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
   要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；

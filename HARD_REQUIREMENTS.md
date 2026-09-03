@@ -22,7 +22,7 @@ RP-Hub `assets/js/built-in-content.js` 内的 NSFW 预设（`nsfw: Object.freeze
 ### 规定 2 · 上游文件最小改动
 
 RP-Hub 上游文件（`index.html`、`assets/js/*.js`、`assets/css/styles.css`、`character/`、`novel/`）**仅允许通过 `tools/patches/` 内登记的 patch 修改**；任何新改动必须新增 patch 文件并编号登记，**禁止裸改**。
-- 守护落点：`tools/patches/`（当前登记 001-005，见 `AGENTS.md` §4.2）+ `tools/apply-patches.ps1`。
+- 守护落点：`tools/patches/`（当前登记 001-019，见 `AGENTS.md` §4.2）+ `tools/apply-patches.ps1`。
 - 原因：上游大文件（app.js 512KB）裸改会导致同步时无法手工解决的巨型冲突。
 
 ### 规定 3 · 扩展层隔离

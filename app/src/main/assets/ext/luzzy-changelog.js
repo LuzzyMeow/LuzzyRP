@@ -68,6 +68,15 @@
 - 排查结论备档：记忆链路本身（提取→嵌入→分桶检索→注入）经罐装端到端验证无回归；
   「看不到注入」另有两个非缺陷因素——保留窗口（默认 50 楼内轮次防重复不注入）与
   相似度阈值 0.45。
+- 会话 17 文档回写（纯文档，不影响安装包）：README 状态徽章/版本规划表/硬性规定计数同步为
+  「已发布/10 条」；AGENTS §1.1/§3.1/§1.5/§9 陈旧值修正（9→10 条、verify-markers 39→41 项、
+  EXTRACT 14→15、真机复验状态、遗留待办复核）；HARD_REQUIREMENTS 规定 2 守护落点登记计数
+  修正为 001-019（按 AGENTS §1.1 于本 CHANGELOG 声明）。
+- 会话 17 工作区整洁（硬性规定 7）：移除 v0.x 旧工程遗物（AGENT-GUIDE / INVARIANTS-CHECKLIST /
+  audit / PLAN-v0.1.0 / task 任务书 / trpg 世界卡）与大型参考资料入库（game-icon-pack /
+  lobe-ui-master / rikkahub-master / D&D SRD / 字体源 / brand-logos，合计约 1.24 万入库文件），
+  另移除 APK 内无任何代码引用的 \`app/src/main/assets/CHANGELOG.md\`（v0.2.0 时代残留）；
+  .gitignore 增防回流规则；补打 \`v1.2.1-r2\` tag（对齐 Release APK 实际构建点 7976aba0）。
 
 ### v1.2.0 — 聊天页统一雾纸玻璃 × 外观/关于独立页 × 三协议供应商 × 自定义生图（上游基线 RP-Hub 1.8.9）
 

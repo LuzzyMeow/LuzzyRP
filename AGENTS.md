@@ -353,7 +353,7 @@ Luzzy.copyToClipboard = function (text) {
 ### 遗留待办（按优先级 · 会话 18 复核）
 
 1. 图标透明底修复真机复装确认（MIUI 若仍异常 → 后备方案：以 luzzy_logo.png 原作为源机械派生透明版 mipmap PNG，需用户确认后做）；
-2. v1.2.2 收尾：发布流程（versionCode 9 / assembleRelease / CHANGELOG 去「开发中」/ GitHub Release）；真机珊瑚化走查已过，剩余=patch 020 toast 罐装验证（模拟器）+ classic 目测复核（用户日常手动切换即可）；
+2. v1.2.2 发布**暂缓**（用户指示：继续功能更新后一并发布，版本范围可能扩展）；待发布时执行：versionCode 9 / assembleRelease / CHANGELOG 去「开发中」/ GitHub Release；剩余小项=patch 020 toast 罐装验证（模拟器）+ classic 目测复核（用户日常手动切换即可）；
 3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
 4. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
 5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。

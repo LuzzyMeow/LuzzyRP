@@ -1182,3 +1182,15 @@ classic 下=Tailwind 原值。
 ②`.segmented-switch__option.is-active`；③`.settings-toggle` checked 家族
 （--compact/--indigo/--solid + focus ring）；④`.modal-primary-button`（弹窗主按钮）。
 其余低频组件清点入 v1.3.0 遗留（DESIGN.md 已同步）。EXTRACT 16→19 连升记录迭代过程。
+
+### 会话 18 收尾 · 用户决策：发布暂缓，继续功能更新（2026-09-03）
+
+- **用户指示**：暂缓 v1.2.2 发布流程——不打 versionCode 9、不 assembleRelease、
+  不 GitHub Release；用户将继续提出功能更新。
+- **推论**：后续功能预计并入 v1.2.2 一并发布，版本范围随之扩展；CHANGELOG
+  「开发中（未发布）」状态维持，README 规划表 v1.2.2 行保持 🚧。
+- **现场交接**：EXTRACT_VERSION=19；verify-markers 43 PASS / 0 FAIL；versionCode 仍 8；
+  真机已装 EXTRACT 19 debug（主题已恢复用户原设置 Luzzy+亮色）；main 已推至
+  8927b2eb；工作树干净；零未登记上游改动。
+- **下一会话入口**：直接接功能需求，按 AGENTS §3.2 流程评估归属
+  （扩展层优先 → 必要时登记 patch 021+）；发布动作等用户明确指令。

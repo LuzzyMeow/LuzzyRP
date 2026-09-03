@@ -323,15 +323,15 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-03 会话 15 快照 · v1.2.1 待发布）
+## 9. 当前状态与已知问题（2026-09-03 会话 16 快照 · v1.2.1 已发布）
 
 > **v1.2.1 布局异常已修复并经模拟器验证**（会话 15）。真根因与「会话 14 移交」的
 > 「缺 2 个 `</div>`」假设不同：为 patch 018 head 注入丢失 `<script>` 开标签。
-> 完整过程见 `docs/WORKLOG.md` 会话 15；计划文档 `docs/PLAN-v1.2.1.md`。本节取代会话 14 快照。
+> 完整过程见 `docs/WORKLOG.md` 会话 15/16；计划文档 `docs/PLAN-v1.2.1.md`。v1.2.1 已发布（GitHub Release v1.2.1 附 APK）。本节取代会话 15 快照。
 
 ### 版本状态（2026-09-03 · 会话 15）
 
-- **v1.2.1（versionCode 8 / EXTRACT_VERSION 15）待发布**。功能与修复全部就绪（会话 16 补入 patch 019 侧栏品牌化/导航顺序/预览交互化，双端验证通过）：
+- **v1.2.1（versionCode 8 / EXTRACT_VERSION 15）已发布**（2026-09-03，Release v1.2.1 附三件套 APK；会话 16 补入 patch 019 侧栏品牌化/导航顺序/预览交互化，双端验证通过）：
   ① patch 016 召回块防合并；② patch 017 记忆内容管理器；③ 品牌色收编；
   ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
   （verify-markers.ps1 39 项全绿；entities/012-018-index-html.patch 已重建，

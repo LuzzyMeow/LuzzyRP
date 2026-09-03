@@ -1014,5 +1014,6 @@ index.html 编辑再遇整文件行尾翻转 → 字节级锚点替换解决（n
 多显示器警告下 screencap 默认 display 可用。
 
 **发布**：assembleRelease 三件套（arm64/universal/x86_64 ≈17.97MB，versionCode 8）；
-CHANGELOG v1.2.1 并入 019 条目（标题补「侧栏品牌化」）；README 版本表更新；
-gen-changelog.mjs 重跑；推送 + GitHub Release（仅稳定版附 APK，硬性规定 8）。
+CHANGELOG v1.2.1 并入 019 条目（标题改「侧栏品牌化 × 主题预览交互化 × …」）；README 版本表
+更新为正式版；gen-changelog.mjs 重跑；提交 b1c74c53 推送；**GitHub Release v1.2.1 已发布**
+（附三件套 APK，仅稳定版附 APK，硬性规定 8）；发布状态回写 CHANGELOG/README/AGENTS §9。

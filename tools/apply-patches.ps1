@@ -361,7 +361,7 @@ if ($appContent -match "theme: 'luzzy'") {
 # ------------------------------------------------------------------
 # 实体 patch（entities/，v1.2.1 硬性规定 10）
 # ------------------------------------------------------------------
-# 覆盖 007/009/012-017 的全部二创改动（与上游 1.8.9 基线的逐文件 diff，
+# 覆盖 007/009/012-019 的全部二创改动（与上游 1.8.9 基线的逐文件 diff，
 # 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
 # 判定规则：
 #   目标文件已含对应标记           -> SKIP（已应用）
@@ -392,14 +392,14 @@ $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'novel/index.html';             Entity = '007-novel-html.patch';            Marker = '[LuzzyRP patch 007]' },
     @{ File = 'assets/js/core-utils.js';      Entity = '009-core-utils-js.patch';         Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-017-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-017-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/ui-components.js';   Entity = '012-017-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/runtime-services.js'; Entity = '012-017-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'index.html';                   Entity = '012-019-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-019-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/ui-components.js';   Entity = '012-019-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/runtime-services.js'; Entity = '012-019-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-017）=="
+Write-Host "== 实体 patch（007/009/012-019）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

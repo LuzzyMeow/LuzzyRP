@@ -974,3 +974,45 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 
 **现场**：模拟器保留 EXTRACT 14 debug 构建（测试数据：记忆测试角色，1 分片已停用）；
 无未登记改动（verify-markers 39 绿）。
+
+---
+
+### 会话 16 · patch 019 侧栏品牌化与预览交互化 + v1.2.1 发布（2026-09-03）
+
+**任务（用户 5 点）**：① 侧栏关于置底；② 主题预览随主题切换 + 点击切深浅；③ 抽屉 RP HUB → LuzzyRP；
+④ 全量改动复查；⑤ 真机验证后推 Release。
+
+**设计合规**：触发硬性规定 9 → 完整阅读 4 项 SKILL 主文档；本任务为已选定方向上的迭代 +
+用户给定明确方向（豁免三方向门，落档本节）；色值全部取 DESIGN.md 既有 token
+（预览 classic 板 = 上游原值，语义正确不受「禁新增裸 blue」约束）；DESIGN.md 已同步。
+
+**实施（patch 019 登记）**
+- ui-components.js：app-logo RP/HUB → Luzzy/RP（双色同构开屏字标，下划线 w-14）；
+  底部簇 外观→关于→设置 ⇒ 外观→设置→关于（关于置底）。
+- index.html：外观页预览交互化——`rgb(var(--luzzy-prev-*))` 取色、luzzy 双卡为
+  button（aria-pressed + 选中 ring + active:scale-[0.98]）点击直切 themeMode、
+  classic 单亮卡、提示行。
+- ext/luzzy-theme.css（扩展层零 patch）：`--luzzy-prev-light/dark-*` 8 变量 ×2 作用域，
+  值全为既有 token。
+- app.js：关于页 fallback 版本 v1.2.0→v1.2.1。
+
+**登记与门禁**：tools/patches/README 019 条目；AGENTS §4.2 表 019 行；verify-markers
++2 项（41 PASS / 0 FAIL）；apply-patches 实体表 012-017→012-019（**修正移交遗留**：
+表内引用 012-017-index-html.patch 但实体目录只有 012-018-*，指纹命中会重放失败）；
+entities 四文件重建为 012-019-*，正/反向 apply 8/8 PASS；EXTRACT_VERSION 14→15；
+node --check ×2 + CSS 括号平衡 + parse5 结构复验（唯一差异=管理卡，预期）；
+index.html 编辑再遇整文件行尾翻转 → 字节级锚点替换解决（numstat 24/12）。
+
+**模拟器验证（EXTRACT 15 debug）**：首启正常；抽屉 Luzzy RP + 外观→设置→关于 ✓；
+预览双卡渲染 ✓；点暗卡全 UI 变暗+ring+下拉同步 ✓；点回亮卡 ✓；切 classic 预览变
+单张上游蓝灰卡+暗卡消失 ✓；切回 luzzy 杀进程重启持久化 ✓。
+
+**真机验证（小米 df97f3c4，release 包 arm64）**：MIUI 拦 adb 注入 → 用户开启
+「USB 调试（安全设置）」后全流程通过：首启公告暖色 ✓；欢迎弹窗走完（Tester）✓；
+抽屉 a11y 树 text="LuzzyRP" + 顺序 ✓；外观页双卡 ✓；点暗卡全 UI 变暗无白块 ✓；
+切回亮 + 杀进程重启持久化 ✓。adb 坑新增：MIUI INJECT_EVENTS 需安全设置开关；
+多显示器警告下 screencap 默认 display 可用。
+
+**发布**：assembleRelease 三件套（arm64/universal/x86_64 ≈17.97MB，versionCode 8）；
+CHANGELOG v1.2.1 并入 019 条目（标题补「侧栏品牌化」）；README 版本表更新；
+gen-changelog.mjs 重跑；推送 + GitHub Release（仅稳定版附 APK，硬性规定 8）。

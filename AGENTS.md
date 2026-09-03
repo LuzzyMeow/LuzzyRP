@@ -72,7 +72,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
 | `tools/sync-upstream.ps1` | 上游同步脚本 | fetch → 覆盖 → patch 重放 → 报告 |
-| `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-017 实体 patch（`patches/entities/`，指纹基线判定） |
+| `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-019 实体 patch（`patches/entities/`，指纹基线判定） |
 | `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行） |
@@ -193,7 +193,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-015，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-019，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -215,6 +215,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 016 | data-services.js | 向量召回块 `_preventContextMerge: true`（防合并吞掉查看器「角色记忆（向量召回）」标注，v1.2.1） |
 | 017 | app.js + index.html | 记忆内容管理器（角色/分支选择器跨角色查看分片与总结；编辑=强制重嵌成功才落盘/启停/删除/清空；v1.2.1） |
 | 018 | index.html head + ext/luzzy-ext.js | 开屏主题防闪蓝（head 内联脚本按 localStorage 快照写 data-theme/data-mode + luzzy-theme.css 由尾部 link 移入 head 首帧注入；快照由 luzzy-ext.js MutationObserver 维护；v1.2.1） |
+| 019 | ui-components.js + index.html + ext/luzzy-theme.css | 侧栏品牌字样 LuzzyRP + 底部簇外观→设置→关于（关于置底）+ 外观页主题预览交互化（色板随 data-theme 取色 --luzzy-prev-*，luzzy 下点击卡片直接切亮/暗模式；v1.2.1） |
 
 **新增 patch 的规则**：
 
@@ -330,7 +331,7 @@ Luzzy.copyToClipboard = function (text) {
 
 ### 版本状态（2026-09-03 · 会话 15）
 
-- **v1.2.1（versionCode 8 / EXTRACT_VERSION 14）待发布**。功能与修复全部就绪：
+- **v1.2.1（versionCode 8 / EXTRACT_VERSION 15）待发布**。功能与修复全部就绪（会话 16 补入 patch 019 侧栏品牌化/导航顺序/预览交互化，双端验证通过）：
   ① patch 016 召回块防合并；② patch 017 记忆内容管理器；③ 品牌色收编；
   ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
   （verify-markers.ps1 39 项全绿；entities/012-018-index-html.patch 已重建，

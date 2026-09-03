@@ -129,6 +129,39 @@
 }
 
 /* ============================================================
+ * 外观页主题预览色板（[LuzzyRP patch 019]，v1.2.1）
+ * 预览卡须同时呈现亮/暗两套色板（与当前 data-mode 无关），
+ * 故在此按 data-theme 静态定义 RGB 三元组——值全部取自 DESIGN.md
+ * 既有 token（含 classic 上游原值），不临场发明颜色。
+ * index.html 预览卡以 rgb(var(--luzzy-prev-*) ) 引用。
+ * ============================================================ */
+:root,
+:root[data-theme="classic"] {
+    /* 经典 = 上游原值（gray-50/gray-900/gray-500/primary-500） */
+    --luzzy-prev-light-bg: 249 250 251;     /* #f9fafb gray-50 */
+    --luzzy-prev-light-title: 17 24 39;     /* #111827 gray-900 */
+    --luzzy-prev-light-sub: 107 114 128;    /* #6b7280 gray-500 */
+    --luzzy-prev-light-accent: 59 130 246;  /* #3b82f6 primary-500 上游蓝 */
+    --luzzy-prev-dark-bg: 17 24 39;
+    --luzzy-prev-dark-title: 249 250 251;
+    --luzzy-prev-dark-sub: 156 163 175;
+    --luzzy-prev-dark-accent: 59 130 246;
+}
+
+:root[data-theme="luzzy"] {
+    /* 亮色卡 = 暖幕手记·亮（canvas gray-50 / body gray-800 / muted gray-600 / accent 浅 primary-300） */
+    --luzzy-prev-light-bg: 250 249 245;     /* #FAF9F5 canvas */
+    --luzzy-prev-light-title: 61 58 54;     /* #3D3A36 body */
+    --luzzy-prev-light-sub: 108 106 100;    /* #6C6A64 muted */
+    --luzzy-prev-light-accent: 229 176 153; /* #E5B099 primary-300 */
+    /* 暗色卡 = 暖幕手记·暗（canvas gray-50 / on-dark gray-900 / muted gray-600 / accent primary-500） */
+    --luzzy-prev-dark-bg: 23 22 20;         /* #171614 canvas */
+    --luzzy-prev-dark-title: 250 249 245;   /* #FAF9F5 on-dark */
+    --luzzy-prev-dark-sub: 165 161 152;     /* #A5A198 muted */
+    --luzzy-prev-dark-accent: 217 119 87;   /* #D97757 primary-500 */
+}
+
+/* ============================================================
  * 组件级主题化（DESIGN.md Components 表；只覆盖视觉，不改结构）
  * ============================================================ */
 

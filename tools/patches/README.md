@@ -217,6 +217,19 @@
 #   - index.html 尾部: luzzy-theme.css <link> 移除（由 head 注入取代，保首帧品牌色）
 #   - 预期冲突点：上游改 head 结构 / 尾部扩展层挂载区时需重打
 #
+# 019-drawer-brand-preview.patch（2026-09-03，v1.2.1 侧栏品牌化 + 预览交互化）
+#   - ui-components.js: ① 侧栏品牌字样 RP HUB → LuzzyRP（Luzzy 主字 gray-800 +
+#     RP primary-600，双色同构开屏字标，下划线条 w-11→w-14）；② 侧栏底部簇顺序
+#     外观→关于→设置 调整为 外观→设置→关于（关于置底）
+#   - index.html: 外观页主题预览交互化——色板随 data-theme 取色
+#     （rgb(var(--luzzy-prev-*))，vars 定义于 ext/luzzy-theme.css，值=DESIGN.md 既有
+#     token）；luzzy 下亮/暗双卡为可点按钮（aria-pressed + 选中 ring，点击直接切
+#     settings.themeMode），classic 仅亮色单卡（经典无暗色模式）+ 可点击提示文案
+#   - ext/luzzy-theme.css（扩展层，零 patch）：新增 --luzzy-prev-light/dark-* 色板
+#   - app.js: 关于页版本 fallback v1.2.0 → v1.2.1（014 区块内 1 行）
+#   - 对应：用户需求「关于置底 / 预览随主题切换并点击切换模式 / 侧栏品牌 LuzzyRP」
+#   - 预期冲突点：上游改侧栏组件（app-logo/底部簇按钮）/ 外观页预览条结构时需重打
+#
 # ============================================================
 # 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
 # ============================================================
@@ -225,7 +238,7 @@
 #    013-017 实施时自带）。verify-markers.ps1 按本登记表逐项校验。
 # 2. 实体重放：tools/patches/entities/*.patch 为「上游 1.8.9 基线 → 当前态」
 #    的逐文件完整 diff（由 rp-hub-reference 克隆生成，含全部标记），覆盖
-#    007/009/012-017；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
+#    007/009/012-019；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
 #    同步新版上游重放失败时：手工合并 → 用 rp-hub-reference 检出对应新版基线
 #    重新生成实体 → 复跑 verify-markers.ps1 全绿。
 # 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节

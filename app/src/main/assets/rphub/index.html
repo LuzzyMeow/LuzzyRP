@@ -2076,21 +2076,33 @@
                 </settings-page-header>
 
                 <div class="max-w-2xl space-y-4">
-                    <!-- 主题预览条：亮/暗色卡 + 当前字体样张（纯展示） -->
+                    <!-- [LuzzyRP patch 019] 主题预览交互化：色板随 data-theme 取色（--luzzy-prev-*，
+                         定义于 ext/luzzy-theme.css；值均为 DESIGN.md 既有 token）；
+                         luzzy 下点击卡片直接切换亮/暗模式（aria-pressed），经典主题仅亮色（无暗色模式）。
+                         [LuzzyRP patch 014] 原静态预览条位置（v1.2.0） -->
                     <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">预览</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="rounded-lg border border-gray-200 p-3 transition-all" :class="settings.theme === 'luzzy' && settings.themeMode === 'light' ? 'ring-2 ring-primary-400' : ''" style="background:#FAF9F5">
-                                <div class="text-xs font-bold mb-1.5" style="color:#3D3A36">亮色 · 暖幕手记</div>
-                                <div class="text-[11px]" style="color:#6C6A64">暖米纸面 · 珊瑚点缀</div>
-                                <div class="mt-2 h-1.5 rounded-full w-3/4" style="background:#E5B099"></div>
-                            </div>
-                            <div class="rounded-lg border border-gray-200 p-3 transition-all" :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'ring-2 ring-primary-400' : ''" style="background:#171614">
-                                <div class="text-xs font-bold mb-1.5" style="color:#FAF9F5">暗色 · 暖幕手记</div>
-                                <div class="text-[11px]" style="color:#A5A198">暖黑纸面 · 珊瑚提亮</div>
-                                <div class="mt-2 h-1.5 rounded-full w-3/4" style="background:#D97757"></div>
-                            </div>
+                        <div class="grid gap-3" :class="settings.theme === 'luzzy' ? 'grid-cols-2' : 'grid-cols-1'">
+                            <button type="button" @click="settings.themeMode = 'light'"
+                                :aria-pressed="!(settings.theme === 'luzzy' && settings.themeMode === 'dark')"
+                                class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                                :class="!(settings.theme === 'luzzy' && settings.themeMode === 'dark') ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
+                                :style="{ background: 'rgb(var(--luzzy-prev-light-bg))' }">
+                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-light-title))' }">{{ settings.theme === 'luzzy' ? '亮色 · 暖幕手记' : '亮色 · 经典' }}</div>
+                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-light-sub))' }">{{ settings.theme === 'luzzy' ? '暖米纸面 · 珊瑚点缀' : '上游原版配色' }}</div>
+                                <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-light-accent))' }"></div>
+                            </button>
+                            <button v-if="settings.theme === 'luzzy'" type="button" @click="settings.themeMode = 'dark'"
+                                :aria-pressed="settings.theme === 'luzzy' && settings.themeMode === 'dark'"
+                                class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                                :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
+                                :style="{ background: 'rgb(var(--luzzy-prev-dark-bg))' }">
+                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-dark-title))' }">暗色 · 暖幕手记</div>
+                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-dark-sub))' }">暖黑纸面 · 珊瑚提亮</div>
+                                <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-dark-accent))' }"></div>
+                            </button>
                         </div>
+                        <p v-if="settings.theme === 'luzzy'" class="mt-2.5 text-[11px] text-gray-400">点击预览卡可直接切换亮色 / 暗色模式</p>
                         <p class="mt-3 text-[11px] text-gray-400" :style="{ fontFamily: 'var(--app-font-family)' }">当前字体样张：霜降的夜里，他抬起下巴打量着来客。—— The quick brown fox 0123456789</p>
                     </div>
 

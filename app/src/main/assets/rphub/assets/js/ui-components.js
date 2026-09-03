@@ -350,9 +350,10 @@
                 <div class="h-16 flex items-center border-b border-gray-100/80 bg-white/70 backdrop-blur-xl transition-all duration-300"
                     :class="collapsed ? 'justify-center px-0' : 'justify-between px-6'">
                     <div v-show="!collapsed" class="app-logo relative inline-flex items-baseline gap-1.5 pr-1 min-w-0">
-                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.08em] leading-none">RP</span>
-                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.18em] leading-none">HUB</span>
-                        <span class="absolute -bottom-1 left-0 h-[2px] w-11 rounded-full bg-primary-500/60"></span>
+                        <!-- [LuzzyRP patch 019] 侧栏品牌字样：RP HUB → LuzzyRP（Luzzy 主字 + RP 品牌色，与开屏字标同构） -->
+                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.02em] leading-none">Luzzy</span>
+                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.08em] leading-none">RP</span>
+                        <span class="absolute -bottom-1 left-0 h-[2px] w-14 rounded-full bg-primary-500/60"></span>
                     </div>
                     <button @click="$emit('update:collapsed', !collapsed)"
                         :class="['hidden md:flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200/80 rounded-xl text-gray-500 hover:text-primary-600 transition-all shadow-sm active:scale-95', collapsed ? 'w-12 h-12 p-0' : 'p-2']"
@@ -439,23 +440,24 @@
                         </div>
                     </div>
 
-                    <!-- [LuzzyRP patch 014] 侧栏底部簇重排：外观/关于改为独立视图（selectView 带激活态），设置置底 -->
+                    <!-- [LuzzyRP patch 014] 侧栏底部簇：外观/关于改为独立视图（selectView 带激活态）；
+                         [LuzzyRP patch 019] 顺序调整：外观 → 设置 → 关于（关于置底） -->
                     <button @click="selectView('appearance')" title="外观"
                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('appearance'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
                     </button>
 
-                    <button @click="selectView('about')" title="关于"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
-                    </button>
-
                     <button @click="selectView('settings')" title="设置"
                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
+                    </button>
+
+                    <button @click="selectView('about')" title="关于"
+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
                     </button>
                 </div>
 

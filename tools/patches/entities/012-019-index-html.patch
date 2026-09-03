@@ -1,5 +1,5 @@
 diff --git a/rp-hub-reference/index.html b/app/src/main/assets/rphub/index.html
-index b290e220..f1b28197 100644
+index b290e220..2ae9888f 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -284,7 +284,7 @@ index b290e220..f1b28197 100644
                                  </div>
                              </div>
  
-@@ -2003,6 +2065,101 @@
+@@ -2003,6 +2065,113 @@
                  </div>
              </div>
  
@@ -299,21 +299,33 @@ index b290e220..f1b28197 100644
 +                </settings-page-header>
 +
 +                <div class="max-w-2xl space-y-4">
-+                    <!-- 主题预览条：亮/暗色卡 + 当前字体样张（纯展示） -->
++                    <!-- [LuzzyRP patch 019] 主题预览交互化：色板随 data-theme 取色（--luzzy-prev-*，
++                         定义于 ext/luzzy-theme.css；值均为 DESIGN.md 既有 token）；
++                         luzzy 下点击卡片直接切换亮/暗模式（aria-pressed），经典主题仅亮色（无暗色模式）。
++                         [LuzzyRP patch 014] 原静态预览条位置（v1.2.0） -->
 +                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
 +                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">预览</label>
-+                        <div class="grid grid-cols-2 gap-3">
-+                            <div class="rounded-lg border border-gray-200 p-3 transition-all" :class="settings.theme === 'luzzy' && settings.themeMode === 'light' ? 'ring-2 ring-primary-400' : ''" style="background:#FAF9F5">
-+                                <div class="text-xs font-bold mb-1.5" style="color:#3D3A36">亮色 · 暖幕手记</div>
-+                                <div class="text-[11px]" style="color:#6C6A64">暖米纸面 · 珊瑚点缀</div>
-+                                <div class="mt-2 h-1.5 rounded-full w-3/4" style="background:#E5B099"></div>
-+                            </div>
-+                            <div class="rounded-lg border border-gray-200 p-3 transition-all" :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'ring-2 ring-primary-400' : ''" style="background:#171614">
-+                                <div class="text-xs font-bold mb-1.5" style="color:#FAF9F5">暗色 · 暖幕手记</div>
-+                                <div class="text-[11px]" style="color:#A5A198">暖黑纸面 · 珊瑚提亮</div>
-+                                <div class="mt-2 h-1.5 rounded-full w-3/4" style="background:#D97757"></div>
-+                            </div>
++                        <div class="grid gap-3" :class="settings.theme === 'luzzy' ? 'grid-cols-2' : 'grid-cols-1'">
++                            <button type="button" @click="settings.themeMode = 'light'"
++                                :aria-pressed="!(settings.theme === 'luzzy' && settings.themeMode === 'dark')"
++                                class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
++                                :class="!(settings.theme === 'luzzy' && settings.themeMode === 'dark') ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
++                                :style="{ background: 'rgb(var(--luzzy-prev-light-bg))' }">
++                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-light-title))' }">{{ settings.theme === 'luzzy' ? '亮色 · 暖幕手记' : '亮色 · 经典' }}</div>
++                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-light-sub))' }">{{ settings.theme === 'luzzy' ? '暖米纸面 · 珊瑚点缀' : '上游原版配色' }}</div>
++                                <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-light-accent))' }"></div>
++                            </button>
++                            <button v-if="settings.theme === 'luzzy'" type="button" @click="settings.themeMode = 'dark'"
++                                :aria-pressed="settings.theme === 'luzzy' && settings.themeMode === 'dark'"
++                                class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
++                                :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
++                                :style="{ background: 'rgb(var(--luzzy-prev-dark-bg))' }">
++                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-dark-title))' }">暗色 · 暖幕手记</div>
++                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-dark-sub))' }">暖黑纸面 · 珊瑚提亮</div>
++                                <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-dark-accent))' }"></div>
++                            </button>
 +                        </div>
++                        <p v-if="settings.theme === 'luzzy'" class="mt-2.5 text-[11px] text-gray-400">点击预览卡可直接切换亮色 / 暗色模式</p>
 +                        <p class="mt-3 text-[11px] text-gray-400" :style="{ fontFamily: 'var(--app-font-family)' }">当前字体样张：霜降的夜里，他抬起下巴打量着来客。—— The quick brown fox 0123456789</p>
 +                    </div>
 +
@@ -386,7 +398,7 @@ index b290e220..f1b28197 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2229,7 @@
+@@ -2072,6 +2241,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -394,7 +406,7 @@ index b290e220..f1b28197 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2413,7 @@
+@@ -2255,6 +2425,7 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -402,7 +414,7 @@ index b290e220..f1b28197 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2573,7 @@
+@@ -2414,7 +2585,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -411,7 +423,7 @@ index b290e220..f1b28197 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2605,7 @@
+@@ -2446,7 +2617,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -420,7 +432,7 @@ index b290e220..f1b28197 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2801,141 @@
+@@ -2642,6 +2813,141 @@
                          </div>
                      </div>
                  </div>
@@ -562,7 +574,7 @@ index b290e220..f1b28197 100644
  
              </div>
  
-@@ -2786,11 +3080,295 @@
+@@ -2786,11 +3092,295 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -858,7 +870,7 @@ index b290e220..f1b28197 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3451,13 @@
+@@ -2873,6 +3463,13 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

@@ -73,6 +73,8 @@ $Manifest = @(
     @{ Id = '018-no-flash';           File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 018]';                   Min = 1 },
     @{ Id = '018-theme-css-head';     File = 'index.html';                       Mode = 'contains';     Needle = 'luzzy-theme.css?v=';                    Min = 1 },
     @{ Id = '018-ext-snapshot';       File = '../ext/luzzy-ext.js';              Mode = 'contains';     Needle = 'luzzy_theme_snapshot';                  Min = 1 },
+    @{ Id = '019-drawer-ui';          File = 'assets/js/ui-components.js';       Mode = 'contains';     Needle = '[LuzzyRP patch 019]';                   Min = 2 },
+    @{ Id = '019-preview-index';      File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 019]';                   Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' }
 )

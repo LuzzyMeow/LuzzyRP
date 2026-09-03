@@ -713,7 +713,7 @@ const app = createApp({
                     upstreamVersionLabel.value = info && info.upstreamVersion ? info.upstreamVersion : '';
                 }
             } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
-            if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.0';
+            if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.1';
             if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.8.9';
         };
         const openGitHubRepo = () => {

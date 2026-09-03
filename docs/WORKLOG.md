@@ -1036,3 +1036,49 @@ CHANGELOG v1.2.1 并入 019 条目（标题改「侧栏品牌化 × 主题预览
 （versionCode 仍 8，可直接覆盖安装）；桌面两份 APK 已刷新为修复后构建；
 GitHub Release v1.2.1 三件套已 clobber 替换。设计条款豁免说明：用户明确指定
 恢复透明（缺陷修复式资源呈现修正，非新视觉设计），4 项设计 SKILL 本会话已读。
+
+---
+
+### 会话 17 · 文档状态回写 + 发布卫生 + 工作区整洁（2026-09-03）
+
+**任务（用户决策：方案一+二+三 / 彻底删除 / 补打 r2 tag）**：①文档状态同步；②发布卫生
+（补 tags + v1.2.1-r2）；③工作区整洁（冗余目录彻底删除）。方案四技术债后置排期。
+
+**完成**
+1. **文档回写（硬性规定 5）**：README 状态徽章（开发中·不可游玩 → 正式版·可游玩，10B981）、
+   版本规划表 v1.2.1 行改「✅ 已发布，附 APK」、「9 条」→「10 条」两处 + 规定 10 补入枚举；
+   AGENTS §1.1/§3.1（9→10 条）、§1.5（PLAN 指针 → PLAN-v1.2.1）、§9 快照陈旧值修正
+   （verify-markers 39→41 项、entities 012-018→012-019、EXTRACT 14→15、真机已复验、
+   遗留待办复核重排：清除已完成项，补记图标复装确认/检索失败 toast/上游同步演练）；
+   HARD_REQUIREMENTS 规定 2 守护落点 001-005→001-019（按 AGENTS §1.1 于 CHANGELOG 声明）。
+2. **发布卫生**：`git fetch origin --tags` 补齐本地 v1.0.0~v1.2.1 tags（此前本地只有 v0.x）；
+   新打轻量 tag `v1.2.1-r2` → 7976aba0（Release APK 实际构建点；原 v1.2.1 tag 指向
+   b1c74c53，与 clobber 替换后的分发产物存在漂移，用户选定补 r2 方案）。
+3. **工作区整洁（硬性规定 7，用户选「彻底删除」）**：`git rm` 约 1.246 万入库文件——
+   docs/game-icon-pack(9780)/lobe-ui-master(1556)/rikkahub-master(992)/AlibabaPuHuiTi-3(50)/
+   AlibabaSans(30)/D&D 5e SRD(21)/task(16)/brand-logos(5)/trpg标准世界卡(2)/audit(1)/
+   AGENT-GUIDE/INVARIANTS-CHECKLIST/PLAN-v0.1.0；另发现并移除
+   `app/src/main/assets/CHANGELOG.md`（v0.2.0 时代残留 77 行，git grep 证实零代码引用）。
+   .gitignore 增 14 条防回流规则。保留：docs/skills（随仓库分发既定决策）、docs/design、
+   PLAN-v1.x、WORKLOG。清理后 docs 入库从约 2.67 万文件降至约 1.43 万（本次移除 ≈1.24 万）。
+   删除前全库引用扫描：AlibabaSans/PuHuiTi 匹配均为字体名而非目录引用。
+4. **CHANGELOG v1.2.1 注意事项补 2 条**（文档回写声明 + 清理声明）；gen-changelog.mjs 重跑
+   （luzzy-changelog.js 21602 chars——本会话不出包，下次发版随 versionCode/EXTRACT bump
+   生效到设备）。
+5. **门禁**：verify-markers.ps1 复跑 **41 PASS / 0 FAIL**（清理不触及 rphub/）。
+
+**决策**
+- 冗余处置=彻底删除（用户选择；不走本地 archive）。删除后 docs 入库从约 26.7k 文件
+  降至约 14.3k，其中 14.27k 为 skills/design/PLAN/WORKLOG 项目文件，仓库显著瘦身；
+- v1.2.1-r2 采用轻量 tag（与既有 tag 风格一致，for-each-ref 实测均为 commit 直指类型）；
+- 上游新版复核未完成（GitHub fetch 网络重置，本地基线 b409ca6 暂无新提交记录）——
+  列入遗留待办「上游同步演练」。
+
+**遗留/下一步**
+1. 方案四技术债（用户排期后置）：toggle 蓝主题化（先走硬性规定 9 设计合规链，建议 v1.2.2）、
+   向量检索失败 toast 外化（候选 patch 020）、classic 总结管理器显示、图标复装确认；
+2. 网络可用时跑上游同步演练（sync-upstream.ps1 假发版模拟）；
+3. 推送本会话两个提交 + v1.2.1-r2 tag。
+
+**现场**：仓库零未登记上游改动（verify-markers 41 绿）；删除已 staged；
+EXTRACT_VERSION 本会话未 bump（不出包，无设备安装；下次发版照常 bump）。

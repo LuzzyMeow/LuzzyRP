@@ -51,3 +51,19 @@ docs/design/boards-v2/fonts/
 
 # ZCode 会话本地数据（计划/缓存等，仅本机）
 .zcode/
+
+# 旧工程遗物与大型参考资料（2026-09-03 会话 17 清理，硬性规定 7；防回流）
+docs/game-icon-pack/
+docs/lobe-ui-master/
+docs/rikkahub-master/
+docs/AlibabaPuHuiTi-3/
+docs/AlibabaSans/
+docs/D&D 5e SRD 5.2.1/
+docs/task/
+docs/trpg标准世界卡/
+docs/brand-logos/
+docs/audit/
+docs/AGENT-GUIDE.md
+docs/INVARIANTS-CHECKLIST.md
+docs/PLAN-v0.1.0.md
+app/src/main/assets/CHANGELOG.md

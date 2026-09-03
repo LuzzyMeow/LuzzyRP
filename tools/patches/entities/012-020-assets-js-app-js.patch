@@ -1,5 +1,5 @@
 diff --git a/rp-hub-reference/assets/js/app.js b/app/src/main/assets/rphub/assets/js/app.js
-index f73b1ddd..0a02f324 100644
+index f73b1ddd..0650f499 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -225,6 +225,15 @@ const app = createApp({
@@ -1577,7 +1577,7 @@ index f73b1ddd..0a02f324 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6184,9 +7118,22 @@ const app = createApp({
+@@ -6184,9 +7118,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -1595,6 +1595,14 @@ index f73b1ddd..0a02f324 100644
 +                        scoredMemories.push(...await scoreVectorMemories(bucketMemories, queryVector, queryTerms, signal));
 +                    } catch (err) {
 +                        if (err.name === 'AbortError') throw err;
++                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
++                        try {
++                            const luzzyToastNow = Date.now();
++                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
++                                window.__luzzyVectorToastAt = luzzyToastNow;
++                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
++                            }
++                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
 +                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
 +                    }
 +                }
@@ -1603,7 +1611,7 @@ index f73b1ddd..0a02f324 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6241,21 +7188,35 @@ const app = createApp({
+@@ -6241,21 +7196,43 @@ const app = createApp({
              );
  
              try {
@@ -1641,13 +1649,21 @@ index f73b1ddd..0a02f324 100644
 +                        }
 +                    } catch (err) {
 +                        if (err.name === 'AbortError') throw err;
++                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
++                        try {
++                            const luzzyToastNow = Date.now();
++                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
++                                window.__luzzyVectorToastAt = luzzyToastNow;
++                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
++                            }
++                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
 +                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
                      }
 -                    if (i > 0 && i % 512 === 0) await yieldToBrowser();
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6301,6 +7262,264 @@ const app = createApp({
+@@ -6301,6 +7278,264 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -1912,7 +1928,7 @@ index f73b1ddd..0a02f324 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -8097,7 +9316,10 @@ const app = createApp({
+@@ -8097,7 +9332,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -1924,7 +1940,7 @@ index f73b1ddd..0a02f324 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: '/image###([^\\r\\n]*?)(?:###|(?=\\r?\\n)|$)/g',
-@@ -9393,7 +10615,11 @@ const app = createApp({
+@@ -9393,7 +10631,11 @@ const app = createApp({
              }
  
              if (settings.autoFetchModels) {
@@ -1937,7 +1953,7 @@ index f73b1ddd..0a02f324 100644
              }
  
              // Initial Status Check
-@@ -9632,6 +10858,7 @@ const app = createApp({
+@@ -9632,6 +10874,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -1945,7 +1961,7 @@ index f73b1ddd..0a02f324 100644
              showActiveToolEditor,
              showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9653,8 +10880,10 @@ const app = createApp({
+@@ -9653,8 +10896,10 @@ const app = createApp({
              showCharacterExportModal, openCharacterExportModal, confirmCharacterExport, // Character Export Modal
              updateModalRef, latestUpdateConfig,
              showConfirmModal, confirmMessage, modelMode, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
@@ -1958,7 +1974,7 @@ index f73b1ddd..0a02f324 100644
              activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
              getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
              isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,
-@@ -9676,6 +10905,14 @@ const app = createApp({
+@@ -9676,6 +10921,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,

@@ -52,6 +52,10 @@
 #   - 对应：DESIGN.md 主题技术契约；变量定义在 ext/luzzy-theme.css（classic=原版值兜底）
 #   - v3 动因：v2 纯 var() 下带透明度修饰符的工具类（bg-gray-50/60 等）被 JIT 回退纯白（暗色白块根因）；三元组 + <alpha-value> 使 alpha 由 JIT 自动注入
 #   - 预期冲突点：上游改色板结构/新增色阶时需重打
+#   - v4（2026-09-03，v1.2.2）：blue/indigo 色板同机制 var() 化——上游遗留
+#     blue-*/indigo-* 工具类（41+8 处，toggle 选中态/叙事视角等）在 luzzy 主题下
+#     收编为品牌珊瑚（luzzy-theme.css --tw-blue-*/--tw-indigo-* 与 primary 同值），
+#     classic = Tailwind 原值零影响；violet-* 保留为协议徽标功能区分色（v1.2.0 备案）
 #
 # 009-font-options.patch（v2，2026-09-01 重做）
 #   - core-utils.js fontFamilies: 内置三项改「经典」系标签 + 新增 luzzy（Luzzy 默认）
@@ -230,6 +234,14 @@
 #   - 对应：用户需求「关于置底 / 预览随主题切换并点击切换模式 / 侧栏品牌 LuzzyRP」
 #   - 预期冲突点：上游改侧栏组件（app-logo/底部簇按钮）/ 外观页预览条结构时需重打
 #
+# 020-vector-toast.patch（2026-09-03，v1.2.2 向量检索失败外化）
+#   - app.js: 两处向量分桶检索 catch（注入检索 / 手动检索）在 console.warn 外增加
+#     节流 toast（window.__luzzyVectorToastAt 30s 全局节流防离线刷屏；showToast
+#     不可用时 try/catch 降级为仅 console.warn——扩展层不影响主流程）
+#   - 对应：会话 13 排查结论②——分桶检索失败此前仅 console.warn 用户不可见
+#     （分片记录的嵌入商/模型与当前配置对不上时整桶静默跳过）
+#   - 预期冲突点：上游重构记忆检索管线（buildVectorMemoryBuckets/分桶循环）时需重打
+#
 # ============================================================
 # 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
 # ============================================================
@@ -238,7 +250,7 @@
 #    013-017 实施时自带）。verify-markers.ps1 按本登记表逐项校验。
 # 2. 实体重放：tools/patches/entities/*.patch 为「上游 1.8.9 基线 → 当前态」
 #    的逐文件完整 diff（由 rp-hub-reference 克隆生成，含全部标记），覆盖
-#    007/009/012-019；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
+#    007/009/012-020；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
 #    同步新版上游重放失败时：手工合并 → 用 rp-hub-reference 检出对应新版基线
 #    重新生成实体 → 复跑 verify-markers.ps1 全绿。
 # 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节

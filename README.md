@@ -220,7 +220,7 @@ LuzzyRP/
 │   ├── sync-upstream.ps1         # 上游同步脚本
 │   ├── apply-patches.ps1         # patch 重放脚本
 │   ├── gen-changelog.mjs         # 关于页 CHANGELOG 生成脚本（发版后运行）
-│   ├── patches/                  # 二创登记 patch（001-019，entities/ 为 012+ 实体重放）
+│   ├── patches/                  # 二创登记 patch（001-020，entities/ 为 012+ 实体重放）
 │   └── upstream-fingerprints.txt # 上游文件指纹基线
 ├── docs/                         # 规划 / 日志 / 设计存档 / 归档
 ├── keystore/                     # 签名（不入库）
@@ -253,6 +253,7 @@ LuzzyRP/
 | v1.1.0 | 扩展功能第一批：多模型商混用（供应商管理器 / `[商名]` 来源徽标 / 跨商请求解析 / 记忆双模式跨商）+ 思考卡全卡雾纸玻璃 + 外观独立面板（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.2.0 | 玻璃补全 + 独立页 + 三协议：聊天页统一雾纸玻璃（气泡/loading/思考卡/工具条）+ 外观/关于独立页（应用内 CHANGELOG）+ 供应商三协议（OpenAI/Anthropic/Gemini）+ 模型管理编辑器（热检测预设/引用重映射/热更新）+ 自定义生图模型（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.2.1 | 召回块防合并修复 + 记忆内容管理器 + 品牌色收编蓝色（开屏/设置横幅）+ 上游标记体系（硬性规定 10 / 实体重放 / verify-markers）+ 侧栏品牌化/预览交互化 + 应用图标粉底修复（✅ 已发布，附 APK） | ✓（稳定版） |
+| v1.2.2 | toggle/叙事视角上游蓝主题化（patch 008 v4 色板收编：luzzy=珊瑚、classic=原值）+ 向量检索失败 toast 外化（patch 020）（🚧 开发中，见 WORKLOG） | — |
 | v1.3.0+ | 跟随上游节奏迭代 + 独立功能持续扩展（候选遗留：「荧光笔落笔」招牌动效、深链、自建更新检查、Gemini/Anthropic 图像模型接生图流） | 按稳定版 |
 
 版本号独立于上游（LuzzyRP v1.0.0 基于 RP-Hub 1.8.9），CHANGELOG 每条记录注明上游基线版本。

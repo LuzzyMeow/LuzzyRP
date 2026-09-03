@@ -72,7 +72,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
 | `tools/sync-upstream.ps1` | 上游同步脚本 | fetch → 覆盖 → patch 重放 → 报告 |
-| `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-019 实体 patch（`patches/entities/`，指纹基线判定） |
+| `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-020 实体 patch（`patches/entities/`，指纹基线判定） |
 | `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行） |
@@ -193,7 +193,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-019，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-020，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -204,7 +204,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 005 | index.html 尾部 | 挂载扩展层 3 文件（014 另行挂载 luzzy-changelog.js） |
 | 006 | index.html head 字体 | Google Fonts Lora → 本地 local-fonts.css |
 | 007 | character/novel 子页面 | CDN 本地化 |
-| 008 | index.html tailwind.config | 色板 → `rgb(var(--tw-*) / <alpha-value>)`（主题底座，v3） |
+| 008 | index.html tailwind.config | 色板 → `rgb(var(--tw-*) / <alpha-value>)`（主题底座；v3=gray/primary，v4=+blue/indigo 收编） |
 | 009 | core-utils.js fontFamilies | 内置改「经典」系命名 + 新增 luzzy 默认 |
 | 010 | app.js 默认值/白名单 | 默认 fontFamily 'luzzy' + normalize 白名单 |
 | 011 | index.html + app.js | 设置页主题卡（主题/模式/字体）+ theme 字段 + watch + 老用户迁移 |
@@ -216,6 +216,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 017 | app.js + index.html | 记忆内容管理器（角色/分支选择器跨角色查看分片与总结；编辑=强制重嵌成功才落盘/启停/删除/清空；v1.2.1） |
 | 018 | index.html head + ext/luzzy-ext.js | 开屏主题防闪蓝（head 内联脚本按 localStorage 快照写 data-theme/data-mode + luzzy-theme.css 由尾部 link 移入 head 首帧注入；快照由 luzzy-ext.js MutationObserver 维护；v1.2.1） |
 | 019 | ui-components.js + index.html + ext/luzzy-theme.css | 侧栏品牌字样 LuzzyRP + 底部簇外观→设置→关于（关于置底）+ 外观页主题预览交互化（色板随 data-theme 取色 --luzzy-prev-*，luzzy 下点击卡片直接切亮/暗模式；v1.2.1） |
+| 020 | app.js | 向量分桶检索失败 toast 外化（注入检索/手动检索两处 catch，30s 全局节流，showToast 降级兜底；v1.2.2） |
 
 **新增 patch 的规则**：
 
@@ -323,19 +324,22 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-03 会话 17 快照 · v1.2.1 已发布）
+## 9. 当前状态与已知问题（2026-09-03 会话 18 快照 · v1.2.1 已发布 / v1.2.2 开发中）
 
 > **v1.2.1 布局异常已修复并经模拟器验证**（会话 15）。真根因与「会话 14 移交」的
 > 「缺 2 个 `</div>`」假设不同：为 patch 018 head 注入丢失 `<script>` 开标签。
 > 完整过程见 `docs/WORKLOG.md` 会话 15/16；计划文档 `docs/PLAN-v1.2.1.md`。v1.2.1 已发布（GitHub Release v1.2.1 附 APK）。本节取代会话 15 快照。
 
-### 版本状态（2026-09-03 · 会话 17 复核）
+### 版本状态（2026-09-03 · 会话 18 复核）
 
 - **v1.2.1（versionCode 8 / EXTRACT_VERSION 15）已发布**（2026-09-03，Release v1.2.1 附三件套 APK；会话 16 补入 patch 019 侧栏品牌化/导航顺序/预览交互化，双端验证通过）：
   ① patch 016 召回块防合并；② patch 017 记忆内容管理器；③ 品牌色收编；
   ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
-  （verify-markers.ps1 41 项全绿；entities/012-019-*.patch 正/反向 apply 双 PASS）；
+  （verify-markers.ps1 43 项全绿；entities/012-020-*.patch 正/反向 apply 双 PASS）；
   ⑥ 应用图标粉底修复（自适应背景改全透明，Release APK 已 clobber 替换，versionCode 不变）。
+- **v1.2.2 开发中**（会话 18）：patch 008 v4（blue/indigo 色板收编——上游 toggle 蓝/
+  叙事视角等遗留蓝在 luzzy 主题下随主题变珊瑚）+ patch 020（向量检索失败 toast 外化）；
+  EXTRACT_VERSION 16；未发版（versionCode 仍 8）。
 - **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
 - 结构验证方法（可复用）：parse5（浏览器同源解析器）对 v1.2.0 基线做树级对比，
   9 个 `.management-view` 结构 = 基线 + 预期插入；body 直接子级一致。
@@ -345,18 +349,17 @@ Luzzy.copyToClipboard = function (text) {
   启停 ✓、删除+确认 ✓、统计即时联动 ✓、杀进程重启持久化 ✓。
 - **真机（小米 df97f3c4）已复验**（会话 16，release 包 arm64：patch 019 品牌字样/导航/预览交互/持久化全流程通过）；图标透明底修复待用户复装确认。
 
-### 遗留待办（按优先级 · 会话 17 复核）
+### 遗留待办（按优先级 · 会话 18 复核）
 
 1. 图标透明底修复真机复装确认（MIUI 若仍异常 → 后备方案：以 luzzy_logo.png 原作为源机械派生透明版 mipmap PNG，需用户确认后做）；
-2. 上游 toggle 蓝（peer-checked:bg-blue-*）主题化（v1.2.0 起顺延，设置页叙事视角选中态仍为蓝；实施前按硬性规定 9 复读 4 项设计 SKILL）；
-3. 向量分桶检索失败 toast 外化（会话 13 结论②，候选 patch 020）；
-4. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-5. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
-6. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
+2. v1.2.2 收尾：发布流程（versionCode 9 / assembleRelease / 模拟器+真机走查 toggle 珊瑚化与检索失败 toast / CHANGELOG 去「开发中」/ GitHub Release）；
+3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
+4. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
+5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 15；改前先确认当前值）；
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 16；改前先确认当前值）；
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
   git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
   要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；
@@ -376,9 +379,9 @@ Luzzy.copyToClipboard = function (text) {
 - **patch 018 起 head 内联脚本先按 localStorage 快照（luzzy-ext.js MutationObserver 维护）
   设置双属性，luzzy-theme.css 已移入 head（document.write 注入，块内必须自带 `<script>`
   开标签）**——开屏首帧即正确主题色；
-- 变量：luzzy-theme.css 定义 `--tw-gray-*` / `--tw-primary-*` 为 RGB 三元组
-  （classic=上游原值，luzzy 亮/暗两套）；引用走 patch 008 色板
-  `rgb(var(--tw-*) / <alpha-value>)`；
+- 变量：luzzy-theme.css 定义 `--tw-gray-*` / `--tw-primary-*` / `--tw-blue-*` /
+  `--tw-indigo-*` 为 RGB 三元组（classic=上游原值，luzzy 亮/暗两套，blue/indigo=primary
+  同值即收编）；引用走 patch 008 v4 色板 `rgb(var(--tw-*) / <alpha-value>)`；
 - 统一雾纸玻璃：`--luzzy-glass-alpha` 0.74 / `--luzzy-glass-blur` 18px 单点变量；
 - 品牌色规则（DESIGN.md Colors 章）：禁新增裸 blue/indigo/violet 色相类；
   上游遗留蓝由 luzzy-theme.css 在 `:root[data-theme="luzzy"]` 内收编（classic 零影响）。

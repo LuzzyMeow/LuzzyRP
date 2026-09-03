@@ -4,6 +4,26 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v1.2.2 — toggle 蓝主题化（patch 008 v4）× 检索失败外化（patch 020）（上游基线 RP-Hub 1.8.9）
+
+> **状态：开发中（未发布）。**
+
+**新增**
+- **上游遗留蓝主题化（patch 008 v4）**：tailwind.config blue/indigo 色板接入
+  `rgb(var(--tw-*) / <alpha-value>)`——luzzy 主题下全部上游遗留 blue-*/indigo-* 工具类
+  （toggle 选中态、设置页叙事视角等 41+8 处）随主题收编为品牌珊瑚陶土色（与 primary
+  同值）；classic 主题 = Tailwind 原值零影响；violet 徽标保留为协议功能区分色
+  （v1.2.0 critique 备案）。DESIGN.md「Do's & Don'ts」收编清单与技术契约同步。
+- **向量检索失败外化（patch 020）**：向量分桶检索失败（分片嵌入商/模型与当前配置
+  对不上导致整桶跳过等场景）由仅 console.warn 改为 toast 提示（注入检索与手动检索
+  两处 catch；30s 全局节流防离线刷屏；showToast 不可用时 try/catch 自动降级）。
+
+**注意事项**
+- EXTRACT_VERSION 15→16，安装即自动重新解压资产。
+- 本版实施前按硬性规定 9 复读 4 项设计 SKILL；视觉方向=「品牌色收编」（v1.2.1 已选定
+  方向）的延续迭代，豁免三方向门（豁免理由落档 WORKLOG 会话 18）。
+- 视觉验证（toggle 变珊瑚 / classic 对照原蓝）待模拟器/真机走查后转正式版。
+
 ### v1.2.1 — 侧栏品牌化 × 主题预览交互化 × 记忆链路修复与内容管理器 × 品牌色收编 × 上游标记体系（上游基线 RP-Hub 1.8.9）
 
 > **状态：已发布（GitHub Release v1.2.1 附 APK，versionCode 8）。**

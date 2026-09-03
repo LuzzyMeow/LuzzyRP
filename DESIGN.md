@@ -247,14 +247,19 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   类名，classic 保持原样），收编清单：styles.css 开屏 `.entry-transition` 家族 7 处
   （背景渐变蓝晕 / sheen / 底盘阴影 / `.entry-logo-hub` 字标与渐变 / 下划线条 /
   `.embedded-loading-spinner`）+ index.html 设置页两处渐变横幅
-  （用户设置 `from-blue-500 to-indigo-600`、高级设置 `from-indigo-600 to-violet-700`）。
+  （用户设置 `from-blue-500 to-indigo-600`、高级设置 `from-indigo-600 to-violet-700`）
+  + **色板级收编（patch 008 v4，v1.2.2）**：tailwind.config blue/indigo 色板接入
+  `rgb(var(--tw-*) / <alpha-value>)`，luzzy 主题下 `--tw-blue-*`/`--tw-indigo-*` 与
+  primary 同值（toggle 选中态/叙事视角等 41+8 处上游遗留蓝全部随主题变珊瑚）；
+  violet-* 保留为协议徽标功能区分色（v1.2.0 critique 备案例外）。
 
 ## 主题系统技术契约
 
 - 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性于 `<html>`（app.js
   settings.theme/themeMode watch 设置，immediate）；
-- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*` 为 **RGB 三元组**
-  （classic=上游 hex 值三元组，luzzy=上表 token），patch 008v3 将 tailwind.config 色板指向
+- 变量：`luzzy-theme.css` 定义 `--tw-gray-*` / `--tw-primary-*` / `--tw-blue-*` /
+  `--tw-indigo-*` 为 **RGB 三元组**（classic=上游 hex 值三元组，luzzy=上表 token），
+  patch 008 v4 将 tailwind.config gray/primary/blue/indigo 色板指向
   `rgb(var(--tw-*) / <alpha-value>)`——**透明度修饰符（bg-gray-50/60 等）由 JIT 自动注入
   alpha**。v2 纯 `var()` 方案的缺陷：带 alpha 的工具类被 JIT 回退成纯白（暗色白块根因，
   jsdom + CDP 双实证），禁止回退；

@@ -1,5 +1,5 @@
 diff --git a/rp-hub-reference/index.html b/app/src/main/assets/rphub/index.html
-index b290e220..2ae9888f 100644
+index b290e220..cfe2b45f 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -32,11 +32,11 @@ index b290e220..2ae9888f 100644
 +    <script src="vendor/purify.min.js"></script>
 +    <script src="vendor/Sortable.min.js"></script>
      <script>
-+<!-- [LuzzyRP patch 008] 色板 var() 化 v3：rgb(var(--tw-*) / <alpha-value>)，变量由 ext/luzzy-theme.css 提供 -->
++<!-- [LuzzyRP patch 008] 色板 var() 化 v4：gray/primary/blue/indigo → rgb(var(--tw-*) / <alpha-value>)，变量由 ext/luzzy-theme.css 提供 -->
          tailwind.config = {
              theme: {
                  extend: {
-@@ -27,28 +31,28 @@
+@@ -27,28 +31,52 @@
                      },
                      colors: {
                          gray: {
@@ -82,10 +82,34 @@ index b290e220..2ae9888f 100644
 +                            700: 'rgb(var(--tw-primary-700) / <alpha-value>)',
 +                            800: 'rgb(var(--tw-primary-800) / <alpha-value>)',
 +                            900: 'rgb(var(--tw-primary-900) / <alpha-value>)',
++                        },
++                        blue: {
++                            50: 'rgb(var(--tw-blue-50) / <alpha-value>)',
++                            100: 'rgb(var(--tw-blue-100) / <alpha-value>)',
++                            200: 'rgb(var(--tw-blue-200) / <alpha-value>)',
++                            300: 'rgb(var(--tw-blue-300) / <alpha-value>)',
++                            400: 'rgb(var(--tw-blue-400) / <alpha-value>)',
++                            500: 'rgb(var(--tw-blue-500) / <alpha-value>)',
++                            600: 'rgb(var(--tw-blue-600) / <alpha-value>)',
++                            700: 'rgb(var(--tw-blue-700) / <alpha-value>)',
++                            800: 'rgb(var(--tw-blue-800) / <alpha-value>)',
++                            900: 'rgb(var(--tw-blue-900) / <alpha-value>)',
++                        },
++                        indigo: {
++                            50: 'rgb(var(--tw-indigo-50) / <alpha-value>)',
++                            100: 'rgb(var(--tw-indigo-100) / <alpha-value>)',
++                            200: 'rgb(var(--tw-indigo-200) / <alpha-value>)',
++                            300: 'rgb(var(--tw-indigo-300) / <alpha-value>)',
++                            400: 'rgb(var(--tw-indigo-400) / <alpha-value>)',
++                            500: 'rgb(var(--tw-indigo-500) / <alpha-value>)',
++                            600: 'rgb(var(--tw-indigo-600) / <alpha-value>)',
++                            700: 'rgb(var(--tw-indigo-700) / <alpha-value>)',
++                            800: 'rgb(var(--tw-indigo-800) / <alpha-value>)',
++                            900: 'rgb(var(--tw-indigo-900) / <alpha-value>)',
                          }
                      },
                      animation: {
-@@ -85,6 +89,20 @@
+@@ -85,6 +113,20 @@
      <script>
          document.write('<link rel="stylesheet" href="assets/css/styles.css?v=' + new Date().getTime() + '">');
      </script>
@@ -106,7 +130,7 @@ index b290e220..2ae9888f 100644
  </head>
  <body class="bg-gray-50 text-gray-900 font-sans selection:bg-primary-200 selection:text-primary-900">
      <svg aria-hidden="true" style="display: none">
-@@ -122,8 +140,9 @@
+@@ -122,8 +164,9 @@
      <div class="entry-transition" aria-hidden="true">
          <div class="entry-transition-brand">
              <div class="entry-transition-logo">
@@ -118,7 +142,7 @@ index b290e220..2ae9888f 100644
                  <i></i>
              </div>
          </div>
-@@ -957,7 +976,7 @@
+@@ -957,7 +1000,7 @@
                                                          :disabled="!slot.model"
                                                          :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                          <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
@@ -127,7 +151,7 @@ index b290e220..2ae9888f 100644
                                                      </button>
                                                  </div>
                                                  <div class="border-t border-gray-100 pt-4 space-y-5">
-@@ -1635,7 +1654,7 @@
+@@ -1635,7 +1678,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -136,7 +160,7 @@ index b290e220..2ae9888f 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1650,7 +1669,7 @@
+@@ -1650,7 +1693,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -145,7 +169,7 @@ index b290e220..2ae9888f 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1659,9 +1678,29 @@
+@@ -1659,9 +1702,29 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -176,7 +200,7 @@ index b290e220..2ae9888f 100644
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1732,7 +1771,7 @@
+@@ -1732,7 +1795,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -185,7 +209,7 @@ index b290e220..2ae9888f 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1775,6 +1814,19 @@
+@@ -1775,6 +1838,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -205,7 +229,7 @@ index b290e220..2ae9888f 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1786,7 +1838,7 @@
+@@ -1786,7 +1862,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -214,7 +238,7 @@ index b290e220..2ae9888f 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1795,9 +1847,23 @@
+@@ -1795,9 +1871,23 @@
                                              </custom-select>
                                          </div>
  
@@ -240,7 +264,7 @@ index b290e220..2ae9888f 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1910,27 +1976,23 @@
+@@ -1910,27 +2000,23 @@
                                      高级参数
                                  </h4>
                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -284,7 +308,7 @@ index b290e220..2ae9888f 100644
                                  </div>
                              </div>
  
-@@ -2003,6 +2065,113 @@
+@@ -2003,6 +2089,113 @@
                  </div>
              </div>
  
@@ -398,7 +422,7 @@ index b290e220..2ae9888f 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2241,7 @@
+@@ -2072,6 +2265,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -406,7 +430,7 @@ index b290e220..2ae9888f 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2425,7 @@
+@@ -2255,6 +2449,7 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -414,7 +438,7 @@ index b290e220..2ae9888f 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2585,7 @@
+@@ -2414,7 +2609,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -423,7 +447,7 @@ index b290e220..2ae9888f 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2617,7 @@
+@@ -2446,7 +2641,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -432,7 +456,7 @@ index b290e220..2ae9888f 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2813,141 @@
+@@ -2642,6 +2837,141 @@
                          </div>
                      </div>
                  </div>
@@ -574,7 +598,7 @@ index b290e220..2ae9888f 100644
  
              </div>
  
-@@ -2786,11 +3092,295 @@
+@@ -2786,11 +3116,295 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -870,7 +894,7 @@ index b290e220..2ae9888f 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3463,13 @@
+@@ -2873,6 +3487,13 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

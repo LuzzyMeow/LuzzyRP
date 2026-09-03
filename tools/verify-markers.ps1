@@ -75,6 +75,8 @@ $Manifest = @(
     @{ Id = '018-ext-snapshot';       File = '../ext/luzzy-ext.js';              Mode = 'contains';     Needle = 'luzzy_theme_snapshot';                  Min = 1 },
     @{ Id = '019-drawer-ui';          File = 'assets/js/ui-components.js';       Mode = 'contains';     Needle = '[LuzzyRP patch 019]';                   Min = 2 },
     @{ Id = '019-preview-index';      File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 019]';                   Min = 1 },
+    @{ Id = '020-vector-toast';       File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 020]';                   Min = 2 },
+    @{ Id = '020-toast-throttle';     File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '__luzzyVectorToastAt';                  Min = 2 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' }
 )

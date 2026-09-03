@@ -1082,3 +1082,72 @@ GitHub Release v1.2.1 三件套已 clobber 替换。设计条款豁免说明：�
 
 **现场**：仓库零未登记上游改动（verify-markers 41 绿）；删除已 staged；
 EXTRACT_VERSION 本会话未 bump（不出包，无设备安装；下次发版照常 bump）。
+
+---
+
+### 会话 18 · v1.2.2 开发：toggle 蓝主题化（patch 008 v4）+ 检索失败外化（patch 020）（2026-09-03）
+
+**任务（用户决策：执行 1+2，静态门禁方案、视觉验证留待设备）**：
+① 上游 toggle 蓝/indigo 主题化；② 向量分桶检索失败 toast 外化。③（classic 补测）因模拟器
+未运行顺延；（图标复装确认）需用户复装，非 Agent 可代。
+
+**设计合规（硬性规定 9）**：本会话完整复读 4 项 SKILL 主文档（huashu SKILL.md 全文 579 行 /
+open-design AGENTS.md 全文 / ui-ux-pro-max CLAUDE.md+SKILL.md / awesome-design-md README）。
+三方向门豁免：属 v1.2.1 已选定「品牌色收编」方向的延续迭代 + 用户本次明确指示修复
+（huashu 豁免清单第 2 类，落档本节）。色值零新发明：blue/indigo 在 luzzy 下=primary 同值，
+classic 下=Tailwind 原值。
+
+**实施**
+1. **patch 008 v4**（index.html tailwind.config，字节级锚点编辑）：blue/indigo 色板接入
+   `rgb(var(--tw-*) / <alpha-value>)`（各 50-900 十阶，覆盖上游实际用到的全部色阶——
+   实测 41 处 blue-* + 8 处 indigo-* 均在 50-900 内，无 950）。luzzy-theme.css 三作用域
+   各 +20 变量：classic=Tailwind 原值（零影响）/ luzzy 亮暗=primary 同值（收编为珊瑚）。
+   violet 3 处保留为协议徽标功能区分色（v1.2.0 critique 备案）。
+2. **patch 020**（app.js 两处 catch，~7132 注入检索 / ~7218 手动检索）：console.warn 外增
+   节流 toast——`window.__luzzyVectorToastAt` 30s 全局节流防离线刷屏；showToast 以
+   try/catch 引用（不在作用域时自动降级为仅 warn，扩展层不伤主流程）。登记
+   tools/patches/README 020 条目 + verify-markers 2 项（020-vector-toast / 020-toast-throttle）。
+3. **登记链同步**：apply-patches（008 块注释 v4 + 实体表 012-020 + 标题行）、AGENTS
+   （§1.5/§4.2 表 020 行/§9 快照会话 18 + v1.2.2 开发中条目 + 主题速览 blue/indigo）、
+   README（目录注释 001-020 + 规划表 v1.2.2 🚧 行）、HARD_REQUIREMENTS（001-020）、
+   DESIGN.md（Do's & Don'ts 收编清单+色板级收编段 / 技术契约变量清单+008v4）、
+   AssetExtractor EXTRACT_VERSION 15→16、CHANGELOG 新增 v1.2.2 开发中章节。
+
+**entities 重建（012-019 → 012-020）**
+- index.html/app.js 内容变更，ui-components/runtime-services 仅改名（diff 内容与旧实体
+  逐字节一致——大小 12396/19276 与旧文件相同）；旧 012-019-* 四件删除。
+- 生成法：`git diff --no-index --ignore-cr-at-eol rp-hub-reference/<f> app/src/main/assets/rphub/<f>`
+  （Start-Process 原始 stdout 重定向防 EOL/编码篡改），随后**字节级**将 3-4 行
+  `---/+++` 归一为 rphub 相对路径短格式（与旧实体一致）——**全路径格式会使
+  apply-patches 的 `--directory=app/src/main/assets/rphub` 前缀叠加错位**。
+- 双向验证：pre-blob hash 4/4 == 上游基线（b290e220/f73b1ddd/7fcb10e7/473672b8，正向
+  apply 数学等价成立）+ `git apply -R --check --directory=…` 反向 4/4 exit 0（post==当前）。
+
+**实施中连环抓错（语法门禁立功，均为致命级）**
+1. 双逗号：插入 anchor 本身带尾逗号又补了一个 `',,'`（numstat 25/2 行数正常，
+   **整块提取 node --check 才暴露**）；
+2. 吞括号：$seg 含 primary 块闭合 `}` 但 $new 未还回（brace depth 计数定位）。
+   修复后：tailwind.config 整块 node --check exit 0 + brace depth 0、numstat 25/1。
+   **教训入册**：字节级插入上游文件后必须做「内容级语法校验」（提取块 node --check +
+   括号深度计数），行数级 numstat 检查无法发现同行错误。
+
+**门禁汇总**
+- node --check app.js ✓；tailwind.config 整块 node --check ✓ + brace depth 0 ✓；
+- luzzy-theme.css 括号 80/80 平衡 ✓；git diff --numstat 无整文件伪 diff ✓
+  （index.html 25/1、app.js +22 行级、luzzy-theme.css +65 行级）；
+- verify-markers.ps1 **43 PASS / 0 FAIL**（+020 两项）；apply-patches.ps1 自检全 SKIP 无 FAIL；
+- pro-rules 快查：纯色彩 token 层改动，无 DOM/交互/触控目标变化，亮暗对比沿用 primary
+  既有实测值（白字 4.7:1/4.5:1）。
+- 五维 critique：方向（收编延续+用户指示）✓ 品牌（零新色，全 token）✓ 层级（状态色
+  语义与按钮/链接一致）✓ 动效（零新增）✓ 工程（上述门禁）✓。
+
+**遗留/下一步**
+1. 视觉验证待设备：toggle/叙事视角 luzzy 下珊瑚化 + classic 对照原蓝（用户所选静态
+   门禁方案的既定边界）；建议随 v1.2.2 发布走查一并做；
+2. v1.2.2 发布流程待指示（versionCode 9 / assembleRelease / CHANGELOG 去「开发中」/
+   GitHub Release）；
+3. 图标复装确认（用户）、classic 总结补测（需模拟器）、上游同步演练（需网络）。
+
+**现场**：EXTRACT_VERSION=16（assets 已变更，下次任何安装自动重解压）；versionCode
+仍 8（未发版）；仓库改动全部登记（008 v4 + 020 + 登记链 + entities 重建）；无未登记
+上游改动（verify-markers 43 绿）。

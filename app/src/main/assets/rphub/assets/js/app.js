@@ -7129,6 +7129,14 @@ const app = createApp({
                         scoredMemories.push(...await scoreVectorMemories(bucketMemories, queryVector, queryTerms, signal));
                     } catch (err) {
                         if (err.name === 'AbortError') throw err;
+                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
+                        try {
+                            const luzzyToastNow = Date.now();
+                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
+                                window.__luzzyVectorToastAt = luzzyToastNow;
+                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
+                            }
+                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
                         console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
                     }
                 }
@@ -7215,6 +7223,14 @@ const app = createApp({
                         }
                     } catch (err) {
                         if (err.name === 'AbortError') throw err;
+                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
+                        try {
+                            const luzzyToastNow = Date.now();
+                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
+                                window.__luzzyVectorToastAt = luzzyToastNow;
+                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
+                            }
+                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
                         console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
                     }
                 }

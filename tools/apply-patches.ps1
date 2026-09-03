@@ -168,7 +168,8 @@ foreach ($sub in $subPages) {
 }
 
 # ------------------------------------------------------------------
-# Patch 008 · 主题色板 var() 化 v3（RGB 三元组 + <alpha-value>）
+# Patch 008 · 主题色板 var() 化 v4（RGB 三元组 + <alpha-value>；v4=blue/indigo 色板收编，
+#   蓝色板由实体 patch 012-020 承载——本字符串块仅保留 v2→v3 历史迁移路径）
 # 对应：DESIGN.md 主题技术契约。v3：三元组格式使透明度修饰符
 #（bg-gray-50/60 等）由 JIT 自动注入 alpha——v2 纯 var() 会让带 alpha
 # 的工具类被 JIT 回退成纯白（暗色白块根因，jsdom+CDP 实证）。
@@ -361,7 +362,7 @@ if ($appContent -match "theme: 'luzzy'") {
 # ------------------------------------------------------------------
 # 实体 patch（entities/，v1.2.1 硬性规定 10）
 # ------------------------------------------------------------------
-# 覆盖 007/009/012-019 的全部二创改动（与上游 1.8.9 基线的逐文件 diff，
+# 覆盖 007/009/012-020 的全部二创改动（与上游 1.8.9 基线的逐文件 diff，
 # 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
 # 判定规则：
 #   目标文件已含对应标记           -> SKIP（已应用）
@@ -392,14 +393,14 @@ $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'novel/index.html';             Entity = '007-novel-html.patch';            Marker = '[LuzzyRP patch 007]' },
     @{ File = 'assets/js/core-utils.js';      Entity = '009-core-utils-js.patch';         Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-019-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-019-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/ui-components.js';   Entity = '012-019-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/runtime-services.js'; Entity = '012-019-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'index.html';                   Entity = '012-020-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-020-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/ui-components.js';   Entity = '012-020-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/runtime-services.js'; Entity = '012-020-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-019）=="
+Write-Host "== 实体 patch（007/009/012-020）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

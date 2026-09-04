@@ -381,9 +381,9 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-04 会话 19 快照 · v1.2.2 已发布）
+## 9. 当前状态与已知问题（2026-09-04 会话 20 快照 · v1.2.2 已发布 + 上游 1.9.0 已同步）
 
-> 完整过程见 `docs/WORKLOG.md` 会话 15-19。上游基线 RP-Hub 1.8.9 不变。
+> 完整过程见 `docs/WORKLOG.md` 会话 15-20。上游基线 RP-Hub **1.9.0**（2026-09-04 会话 20 同步）。
 
 ### 版本状态（2026-09-04 · 会话 19）
 
@@ -399,21 +399,25 @@ Luzzy.copyToClipboard = function (text) {
   install -r 覆盖日常包，数据保留）：MIUI 桌面新图标渲染 ✓、EXTRACT 20 重解压 ✓、
   关于页 v1.2.2 + 新品牌 LOGO ✓、真实会话完好 ✓。**注意**：该机日常包=debug 包
   （真实数据在内），见 §6.1 设备辨别。
-- **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
+- **上游基线 RP-Hub 1.9.0**（2026-09-04 会话 20 同步：上游仅更新 built-in-content.js，破限预设标记改名 rphub_default）；built-in-content.js / styles.css 与上游逐字节一致。
+- **会话 20 同步执行**：EXTRACT 20→21；CHANGELOG 新增 v1.2.3「开发中」章节（发版时重跑
+  gen-changelog）；指纹基线表更新至 94a0cd9；同步门 43 PASS / 0 FAIL；debug 包构建后待真机
+  安装回归（会话 20 收尾时设备未连接）。
 - **仓库描述已纠正**（2026-09-03）：WebView 封装（Kotlin 薄壳），非「原生 Kotlin +
   Compose」；换图标 SOP 见 §3.5。
 
-### 遗留待办（按优先级 · 会话 19 复核）
+### 遗留待办（按优先级 · 会话 20 复核）
 
-1. patch 020 toast 罐装验证（模拟器）+ classic 主题目测复核（用户日常手动切换）；
-2. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-3. styles.css 其余 ~66 处低频硬编码蓝收编（v1.3.0 候选，清单见 DESIGN.md Do's & Don'ts）；
-4. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
+1. v1.2.3（上游 1.9.0 同步版）真机回归：debug 包 install -r 覆盖日常包 + §6.2 数据兼容/
+   核心功能走查（会话 20 收尾时设备未连接，APK 已构建）；
+2. patch 020 toast 罐装验证（模拟器）+ classic 主题目测复核（用户日常手动切换）；
+3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
+4. styles.css 其余 ~66 处低频硬编码蓝收编（v1.3.0 候选，清单见 DESIGN.md Do's & Don'ts）；
 5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 20；改前先确认当前值）；
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 21；改前先确认当前值）；
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
   git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
   要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；

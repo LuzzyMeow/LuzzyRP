@@ -1262,3 +1262,33 @@ GitHub Release v1.2.2（tag + 三件套 APK，沿用 v1.2.1 排版）。
   ③关于页 = v1.2.2-debug + 新品牌 LOGO + 应用内 CHANGELOG 显示 v1.2.2 章节
   （`verify-v1222-about.png`）。EXTRACT 20 重解压生效。
 - release 三件套 APK 维持 GitHub Release v1.2.2 分发用途不变。
+
+---
+
+## 会话 20 · 上游同步 RP-Hub 1.9.0（2026-09-04）
+
+**任务（用户指令「开始同步」）**：同步上游 1.9.0（本会话前置核查发现：上游 2 新提交
+仅动 built-in-content.js +8/-13，破限预设标记改名 roleplay_hub_default→rphub_default
++ UI 模板提示词微调 + 更新公告 1.9.0；nsfw_rules 未触碰；我方 patch/扩展层零引用旧标记）。
+
+**开始状态**：main 1e9342d7 干净；verify-markers 43 PASS；versionCode 9 / EXTRACT 20。
+
+**同步执行（mini-sync）**
+1. 参考克隆快进 b409ca6→94a0cd9（ff-only）；built-in-content.js 覆盖至 1.9.0，
+   源/目标 SHA-256 双核一致（F8B74D0D…BC220）；
+2. 指纹基线表：built-in-content.js 条目 + 表头更新至 1.9.0（94a0cd9）；
+3. apply-patches 重放 21 项全部幂等 SKIP（本次未覆盖任何被 patch 文件，佐证无遗漏）；
+4. verify-markers 43 PASS / 0 FAIL（R1 按新基线通过）；
+5. EXTRACT_VERSION 20→21；CHANGELOG 新增 v1.2.3「开发中」章节；README 基线号 2 处
+   （简介+badge）→1.9.0；AGENTS §9 快照刷新。
+
+**决策**
+- gen-changelog 本轮【不】重跑：脚本整包嵌入 CHANGELOG.md，重跑会把「开发中」章节
+  带进日常包关于页；按 §3.4 发布流程在发版步骤 3 前重跑（登记为发版遗留）；
+- 未走 sync-upstream.ps1 全量覆盖：上游仅 1 文件变更，按变更文件精准覆盖 + 幂等重放
+  + 校验门全绿达成同一终态（上游 diff 仅 built-in-content.js +8/-13，vendor/字体无变化）。
+
+**遗留 / 下一步**
+- 真机（小米 df97f3c4）未连接：debug 包（EXTRACT 21）构建完成后待 install -r 覆盖
+  日常包，按 §6.2 走数据兼容+核心功能回归（重点：破限预设标记改名后的对话回归）；
+- 发版 v1.2.3 时：§3.4 全流程（versionCode 10 / gen-changelog 重跑 / README 版本对应表加行）。

@@ -4,6 +4,22 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v1.2.3 — 同步上游 RP-Hub 1.9.0（上游基线 RP-Hub 1.9.0）
+
+> **状态：开发中（未发布）。**
+
+**优化**
+- **上游同步 1.8.9 → 1.9.0**（commit b409ca6 → 94a0cd9，2026-09-04）：上游仅更新
+  `built-in-content.js` 一个文件（+8/-13）——破限预设标记 `<roleplay_hub_default>` →
+  `<rphub_default>`（上游公告「修复标记问题」）、UI 模板分析提示词微调、更新公告刷新。
+
+**注意事项**
+- `nsfw_rules` 区块上游未触碰（硬性规定 1 复核通过）；我方 patch 001-020 与扩展层经全仓
+  检索确认零引用旧标记名，无适配成本；vendor/ 离线依赖与本地字体无变化。
+- EXTRACT_VERSION 20→21，安装即自动重新解压资产。
+- 同步门：apply-patches 重放 21 项幂等 SKIP + verify-markers 43 PASS / 0 FAIL；
+  upstream-fingerprints.txt 基线更新至 1.9.0（94a0cd9）；上游无数据结构变化（仅预设文案与公告）。
+
 ### v1.2.2 — 全新品牌图标 × toggle 蓝主题化（patch 008 v4）× 检索失败外化（patch 020）（上游基线 RP-Hub 1.8.9）
 
 > **状态：已发布（GitHub Release v1.2.2 附 APK，versionCode 9）。**

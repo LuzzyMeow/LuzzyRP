@@ -1242,3 +1242,23 @@ GitHub Release v1.2.2（tag + 三件套 APK，沿用 v1.2.1 排版）。
   验收门/Pillow 全套产出清单/adaptive 方案约定/EXTRACT bump/文档同步/发布联动，
   含红线（画作资源必须用户提供新图并明确指示）；§1.2 图标条目与 §9 快照同步
   刷新至会话 19。
+
+### 会话 19 补充 · 真机 release 复验（2026-09-04，v1.2.2 发布后）
+
+用户要求真机验证（提示有两台设备，指定用小米）。过程与结果：
+
+- **设备辨别**：adb 当时仅枚举到小米 `df97f3c4`（25098PN5AC / pandora /
+  Android 16）；另一台未出现在 adb 列表。小米设备码已按用户要求写入
+  AGENTS.md §6.1。
+- **关键发现：真机日常包 = debug 包**。设备只装 `com.luzzymeow.luzzyrp.debug`
+  （v1.2.1-debug / versionCode 8 / EXTRACT 19），用户真实数据都在 debug 包内；
+  直接装 release 包（com.luzzymeow.luzzyrp）会生成第二个空数据 LuzzyRP（数据分裂）。
+  且首次 release 安装曾**静默失败**（MIUI「USB 安装」确认框无人确认，输出被吞）——
+  教训：install 命令后必须核对 `Success` 输出。
+- **处置**：改用 **assembleDebug（v1.2.2-debug，versionCode 9，EXTRACT 20）install -r**
+  覆盖日常包——数据保留、版本/图标全部到位。
+- **验证结果（全通过）**：①MIUI 桌面图标 = 新 White Fox LOGO（无缓存问题，
+  `verify-v1222-launcher.png`）；②应用正常启动、真实会话渲染完好；
+  ③关于页 = v1.2.2-debug + 新品牌 LOGO + 应用内 CHANGELOG 显示 v1.2.2 章节
+  （`verify-v1222-about.png`）。EXTRACT 20 重解压生效。
+- release 三件套 APK 维持 GitHub Release v1.2.2 分发用途不变。

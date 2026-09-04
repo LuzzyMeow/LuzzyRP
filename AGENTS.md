@@ -336,6 +336,14 @@ Luzzy.copyToClipboard = function (text) {
 
 ### 6.1 每次变更后必测
 
+> **设备辨别（2026-09-04 用户指示记录）**：真机=**小米，adb 序号 `df97f3c4`**
+> （型号 25098PN5AC / product pandora / Android 16）；多设备并存时一律
+> `adb -s df97f3c4` 显式指定。**重要**：该机日常使用包 = `com.luzzymeow.luzzyrp.debug`
+> （debug 包内有用户真实数据）——真机装新版用 **debug 包 install -r**（数据保留），
+> 勿另装 release 包（会生成第二个空数据 LuzzyRP 造成数据分裂）；release APK 仅作
+> GitHub 分发。MIUI 注意：adb 安装可能弹「USB 安装」确认框需用户在手机上点确认；
+> 锁屏状态下 `am start` 可能不置前，先解锁（上滑）再操作。
+
 - 冷启动 / 热启动 / 后台恢复；
 - 对话全流程（配置 API Key → 发送 → 渲染 → 分支）；
 - 数据持久化（杀进程重启数据保留）。
@@ -387,21 +395,21 @@ Luzzy.copyToClipboard = function (text) {
   ④ styles.css 硬编码蓝 4 族收编（侧栏激活项/segmented 选中态/settings-toggle 家族/
   弹窗主按钮，均 luzzy-theme.css 组件级，约 66 处其余低频入遗留）；
   ⑤ verify-markers 43 PASS / 0 FAIL；entities/012-020-*。
-- **真机（小米 25098PN5AC / Android 16）**：EXTRACT 19 debug 完成 v1.2.2 主题变更
-  全量走查（亮/暗双模式）；release 包（EXTRACT 20）未复验——设备中途断开，delta
-  仅为图标资源，待用户复装看 MIUI 桌面新图标（缓存不刷新则重启桌面/重装触发）。
+- **真机（小米 df97f3c4 / Android 16）已复验**（2026-09-04，v1.2.2-debug 包
+  install -r 覆盖日常包，数据保留）：MIUI 桌面新图标渲染 ✓、EXTRACT 20 重解压 ✓、
+  关于页 v1.2.2 + 新品牌 LOGO ✓、真实会话完好 ✓。**注意**：该机日常包=debug 包
+  （真实数据在内），见 §6.1 设备辨别。
 - **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
 - **仓库描述已纠正**（2026-09-03）：WebView 封装（Kotlin 薄壳），非「原生 Kotlin +
   Compose」；换图标 SOP 见 §3.5。
 
 ### 遗留待办（按优先级 · 会话 19 复核）
 
-1. v1.2.2 真机 release 复验：EXTRACT 20 重解压 + MIUI 桌面新图标渲染确认（用户复装即可）；
-2. patch 020 toast 罐装验证（模拟器）+ classic 主题目测复核（用户日常手动切换）；
-3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-4. styles.css 其余 ~66 处低频硬编码蓝收编（v1.3.0 候选，清单见 DESIGN.md Do's & Don'ts）；
-5. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
-6. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
+1. patch 020 toast 罐装验证（模拟器）+ classic 主题目测复核（用户日常手动切换）；
+2. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
+3. styles.css 其余 ~66 处低频硬编码蓝收编（v1.3.0 候选，清单见 DESIGN.md Do's & Don'ts）；
+4. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
+5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 

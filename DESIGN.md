@@ -241,6 +241,7 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   reduced-motion 下直接切换；
 - **气泡进入**：上移 8px + 淡入 200ms；退出淡出 140ms；
 - **关于页置顶 FAB（patch 024）**：进 200ms / 退 140ms ease-out，scale(0.96)+opacity:0 起步；滚动 >240px 显隐；reduced-motion 直接呈现；
+- **开屏「开卷」（patch 027，用户选定方向 B）**：掀封→纸落→界格→钤印→落墨→荧光划线→页码（≈2.3s 定格 + 450ms 淡出交还主界面）；纯 CSS transform/opacity；色值全 token、亮/暗随 data-mode 首帧自适应；reduced-motion 终帧直出 + 200ms 退场；设计存档 `docs/design/splash-v1/`（参照 Aēsop 获奖互动站，多源核实）；
 - **招牌动效「荧光笔落笔」（roadmap）**：新 AI 消息落定后关键词上划过 amber 记号
   （reduced-motion 直接显示）——v1 先实现主题转场与气泡动效，落笔动效随正则/markdown
   管线单独迭代。

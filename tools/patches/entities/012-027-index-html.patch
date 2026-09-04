@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..8cad442f 100644
+index b290e220..98c51cf8 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -130,18 +130,33 @@ index b290e220..8cad442f 100644
  </head>
  <body class="bg-gray-50 text-gray-900 font-sans selection:bg-primary-200 selection:text-primary-900">
      <svg aria-hidden="true" style="display: none">
-@@ -122,15 +164,16 @@
-     <div class="entry-transition" aria-hidden="true">
-         <div class="entry-transition-brand">
-             <div class="entry-transition-logo">
+@@ -119,18 +161,27 @@
+             </path>
+         </symbol>
+     </svg>
+-    <div class="entry-transition" aria-hidden="true">
+-        <div class="entry-transition-brand">
+-            <div class="entry-transition-logo">
 -                <span class="entry-logo-rp">RP</span>
 -                <span class="entry-logo-hub">HUB</span>
-+<!-- [LuzzyRP patch 003] 入口 logo 品牌化（上游: RP/HUB） -->
-+                <span class="entry-logo-rp">LUZZY</span>
-+                <span class="entry-logo-hub">RP</span>
-                 <i></i>
+-                <i></i>
++    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 Open the Journal」（v1.2.3，需求 1）：
++         用户选定方向 B（参照 Aēsop 获奖互动站，docs/design/splash-v1/direction-approved.md），
++         上游 entry-transition DOM 整体退役；样式在 ext/luzzy-theme.css（patch 018 head 注入链
++         首帧生效）；[LuzzyRP patch 003] 入口字标由本开屏字标承载，003 重放块随之退役 -->
++    <div class="luzzy-splash" aria-hidden="true">
++        <div class="luzzy-splash-page"></div>
++        <div class="luzzy-splash-stack">
++            <div class="luzzy-splash-center">
++                <div class="luzzy-splash-glow"><i></i></div>
++                <div class="luzzy-splash-seal"><img src="../ext/luzzy-logo.png" alt="" onerror="this.style.display='none'"></div>
++                <div class="luzzy-splash-wordmark">Luzzy<span class="luzzy-splash-hlwrap">RP<i class="luzzy-splash-hl"></i></span></div>
++                <div class="luzzy-splash-slogan">每次对话，都像一本有你的小说<i class="luzzy-splash-inkdot"></i></div>
              </div>
          </div>
++        <div class="luzzy-splash-rule"></div>
++        <div class="luzzy-splash-pagenum"><span></span><em>— 01 —</em></div>
++        <div class="luzzy-splash-cover"><i class="luzzy-splash-cover-frame"></i><i class="luzzy-splash-cover-tick"></i></div>
      </div>
  
      <div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
@@ -150,7 +165,7 @@ index b290e220..8cad442f 100644
          <component is="style" v-if="settings.fontSize">
              .markdown-body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(small):not(sub):not(sup):not(code) {
              font-size: inherit !important;
-@@ -300,7 +343,8 @@
+@@ -300,7 +351,8 @@
                      <!-- 实际内容容器 -->
                      <div class="relative h-12 flex items-center justify-between px-4 pointer-events-auto">
                          <div class="flex items-center min-w-0">
@@ -160,7 +175,7 @@ index b290e220..8cad442f 100644
                                  class="md:hidden mr-3 text-white/80 hover:text-white transition-colors flex-shrink-0">
                                  <svg class="w-6 h-6" fill="none" stroke="currentColor"><use href="#icon-menu"></use></svg>
                              </button>
-@@ -324,18 +368,7 @@
+@@ -324,18 +376,7 @@
                              <div v-else class="text-white/60 italic drop-shadow-sm">未选择角色卡</div>
                          </div>
                          <div class="flex items-center gap-0">
@@ -180,7 +195,7 @@ index b290e220..8cad442f 100644
                              <button @click="clearChat"
                                  class="p-1.5 text-white/70 hover:text-red-400 rounded-full hover:bg-white/10 transition-colors"
                                  title="清空聊天">
-@@ -957,7 +990,7 @@
+@@ -957,7 +998,7 @@
                                                          :disabled="!slot.model"
                                                          :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                          <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
@@ -189,7 +204,7 @@ index b290e220..8cad442f 100644
                                                      </button>
                                                  </div>
                                                  <div class="border-t border-gray-100 pt-4 space-y-5">
-@@ -1635,7 +1668,7 @@
+@@ -1635,7 +1676,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -198,7 +213,7 @@ index b290e220..8cad442f 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1650,7 +1683,7 @@
+@@ -1650,7 +1691,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -207,7 +222,7 @@ index b290e220..8cad442f 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1659,9 +1692,29 @@
+@@ -1659,9 +1700,29 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -238,7 +253,7 @@ index b290e220..8cad442f 100644
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1732,7 +1785,7 @@
+@@ -1732,7 +1793,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -247,7 +262,7 @@ index b290e220..8cad442f 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1775,6 +1828,19 @@
+@@ -1775,6 +1836,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -267,7 +282,7 @@ index b290e220..8cad442f 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1786,7 +1852,7 @@
+@@ -1786,7 +1860,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -276,7 +291,7 @@ index b290e220..8cad442f 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1795,9 +1861,23 @@
+@@ -1795,9 +1869,23 @@
                                              </custom-select>
                                          </div>
  
@@ -302,7 +317,7 @@ index b290e220..8cad442f 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1898,41 +1978,7 @@
+@@ -1898,41 +1986,7 @@
                                  </label>
                              </div>
  
@@ -345,7 +360,7 @@ index b290e220..8cad442f 100644
  
                              <!-- Storage Management -->
                              <div class="pt-6 border-t border-gray-100 mt-6">
-@@ -1948,11 +1994,7 @@
+@@ -1948,11 +2002,7 @@
                                          </h4>
                                      </div>
                                      <div class="flex flex-wrap items-center gap-2">
@@ -358,7 +373,7 @@ index b290e220..8cad442f 100644
                                          <button type="button" @click="cleanupUnusedStorage"
                                              :disabled="storageStats.loading || storageStats.cleaning || storageStats.orphanedItems === 0"
                                              class="px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-100 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-@@ -1968,7 +2010,7 @@
+@@ -1968,7 +2018,7 @@
                                  <div v-else class="space-y-6">
                                      <div>
                                          <div class="flex items-center justify-between gap-3 mb-3 text-sm">
@@ -367,7 +382,7 @@ index b290e220..8cad442f 100644
                                              <span class="font-semibold text-gray-500 whitespace-nowrap">
                                                  <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
                                                  <span class="mx-1 text-gray-300">/</span>
-@@ -2003,6 +2045,137 @@
+@@ -2003,6 +2053,137 @@
                  </div>
              </div>
  
@@ -505,7 +520,7 @@ index b290e220..8cad442f 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2245,7 @@
+@@ -2072,6 +2253,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -513,7 +528,7 @@ index b290e220..8cad442f 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2429,12 @@
+@@ -2255,6 +2437,12 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -526,7 +541,7 @@ index b290e220..8cad442f 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2594,7 @@
+@@ -2414,7 +2602,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -535,7 +550,7 @@ index b290e220..8cad442f 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2626,7 @@
+@@ -2446,7 +2634,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -544,7 +559,7 @@ index b290e220..8cad442f 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2822,141 @@
+@@ -2642,6 +2830,141 @@
                          </div>
                      </div>
                  </div>
@@ -686,7 +701,7 @@ index b290e220..8cad442f 100644
  
              </div>
  
-@@ -2786,11 +3101,295 @@
+@@ -2786,11 +3109,295 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -982,7 +997,7 @@ index b290e220..8cad442f 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3472,13 @@
+@@ -2873,6 +3480,13 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

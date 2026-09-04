@@ -90,6 +90,7 @@ $Manifest = @(
     @{ Id = '025-usage-runtime';      File = 'assets/js/runtime-services.js';    Mode = 'contains';     Needle = '[LuzzyRP patch 025]';                   Min = 1 },
     @{ Id = '025-usage-index';        File = 'index.html';                       Mode = 'contains';     Needle = 'chart-data="usageChartData"';              Min = 1 },
     @{ Id = '026-vector-fix';         File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 026]';                   Min = 3 },
+    @{ Id = '027-splash-index';       File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 027]';                   Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' }
 )

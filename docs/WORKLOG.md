@@ -1330,3 +1330,17 @@ GitHub Release v1.2.2（tag + 三件套 APK，沿用 v1.2.1 排版）。
 - 真机回归（小米 df97f3c4 未连接）：EXTRACT 22 debug 包 install -r + §6.2 全量走查
   （重点：向量检索复测、用量图渲染、关于页搜索/置顶、设置页自动统计）；
 - 模拟器罐装走查 024/025 新 UI 交互（可选，真机回归可覆盖）。
+
+### 会话 20 补充 · 开屏「开卷」落地（patch 027，2026-09-04）
+
+- 用户三方向选定 **B「开卷」**（原话落档 docs/design/splash-v1/direction-approved.md）；
+  方向板预览「看不到动画」= 单次播放后定格终帧（iframe 已播完），点板内重播可复看。
+- 落地：index.html 上游 entry-transition DOM 整体替换为 luzzy-splash DOM（标记 027）+
+  ext/luzzy-theme.css 动画全量样式（掀封→纸落→界格→钤印→落墨→荧光→页码 ≈2.3s，
+  2.55s 起 450ms 淡出交还主界面；亮/暗随 data-mode 首帧自适应；reduced-motion 终帧直出
+  +200ms 退场；纯 transform/opacity）。
+- **patch 003 重放块退役**：入口字标并入新开屏（003 标记保留于 index.html 注释，
+  verify 003-logo PASS；意图由实体 012-027 承载）——apply-patches.ps1 留退役说明。
+- 设施：实体 012-026-index → 012-027-index（逆向 --check PASS）；manifest +027（57 项）；
+  EXTRACT 22→23；apply/verify 全绿（57 PASS / 0 FAIL）。
+- 遗留：真机开屏首帧实测（WebView 下 CSS 动画起始时机 + 字体闪变观察）。

@@ -161,15 +161,23 @@
             </path>
         </symbol>
     </svg>
-    <div class="entry-transition" aria-hidden="true">
-        <div class="entry-transition-brand">
-            <div class="entry-transition-logo">
-<!-- [LuzzyRP patch 003] 入口 logo 品牌化（上游: RP/HUB） -->
-                <span class="entry-logo-rp">LUZZY</span>
-                <span class="entry-logo-hub">RP</span>
-                <i></i>
+    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 Open the Journal」（v1.2.3，需求 1）：
+         用户选定方向 B（参照 Aēsop 获奖互动站，docs/design/splash-v1/direction-approved.md），
+         上游 entry-transition DOM 整体退役；样式在 ext/luzzy-theme.css（patch 018 head 注入链
+         首帧生效）；[LuzzyRP patch 003] 入口字标由本开屏字标承载，003 重放块随之退役 -->
+    <div class="luzzy-splash" aria-hidden="true">
+        <div class="luzzy-splash-page"></div>
+        <div class="luzzy-splash-stack">
+            <div class="luzzy-splash-center">
+                <div class="luzzy-splash-glow"><i></i></div>
+                <div class="luzzy-splash-seal"><img src="../ext/luzzy-logo.png" alt="" onerror="this.style.display='none'"></div>
+                <div class="luzzy-splash-wordmark">Luzzy<span class="luzzy-splash-hlwrap">RP<i class="luzzy-splash-hl"></i></span></div>
+                <div class="luzzy-splash-slogan">每次对话，都像一本有你的小说<i class="luzzy-splash-inkdot"></i></div>
             </div>
         </div>
+        <div class="luzzy-splash-rule"></div>
+        <div class="luzzy-splash-pagenum"><span></span><em>— 01 —</em></div>
+        <div class="luzzy-splash-cover"><i class="luzzy-splash-cover-frame"></i><i class="luzzy-splash-cover-tick"></i></div>
     </div>
 
     <div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"

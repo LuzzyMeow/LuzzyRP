@@ -45,29 +45,10 @@ if ($titleContent -notmatch 'rphub-update-api') {
 }
 
 # ------------------------------------------------------------------
-# Patch 003 · 入口 logo 品牌化（RP/HUB -> LUZZY/RP）
+# Patch 003 · 已退役（v1.2.3，patch 027）：入口字标由「开卷」开屏 DOM 承载，
+#   上游 entry-transition 区块在 index.html 被整体替换；003 标记保留于 index.html
+#   注释，原意图由实体 012-027-index-html.patch 覆盖（先于 003 的重放不再执行）。
 # ------------------------------------------------------------------
-$titleContent = [System.IO.File]::ReadAllText($titlePath)
-if ($titleContent -match 'entry-logo-rp">LUZZY<') {
-    Write-Host "[SKIP] 003-entry-logo (已应用)"
-} else {
-    if ($titleContent -match 'entry-logo-rp">RP</span>\s*$' -and $titleContent -match 'entry-logo-hub">HUB</span>') {
-        # 逐行处理，保持行尾风格
-        $lines = [System.IO.File]::ReadAllLines($titlePath)
-        for ($i = 0; $i -lt $lines.Length; $i++) {
-            if ($lines[$i] -match 'entry-logo-rp' -and $lines[$i] -match '>RP<') {
-                $lines[$i] = $lines[$i].Replace('>RP<', '>LUZZY<')
-            }
-            if ($lines[$i] -match 'entry-logo-hub' -and $lines[$i] -match '>HUB<') {
-                $lines[$i] = $lines[$i].Replace('>HUB<', '>RP<')
-            }
-        }
-        [System.IO.File]::WriteAllLines($titlePath, $lines, [System.Text.UTF8Encoding]::new($false))
-        Write-Host "[ OK ] 003-entry-logo"
-    } else {
-        Write-Host "[FAIL] 003-entry-logo: 入口 logo 结构变化，请手工更新此 patch"
-    }
-}
 
 # ------------------------------------------------------------------
 # Patch 004 · CDN 本地化（vendor 引用）
@@ -362,7 +343,7 @@ if ($appContent -match "theme: 'luzzy'") {
 # ------------------------------------------------------------------
 # 实体 patch（entities/，v1.2.1 硬性规定 10）
 # ------------------------------------------------------------------
-# 覆盖 007/009/012-026 的全部二创改动（与上游基线的逐文件 diff，
+# 覆盖 007/009/012-027 的全部二创改动（与上游基线的逐文件 diff，
 # 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
 # 判定规则：
 #   目标文件已含对应标记           -> SKIP（已应用）
@@ -393,14 +374,14 @@ $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'novel/index.html';             Entity = '007-023-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'assets/js/core-utils.js';      Entity = '009-023-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-026-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'index.html';                   Entity = '012-027-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
     @{ File = 'assets/js/app.js';             Entity = '012-026-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/ui-components.js';   Entity = '012-026-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/runtime-services.js'; Entity = '012-026-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-026）=="
+Write-Host "== 实体 patch（007/009/012-027）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

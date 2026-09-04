@@ -18,10 +18,12 @@
 #   - 对应：二创后禁用上游更新检查（PLAN-v1.0.0 决策 8）
 #   - 预期冲突点：上游新增同类 meta 时需重打
 #
-# 003-entry-logo.patch
+# 003-entry-logo.patch（⚠ v1.2.3 起重放块退役）
 #   - index.html: 入口 logo RP/HUB -> LUZZY/RP
 #   - 对应：二创品牌化
 #   - 预期冲突点：上游改入口 logo 结构时需重打
+#   - ⚠ v1.2.3（patch 027）：上游 entry-transition 区块被「开卷」开屏整体替换，003 字标并入
+#     新开屏；重放块退役（apply-patches.ps1 内保留退役说明），意图由实体 012-027-index-html.patch 承载
 #
 # 004-vendor-local.patch
 #   - index.html: CDN 引用全部改为本地 vendor/（tailwind/vue/marked/dompurify/sortablejs）
@@ -243,7 +245,74 @@
 #   - 预期冲突点：上游重构记忆检索管线（buildVectorMemoryBuckets/分桶循环）时需重打
 #
 # ============================================================
-# 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
+# ------------------------------------------------------------
+# 021-settings-cleanup.patch（2026-09-04，v1.2.3 需求 5.2/5.3）
+#   - index.html: 移除设置页残留「外观」入口卡（原 patch 014 占位）——所在高级参数区随之
+#     清空整段移除（外观唯一入口=侧栏「外观」页）；空间管理「网页存储空间」→「存储空间占用」
+#     + 移除手动统计按钮
+#   - app.js: 进入设置页自动统计 watch（每会话首次，hasMeasured/loading 守卫；清理后复测沿用上游）
+#   - 对应：用户需求 5.2（入口唯一化）/ 5.3（存储统计自动化 + 文案）
+#   - 预期冲突点：上游改设置页结构 / storageStats 管线时需重打
+#
+# 022-chat-fullscreen-removal.patch（2026-09-04，v1.2.3 需求 6）
+#   - index.html: 移除聊天页右上角全屏按钮 + app-native-fullscreen class 绑定 + 菜单按钮全屏 v-if
+#   - app.js: 全屏状态 ref / 原生 fullscreen helpers / 切换与同步函数 / fullscreenchange 监听
+#     （挂载+卸载）/ setup 暴露 全部移除
+#   - 对应：用户需求 6（聊天页全屏功能整体下线）
+#   - 预期冲突点：上游改聊天页顶栏 / 移动端键盘视口逻辑时需重打
+#
+# 023-sta1n-icon-fix.patch（2026-09-04，v1.2.3 需求 5.1）
+#   - core-utils.js + novel/index.html: STA1N API 图标 URL 原上游自建图床（picui.ogmua.cn）
+#     已 404 → 改官方 CDN favicon（https://cdn.sta1n.cn/favicon.ico，curl 200 实测）
+#   - 对应：上游 bug（1.9.0 基线同款未修），按 AGENTS §3.3.3 登记 patch 修复
+#   - 预期冲突点：上游改内置供应商表时需重打
+#
+# 024-about-changelog-tools.patch（2026-09-04，v1.2.3 需求 3）
+#   - index.html: 关于页 CHANGELOG 卡新增版本分类下拉（custom-select）+ 关键词搜索框 +
+#     命中版本计数；右下角置顶 FAB（滚动 >240px 出现，aria-label）
+#   - app.js: changelog md 按「### vN.N.N」解析版本章节 + 版本/关键词过滤渲染管线
+#     （搜索 150ms 防抖；空选择=全部）+ FAB 滚动置顶（smooth，reduced-motion 降级 auto）
+#     + 进入视图回顶 + setup 暴露
+#   - ext/luzzy-theme.css（扩展层，零 patch）: FAB 进出场动效（进 200ms/退 140ms
+#     cubic-bezier(0.23,1,0.32,1)，scale(0.96) 起步）+ about-view 平滑滚动 + reduced-motion 降级
+#   - 对应：用户需求 3（滑动优化/置顶/版本分类/关键词检索）
+#   - 预期冲突点：上游或后续 patch 改关于页结构 / renderMarkdown 管线时需重打
+#
+# 025-usage-chart.patch（2026-09-04，v1.2.3 需求 4）
+#   - app.js: 用量趋势数据层——日（近24h·小时桶）/周（近7d·天桶）/月（近28d·周桶）三粒度 +
+#     供应商/模型筛选（providerId::model 分序列）+ 单系列 Top8 溢出合并「其他」+
+#     品牌 token 分类色板（primary ramp + 语义色）+ 历史记录 provider 缺失按 apiUrl 反查兜底
+#   - ui-components.js: TokenUsageView 新增「用量趋势」卡（粒度分段按钮 + 供应商 chips +
+#     模型多选 chips 带系列色点 + 纯 SVG 折线图：网格线/万单位 Y 轴/降采样 X 轴标注/空态）
+#   - runtime-services.js: recordApiUsage 补存 provider/protocol——patch 012 调用侧已传参
+#     但构造器漏存，用量列表 [商名] 前缀因此从未显示（历史记录不回填，图表层兜底）
+#   - index.html: token-usage-view 图表 props/事件布线
+#   - 对应：用户需求 4（多模型多色折线 + 三粒度 + 供应商/模型维度筛选）
+#   - 预期冲突点：上游改用量页结构 / recordApiUsage / 记录字段时需重打
+#
+# 026-vector-search-fix.patch（2026-09-04，v1.2.3 需求 2）
+#   - app.js: ①手动向量检索摘除「近期保留楼层」排除窗——排除窗语义仅适用自动召回（避免与
+#     在上下文中的内容重复），原行为使新会话分片后立即手动检索必空且判空文案误导；
+#     ②requestMemoryEmbeddings 对指向已删除/改名供应商的分桶引用显式报错（原静默回退
+#     默认商、整桶 404 用户无从自查）；③resolveModelRequest 裸引用回退协议跟随激活商
+#     （原硬编码 'openai'，Gemini 嵌入分片回退必 404）
+#   - 对应：用户需求 2（分片可见但检索为空）——排查结论：前端过滤死区/桶级失败，
+#     入库→量化→持久化→管理器链路完好，无存储崩溃
+#   - 预期冲突点：上游重构记忆检索管线 / parseModelRef / resolveModelRequest 时需重打
+#   - 遗留：MEMORY_VECTOR_SIMILARITY_THRESHOLD=45 仍为硬编码（app.js），可调阈值滑杆列候选迭代
+#
+# 027-splash-open-journal.patch（2026-09-04，v1.2.3 需求 1）
+#   - index.html: 上游 entry-transition 开屏 DOM 整体替换为 LuzzyRP「开卷 Open the Journal」
+#     自创开屏（用户三方向选定 B，参照 Aēsop 获奖互动站；Gate 记录
+#     docs/design/splash-v1/direction-approved.md）；patch 003 入口字标并入新开屏
+#     （003 标记保留于注释，重放块退役）
+#   - ext/luzzy-theme.css（扩展层，零 patch）: 开屏动画全量样式——掀封/纸落/界格/钤印/
+#     落墨/荧光划线/页码 ≈2.3s 定格 + 2.55s 起 450ms 整体淡出；亮/暗经 data-mode 首帧自适应；
+#     唯一缓动 cubic-bezier(0.23,1,0.32,1)；仅 transform/opacity；reduced-motion 终帧直出
+#     + 200ms 退场；色值全部 DESIGN.md token（品牌级画面，classic 同样生效）
+#   - 对应：用户需求 1（自创开屏启动动画）+ 设计硬性规定 9 全流程
+#   - 预期冲突点：上游改 entry-transition 区块 / head 注入结构时需重打
+## 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释
 #    （2026-09-02 补全审计：001-012 结构性点位 + core-utils/ui-components 补齐；

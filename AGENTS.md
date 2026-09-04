@@ -37,7 +37,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/FileChooserHandler.kt` | 文件选择（角色卡导入） | `onShowFileChooser` + SAF |
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/DownloadHandler.kt` | 文件导出 | `DownloadListener` + SAF 保存 |
 | `app/src/main/java/com/luzzymeow/luzzyrp/util/AssetExtractor.kt` | assets 解压到 filesDir | 首次启动幂等执行；版本升级时按版本号增量更新 |
-| `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`。**2026-09-04 用户以 AI 生图新 LOGO 全面替换**（纯 1:1 满幅不透明，源图 `docs/design/brand-logo-v2-source.png`；adaptive=全图前景 68% 居中 + 同色纯背景 #EDD7BD；原透明贴纸方案与「禁止重新生成」约束由本次替换终止）——后续再换 icon 需用户提供新图并确认 |
+| `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`。**2026-09-04 用户以 AI 生图新 LOGO 全面替换**（纯 1:1 满幅不透明，源图 `docs/design/brand-logo-v2-source.png`；adaptive=全图前景 68% 居中 + 同色纯背景 #EDD7BD；原透明贴纸方案与「禁止重新生成」约束由本次替换终止）——**后续更换图标一律按 §3.5 SOP 执行** |
 | `app/build.gradle.kts` | 壳构建配置 | 签名 / ABI 拆分 / versionCode 管理 |
 
 ### 1.3 上游文件（app/src/main/assets/rphub/）
@@ -170,6 +170,55 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 6. git push
 7. GitHub Release（按旧版排版；仅稳定版附 APK）
 ```
+
+### 3.5 更换应用图标 SOP（2026-09-04 定稿，用户指示：以后换图标都按此执行）
+
+> 首次执行样本：会话 19（v1.2.2，源图 `docs/design/brand-logo-v2-source.png`，
+> 设计方向落档 `docs/design/icon-v2-directions.md`）。触发词：「换图标/换 icon/
+> 换 LOGO」——**画作资源必须由用户提供新图并明确指示**，Agent 不得自行生成替代。
+
+```
+1. 源图入库
+   - 用户提供新图（AI 生图等），复制入 docs/design/brand-logo-vN-source.png
+     （N=序号；用户原件只读，绝不改动/移动）；
+   - 源图约束（给用户的生图要求，提示词模板见 icon-v2-directions.md）：
+     纯 1:1 满幅不透明、主体头肩居中占 55-65%、四周 ~15% 安全边距
+     （圆形裁切下耳朵/配饰完整）、无文字、≥1024px。
+
+2. 设计合规（硬性规定 9）
+   - 新视觉设计 → 复读 4 项 SKILL 主文档；新方向出 3 方向差异化提示词
+     （落档 docs/design/icon-vN-directions.md），用户选定/自备生图后继续；
+
+3. 验收门（落地前必须过）
+   - 圆形蒙版预览 + 96/48px 阶梯缩略图自检（合成一张
+     docs/design/brand-logo-vN-preview.png 供肉眼确认）；
+   - 耳朵/配饰在圆内有余量、48px 下可辨；不过 → 回用户重生成；
+
+4. Pillow 产出全套（脚本模式参考：4x 超采样蒙版、LANCZOS、PNG optimize）
+   - mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png：48/72/96/144/192（满幅）；
+   - 同目录 ic_launcher_round.png：同尺寸圆形 alpha 裁切；
+   - 同目录 ic_launcher_foreground.png：108dp 网格 108/162/216/324/432，
+     全图 68% 居中 + 画布填边缘均值色；
+   - drawable-nodpi/luzzy_logo.png 与 app/src/main/assets/ext/luzzy-logo.png
+     （各 192，关于页/README 头图引用）；
+   - 边缘均值取色（边框 4px 环采样）→ 写入 values/colors.xml 的
+     ic_launcher_background；
+
+5. adaptive 方案约定：全图前景 68% 居中 + 同色纯背景（不透明图标下不再使用
+   透明贴纸方案）；mipmap-anydpi-v26/*.xml 结构不变；
+
+6. EXTRACT_VERSION +1（ext/luzzy-logo.png 变更必须 bump，见 §7 坑表）；
+
+7. 文档同步（硬性规定 5）：AGENTS §1.2 图标条目（替换日期/源图路径/背景色）、
+   CHANGELOG（当前开发版本加「全新品牌图标」条目）、README（头图自动跟随；
+   随发版时同步徽章/规划表）、WORKLOG 登记；随发版时 gen-changelog.mjs 重跑；
+
+8. 若随版本发布：按 §3.4 全流程；若独立热替换：仅 6+7 + debug 安装自检。
+```
+
+**红线**：①画作资源替换必须由用户提供新图并明确指示（2026-09-04 决策）；
+②styles.css/rphub 上游文件与本流程无关，永不触碰；③旧图标经 git 历史可回滚，
+替换前确认用户不再需要旧版。
 
 ---
 
@@ -324,43 +373,39 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-03 会话 18 快照 · v1.2.1 已发布 / v1.2.2 开发中）
+## 9. 当前状态与已知问题（2026-09-04 会话 19 快照 · v1.2.2 已发布）
 
-> **v1.2.1 布局异常已修复并经模拟器验证**（会话 15）。真根因与「会话 14 移交」的
-> 「缺 2 个 `</div>`」假设不同：为 patch 018 head 注入丢失 `<script>` 开标签。
-> 完整过程见 `docs/WORKLOG.md` 会话 15/16；计划文档 `docs/PLAN-v1.2.1.md`。v1.2.1 已发布（GitHub Release v1.2.1 附 APK）。本节取代会话 15 快照。
+> 完整过程见 `docs/WORKLOG.md` 会话 15-19。上游基线 RP-Hub 1.8.9 不变。
 
-### 版本状态（2026-09-03 · 会话 18 复核）
+### 版本状态（2026-09-04 · 会话 19）
 
-- **v1.2.1（versionCode 8 / EXTRACT_VERSION 15）已发布**（2026-09-03，Release v1.2.1 附三件套 APK；会话 16 补入 patch 019 侧栏品牌化/导航顺序/预览交互化，双端验证通过）：
-  ① patch 016 召回块防合并；② patch 017 记忆内容管理器；③ 品牌色收编；
-  ④ patch 018 开屏防闪蓝（已修复缺 `<script>` 开标签缺陷）；⑤ 标记体系
-  （verify-markers.ps1 43 项全绿；entities/012-020-*.patch 正/反向 apply 双 PASS）；
-  ⑥ 应用图标粉底修复（自适应背景改全透明，Release APK 已 clobber 替换，versionCode 不变）。
-- **v1.2.2 开发中**（会话 18）：patch 008 v4（blue/indigo 色板收编）+ patch 020（向量检索
-  失败 toast 外化）+ 真机实测驱动的 4 族 styles.css 硬编码蓝收编（侧栏激活项/segmented
-  选中态/settings-toggle 家族/弹窗主按钮，均 luzzy-theme.css 组件级）；EXTRACT_VERSION 19；
-  真机（小米）luzzy 亮/暗验证通过；未发版（versionCode 仍 8）。
+- **v1.2.2（versionCode 9 / EXTRACT_VERSION 20）已发布**（2026-09-04，Release v1.2.2 附三件套 APK；commit b815589b）：
+  ① patch 008 v4 blue/indigo 色板收编（toggle 蓝/叙事视角 luzzy 下珊瑚化，classic 原值）；
+  ② patch 020 向量检索失败 toast 外化（30s 节流+降级）；
+  ③ **全新品牌图标**（White Fox 头像版，纯 1:1 满幅，adaptive=全图前景 68%+同色背景
+  #EDD7BD，源图 docs/design/brand-logo-v2-source.png，换 icon SOP 见 §3.5）；
+  ④ styles.css 硬编码蓝 4 族收编（侧栏激活项/segmented 选中态/settings-toggle 家族/
+  弹窗主按钮，均 luzzy-theme.css 组件级，约 66 处其余低频入遗留）；
+  ⑤ verify-markers 43 PASS / 0 FAIL；entities/012-020-*。
+- **真机（小米 25098PN5AC / Android 16）**：EXTRACT 19 debug 完成 v1.2.2 主题变更
+  全量走查（亮/暗双模式）；release 包（EXTRACT 20）未复验——设备中途断开，delta
+  仅为图标资源，待用户复装看 MIUI 桌面新图标（缓存不刷新则重启桌面/重装触发）。
 - **上游基线 RP-Hub 1.8.9 不变**；built-in-content.js / styles.css 与上游逐字节一致。
-- 结构验证方法（可复用）：parse5（浏览器同源解析器）对 v1.2.0 基线做树级对比，
-  9 个 `.management-view` 结构 = 基线 + 预期插入；body 直接子级一致。
-- 模拟器（LuzzyRP_Test）已装 EXTRACT 15 debug 构建并完成验证：聊天/记忆/外观/关于/
-  设置五页逐页截图核对通过（无顶部缺字段/底部溢出/裸文本，主题 CSS 正常加载）；
-  管理器 CRUD 回归：编辑失败路径（重嵌 fetch 失败 → toast + 不落盘 + 按钮复位）✓、
-  启停 ✓、删除+确认 ✓、统计即时联动 ✓、杀进程重启持久化 ✓。
-- **真机（小米 df97f3c4）已复验**（会话 16，release 包 arm64：patch 019 品牌字样/导航/预览交互/持久化全流程通过）；图标透明底修复待用户复装确认。
+- **仓库描述已纠正**（2026-09-03）：WebView 封装（Kotlin 薄壳），非「原生 Kotlin +
+  Compose」；换图标 SOP 见 §3.5。
 
-### 遗留待办（按优先级 · 会话 18 复核）
+### 遗留待办（按优先级 · 会话 19 复核）
 
-1. 图标透明底修复真机复装确认（MIUI 若仍异常 → 后备方案：以 luzzy_logo.png 原作为源机械派生透明版 mipmap PNG，需用户确认后做）；
-2. v1.2.2 发布**暂缓**（用户指示：继续功能更新后一并发布，版本范围可能扩展）；待发布时执行：versionCode 9 / assembleRelease / CHANGELOG 去「开发中」/ GitHub Release；剩余小项=patch 020 toast 罐装验证（模拟器）+ classic 目测复核（用户日常手动切换即可）；
+1. v1.2.2 真机 release 复验：EXTRACT 20 重解压 + MIUI 桌面新图标渲染确认（用户复装即可）；
+2. patch 020 toast 罐装验证（模拟器）+ classic 主题目测复核（用户日常手动切换）；
 3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-4. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
-5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
+4. styles.css 其余 ~66 处低频硬编码蓝收编（v1.3.0 候选，清单见 DESIGN.md Do's & Don'ts）；
+5. 上游同步演练（网络可用时跑 sync-upstream.ps1 假发版模拟，复核上游是否发新版）；
+6. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 19；改前先确认当前值）；
+- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 20；改前先确认当前值）；
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
   git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
   要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；

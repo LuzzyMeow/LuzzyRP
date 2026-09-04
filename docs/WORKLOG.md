@@ -1194,3 +1194,8 @@ classic 下=Tailwind 原值。
   8927b2eb；工作树干净；零未登记上游改动。
 - **下一会话入口**：直接接功能需求，按 AGENTS §3.2 流程评估归属
   （扩展层优先 → 必要时登记 patch 021+）；发布动作等用户明确指令。
+- **附（仓库描述纠正，用户指出「我们不是 Kotlin 原生项目」）**：GitHub About 原描述
+  误写「原生 Kotlin + Jetpack Compose」——本项目为 WebView 封装（Compose 从未使用）。
+  已改为「基于 RP-Hub（Vue 3 前端）的安卓 WebView 封装 + 独立扩展层与主题系统」；
+  README 简介两处「原生安卓」措辞同步收敛为「WebView 封装（Kotlin 薄壳）」定位；
+  全仓扫描确认现存 Compose 引用均为「旧 v0.x 工程已推倒重建」历史记录（准确保留）。

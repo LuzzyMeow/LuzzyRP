@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html><head><style>
+body { margin: 0; background: #888; height: 400px; }
+.fixed-box { position: fixed; inset: 0; background: #F5F0E8; transform-origin: 50% 0%; animation: lift 1s cubic-bezier(0.23,1,0.32,1) 0.2s both; }
+@keyframes lift {
+    0% { opacity: 1; transform: perspective(1200px) rotateX(0deg); }
+    35% { opacity: 1; transform: perspective(1200px) rotateX(-28deg) translateY(-6%); }
+    75% { opacity: 1; transform: perspective(1200px) rotateX(-48deg) translateY(-34%); }
+    100% { opacity: 0; transform: perspective(1200px) rotateX(-58deg) translateY(-52%); }
+}
+</style></head>
+<body><div class="fixed-box"></div></body></html>

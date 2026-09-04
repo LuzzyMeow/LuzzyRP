@@ -3885,7 +3885,7 @@ const app = createApp({
             const preamble = [];
             let current = null;
             (md || '').split(/\r?\n/).forEach((line) => {
-                const match = /^###\s+(v[0-9][0-9A-Za-z.]*)/.exec(line);
+                const match = /^###\s+(v[0-9][0-9A-Za-z.-]*)/.exec(line);
                 if (match) {
                     current = { version: match[1], lines: [line] };
                     sections.push(current);
@@ -3941,8 +3941,12 @@ const app = createApp({
                     const parsed = parseChangelogSections(md);
                     changelogPreambleMd = parsed.preamble;
                     changelogSections.value = parsed.sections;
+                    const seenVersions = new Set(['all']);
                     changelogVersionOptions.value = [{ value: 'all', label: '全部版本' }]
-                        .concat(parsed.sections.map(section => ({ value: section.version, label: section.version })));
+                        .concat(parsed.sections
+                            .filter(section => !seenVersions.has(section.version) && seenVersions.add(section.version))
+                            .map(section => ({ value: section.version, label: section.version })));
+
                 } catch (e) { changelogSections.value = []; }
                 renderChangelogView();
             }
@@ -7244,10 +7248,6 @@ const app = createApp({
 
             return retainedTurns;
         };
-
-        const getCurrentRetainedVectorMemoryTurns = () => getRetainedRecentMemoryTurns(
-            getPostprocessedChatMessages(chatHistory.value, { includeSystem: false })
-        );
 
         const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
 

@@ -6,7 +6,7 @@
     顶部露出的状态栏区域显示纯白 windowBackground，与页面顶栏深灰渐变形成断崖。
 
     方案：angle=270 表示从上到下渐变。0% (#8B8886，比顶栏起始略浅) →
-    5% (#7D7A77，顶栏起始灰) → 8% (#FAF9F5 纯白)。WebView 内容区从状态栏
+    5% (#7D7A77，顶栏起始灰) → 8% (#FAF9F5 暖纸，v1.2.3 起与「开卷」开屏纸面衔接，消除白闪)。WebView 内容区从状态栏
     下方开始覆盖，可见区只有顶部状态栏条 + 底部导航条：
       - 顶部状态栏条 → 显示 #8A8A8A→#7C7D7D，与顶栏渐变自然衔接；
       - 底部导航条 → 渐变已完成到白色，与页面浅色背景连续。
@@ -19,7 +19,7 @@
         android:angle="270"
         android:startColor="#8A8A8A"
         android:centerColor="#7C7D7D"
-        android:endColor="#FFFFFF"
+        android:endColor="#FAF9F5"
         android:centerY="0.05"
         android:type="linear" />
 </shape>

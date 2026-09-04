@@ -2164,6 +2164,8 @@
                             </div>
                         </div>
                         <div v-if="changelogKeyword" class="text-xs text-gray-400 mb-2">{{ changelogResultCount > 0 ? '命中 ' + changelogResultCount + ' 个版本' : '没有匹配的版本' }}</div>
+                        <div v-if="changelogHtml" class="markdown-body text-sm text-gray-600 leading-relaxed changelog-body" v-html="changelogHtml"></div>
+                        <p v-else class="text-xs text-gray-400">暂无符合条件的更新日志。</p>
                     </div>
 
                     <div class="flex items-center gap-3 px-1">

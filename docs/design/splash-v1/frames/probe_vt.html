@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html><head><style>
+body { margin: 0; background: #888; height: 400px; }
+.box { width: 100px; height: 100px; background: #CC785C; animation: slide 1s cubic-bezier(0.23,1,0.32,1) both; }
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(300px); } }
+.fade { position: absolute; top: 0; right: 0; width: 100px; height: 100px; background: #5DB872; opacity: 0; animation: appear 1s linear both; }
+@keyframes appear { to { opacity: 1; } }
+</style></head>
+<body><div class="box"></div><div class="fade"></div></body></html>

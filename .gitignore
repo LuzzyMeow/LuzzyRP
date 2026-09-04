@@ -67,3 +67,10 @@ docs/AGENT-GUIDE.md
 docs/INVARIANTS-CHECKLIST.md
 docs/PLAN-v0.1.0.md
 app/src/main/assets/CHANGELOG.md
+
+# 开屏审片逐帧临时捕获（保留 harness.html 与 sheet/liftrow 拼图）
+docs/design/splash-v1/frames/f_*.png
+docs/design/splash-v1/frames/g_*.png
+docs/design/splash-v1/frames/h_*.png
+docs/design/splash-v1/frames/probe*.png
+docs/design/splash-v1/frames/list.txt

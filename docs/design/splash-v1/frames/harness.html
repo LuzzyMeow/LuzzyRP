@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="UTF-8">
+<style>
+html, body { margin: 0; padding: 0; width: 430px; height: 932px; overflow: hidden; background: #F5F0E8; }
+/* —— LuzzyRP 开屏「开卷 Open the Journal」（patch 027，v1.2.3，需求 1）—— */
+/* 方向板 B 落地（用户选定，2026-09-04）：docs/design/splash-v1/board-b.html。
+   色值全部为 DESIGN.md token（亮/暗经 data-mode 切换，patch 018 head 链首帧生效）；
+   动画只触碰 transform/opacity；全片唯一缓动 cubic-bezier(0.23,1,0.32,1)；
+   基础态=最终帧（reduced-motion 直出终帧 + 200ms 快速退场）；
+   ≈2.3s 序列定格后 2.55s 起整体 450ms 淡出交还主界面。 */
+.luzzy-splash {
+    --lsp-ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --lsp-paper: #FAF9F5; --lsp-cover: #F5F0E8; --lsp-card: #EFE9DE;
+    --lsp-ink: #141413; --lsp-muted: #6C6A64;
+    --lsp-coral: #CC785C; --lsp-amber: #F5D9A8;
+    --lsp-rule: rgba(61, 58, 54, .2);
+    --lsp-cover-rule: rgba(61, 58, 54, .26);
+    --lsp-grain: rgba(61, 58, 54, .045);
+    --lsp-glow-o: .55;
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--lsp-paper);
+    pointer-events: none;
+    animation: luzzySplashExit .45s var(--lsp-ease) 2.55s forwards;
+}
+
+:root[data-mode="dark"] .luzzy-splash {
+    --lsp-paper: #171614; --lsp-cover: #2B2824; --lsp-card: #2B2824;
+    --lsp-ink: #FAF9F5; --lsp-muted: rgba(250, 249, 245, .62);
+    --lsp-coral: #D97757;
+    --lsp-rule: rgba(250, 249, 245, .18);
+    --lsp-cover-rule: rgba(250, 249, 245, .22);
+    --lsp-grain: rgba(250, 249, 245, .035);
+    --lsp-glow-o: .34;
+}
+
+@keyframes luzzySplashExit {
+    to { opacity: 0; visibility: hidden; }
+}
+
+.luzzy-splash::before {
+    content: ''; position: absolute; inset: 0; z-index: 10; pointer-events: none;
+    background:
+        repeating-linear-gradient(112deg, var(--lsp-grain) 0 1px, transparent 1px 4px),
+        repeating-linear-gradient(23deg, var(--lsp-grain) 0 1px, transparent 1px 5px);
+}
+
+.luzzy-splash-page {
+    position: absolute; inset: 0; z-index: 1;
+    background: var(--lsp-paper);
+    animation: lspPaperSettle .55s var(--lsp-ease) .25s both;
+}
+
+.luzzy-splash-stack {
+    position: absolute; inset: 0; z-index: 3;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding-bottom: 13vh;
+}
+
+.luzzy-splash-center {
+    position: relative; z-index: 0;
+    display: flex; flex-direction: column; align-items: center;
+}
+
+.luzzy-splash-glow {
+    position: absolute; left: 50%; top: 42px; transform: translate(-50%, -50%);
+    width: 340px; height: 340px; z-index: -1;
+    opacity: var(--lsp-glow-o);
+}
+
+.luzzy-splash-glow i {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(245, 217, 168, .85), rgba(245, 217, 168, 0));
+    animation: lspFadeIn .8s var(--lsp-ease) 1.2s both;
+}
+
+.luzzy-splash-seal {
+    width: 84px; height: 84px; border-radius: 50%;
+    overflow: hidden; border: 1px solid var(--lsp-rule); background: var(--lsp-card);
+    animation: lspStampIn .52s var(--lsp-ease) .82s both;
+}
+
+.luzzy-splash-seal img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.luzzy-splash-wordmark {
+    margin-top: 22px;
+    font-family: 'Lora', Georgia, 'Songti SC', 'Noto Serif CJK SC', serif;
+    font-weight: 400; font-size: 40px; line-height: 1.1; letter-spacing: .01em;
+    color: var(--lsp-ink);
+    animation: lspRiseIn .52s var(--lsp-ease) 1.02s both;
+}
+
+.luzzy-splash-hlwrap { position: relative; z-index: 0; }
+
+.luzzy-splash-hl {
+    position: absolute; left: -2px; right: -12px; bottom: 2px; height: 9px;
+    background: var(--lsp-amber); opacity: .85; border-radius: 2px;
+    transform: scaleX(1) rotate(-1.4deg); transform-origin: left center;
+    z-index: -1;
+    animation: lspHlDraw .38s var(--lsp-ease) 1.4s both;
+}
+
+.luzzy-splash-slogan {
+    margin-top: 14px;
+    font-family: 'Lora', Georgia, 'Songti SC', 'Noto Serif CJK SC', serif;
+    font-size: 13px; letter-spacing: .06em;
+    color: var(--lsp-muted);
+    animation: lspRiseIn .48s var(--lsp-ease) 1.22s both;
+}
+
+.luzzy-splash-inkdot {
+    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--lsp-coral); margin-left: 7px;
+    animation: lspDotIn .4s var(--lsp-ease) 1.48s both;
+}
+
+.luzzy-splash-rule {
+    position: absolute; top: 30px; left: 26px; right: 26px; height: 1px;
+    background: var(--lsp-rule); transform-origin: left center; z-index: 4;
+    animation: lspRuleDraw .6s var(--lsp-ease) .95s both;
+}
+
+.luzzy-splash-pagenum {
+    position: absolute; left: 0; right: 0; bottom: 38px; z-index: 4;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    animation: lspRiseIn .46s var(--lsp-ease) 1.5s both;
+}
+
+.luzzy-splash-pagenum span { width: 30px; height: 1px; background: var(--lsp-rule); }
+
+.luzzy-splash-pagenum em {
+    font-family: 'Lora', Georgia, serif;
+    font-size: 12px; letter-spacing: .35em; padding-left: .35em;
+    color: var(--lsp-muted); font-style: italic;
+}
+
+.luzzy-splash-cover {
+    position: absolute; inset: 0; z-index: 9;
+    background: var(--lsp-cover);
+    border-bottom: 1px solid var(--lsp-cover-rule);
+    transform-origin: 50% 0%;
+    opacity: 0;
+    display: flex; align-items: center; justify-content: center;
+    animation: lspCoverLift .85s var(--lsp-ease) .28s both;
+}
+
+.luzzy-splash-cover-frame {
+    position: absolute; inset: 26px; border: 1px solid var(--lsp-cover-rule);
+}
+
+.luzzy-splash-cover-tick {
+    width: 18px; height: 3px; border-radius: 2px;
+    background: var(--lsp-coral); transform: rotate(-6deg);
+}
+
+@keyframes lspPaperSettle {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lspCoverLift {
+    0% { opacity: 1; transform: perspective(1200px) rotateX(0deg) translateY(0); }
+    30% { opacity: 1; transform: perspective(1200px) rotateX(-18deg) translateY(-8%); }
+    60% { opacity: 1; transform: perspective(1200px) rotateX(-34deg) translateY(-46%); }
+    100% { opacity: 0; transform: perspective(1200px) rotateX(-46deg) translateY(-104%); }
+}
+
+@keyframes lspRuleDraw {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+@keyframes lspHlDraw {
+    from { transform: scaleX(0) rotate(-1.4deg); }
+    to { transform: scaleX(1) rotate(-1.4deg); }
+}
+
+@keyframes lspStampIn {
+    from { opacity: 0; transform: scale(.96) rotate(-3deg); }
+    to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes lspRiseIn {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lspDotIn {
+    from { opacity: 0; transform: scale(.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes lspFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* [review harness] reduced-motion stripped */
+
+</style>
+</head>
+<body>
+<!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 Open the Journal」（v1.2.3，需求 1）：
+         用户选定方向 B（参照 Aēsop 获奖互动站，docs/design/splash-v1/direction-approved.md），
+         上游 entry-transition DOM 整体退役；样式在 ext/luzzy-theme.css（patch 018 head 注入链
+         首帧生效）；[LuzzyRP patch 003] 入口字标由本开屏字标承载，003 重放块随之退役 -->
+    <div class="luzzy-splash" aria-hidden="true">
+        <div class="luzzy-splash-page"></div>
+        <div class="luzzy-splash-stack">
+            <div class="luzzy-splash-center">
+                <div class="luzzy-splash-glow"><i></i></div>
+                <div class="luzzy-splash-seal"><img src="../../../../app/src/main/assets/ext/luzzy-logo.png" alt="" onerror="this.style.display='none'"></div>
+                <div class="luzzy-splash-wordmark">Luzzy<span class="luzzy-splash-hlwrap">RP<i class="luzzy-splash-hl"></i></span></div>
+                <div class="luzzy-splash-slogan">每次对话，都像一本有你的小说<i class="luzzy-splash-inkdot"></i></div>
+            </div>
+        </div>
+        <div class="luzzy-splash-rule"></div>
+        <div class="luzzy-splash-pagenum"><span></span><em>— 01 —</em></div>
+        <div class="luzzy-splash-cover"><i class="luzzy-splash-cover-frame"></i><i class="luzzy-splash-cover-tick"></i></div>
+    </div>
+</body>
+</html>

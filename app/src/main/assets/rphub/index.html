@@ -161,10 +161,11 @@
             </path>
         </symbol>
     </svg>
-    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 Open the Journal」（v1.2.3，需求 1）：
-         用户选定方向 B（参照 Aēsop 获奖互动站，docs/design/splash-v1/direction-approved.md），
-         上游 entry-transition DOM 整体退役；样式在 ext/luzzy-theme.css（patch 018 head 注入链
-         首帧生效）；[LuzzyRP patch 003] 入口字标由本开屏字标承载，003 重放块随之退役 -->
+    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 · 门扉」（v1.2.3，需求 1 v3 修订，用户决策）：
+         v3 改为门扉交互——构图淡入 → 加载进度条自左向右 → 「沉溺」按钮浮现并等待点击 →
+         点击触发 眩晕+泡泡+中心放大 转场进入主界面；原掀封叙事移除（2026-09-05 用户决策）。
+         样式见 ext/luzzy-theme.css（splash v3 段）+ 行为见 ext/luzzy-splash.js（patch 005 挂载）；
+         品牌色全部 DESIGN.md token。[LuzzyRP patch 003] 入口字标由本开屏承载，003 已退役 -->
     <div class="luzzy-splash" aria-hidden="true">
         <div class="luzzy-splash-page"></div>
         <div class="luzzy-splash-stack">
@@ -174,13 +175,14 @@
                 <div class="luzzy-splash-wordmark">Luzzy<span class="luzzy-splash-hlwrap">RP<i class="luzzy-splash-hl"></i></span></div>
                 <div class="luzzy-splash-slogan">每次对话，都像一本有你的小说<i class="luzzy-splash-inkdot"></i></div>
             </div>
+            <div class="lsp-progress" role="progressbar" aria-label="加载中"><i></i></div>
+            <button type="button" class="lsp-dive-btn">沉&ensp;溺</button>
         </div>
         <div class="luzzy-splash-rule"></div>
         <div class="luzzy-splash-pagenum"><span></span><em>— 01 —</em></div>
-        <div class="luzzy-splash-cover"><i class="luzzy-splash-cover-frame"></i><i class="luzzy-splash-cover-tick"></i></div>
+        <div class="lsp-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     </div>
-
-    <div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
+<div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
         :class="{ 'mobile-keyboard-active': isMobileKeyboardOpen }"> <!-- [LuzzyRP patch 022] 全屏态 class 绑定移除（聊天页全屏下线，v1.2.3） -->
         <component is="style" v-if="settings.fontSize">
             .markdown-body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(small):not(sub):not(sup):not(code) {
@@ -2064,43 +2066,37 @@
                 </settings-page-header>
 
                 <div class="max-w-2xl space-y-4">
-                    <!-- [LuzzyRP patch 019] 主题预览交互化：色板随 data-theme 取色（--luzzy-prev-*，
-                         定义于 ext/luzzy-theme.css；值均为 DESIGN.md 既有 token）；
-                         luzzy 下点击卡片直接切换亮/暗模式（aria-pressed），经典主题仅亮色（无暗色模式）。
-                         [LuzzyRP patch 014] 原静态预览条位置（v1.2.0） -->
+                    <!-- [LuzzyRP patch 028] 主题单轨化（v1.2.3，用户指令）：经典主题与主题切换移除，
+                         恒定「暖幕手记」；预览卡简化为亮/暗模式预览与切换（patch 019 交互保留）；
+                         界面字体 / 对话字号不变。[LuzzyRP patch 019] 色板随 data-mode 取色
+                         （--luzzy-prev-*，定义于 ext/luzzy-theme.css）。[LuzzyRP patch 014] 原预览条位置 -->
                     <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
-                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">预览</label>
-                        <div class="grid gap-3" :class="settings.theme === 'luzzy' ? 'grid-cols-2' : 'grid-cols-1'">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">外观预览</label>
+                        <div class="grid gap-3 grid-cols-2">
                             <button type="button" @click="settings.themeMode = 'light'"
-                                :aria-pressed="!(settings.theme === 'luzzy' && settings.themeMode === 'dark')"
+                                :aria-pressed="settings.themeMode !== 'dark'"
                                 class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
-                                :class="!(settings.theme === 'luzzy' && settings.themeMode === 'dark') ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
+                                :class="settings.themeMode !== 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
                                 :style="{ background: 'rgb(var(--luzzy-prev-light-bg))' }">
-                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-light-title))' }">{{ settings.theme === 'luzzy' ? '亮色 · 暖幕手记' : '亮色 · 经典' }}</div>
-                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-light-sub))' }">{{ settings.theme === 'luzzy' ? '暖米纸面 · 珊瑚点缀' : '上游原版配色' }}</div>
+                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-light-title))' }">亮色 · 暖幕手记</div>
+                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-light-sub))' }">暖米纸面 · 珊瑚点缀</div>
                                 <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-light-accent))' }"></div>
                             </button>
-                            <button v-if="settings.theme === 'luzzy'" type="button" @click="settings.themeMode = 'dark'"
-                                :aria-pressed="settings.theme === 'luzzy' && settings.themeMode === 'dark'"
+                            <button type="button" @click="settings.themeMode = 'dark'"
+                                :aria-pressed="settings.themeMode === 'dark'"
                                 class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
-                                :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
+                                :class="settings.themeMode === 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
                                 :style="{ background: 'rgb(var(--luzzy-prev-dark-bg))' }">
                                 <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-dark-title))' }">暗色 · 暖幕手记</div>
                                 <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-dark-sub))' }">暖黑纸面 · 珊瑚提亮</div>
                                 <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-dark-accent))' }"></div>
                             </button>
                         </div>
-                        <p v-if="settings.theme === 'luzzy'" class="mt-2.5 text-[11px] text-gray-400">点击预览卡可直接切换亮色 / 暗色模式</p>
+                        <p class="mt-2.5 text-[11px] text-gray-400">点击预览卡可直接切换亮色 / 暗色模式</p>
                         <p class="mt-3 text-[11px] text-gray-400" :style="{ fontFamily: 'var(--app-font-family)' }">当前字体样张：霜降的夜里，他抬起下巴打量着来客。—— The quick brown fox 0123456789</p>
                     </div>
 
                     <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
-                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>
-                        <custom-select v-model="settings.theme" :options="themeOptions"
-                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
-                        </custom-select>
-                    </div>
-                    <div v-if="settings.theme === 'luzzy'" class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">模式</label>
                         <custom-select v-model="settings.themeMode" :options="themeModeOptions"
                             button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">

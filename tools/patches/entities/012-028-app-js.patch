@@ -1,16 +1,14 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index f73b1ddd..40135ba9 100644
+index f73b1ddd..8c2931f9 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
-@@ -225,6 +225,15 @@ const app = createApp({
+@@ -225,6 +225,13 @@ const app = createApp({
              uiTemplatePlacements: uiTemplatePlacementOptions,
              worldInfoPositions: worldInfoPositionOptions
          } = uiOptions;
-+        // [LuzzyRP patch 011] 主题/模式选项常量（上游无此块）
-+        const themeOptions = Object.freeze([
-+            { value: 'luzzy', label: '暖幕手记（Luzzy）' },
-+            { value: 'classic', label: '经典（原版）' }
-+        ]);
++        // [LuzzyRP patch 011] 模式选项常量（上游无此块）
++        // [LuzzyRP patch 028] 主题单轨化：themeOptions（classic/luzzy 选择）随主题切换功能移除，
++        // settings.theme 恒为 'luzzy'（见加载迁移块）
 +        const themeModeOptions = Object.freeze([
 +            { value: 'light', label: '亮色' },
 +            { value: 'dark', label: '暗色' }
@@ -18,7 +16,7 @@ index f73b1ddd..40135ba9 100644
          const ACTIVE_TOOL_KEYWORD_TYPE = activeToolConfig.types.keyword;
          const ACTIVE_TOOL_WEB_TYPE = activeToolConfig.types.web;
          const ACTIVE_TOOL_MIN_RESULT_COUNT = activeToolConfig.resultCount.min;
-@@ -382,7 +391,7 @@ const app = createApp({
+@@ -382,7 +389,7 @@ const app = createApp({
          const toasts = ref([]);
          let toastIdSeed = 0;
          const chatContainer = ref(null);
@@ -27,7 +25,7 @@ index f73b1ddd..40135ba9 100644
          const isMobileKeyboardOpen = ref(false);
          const inputBox = ref(null);
          const messageElements = ref([]);
-@@ -607,6 +616,8 @@ const app = createApp({
+@@ -607,6 +614,8 @@ const app = createApp({
              apiProviderKeys: {},
              customApiUrl: '',
              customApiUrl2: '',
@@ -36,7 +34,7 @@ index f73b1ddd..40135ba9 100644
              model: DEFAULT_API_CONFIG.qualityModel,
              contextSize: MAX_CONTEXT_SIZE,
              temperature: 1.0,
-@@ -625,13 +636,18 @@ const app = createApp({
+@@ -625,13 +634,18 @@ const app = createApp({
              uiTemplateAnalysisDepth: 4,
              uiTemplateInjectContext: false,
              uiTemplateMainModelAnalysis: true,
@@ -56,7 +54,7 @@ index f73b1ddd..40135ba9 100644
              imageSize: '竖图',
              imageGenCount: 2,
              qualityModel: DEFAULT_API_CONFIG.qualityModel,
-@@ -645,7 +661,22 @@ const app = createApp({
+@@ -645,7 +659,22 @@ const app = createApp({
              : imageStyleOptions);
          const getImageModelName = (value) => (imageModelOptions.find(option => option.value === value)?.label
              || imageModelOptions[0].label).replace(/（[^）]*）$/, '');
@@ -80,7 +78,7 @@ index f73b1ddd..40135ba9 100644
          const normalizeFontSize = (value) => {
              const size = Number(value);
              return Number.isFinite(size) ? Math.max(12, Math.min(20, Math.round(size))) : 16;
-@@ -654,6 +685,47 @@ const app = createApp({
+@@ -654,6 +683,47 @@ const app = createApp({
              document.documentElement.dataset.appFont = normalizeFontFamily(value);
          };
          watch(() => settings.fontFamily, applyFontFamily, { immediate: true });
@@ -128,7 +126,7 @@ index f73b1ddd..40135ba9 100644
  
          const showApiProviderSelector = ref(false);
          const selectedApiProviderId = ref(DEFAULT_API_PROVIDER_ID);
-@@ -673,10 +745,154 @@ const app = createApp({
+@@ -673,10 +743,154 @@ const app = createApp({
          const isCustomApiProviderId = (id) => customApiProviderOptions.some(provider => provider.id === id);
          const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
          const normalizeApiProviderUrl = (url) => String(url || '').replace(/\/+$/, '').toLowerCase();
@@ -285,7 +283,7 @@ index f73b1ddd..40135ba9 100644
          };
          const syncCurrentApiKeyToProvider = () => {
              const providerId = settings.apiProviderId || selectedApiProvider.value.id || DEFAULT_API_PROVIDER_ID;
-@@ -688,15 +904,39 @@ const app = createApp({
+@@ -688,15 +902,39 @@ const app = createApp({
                  settings[getCustomApiUrlKey(providerId)] = settings.apiUrl || '';
              }
          };
@@ -325,7 +323,7 @@ index f73b1ddd..40135ba9 100644
  
              let provider = getApiProviderById(settings.apiProviderId);
              if (!provider && !isCustomApiProviderId(settings.apiProviderId)) {
-@@ -720,22 +960,22 @@ const app = createApp({
+@@ -720,22 +958,22 @@ const app = createApp({
              settings.apiKey = settings.apiProviderKeys[settings.apiProviderId] || '';
          };
          const selectedApiProvider = computed(() => {
@@ -353,7 +351,7 @@ index f73b1ddd..40135ba9 100644
              settings.apiKey = settings.apiProviderKeys[provider.id] || '';
              showApiProviderSelector.value = false;
          };
-@@ -754,6 +994,21 @@ const app = createApp({
+@@ -754,6 +992,21 @@ const app = createApp({
          watch(() => settings.apiUrl, (newUrl) => {
              if (isCustomApiProviderId(settings.apiProviderId)) {
                  settings[getCustomApiUrlKey(settings.apiProviderId)] = newUrl || '';
@@ -375,7 +373,7 @@ index f73b1ddd..40135ba9 100644
              }
          });
  
-@@ -761,9 +1016,16 @@ const app = createApp({
+@@ -761,9 +1014,16 @@ const app = createApp({
              const iframe = document.querySelector('iframe[src*="character"]');
              if (iframe && iframe.contentWindow) {
                  try {
@@ -393,7 +391,7 @@ index f73b1ddd..40135ba9 100644
                      };
                      iframe.contentWindow.postMessage(syncData, '*');
                  } catch (e) {
-@@ -791,14 +1053,27 @@ const app = createApp({
+@@ -791,14 +1051,27 @@ const app = createApp({
                          icon: ''
                      }))
                  ];
@@ -424,7 +422,7 @@ index f73b1ddd..40135ba9 100644
                          customApiUrl2: settings.customApiUrl2
                      },
                      providers
-@@ -1450,6 +1725,173 @@ const app = createApp({
+@@ -1450,6 +1723,173 @@ const app = createApp({
              scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
              toast: (...args) => showToast(...args)
          });
@@ -598,20 +596,19 @@ index f73b1ddd..40135ba9 100644
          // Export Modal State
          const showExportModal = ref(false);
          const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
-@@ -1775,6 +2217,12 @@ const app = createApp({
+@@ -1775,6 +2215,11 @@ const app = createApp({
                              settings[key] = savedSettings[key];
                          }
                      });
-+                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'theme')) {
-+                        settings.theme = 'classic'; // 老用户保留经典主题
-+                    }
++                    // [LuzzyRP patch 028] 主题单轨化：老用户 classic 无条件迁至 luzzy（v1.2.3）
++                    settings.theme = 'luzzy';
 +                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'themeMode')) {
 +                        settings.themeMode = 'light';
 +                    }
                      if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
                          const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                          settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
-@@ -1989,6 +2437,88 @@ const app = createApp({
+@@ -1989,6 +2434,88 @@ const app = createApp({
              return payload;
          };
  
@@ -700,7 +697,7 @@ index f73b1ddd..40135ba9 100644
          const renderGeneratedImageJob = (card, task, job) => {
              if (!card?.isConnected) return task.cards.delete(card);
              task.job = job;
-@@ -2006,15 +2536,21 @@ const app = createApp({
+@@ -2006,15 +2533,21 @@ const app = createApp({
                  return;
              }
              if (job.status === 'running') {
@@ -728,7 +725,7 @@ index f73b1ddd..40135ba9 100644
              if (!imageUrl) {
                  card.classList.remove('is-generating');
                  card.classList.add('is-generation-error');
-@@ -2095,7 +2631,10 @@ const app = createApp({
+@@ -2095,7 +2628,10 @@ const app = createApp({
              card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
              const label = card.querySelector('.generated-image-progress-label');
              const bar = card.querySelector('.generated-image-progress-bar');
@@ -740,7 +737,7 @@ index f73b1ddd..40135ba9 100644
              if (!task.job) {
              if (label) label.textContent = '等待生成';
                  if (bar) bar.style.width = '0%';
-@@ -2105,7 +2644,9 @@ const app = createApp({
+@@ -2105,7 +2641,9 @@ const app = createApp({
              card.dataset.imageJobState = 'loading';
              card.classList.add('is-generating');
              card.classList.remove('is-generation-error');
@@ -751,7 +748,7 @@ index f73b1ddd..40135ba9 100644
              card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
              if (task.job) renderGeneratedImageJob(card, task, task.job);
              return task.promise;
-@@ -2167,9 +2708,22 @@ const app = createApp({
+@@ -2167,9 +2705,22 @@ const app = createApp({
              if (mainStart < 0) return;
              const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
              if (!sourceUrl) return;
@@ -777,7 +774,7 @@ index f73b1ddd..40135ba9 100644
  
              const originalContent = message.content;
              const finishLoading = () => {
-@@ -2179,7 +2733,7 @@ const app = createApp({
+@@ -2179,7 +2730,7 @@ const app = createApp({
              card.classList.add('is-rerolling');
              button.disabled = true;
  
@@ -786,7 +783,7 @@ index f73b1ddd..40135ba9 100644
              if (job.status === 'done') {
                  if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                      finishLoading();
-@@ -2283,6 +2837,16 @@ const app = createApp({
+@@ -2283,6 +2834,16 @@ const app = createApp({
              }
          }, { flush: 'sync' });
  
@@ -803,7 +800,7 @@ index f73b1ddd..40135ba9 100644
          watch(() => settings.imageSize, () => {
              const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
              if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
-@@ -3092,7 +3656,7 @@ const app = createApp({
+@@ -3092,7 +3653,7 @@ const app = createApp({
              const tags = new Set();
  
              availableModels.value.forEach(m => {
@@ -812,7 +809,7 @@ index f73b1ddd..40135ba9 100644
                  let found = false;
                  for (const family of popularModelFamilies) {
                      if (id.includes(family)) {
-@@ -3118,18 +3682,21 @@ const app = createApp({
+@@ -3118,18 +3679,21 @@ const app = createApp({
              if (activeModelTag.value && activeModelTag.value !== 'all') {
                  if (activeModelTag.value === 'other') {
                      result = result.filter(m => {
@@ -837,7 +834,7 @@ index f73b1ddd..40135ba9 100644
              }
  
              return result.sort((a, b) => a.id.localeCompare(b.id));
-@@ -3304,6 +3871,89 @@ const app = createApp({
+@@ -3304,6 +3868,93 @@ const app = createApp({
              clearMessageRenderCaches();
          }, { deep: true });
  
@@ -855,7 +852,7 @@ index f73b1ddd..40135ba9 100644
 +            const preamble = [];
 +            let current = null;
 +            (md || '').split(/\r?\n/).forEach((line) => {
-+                const match = /^###\s+(v[0-9][0-9A-Za-z.]*)/.exec(line);
++                const match = /^###\s+(v[0-9][0-9A-Za-z.-]*)/.exec(line);
 +                if (match) {
 +                    current = { version: match[1], lines: [line] };
 +                    sections.push(current);
@@ -911,8 +908,12 @@ index f73b1ddd..40135ba9 100644
 +                    const parsed = parseChangelogSections(md);
 +                    changelogPreambleMd = parsed.preamble;
 +                    changelogSections.value = parsed.sections;
++                    const seenVersions = new Set(['all']);
 +                    changelogVersionOptions.value = [{ value: 'all', label: '全部版本' }]
-+                        .concat(parsed.sections.map(section => ({ value: section.version, label: section.version })));
++                        .concat(parsed.sections
++                            .filter(section => !seenVersions.has(section.version) && seenVersions.add(section.version))
++                            .map(section => ({ value: section.version, label: section.version })));
++
 +                } catch (e) { changelogSections.value = []; }
 +                renderChangelogView();
 +            }
@@ -927,7 +928,7 @@ index f73b1ddd..40135ba9 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3361,25 +4011,93 @@ const app = createApp({
+@@ -3361,25 +4012,93 @@ const app = createApp({
          };
  
          // API & Models
@@ -1037,7 +1038,7 @@ index f73b1ddd..40135ba9 100644
              }
          };
  
-@@ -3391,9 +4109,376 @@ const app = createApp({
+@@ -3391,9 +4110,376 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1414,7 +1415,7 @@ index f73b1ddd..40135ba9 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3461,11 +4546,26 @@ const app = createApp({
+@@ -3461,11 +4547,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1445,7 +1446,7 @@ index f73b1ddd..40135ba9 100644
              ));
          };
  
-@@ -3579,11 +4679,15 @@ const app = createApp({
+@@ -3579,11 +4680,15 @@ const app = createApp({
          });
          const recognizeChatImage = async (image) => {
              const requestStartedAt = Date.now();
@@ -1464,7 +1465,7 @@ index f73b1ddd..40135ba9 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3610,7 +4714,9 @@ const app = createApp({
+@@ -3610,7 +4715,9 @@ const app = createApp({
                  target.status = 'ready';
                  recordApiUsage(result.usage, {
                      type: 'image_recognition',
@@ -1475,7 +1476,7 @@ index f73b1ddd..40135ba9 100644
                      isStream: false,
                      durationMs: Date.now() - requestStartedAt,
                      outputCharacters: description.length
-@@ -3625,7 +4731,8 @@ const app = createApp({
+@@ -3625,7 +4732,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -1485,7 +1486,7 @@ index f73b1ddd..40135ba9 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3754,43 +4861,7 @@ const app = createApp({
+@@ -3754,43 +4862,7 @@ const app = createApp({
              });
          };
  
@@ -1530,7 +1531,7 @@ index f73b1ddd..40135ba9 100644
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -3962,12 +5033,13 @@ const app = createApp({
+@@ -3962,12 +5034,13 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -1546,7 +1547,7 @@ index f73b1ddd..40135ba9 100644
  
              try {
                  const updateRun = startUiTemplateUpdateRun();
-@@ -4000,47 +5072,45 @@ const app = createApp({
+@@ -4000,47 +5073,45 @@ const app = createApp({
                      try {
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
@@ -1626,7 +1627,7 @@ index f73b1ddd..40135ba9 100644
                              isStream: false,
                              durationMs: Date.now() - requestStartedAt,
                              outputCharacters: content.length
-@@ -4402,7 +5472,7 @@ const app = createApp({
+@@ -4402,7 +5473,7 @@ const app = createApp({
                  defaultResultCount: ACTIVE_TOOL_DEFAULT_RESULT_COUNT
              });
          };
@@ -1635,7 +1636,7 @@ index f73b1ddd..40135ba9 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              const content = String(message?.content || '');
-@@ -4439,7 +5509,8 @@ const app = createApp({
+@@ -4439,7 +5510,8 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -1645,7 +1646,7 @@ index f73b1ddd..40135ba9 100644
  
              if (!currentCharacter.value) {
                  showToast('请先选择一个角色', 'error');
-@@ -5003,9 +6074,12 @@ const app = createApp({
+@@ -5003,9 +6075,12 @@ const app = createApp({
  
              try {
                  const responseResult = await requestChatCompletion({
@@ -1660,7 +1661,7 @@ index f73b1ddd..40135ba9 100644
                      messages: apiMessages,
                      temperature: settings.temperature,
                      reasoningEffort: settings.reasoningEffort,
-@@ -5069,6 +6143,8 @@ const app = createApp({
+@@ -5069,6 +6144,8 @@ const app = createApp({
                  recordApiUsage(responseUsage, {
                      type: activeToolDepth > 0 ? 'tool_continuation' : 'chat',
                      model: requestModel,
@@ -1669,7 +1670,7 @@ index f73b1ddd..40135ba9 100644
                      isStream: responseResult.isStream,
                      durationMs: duration,
                      outputCharacters
-@@ -5374,35 +6450,36 @@ const app = createApp({
+@@ -5374,35 +6451,36 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -1724,7 +1725,7 @@ index f73b1ddd..40135ba9 100644
                  isStream: false,
                  durationMs: Date.now() - requestStartedAt,
                  outputCharacters: summary.length
-@@ -5781,39 +6858,78 @@ const app = createApp({
+@@ -5781,39 +6859,78 @@ const app = createApp({
              return fragments;
          };
  
@@ -1829,7 +1830,7 @@ index f73b1ddd..40135ba9 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5824,9 +6940,11 @@ const app = createApp({
+@@ -5824,9 +6941,11 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -1842,7 +1843,7 @@ index f73b1ddd..40135ba9 100644
                  isStream: false,
                  durationMs: Date.now() - requestStartedAt,
                  outputCharacters: 0
-@@ -5862,7 +6980,8 @@ const app = createApp({
+@@ -5862,7 +6981,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -1852,7 +1853,18 @@ index f73b1ddd..40135ba9 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6165,6 +7284,30 @@ const app = createApp({
+@@ -6126,10 +7246,6 @@ const app = createApp({
+             return retainedTurns;
+         };
+ 
+-        const getCurrentRetainedVectorMemoryTurns = () => getRetainedRecentMemoryTurns(
+-            getPostprocessedChatMessages(chatHistory.value, { includeSystem: false })
+-        );
+-
+         const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
+ 
+         const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
+@@ -6165,6 +7281,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -1883,7 +1895,7 @@ index f73b1ddd..40135ba9 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6184,9 +7327,30 @@ const app = createApp({
+@@ -6184,9 +7324,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -1917,7 +1929,7 @@ index f73b1ddd..40135ba9 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6215,16 +7379,15 @@ const app = createApp({
+@@ -6215,16 +7376,15 @@ const app = createApp({
                  return;
              }
  
@@ -1940,7 +1952,7 @@ index f73b1ddd..40135ba9 100644
                  return;
              }
  
-@@ -6241,21 +7404,43 @@ const app = createApp({
+@@ -6241,21 +7401,43 @@ const app = createApp({
              );
  
              try {
@@ -1992,7 +2004,7 @@ index f73b1ddd..40135ba9 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6301,6 +7486,264 @@ const app = createApp({
+@@ -6301,6 +7483,264 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2257,7 +2269,7 @@ index f73b1ddd..40135ba9 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -8097,7 +9540,10 @@ const app = createApp({
+@@ -8097,7 +9537,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2269,7 +2281,7 @@ index f73b1ddd..40135ba9 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: '/image###([^\\r\\n]*?)(?:###|(?=\\r?\\n)|$)/g',
-@@ -9192,8 +10638,7 @@ const app = createApp({
+@@ -9192,8 +10635,7 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2279,7 +2291,7 @@ index f73b1ddd..40135ba9 100644
  
              await loadData();
              fetchQuota(); // Fetch quota after saved settings are loaded
-@@ -9393,7 +10838,11 @@ const app = createApp({
+@@ -9393,7 +10835,11 @@ const app = createApp({
              }
  
              if (settings.autoFetchModels) {
@@ -2292,7 +2304,7 @@ index f73b1ddd..40135ba9 100644
              }
  
              // Initial Status Check
-@@ -9434,8 +10883,7 @@ const app = createApp({
+@@ -9434,8 +10880,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2302,7 +2314,7 @@ index f73b1ddd..40135ba9 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9632,6 +11080,7 @@ const app = createApp({
+@@ -9632,6 +11077,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2310,7 +2322,7 @@ index f73b1ddd..40135ba9 100644
              showActiveToolEditor,
              showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9646,20 +11095,22 @@ const app = createApp({
+@@ -9646,20 +11092,22 @@ const app = createApp({
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
              tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
              showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
@@ -2327,7 +2339,7 @@ index f73b1ddd..40135ba9 100644
 +            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
 +            user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
 +            showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
-+            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
++            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
              activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
              getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
              isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,
@@ -2337,7 +2349,7 @@ index f73b1ddd..40135ba9 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9676,6 +11127,14 @@ const app = createApp({
+@@ -9676,6 +11124,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2352,7 +2364,7 @@ index f73b1ddd..40135ba9 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9829,7 +11288,7 @@ const app = createApp({
+@@ -9829,7 +11285,7 @@ const app = createApp({
                  showToast(`成功导入 ${normalized.length} 个分片`, 'success');
              }, error => showToast(`导入失败: ${error.message || 'JSON 格式错误'}`, 'error')),
              toggleMobileMenu, closeMobileMenu,

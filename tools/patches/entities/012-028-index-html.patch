@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..98c51cf8 100644
+index b290e220..e2e00975 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -130,7 +130,7 @@ index b290e220..98c51cf8 100644
  </head>
  <body class="bg-gray-50 text-gray-900 font-sans selection:bg-primary-200 selection:text-primary-900">
      <svg aria-hidden="true" style="display: none">
-@@ -119,18 +161,27 @@
+@@ -119,18 +161,29 @@
              </path>
          </symbol>
      </svg>
@@ -140,10 +140,11 @@ index b290e220..98c51cf8 100644
 -                <span class="entry-logo-rp">RP</span>
 -                <span class="entry-logo-hub">HUB</span>
 -                <i></i>
-+    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 Open the Journal」（v1.2.3，需求 1）：
-+         用户选定方向 B（参照 Aēsop 获奖互动站，docs/design/splash-v1/direction-approved.md），
-+         上游 entry-transition DOM 整体退役；样式在 ext/luzzy-theme.css（patch 018 head 注入链
-+         首帧生效）；[LuzzyRP patch 003] 入口字标由本开屏字标承载，003 重放块随之退役 -->
++    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 · 门扉」（v1.2.3，需求 1 v3 修订，用户决策）：
++         v3 改为门扉交互——构图淡入 → 加载进度条自左向右 → 「沉溺」按钮浮现并等待点击 →
++         点击触发 眩晕+泡泡+中心放大 转场进入主界面；原掀封叙事移除（2026-09-05 用户决策）。
++         样式见 ext/luzzy-theme.css（splash v3 段）+ 行为见 ext/luzzy-splash.js（patch 005 挂载）；
++         品牌色全部 DESIGN.md token。[LuzzyRP patch 003] 入口字标由本开屏承载，003 已退役 -->
 +    <div class="luzzy-splash" aria-hidden="true">
 +        <div class="luzzy-splash-page"></div>
 +        <div class="luzzy-splash-stack">
@@ -153,19 +154,22 @@ index b290e220..98c51cf8 100644
 +                <div class="luzzy-splash-wordmark">Luzzy<span class="luzzy-splash-hlwrap">RP<i class="luzzy-splash-hl"></i></span></div>
 +                <div class="luzzy-splash-slogan">每次对话，都像一本有你的小说<i class="luzzy-splash-inkdot"></i></div>
              </div>
++            <div class="lsp-progress" role="progressbar" aria-label="加载中"><i></i></div>
++            <button type="button" class="lsp-dive-btn">沉&ensp;溺</button>
          </div>
 +        <div class="luzzy-splash-rule"></div>
 +        <div class="luzzy-splash-pagenum"><span></span><em>— 01 —</em></div>
-+        <div class="luzzy-splash-cover"><i class="luzzy-splash-cover-frame"></i><i class="luzzy-splash-cover-tick"></i></div>
++        <div class="lsp-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
      </div>
- 
-     <div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
+-
+-    <div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
 -        :class="{ 'app-native-fullscreen': isChatFullscreen, 'mobile-keyboard-active': isMobileKeyboardOpen }">
++<div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
 +        :class="{ 'mobile-keyboard-active': isMobileKeyboardOpen }"> <!-- [LuzzyRP patch 022] 全屏态 class 绑定移除（聊天页全屏下线，v1.2.3） -->
          <component is="style" v-if="settings.fontSize">
              .markdown-body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(small):not(sub):not(sup):not(code) {
              font-size: inherit !important;
-@@ -300,7 +351,8 @@
+@@ -300,7 +353,8 @@
                      <!-- 实际内容容器 -->
                      <div class="relative h-12 flex items-center justify-between px-4 pointer-events-auto">
                          <div class="flex items-center min-w-0">
@@ -175,7 +179,7 @@ index b290e220..98c51cf8 100644
                                  class="md:hidden mr-3 text-white/80 hover:text-white transition-colors flex-shrink-0">
                                  <svg class="w-6 h-6" fill="none" stroke="currentColor"><use href="#icon-menu"></use></svg>
                              </button>
-@@ -324,18 +376,7 @@
+@@ -324,18 +378,7 @@
                              <div v-else class="text-white/60 italic drop-shadow-sm">未选择角色卡</div>
                          </div>
                          <div class="flex items-center gap-0">
@@ -195,7 +199,7 @@ index b290e220..98c51cf8 100644
                              <button @click="clearChat"
                                  class="p-1.5 text-white/70 hover:text-red-400 rounded-full hover:bg-white/10 transition-colors"
                                  title="清空聊天">
-@@ -957,7 +998,7 @@
+@@ -957,7 +1000,7 @@
                                                          :disabled="!slot.model"
                                                          :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                          <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
@@ -204,7 +208,7 @@ index b290e220..98c51cf8 100644
                                                      </button>
                                                  </div>
                                                  <div class="border-t border-gray-100 pt-4 space-y-5">
-@@ -1635,7 +1676,7 @@
+@@ -1635,7 +1678,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -213,7 +217,7 @@ index b290e220..98c51cf8 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1650,7 +1691,7 @@
+@@ -1650,7 +1693,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -222,7 +226,7 @@ index b290e220..98c51cf8 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1659,9 +1700,29 @@
+@@ -1659,9 +1702,29 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -253,7 +257,7 @@ index b290e220..98c51cf8 100644
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1732,7 +1793,7 @@
+@@ -1732,7 +1795,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -262,7 +266,7 @@ index b290e220..98c51cf8 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1775,6 +1836,19 @@
+@@ -1775,6 +1838,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -282,7 +286,7 @@ index b290e220..98c51cf8 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1786,7 +1860,7 @@
+@@ -1786,7 +1862,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -291,7 +295,7 @@ index b290e220..98c51cf8 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1795,9 +1869,23 @@
+@@ -1795,9 +1871,23 @@
                                              </custom-select>
                                          </div>
  
@@ -317,7 +321,7 @@ index b290e220..98c51cf8 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1898,41 +1986,7 @@
+@@ -1898,41 +1988,7 @@
                                  </label>
                              </div>
  
@@ -360,7 +364,7 @@ index b290e220..98c51cf8 100644
  
                              <!-- Storage Management -->
                              <div class="pt-6 border-t border-gray-100 mt-6">
-@@ -1948,11 +2002,7 @@
+@@ -1948,11 +2004,7 @@
                                          </h4>
                                      </div>
                                      <div class="flex flex-wrap items-center gap-2">
@@ -373,7 +377,7 @@ index b290e220..98c51cf8 100644
                                          <button type="button" @click="cleanupUnusedStorage"
                                              :disabled="storageStats.loading || storageStats.cleaning || storageStats.orphanedItems === 0"
                                              class="px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-100 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-@@ -1968,7 +2018,7 @@
+@@ -1968,7 +2020,7 @@
                                  <div v-else class="space-y-6">
                                      <div>
                                          <div class="flex items-center justify-between gap-3 mb-3 text-sm">
@@ -382,7 +386,7 @@ index b290e220..98c51cf8 100644
                                              <span class="font-semibold text-gray-500 whitespace-nowrap">
                                                  <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
                                                  <span class="mx-1 text-gray-300">/</span>
-@@ -2003,6 +2053,137 @@
+@@ -2003,6 +2055,133 @@
                  </div>
              </div>
  
@@ -397,43 +401,37 @@ index b290e220..98c51cf8 100644
 +                </settings-page-header>
 +
 +                <div class="max-w-2xl space-y-4">
-+                    <!-- [LuzzyRP patch 019] 主题预览交互化：色板随 data-theme 取色（--luzzy-prev-*，
-+                         定义于 ext/luzzy-theme.css；值均为 DESIGN.md 既有 token）；
-+                         luzzy 下点击卡片直接切换亮/暗模式（aria-pressed），经典主题仅亮色（无暗色模式）。
-+                         [LuzzyRP patch 014] 原静态预览条位置（v1.2.0） -->
++                    <!-- [LuzzyRP patch 028] 主题单轨化（v1.2.3，用户指令）：经典主题与主题切换移除，
++                         恒定「暖幕手记」；预览卡简化为亮/暗模式预览与切换（patch 019 交互保留）；
++                         界面字体 / 对话字号不变。[LuzzyRP patch 019] 色板随 data-mode 取色
++                         （--luzzy-prev-*，定义于 ext/luzzy-theme.css）。[LuzzyRP patch 014] 原预览条位置 -->
 +                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
-+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">预览</label>
-+                        <div class="grid gap-3" :class="settings.theme === 'luzzy' ? 'grid-cols-2' : 'grid-cols-1'">
++                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">外观预览</label>
++                        <div class="grid gap-3 grid-cols-2">
 +                            <button type="button" @click="settings.themeMode = 'light'"
-+                                :aria-pressed="!(settings.theme === 'luzzy' && settings.themeMode === 'dark')"
++                                :aria-pressed="settings.themeMode !== 'dark'"
 +                                class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
-+                                :class="!(settings.theme === 'luzzy' && settings.themeMode === 'dark') ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
++                                :class="settings.themeMode !== 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
 +                                :style="{ background: 'rgb(var(--luzzy-prev-light-bg))' }">
-+                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-light-title))' }">{{ settings.theme === 'luzzy' ? '亮色 · 暖幕手记' : '亮色 · 经典' }}</div>
-+                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-light-sub))' }">{{ settings.theme === 'luzzy' ? '暖米纸面 · 珊瑚点缀' : '上游原版配色' }}</div>
++                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-light-title))' }">亮色 · 暖幕手记</div>
++                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-light-sub))' }">暖米纸面 · 珊瑚点缀</div>
 +                                <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-light-accent))' }"></div>
 +                            </button>
-+                            <button v-if="settings.theme === 'luzzy'" type="button" @click="settings.themeMode = 'dark'"
-+                                :aria-pressed="settings.theme === 'luzzy' && settings.themeMode === 'dark'"
++                            <button type="button" @click="settings.themeMode = 'dark'"
++                                :aria-pressed="settings.themeMode === 'dark'"
 +                                class="rounded-lg border p-3 text-left transition-all duration-200 cursor-pointer active:scale-[0.98]"
-+                                :class="settings.theme === 'luzzy' && settings.themeMode === 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
++                                :class="settings.themeMode === 'dark' ? 'border-primary-400 ring-2 ring-primary-400' : 'border-gray-200 hover:border-gray-300'"
 +                                :style="{ background: 'rgb(var(--luzzy-prev-dark-bg))' }">
 +                                <div class="text-xs font-bold mb-1.5" :style="{ color: 'rgb(var(--luzzy-prev-dark-title))' }">暗色 · 暖幕手记</div>
 +                                <div class="text-[11px]" :style="{ color: 'rgb(var(--luzzy-prev-dark-sub))' }">暖黑纸面 · 珊瑚提亮</div>
 +                                <div class="mt-2 h-1.5 rounded-full w-3/4" :style="{ background: 'rgb(var(--luzzy-prev-dark-accent))' }"></div>
 +                            </button>
 +                        </div>
-+                        <p v-if="settings.theme === 'luzzy'" class="mt-2.5 text-[11px] text-gray-400">点击预览卡可直接切换亮色 / 暗色模式</p>
++                        <p class="mt-2.5 text-[11px] text-gray-400">点击预览卡可直接切换亮色 / 暗色模式</p>
 +                        <p class="mt-3 text-[11px] text-gray-400" :style="{ fontFamily: 'var(--app-font-family)' }">当前字体样张：霜降的夜里，他抬起下巴打量着来客。—— The quick brown fox 0123456789</p>
 +                    </div>
 +
 +                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
-+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面主题</label>
-+                        <custom-select v-model="settings.theme" :options="themeOptions"
-+                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
-+                        </custom-select>
-+                    </div>
-+                    <div v-if="settings.theme === 'luzzy'" class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
 +                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">模式</label>
 +                        <custom-select v-model="settings.themeMode" :options="themeModeOptions"
 +                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
@@ -497,6 +495,8 @@ index b290e220..98c51cf8 100644
 +                            </div>
 +                        </div>
 +                        <div v-if="changelogKeyword" class="text-xs text-gray-400 mb-2">{{ changelogResultCount > 0 ? '命中 ' + changelogResultCount + ' 个版本' : '没有匹配的版本' }}</div>
++                        <div v-if="changelogHtml" class="markdown-body text-sm text-gray-600 leading-relaxed changelog-body" v-html="changelogHtml"></div>
++                        <p v-else class="text-xs text-gray-400">暂无符合条件的更新日志。</p>
 +                    </div>
 +
 +                    <div class="flex items-center gap-3 px-1">
@@ -520,7 +520,7 @@ index b290e220..98c51cf8 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2253,7 @@
+@@ -2072,6 +2251,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -528,7 +528,7 @@ index b290e220..98c51cf8 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2437,12 @@
+@@ -2255,6 +2435,12 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -541,7 +541,7 @@ index b290e220..98c51cf8 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2602,7 @@
+@@ -2414,7 +2600,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -550,7 +550,7 @@ index b290e220..98c51cf8 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2634,7 @@
+@@ -2446,7 +2632,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -559,7 +559,7 @@ index b290e220..98c51cf8 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2830,141 @@
+@@ -2642,6 +2828,141 @@
                          </div>
                      </div>
                  </div>
@@ -701,7 +701,7 @@ index b290e220..98c51cf8 100644
  
              </div>
  
-@@ -2786,11 +3109,295 @@
+@@ -2786,11 +3107,295 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -997,7 +997,7 @@ index b290e220..98c51cf8 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3480,13 @@
+@@ -2873,6 +3478,13 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

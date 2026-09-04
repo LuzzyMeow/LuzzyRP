@@ -1406,3 +1406,34 @@ UI Automator 坐标驱动页面走查 + 全屏截图取证（证据：docs/desig
 [Cloud] 前缀所致，显示语义正确）。
 
 **结论**：会话 20 六大需求 + 上游同步 + 本轮全部修复，真机验证**全量通过**。
+
+### 会话 20 补充 4 · 开屏 v3 门扉交互 + 主题单轨化（2026-09-05，EXTRACT 25，待真机）
+
+**用户指令**：①开屏重做——掀封叙事移除（图一图二不要），直接从终帧构图淡入 → 进度条
+自左向右 → 「沉溺」按钮（非「开始」）浮现并停滞等待点击 → 点击触发 轻微眩晕+泡泡+
+中心放大 转场进聊天页；品牌色不变；三方向豁免（用户明示由 Agent 决定细节）。
+②主题单轨化——删除经典主题与主题切换，恒定「暖幕手记」，外观页其余设置不变。
+
+**实现**：
+- patch 027 v3（index.html DOM + luzzy-theme.css splash 段重写）：门扉结构
+  （page/bubbles/stack+progress+沉溺按钮/rule/pagenum）；入场 0.45s 整体淡入+内容轻阶梯；
+  进度条 1.4s 自左向右（coral→amber）；按钮 2.25s 浮现+呼吸；转场 lspDiveZoom .95s
+  （微摆眩晕→blur 失焦→scale 2.35 中心放大→淡出）+ 泡泡层 10 枚错峰上浮
+  （coral 描边+amber 内透，水下隐喻呼应「沉溺」）；reduced-motion 近零时长直出可点态、
+  转场退化 220ms 淡出；pointer-events auto（门扉拦截底层）。
+- **ext/luzzy-splash.js 新建**（行为状态机 ~40 行：点击→lsp-dive→animationend/兜底收殓）；
+  patch 005 挂载区更新（第 4 行 splash.js，SKIP 检测同步）。
+- patch 028 主题单轨化（index.html 外观页 + app.js）：界面主题下拉卡删除、预览卡简化为
+  亮/暗模式预览（patch 019 交互保留）、模式卡恒显；app.js themeOptions 移除 + 老用户
+  classic 无条件迁 luzzy + expose 清理；luzzy-theme.css 作用域恒真不动。
+- 设施：EXTRACT 25；实体 012-028（index/app 重生成+逆向 PASS）；manifest 59 项
+  （011-theme-ui 退役→028-no-theme-switch notcontains、+027-splash-js/+028×2）；
+  verify-markers **60 PASS / 0 FAIL**；node --check 全过。
+
+**转场设计佐证**：转场保留上下文/连续性原则（uxdesign.cc Transition animations
+practical guide + Smashing Magazine Improving User Flow，通用原则中置信度）；
+泡泡水下隐喻与「沉溺」文案自洽；中心放大+气泡上升=相对运动强化坠入感。
+
+**真机验证**：设备 USB 再次掉线，EXTRACT 25 包已构建待装。待验清单：门扉开场节拍、
+沉溺按钮浮现/呼吸、点击转场全程（眩晕/泡泡/放大）、外观页主题卡移除+模式切换、
+classic 老数据迁移（设备 settings.theme 可能为 classic）。

@@ -9,8 +9,8 @@
 ## Overview
 
 LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本有你的小说」。
-基于 RP-Hub 二次开发（WebView 壳），主题系统支持：**经典**（原版 RP-Hub 浅色，老用户默认）与
-**Luzzy 新主题「暖幕手记」**（亮/暗双模式，**新用户默认**）。
+基于 RP-Hub 二次开发（WebView 壳）。**v1.2.3 起主题单轨化（patch 028）**：经典主题与主题
+切换移除，**恒定 Luzzy「暖幕手记」**（亮/暗双模式）。
 
 **设计气质**：暖幕手记 × Claude——一本摊开在暖光下的剧作手账。tinted cream 画布 +
 珊瑚陶土 accent + 衬线标题的文学排印声音；克制的「手作记号」（荧光笔划、伞骨线、雨点点阵）
@@ -241,7 +241,12 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   reduced-motion 下直接切换；
 - **气泡进入**：上移 8px + 淡入 200ms；退出淡出 140ms；
 - **关于页置顶 FAB（patch 024）**：进 200ms / 退 140ms ease-out，scale(0.96)+opacity:0 起步；滚动 >240px 显隐；reduced-motion 直接呈现；
-- **开屏「开卷」（patch 027，用户选定方向 B）**：掀封→纸落→界格→钤印→落墨→荧光划线→页码（≈2.3s 定格 + 450ms 淡出交还主界面）；纯 CSS transform/opacity；色值全 token、亮/暗随 data-mode 首帧自适应；reduced-motion 终帧直出 + 200ms 退场；设计存档 `docs/design/splash-v1/`（参照 Aēsop 获奖互动站，多源核实）；
+- **开屏「开卷 · 门扉」（patch 027 v3，用户决策）**：v3 起为门扉交互——构图淡入 →
+  加载进度条自左向右（coral→amber 笔尖渐变）→ 「沉溺」按钮浮现（呼吸微动）并**等待点击**；
+  点击转场 = 轻微眩晕（微摆+失焦）+ 泡泡上浮（水下隐喻呼应「沉溺」）+ 中心放大坠入主界面；
+  原掀封叙事与自动退场移除。行为脚本 `ext/luzzy-splash.js`（状态机 ~40 行，
+  animationend + 兜底收殓）；reduced-motion 近零时长直出可点态、转场退化 220ms 淡出。
+  设计存档 `docs/design/splash-v1/`；
 - **招牌动效「荧光笔落笔」（roadmap）**：新 AI 消息落定后关键词上划过 amber 记号
   （reduced-motion 直接显示）——v1 先实现主题转场与气泡动效，落笔动效随正则/markdown
   管线单独迭代。

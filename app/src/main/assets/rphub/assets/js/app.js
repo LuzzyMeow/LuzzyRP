@@ -225,11 +225,9 @@ const app = createApp({
             uiTemplatePlacements: uiTemplatePlacementOptions,
             worldInfoPositions: worldInfoPositionOptions
         } = uiOptions;
-        // [LuzzyRP patch 011] 主题/模式选项常量（上游无此块）
-        const themeOptions = Object.freeze([
-            { value: 'luzzy', label: '暖幕手记（Luzzy）' },
-            { value: 'classic', label: '经典（原版）' }
-        ]);
+        // [LuzzyRP patch 011] 模式选项常量（上游无此块）
+        // [LuzzyRP patch 028] 主题单轨化：themeOptions（classic/luzzy 选择）随主题切换功能移除，
+        // settings.theme 恒为 'luzzy'（见加载迁移块）
         const themeModeOptions = Object.freeze([
             { value: 'light', label: '亮色' },
             { value: 'dark', label: '暗色' }
@@ -2217,9 +2215,8 @@ const app = createApp({
                             settings[key] = savedSettings[key];
                         }
                     });
-                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'theme')) {
-                        settings.theme = 'classic'; // 老用户保留经典主题
-                    }
+                    // [LuzzyRP patch 028] 主题单轨化：老用户 classic 无条件迁至 luzzy（v1.2.3）
+                    settings.theme = 'luzzy';
                     if (!Object.prototype.hasOwnProperty.call(savedSettings, 'themeMode')) {
                         settings.themeMode = 'light';
                     }
@@ -11105,7 +11102,7 @@ const app = createApp({
             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
             user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
             showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
-            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
+            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
             isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,

@@ -72,7 +72,7 @@ if ($cdnFound.Count -eq 0) {
 # Patch 005 · 扩展层挂载
 # ------------------------------------------------------------------
 $titleContent = [System.IO.File]::ReadAllText($titlePath)
-if ($titleContent -match 'luzzy-theme\.css' -and $titleContent -match 'luzzy-ext\.js') {
+if ($titleContent -match 'luzzy-theme\.css' -and $titleContent -match 'luzzy-ext\.js' -and $titleContent -match 'luzzy-splash\.js') {
     Write-Host "[SKIP] 005-ext-mount (已应用)"
 } else {
     # 在 </body> 前插入扩展层引用（注意上游行尾风格）
@@ -80,7 +80,8 @@ if ($titleContent -match 'luzzy-theme\.css' -and $titleContent -match 'luzzy-ext
         $extBlock = "`n    <!-- LuzzyRP 扩展层（AGENTS.md §5：独立文件，与上游零冲突） -->`n" +
             '    <link rel="stylesheet" href="../ext/luzzy-theme.css">' + "`n" +
             '    <script src="../ext/luzzy-bridge.js"></script>' + "`n" +
-            '    <script src="../ext/luzzy-ext.js"></script>' + "`n"
+            '    <script src="../ext/luzzy-ext.js"></script>' + "`n" +
+        '    <script src="../ext/luzzy-splash.js"></script>' + "`n"
         # 行尾归一化：上游为 CRLF 或 LF 皆可；统一用文件原有风格
         $isCrlf = $titleContent.Contains("`r`n")
         if ($isCrlf) { $extBlock = $extBlock.Replace("`n", "`r`n") }
@@ -343,7 +344,7 @@ if ($appContent -match "theme: 'luzzy'") {
 # ------------------------------------------------------------------
 # 实体 patch（entities/，v1.2.1 硬性规定 10）
 # ------------------------------------------------------------------
-# 覆盖 007/009/012-027 的全部二创改动（与上游基线的逐文件 diff，
+# 覆盖 007/009/012-028 的全部二创改动（与上游基线的逐文件 diff，
 # 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
 # 判定规则：
 #   目标文件已含对应标记           -> SKIP（已应用）
@@ -374,14 +375,14 @@ $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'novel/index.html';             Entity = '007-023-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'assets/js/core-utils.js';      Entity = '009-023-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-027-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-026-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'index.html';                   Entity = '012-028-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-028-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/ui-components.js';   Entity = '012-026-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/runtime-services.js'; Entity = '012-026-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-027）=="
+Write-Host "== 实体 patch（007/009/012-028）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

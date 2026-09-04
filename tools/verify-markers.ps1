@@ -55,7 +55,8 @@ $Manifest = @(
     @{ Id = '009-luzzy-value';      File = 'assets/js/core-utils.js';          Mode = 'contains';     Needle = "value: 'luzzy'";                        Min = 1 },
     @{ Id = '010-defaults';         File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 010]';                   Min = 1 },
     @{ Id = '010-font-luzzy';       File = 'assets/js/app.js';                 Mode = 'contains';     Needle = "fontFamily: 'luzzy'";                   Min = 1 },
-    @{ Id = '011-theme-ui';         File = 'index.html';                       Mode = 'contains';     Needle = '界面主题';                               Min = 1 },
+    # [注] 011 的 index.html 主题卡已由 patch 028 主题单轨化移除，校验由 011-theme-logic 承担
+    @{ Id = '028-no-theme-switch';    File = 'index.html';                       Mode = 'notcontains';  Needle = '界面主题';                               Min = 0 },
     @{ Id = '011-theme-logic';      File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 011]';                   Min = 2 },
     @{ Id = '012-multi-provider';   File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 012]';                   Min = 8 },
     @{ Id = '012-ui-components';    File = 'assets/js/ui-components.js';       Mode = 'contains';     Needle = '[LuzzyRP patch 012]';                   Min = 1 },
@@ -91,6 +92,9 @@ $Manifest = @(
     @{ Id = '025-usage-index';        File = 'index.html';                       Mode = 'contains';     Needle = 'chart-data="usageChartData"';              Min = 1 },
     @{ Id = '026-vector-fix';         File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 026]';                   Min = 3 },
     @{ Id = '027-splash-index';       File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 027]';                   Min = 1 },
+    @{ Id = '027-splash-js';          File = '../ext/luzzy-splash.js';           Mode = 'contains';     Needle = 'lsp-dive';                              Min = 1 },
+    @{ Id = '028-theme-single';       File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 028]';                   Min = 1 },
+    @{ Id = '028-theme-app';          File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 028]';                   Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' }
 )

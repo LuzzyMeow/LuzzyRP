@@ -1199,3 +1199,41 @@ classic 下=Tailwind 原值。
   已改为「基于 RP-Hub（Vue 3 前端）的安卓 WebView 封装 + 独立扩展层与主题系统」；
   README 简介两处「原生安卓」措辞同步收敛为「WebView 封装（Kotlin 薄壳）」定位；
   全仓扫描确认现存 Compose 引用均为「旧 v0.x 工程已推倒重建」历史记录（准确保留）。
+
+---
+
+## 会话 19 · 全新品牌图标替换 + v1.2.2 发布（2026-09-04）
+
+**任务（用户指令，解除会话 18 发布暂缓）**：新 icon（用户 AI 生图，桌面源图不动、
+复制入库）全面替换所有品牌 LOGO → 立即构建 APK 推送新版本。设计阶段（三方向
+提示词）落档 `docs/design/icon-v2-directions.md`，用户自选生图。
+
+**实施**
+1. **源图入库**：`docs/design/brand-logo-v2-source.png`（1254×1254，White Fox
+   头像版：白发狐耳+额前护目镜+紫瞳+黑色项圈+白色工装，暖奶油底+珊瑚记号——
+   与暖幕手记品牌同构）；桌面原件未动。
+2. **Pillow 产出全套**：mipmap 五密度 `ic_launcher`（满幅）/`ic_launcher_round`
+   （圆形 alpha 抗锯齿）/`ic_launcher_foreground`（108dp 网格，全图 68% 居中 +
+   边缘均值色画布）；`drawable-nodpi/luzzy_logo.png` + `ext/luzzy-logo.png`
+   （各 192）。圆形蒙版预览验收（`brand-logo-v2-preview.png`）：耳朵在圆内
+   有余量、护目镜完整、48px 可辨 ✓。
+3. **adaptive 方案切换**：`colors.xml` #00000000 → **#EDD7BD**（新图边缘均值，
+   历史链 #2A0E22→#FF6EC7→transparent→#EDD7BD）；透明贴纸方案终止。
+4. **约束移交**：AGENTS §1.2「禁止重新生成」条目改写为「2026-09-04 用户主动
+   替换，后续换 icon 需用户提供新图并确认」。
+5. **版本链**：versionCode 9 / versionName 1.2.2；EXTRACT 20；CHANGELOG v1.2.2
+   转正式 + 全新品牌图标条目；README 徽章 v1.2.2 / 规划表 ✅ / 版本对应表加行；
+   gen-changelog 重跑（22941 chars）。
+
+**发布**（结果见下节补充）：assembleRelease 三件套 → 真机快验 → push →
+GitHub Release v1.2.2（tag + 三件套 APK，沿用 v1.2.1 排版）。
+
+### 会话 19 补充 · 发布执行记录（2026-09-04）
+
+- verify-markers 43 PASS / 0 FAIL（res/ext 图标替换不触及 rphub 上游文件）；
+- assembleRelease 三件套完成（17.3MB ×3——应用无 native 库，三 ABI 内容一致属正常）；
+- **真机 release 包未复验**：安装阶段设备 USB 断开（no devices）。delta 评估：
+  EXTRACT 19 debug 已完成主题变更真机验证，EXTRACT 20 增量=图标资源 + 应用内
+  CHANGELOG 文案（资源级，风险低）；图标本身已经圆形蒙版/48px 阶梯双重预览校验。
+  待用户下次接入/复装时补看 MIUI 桌面新图标渲染效果（MIUI 桌面图标有缓存，
+  更新安装后如未刷新可重启桌面或重装触发）。

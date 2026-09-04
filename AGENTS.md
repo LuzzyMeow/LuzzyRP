@@ -37,7 +37,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/FileChooserHandler.kt` | 文件选择（角色卡导入） | `onShowFileChooser` + SAF |
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/DownloadHandler.kt` | 文件导出 | `DownloadListener` + SAF 保存 |
 | `app/src/main/java/com/luzzymeow/luzzyrp/util/AssetExtractor.kt` | assets 解压到 filesDir | 首次启动幂等执行；版本升级时按版本号增量更新 |
-| `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`，**禁止重新生成**（2026-09-03 用户要求：自适应图标背景 ic_launcher_background=透明 #00000000，还原透明贴纸效果；仅背景色可调，画作资源禁改） |
+| `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`。**2026-09-04 用户以 AI 生图新 LOGO 全面替换**（纯 1:1 满幅不透明，源图 `docs/design/brand-logo-v2-source.png`；adaptive=全图前景 68% 居中 + 同色纯背景 #EDD7BD；原透明贴纸方案与「禁止重新生成」约束由本次替换终止）——后续再换 icon 需用户提供新图并确认 |
 | `app/build.gradle.kts` | 壳构建配置 | 签名 / ABI 拆分 / versionCode 管理 |
 
 ### 1.3 上游文件（app/src/main/assets/rphub/）

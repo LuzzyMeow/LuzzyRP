@@ -4,11 +4,15 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
-### v1.2.2 — toggle 蓝主题化（patch 008 v4）× 检索失败外化（patch 020）（上游基线 RP-Hub 1.8.9）
+### v1.2.2 — 全新品牌图标 × toggle 蓝主题化（patch 008 v4）× 检索失败外化（patch 020）（上游基线 RP-Hub 1.8.9）
 
-> **状态：开发中（未发布）。**
+> **状态：已发布（GitHub Release v1.2.2 附 APK，versionCode 9）。**
 
 **新增**
+- **全新品牌图标**：应用图标全面替换为 White Fox 头像版（用户 AI 生图，纯 1:1 满幅
+  不透明，源图 `docs/design/brand-logo-v2-source.png`）；mipmap 全套密度重采样 +
+  legacy round 圆形裁切 + 关于页 `luzzy-logo.png` 同步；adaptive icon 由「透明贴纸」
+  改为「全图前景 68% 居中 + 同色纯背景 #EDD7BD」（取自新图边缘均值）。
 - **上游遗留蓝主题化（patch 008 v4）**：tailwind.config blue/indigo 色板接入
   `rgb(var(--tw-*) / <alpha-value>)`——luzzy 主题下全部上游遗留 blue-*/indigo-* 工具类
   （toggle 选中态、设置页叙事视角等 41+8 处）随主题收编为品牌珊瑚陶土色（与 primary
@@ -19,7 +23,7 @@
   两处 catch；30s 全局节流防离线刷屏；showToast 不可用时 try/catch 自动降级）。
 
 **注意事项**
-- EXTRACT_VERSION 15→19，安装即自动重新解压资产。
+- EXTRACT_VERSION 15→20，安装即自动重新解压资产。
 - 本版实施前按硬性规定 9 复读 4 项设计 SKILL；视觉方向=「品牌色收编」（v1.2.1 已选定
   方向）的延续迭代，豁免三方向门（豁免理由落档 WORKLOG 会话 18）。
 - 真机（小米 25098PN5AC / Android 16）已验证：luzzy 亮/暗下侧栏激活项、叙事视角

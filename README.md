@@ -20,7 +20,7 @@
 > - 修改范围：安卓壳封装、资源离线化、品牌化、独立扩展层（详见 [CHANGELOG](CHANGELOG.md)）；
 > - 上游原 LICENSE 文件保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布。
 
-![Status](https://img.shields.io/badge/Status-v1.2.1--正式版·可游玩-10B981)
+![Status](https://img.shields.io/badge/Status-v1.2.2--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.8.9-4FC08D?logo=vue.js&logoColor=white)
@@ -155,6 +155,7 @@ LuzzyRP 是一款安卓端 AI 角色扮演应用。它不是一个从零开始�
 
 | LuzzyRP 版本 | 上游基线 | 说明 |
 |--------------|---------|------|
+| v1.2.2（正式版） | RP-Hub 1.8.9 | 全新品牌图标（White Fox）+ toggle/叙事视角蓝主题化（patch 008 v4）+ 向量检索失败 toast 外化（patch 020）。真机验证通过，附 APK |
 | v1.2.0（正式版） | RP-Hub 1.8.9 | 聊天页统一雾纸玻璃补全 + 外观/关于独立页（应用内 CHANGELOG）+ 三协议供应商（OpenAI/Anthropic/Gemini）+ 模型管理编辑器与热检测预设 + 自定义生图模型（模拟器全量走查，附 APK） |
 | v1.2.1（正式版） | RP-Hub 1.8.9 | 侧栏品牌化（LuzzyRP 字样）+ 外观→设置→关于导航调整 + 主题预览交互化（随主题取色/点击切换亮暗）+ 召回块防合并 + 记忆内容管理器 + 品牌色收编 + 上游标记体系（001-019）+ 布局异常修复。模拟器+真机 release 包双端验证通过 |
 | v1.1.0（正式版） | RP-Hub 1.8.9 | 多模型商混用（供应商管理器 + `[商名]` 徽标 + 跨商模型列表/请求解析/记忆双模式）+ 思考卡全卡雾纸玻璃 + 外观独立面板（真机验证，附 APK） |
@@ -253,7 +254,7 @@ LuzzyRP/
 | v1.1.0 | 扩展功能第一批：多模型商混用（供应商管理器 / `[商名]` 来源徽标 / 跨商请求解析 / 记忆双模式跨商）+ 思考卡全卡雾纸玻璃 + 外观独立面板（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.2.0 | 玻璃补全 + 独立页 + 三协议：聊天页统一雾纸玻璃（气泡/loading/思考卡/工具条）+ 外观/关于独立页（应用内 CHANGELOG）+ 供应商三协议（OpenAI/Anthropic/Gemini）+ 模型管理编辑器（热检测预设/引用重映射/热更新）+ 自定义生图模型（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.2.1 | 召回块防合并修复 + 记忆内容管理器 + 品牌色收编蓝色（开屏/设置横幅）+ 上游标记体系（硬性规定 10 / 实体重放 / verify-markers）+ 侧栏品牌化/预览交互化 + 应用图标粉底修复（✅ 已发布，附 APK） | ✓（稳定版） |
-| v1.2.2 | toggle/叙事视角上游蓝主题化（patch 008 v4 色板收编：luzzy=珊瑚、classic=原值）+ 向量检索失败 toast 外化（patch 020）（🚧 开发中，见 WORKLOG） | — |
+| v1.2.2 | **全新品牌图标**（White Fox 头像版，纯 1:1 满幅，adaptive 改全图前景+同色背景）+ toggle/叙事视角上游蓝主题化（patch 008 v4 色板收编：luzzy=珊瑚、classic=原值）+ 向量检索失败 toast 外化（patch 020）（✅ 已发布，附 APK） | ✓（稳定版） |
 | v1.3.0+ | 跟随上游节奏迭代 + 独立功能持续扩展（候选遗留：「荧光笔落笔」招牌动效、深链、自建更新检查、Gemini/Anthropic 图像模型接生图流） | 按稳定版 |
 
 版本号独立于上游（LuzzyRP v1.0.0 基于 RP-Hub 1.8.9），CHANGELOG 每条记录注明上游基线版本。

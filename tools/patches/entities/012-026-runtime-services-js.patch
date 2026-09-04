@@ -1,5 +1,5 @@
-diff --git a/rp-hub-reference/assets/js/runtime-services.js b/app/src/main/assets/rphub/assets/js/runtime-services.js
-index 473672b8..74bc6fee 100644
+diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
+index 473672b8..3da206e7 100644
 --- a/assets/js/runtime-services.js
 +++ b/assets/js/runtime-services.js
 @@ -144,6 +144,20 @@
@@ -375,3 +375,14 @@ index 473672b8..74bc6fee 100644
      window.RPHubApiClient = Object.freeze({ requestChatCompletion });
  })();
  
+@@ -474,6 +826,10 @@
+                 timestamp: Date.now(),
+                 type: meta.type || 'chat',
+                 model: String(meta.model || ''),
++                // [LuzzyRP patch 025] provider/protocol 维度落库（v1.2.3）：patch 012 调用侧已传参但构造器漏存，
++                // 导致用量列表 [商名] 前缀与供应商图表分组失效；历史记录由图表层按 apiUrl 反查兜底
++                provider: String(meta.provider || ''),
++                protocol: String(meta.protocol || ''),
+                 apiUrl: String(getApiUrl?.() || ''),
+                 isStream: meta.isStream === true,
+                 durationMs: Number.isFinite(meta.durationMs) ? Math.max(0, meta.durationMs) : null,

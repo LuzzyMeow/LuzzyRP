@@ -695,3 +695,38 @@
 :root[data-theme="luzzy"] .to-violet-700 {
     --tw-gradient-to: rgb(var(--tw-primary-700) / 1) var(--tw-gradient-to-position) !important;
 }
+
+/* —— 关于页（patch 024，v1.2.3）：置顶 FAB + 平滑滚动 —— */
+:root[data-theme="luzzy"] .about-view {
+    scroll-behavior: smooth;
+}
+
+.about-top-fab {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+    pointer-events: none;
+    transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.about-top-fab.is-visible {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-duration: 200ms;
+}
+
+.about-top-fab:active {
+    transform: scale(0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root[data-theme="luzzy"] .about-view {
+        scroll-behavior: auto;
+    }
+
+    .about-top-fab,
+    .about-top-fab.is-visible {
+        transition: opacity 140ms ease-out;
+        transform: none;
+    }
+}

@@ -1,7 +1,16 @@
-diff --git a/rp-hub-reference/assets/js/core-utils.js b/app/src/main/assets/rphub/assets/js/core-utils.js
-index 9fcb41af..ddd9e29f 100644
+diff --git a/assets/js/core-utils.js b/assets/js/core-utils.js
+index 9fcb41af..070aa02e 100644
 --- a/assets/js/core-utils.js
 +++ b/assets/js/core-utils.js
+@@ -948,7 +948,7 @@ window.RPHubUtils = {
+                 id: 'sta1n',
+                 name: 'STA1N API',
+                 apiUrl: 'https://cdn.sta1n.cn/v1',
+-                icon: 'https://picui.ogmua.cn/s1/2026/08/21/6a87a751bf871.webp'
++                icon: 'https://cdn.sta1n.cn/favicon.ico' // [LuzzyRP patch 023] 原自建图床 404，改官方 CDN favicon（v1.2.3，需求 5.1）
+             }),
+             Object.freeze({
+                 id: 'deepseek',
 @@ -979,9 +979,11 @@ window.RPHubUtils = {
              ]),
              presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),

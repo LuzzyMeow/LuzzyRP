@@ -34,7 +34,7 @@ object AssetExtractor {
     private const val MARKER_PREFIX = ".extracted_v"
 
     /** 当前解压版本——应用版本升级需更新时 +1（触发重新解压） */
-    private const val EXTRACT_VERSION = 21
+    private const val EXTRACT_VERSION = 22
 
     /**
      * 返回 WebView 实际加载的入口 HTML 的绝对路径。

@@ -391,7 +391,7 @@ const app = createApp({
         const toasts = ref([]);
         let toastIdSeed = 0;
         const chatContainer = ref(null);
-        const isChatFullscreen = ref(false);
+        // [LuzzyRP patch 022] 全屏状态 ref 已移除（聊天页全屏功能整体下线，v1.2.3）
         const isMobileKeyboardOpen = ref(false);
         const inputBox = ref(null);
         const messageElements = ref([]);
@@ -890,7 +890,8 @@ const app = createApp({
             }
             return {
                 url: settings.apiUrl, apiKey: settings.apiKey, model: bareId, providerId: null,
-                protocol: 'openai', modelMeta: null, extraBody: {}
+                // [LuzzyRP patch 026] 裸引用回退跟随激活商协议（原硬编码 'openai'，Gemini 嵌入分片回退必 404，v1.2.3）
+                protocol: normalizeProviderProtocol(getApiProviderById(settings.apiProviderId)?.protocol), modelMeta: null, extraBody: {}
             };
         };
         const syncCurrentApiKeyToProvider = () => {
@@ -1724,6 +1725,173 @@ const app = createApp({
             scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
             toast: (...args) => showToast(...args)
         });
+        // [LuzzyRP patch 021] 空间管理自动统计：进入设置页时自动测量（每会话首次；清理完成后上游逻辑会自动复测）
+        watch(() => currentView.value, (view) => {
+            if (view === 'settings' && !storageStats.hasMeasured && !storageStats.loading) {
+                refreshStorageStats();
+            }
+        });
+
+        // [LuzzyRP patch 025] 用量折线图：日（小时）/周（天）/月（周）三粒度 + 供应商/模型筛选（v1.2.3，需求 4）
+        const usageChartRange = ref('day');
+        const usageChartRangeOptions = Object.freeze([
+            { value: 'day', label: '日' },
+            { value: 'week', label: '周' },
+            { value: 'month', label: '月' }
+        ]);
+        const usageChartRangeMs = Object.freeze({
+            day: 24 * 60 * 60 * 1000,
+            week: 7 * 24 * 60 * 60 * 1000,
+            month: 28 * 24 * 60 * 60 * 1000
+        });
+        const usageChartProvider = ref('all');
+        const usageChartSelectedModels = ref([]);
+        const resolveUsageChartProviderId = (record) => {
+            const direct = String(record.provider || '');
+            if (direct) return direct;
+            const url = String(record.apiUrl || '').replace(/\/+$/, '').toLowerCase();
+            if (!url) return '';
+            const match = allApiProviders.value.find(provider => String(provider.apiUrl || '').replace(/\/+$/, '').toLowerCase() === url);
+            return match ? match.id : '';
+        };
+        const isUsageChartCategory = (record) => {
+            const category = ['summary', 'embedding'].includes(record.type) ? 'memory'
+                : (record.type === 'ui_template' ? 'variables' : 'chat');
+            return tokenUsageFilter.value === 'all' || category === tokenUsageFilter.value;
+        };
+        const buildUsageChartBuckets = (rangeKey, now) => {
+            const buckets = [];
+            if (rangeKey === 'day') {
+                const hourStart = new Date(now);
+                hourStart.setMinutes(0, 0, 0);
+                for (let index = 23; index >= 0; index--) {
+                    const bucketStart = hourStart.getTime() - index * 3600000;
+                    buckets.push({ start: bucketStart, end: bucketStart + 3600000, label: index === 0 ? '现在' : new Date(bucketStart).getHours() + '时' });
+                }
+            } else if (rangeKey === 'week') {
+                const dayStart = new Date(now);
+                dayStart.setHours(0, 0, 0, 0);
+                for (let index = 6; index >= 0; index--) {
+                    const bucketStart = dayStart.getTime() - index * 86400000;
+                    const day = new Date(bucketStart);
+                    buckets.push({ start: bucketStart, end: bucketStart + 86400000, label: index === 0 ? '今天' : (day.getMonth() + 1) + '/' + day.getDate() });
+                }
+            } else {
+                const dayStart = new Date(now);
+                dayStart.setHours(0, 0, 0, 0);
+                for (let index = 3; index >= 0; index--) {
+                    const bucketStart = dayStart.getTime() - (index * 7 + 6) * 86400000;
+                    const bucketEnd = dayStart.getTime() - index * 7 * 86400000 + 86400000;
+                    const day = new Date(bucketStart);
+                    buckets.push({ start: bucketStart, end: bucketEnd, label: (day.getMonth() + 1) + '/' + day.getDate() });
+                }
+            }
+            return buckets;
+        };
+        const usageChartSeriesLabel = (providerId, model) => {
+            const bare = String(model || '').trim() || '未知模型';
+            if (!providerId) return bare;
+            const provider = getApiProviderById(providerId);
+            return (provider?.name || '未知供应商') + ' · ' + bare;
+        };
+        const usageChartBaseRecords = computed(() => {
+            const windowMs = usageChartRangeMs[usageChartRange.value] || usageChartRangeMs.day;
+            const cutoff = Date.now() - windowMs;
+            return tokenUsageHistory.value.filter(record => {
+                const ts = Number(record.timestamp);
+                return Number.isFinite(ts) && ts >= cutoff && isUsageChartCategory(record);
+            });
+        });
+        const usageChartProviderOptions = computed(() => {
+            const counts = new Map();
+            usageChartBaseRecords.value.forEach(record => {
+                const providerId = resolveUsageChartProviderId(record);
+                counts.set(providerId, (counts.get(providerId) || 0) + 1);
+            });
+            const named = [...counts.keys()].filter(id => id).map(id => {
+                const provider = getApiProviderById(id);
+                return { value: id, label: provider?.name || id };
+            }).sort((x, y) => x.label.localeCompare(y.label, 'zh-CN'));
+            const options = [{ value: 'all', label: '全部供应商' }, ...named];
+            if (counts.has('')) options.push({ value: '', label: '未归属' });
+            return options;
+        });
+        const usageChartModelOptions = computed(() => {
+            const providerFilter = usageChartProvider.value;
+            const totals = new Map();
+            usageChartBaseRecords.value.forEach(record => {
+                const providerId = resolveUsageChartProviderId(record);
+                if (providerFilter !== 'all' && providerId !== providerFilter) return;
+                const key = providerId + '::' + String(record.model || '');
+                const total = (Number(record.inputTokens) || 0) + (Number(record.outputTokens) || 0) + (Number(record.cacheReadTokens) || 0);
+                totals.set(key, (totals.get(key) || 0) + total);
+            });
+            return [...totals.entries()]
+                .map(([key, total]) => {
+                    const separator = key.indexOf('::');
+                    return {
+                        key,
+                        label: usageChartSeriesLabel(key.slice(0, separator), key.slice(separator + 2)),
+                        total
+                    };
+                })
+                .sort((x, y) => y.total - x.total);
+        });
+        const usageChartData = computed(() => {
+            const buckets = buildUsageChartBuckets(usageChartRange.value, Date.now());
+            const windowMs = usageChartRangeMs[usageChartRange.value] || usageChartRangeMs.day;
+            const cutoff = Date.now() - windowMs;
+            const providerFilter = usageChartProvider.value;
+            const selected = usageChartSelectedModels.value;
+            const seriesMap = new Map();
+            tokenUsageHistory.value.forEach(record => {
+                const ts = Number(record.timestamp);
+                if (!Number.isFinite(ts) || ts < cutoff) return;
+                if (!isUsageChartCategory(record)) return;
+                const providerId = resolveUsageChartProviderId(record);
+                if (providerFilter !== 'all' && providerId !== providerFilter) return;
+                const key = providerId + '::' + String(record.model || '');
+                if (selected.length && !selected.includes(key)) return;
+                const total = (Number(record.inputTokens) || 0) + (Number(record.outputTokens) || 0) + (Number(record.cacheReadTokens) || 0);
+                if (!(total > 0)) return;
+                let series = seriesMap.get(key);
+                if (!series) {
+                    const separator = key.indexOf('::');
+                    series = { key, color: '', totals: buckets.map(() => 0), label: usageChartSeriesLabel(key.slice(0, separator), key.slice(separator + 2)) };
+                    seriesMap.set(key, series);
+                }
+                for (let index = 0; index < buckets.length; index++) {
+                    if (ts >= buckets[index].start && ts < buckets[index].end) {
+                        series.totals[index] += total;
+                        break;
+                    }
+                }
+            });
+            const sumTotals = list => list.reduce((total, value) => total + value, 0);
+            const sorted = [...seriesMap.values()].sort((x, y) => sumTotals(y.totals) - sumTotals(x.totals));
+            const palette = Object.freeze([
+                'rgb(var(--tw-primary-500))', '#D4A017', 'rgb(var(--tw-primary-600))', '#5DB872',
+                'rgb(var(--tw-primary-700))', '#C64545', 'rgb(var(--tw-primary-400))', 'rgb(var(--tw-gray-500))'
+            ]);
+            const kept = sorted.slice(0, 8).map((series, index) => ({ ...series, color: palette[index] }));
+            const overflow = sorted.slice(8);
+            if (overflow.length) {
+                const merged = buckets.map(() => 0);
+                overflow.forEach(series => series.totals.forEach((value, index) => { merged[index] += value; }));
+                kept.push({ key: '__other__', label: '其他模型（' + overflow.length + '）', color: 'rgb(var(--tw-gray-400))', totals: merged });
+            }
+            const peak = kept.reduce((max, series) => Math.max(max, ...series.totals), 0);
+            return { buckets, series: kept, peak: Math.max(peak, 1), count: kept.length };
+        });
+        watch(usageChartProvider, () => {
+            usageChartSelectedModels.value = usageChartModelOptions.value.map(option => option.key);
+        });
+        const toggleUsageChartModel = (key) => {
+            const current = usageChartSelectedModels.value;
+            usageChartSelectedModels.value = current.includes(key)
+                ? current.filter(item => item !== key)
+                : [...current, key];
+        };
         // Export Modal State
         const showExportModal = ref(false);
         const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
@@ -3703,15 +3871,86 @@ const app = createApp({
             clearMessageRenderCaches();
         }, { deep: true });
 
+        // [LuzzyRP patch 024] 关于页 CHANGELOG 版本分类 + 关键词检索 + 置顶（v1.2.3，需求 3）
+        const changelogSections = ref([]);
+        const changelogVersionOptions = ref([{ value: 'all', label: '全部版本' }]);
+        const changelogSelectedVersion = ref('all');
+        const changelogKeyword = ref('');
+        const changelogResultCount = ref(0);
+        const aboutViewEl = ref(null);
+        const aboutFabVisible = ref(false);
+        let changelogPreambleMd = '';
+        const parseChangelogSections = (md) => {
+            const sections = [];
+            const preamble = [];
+            let current = null;
+            (md || '').split(/\r?\n/).forEach((line) => {
+                const match = /^###\s+(v[0-9][0-9A-Za-z.]*)/.exec(line);
+                if (match) {
+                    current = { version: match[1], lines: [line] };
+                    sections.push(current);
+                } else if (current) {
+                    current.lines.push(line);
+                } else {
+                    preamble.push(line);
+                }
+            });
+            return {
+                preamble: preamble.join('\n').trim(),
+                sections: sections.map(section => ({ version: section.version, md: section.lines.join('\n').trim() }))
+            };
+        };
+        const renderChangelogView = () => {
+            const keyword = changelogKeyword.value.trim().toLowerCase();
+            const matched = changelogSections.value.filter(section =>
+                (changelogSelectedVersion.value === 'all' || section.version === changelogSelectedVersion.value) &&
+                (!keyword || section.md.toLowerCase().includes(keyword)));
+            changelogResultCount.value = matched.length;
+            const parts = [];
+            if (changelogSelectedVersion.value === 'all' && !keyword && changelogPreambleMd) {
+                parts.push(changelogPreambleMd);
+            }
+            parts.push(...matched.map(section => section.md));
+            try {
+                changelogHtml.value = parts.length ? renderMarkdown(parts.join('\n\n'), 'assistant', true) : '';
+            } catch (e) { changelogHtml.value = ''; }
+        };
+        let changelogSearchTimer = 0;
+        watch(changelogKeyword, () => {
+            clearTimeout(changelogSearchTimer);
+            changelogSearchTimer = setTimeout(renderChangelogView, 150);
+        });
+        watch(changelogSelectedVersion, () => renderChangelogView());
+        const onAboutScroll = (event) => {
+            aboutFabVisible.value = ((event && event.target ? event.target.scrollTop : 0) || 0) > 240;
+        };
+        const scrollAboutToTop = () => {
+            const el = aboutViewEl.value;
+            if (!el) return;
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        };
         // [LuzzyRP patch 014] 关于页 CHANGELOG：renderMarkdown 在此才可用，进入 about 视图时惰性渲染
+        // [LuzzyRP patch 024] 惰性加载后解析版本章节，渲染走分类/检索管线（v1.2.3）
         watch(currentView, (view) => {
-            if (view === 'about' && !changelogHtml.value) {
+            if (view === 'about' && !changelogSections.value.length) {
                 readBridgeVersion();
                 try {
                     const md = window.LuzzyChangelog && typeof window.LuzzyChangelog.md === 'string'
                         ? window.LuzzyChangelog.md : '';
-                    changelogHtml.value = md ? renderMarkdown(md, 'assistant', true) : '';
-                } catch (e) { changelogHtml.value = ''; }
+                    const parsed = parseChangelogSections(md);
+                    changelogPreambleMd = parsed.preamble;
+                    changelogSections.value = parsed.sections;
+                    changelogVersionOptions.value = [{ value: 'all', label: '全部版本' }]
+                        .concat(parsed.sections.map(section => ({ value: section.version, label: section.version })));
+                } catch (e) { changelogSections.value = []; }
+                renderChangelogView();
+            }
+            if (view === 'about') {
+                nextTick(() => {
+                    const el = aboutViewEl.value;
+                    if (el) el.scrollTop = 0;
+                });
             }
         });
 
@@ -4622,43 +4861,7 @@ const app = createApp({
             });
         };
 
-        const getNativeFullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
-        const requestNativeFullscreen = (element) => {
-            if (element.requestFullscreen) return element.requestFullscreen();
-            if (element.webkitRequestFullscreen) return element.webkitRequestFullscreen();
-            return Promise.reject(new Error('Fullscreen is not supported'));
-        };
-        const exitNativeFullscreen = () => {
-            if (document.exitFullscreen) return document.exitFullscreen();
-            if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
-            return Promise.resolve();
-        };
-
-        const toggleChatFullscreen = async () => {
-            try {
-                if (getNativeFullscreenElement()) {
-                    isChatFullscreen.value = false;
-                    await exitNativeFullscreen();
-                    return;
-                }
-                const fullscreenTarget = document.documentElement || document.body;
-                if (!fullscreenTarget || (!fullscreenTarget.requestFullscreen && !fullscreenTarget.webkitRequestFullscreen)) {
-                    showToast('当前浏览器不支持全屏', 'warning');
-                    return;
-                }
-                closeMobileMenu();
-                isChatFullscreen.value = true;
-                await requestNativeFullscreen(fullscreenTarget);
-            } catch (err) {
-                isChatFullscreen.value = !!getNativeFullscreenElement();
-                console.error('Toggle fullscreen failed:', err);
-                showToast('全屏失败', 'error');
-            }
-        };
-
-        const syncChatFullscreenState = () => {
-            isChatFullscreen.value = !!getNativeFullscreenElement();
-        };
+        // [LuzzyRP patch 022] 原生 fullscreen helpers 与全屏切换/同步函数整体移除（v1.2.3）
 
         const copyMessage = (content) => {
             navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
@@ -6659,6 +6862,12 @@ const app = createApp({
             // [LuzzyRP patch 012] 支持 (provider, model) 引用级嵌入：分桶检索时按桶现算查询向量
             const embeddingRef = embeddingRefOverride != null ? embeddingRefOverride : getMemoryEmbeddingModel();
             const embeddingResolved = resolveModelRequest(embeddingRef);
+            // [LuzzyRP patch 026] 分桶引用指向已删除/改名的供应商时显式报错（v1.2.3，需求 2）：
+            // 原行为经 parseModelRef 静默回退默认商（协议还可能错配），整桶必 404 且用户无从自查
+            const refSeparator = String(embeddingRef).indexOf('::');
+            if (refSeparator > 0 && !getApiProviderById(String(embeddingRef).slice(0, refSeparator))) {
+                throw new Error('分片嵌入供应商已不存在：' + String(embeddingRef).slice(0, refSeparator) + '（请重嵌该批分片，或恢复该供应商 ID）');
+            }
             if (!embeddingResolved.url || !embeddingResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
             if (!embeddingResolved.model) throw new Error('请先选择向量嵌入模型');
             const model = embeddingResolved.model;
@@ -7170,16 +7379,15 @@ const app = createApp({
                 return;
             }
 
-            const excludedTurns = getCurrentRetainedVectorMemoryTurns();
+            // [LuzzyRP patch 026] 手动检索不再排除「近期保留楼层」轮次（v1.2.3，需求 2）：
+            // 排除窗仅服务自动召回（避免与在上下文中的内容重复）；手动检索是显式动作，
+            // 应覆盖全部启用分片——原行为使新会话分片后立即检索必空（分片轮次全落在
+            // 保留窗内），且判空文案误导为「还没有分片」。
             const vectorMemories = memories.value
                 .filter(m => m.vectorMemory === true && m.enabled !== false)
-                .filter(m => isEmbeddingLike(m.embedding) && m.embedding.length > 0)
-                .filter(memory => {
-                    const turn = Number(memory.turn) || 0;
-                    return turn <= 0 || !excludedTurns.has(turn);
-                });
+                .filter(m => isEmbeddingLike(m.embedding) && m.embedding.length > 0);
             if (vectorMemories.length === 0) {
-                vectorMemorySearchError.value = '还没有可检索的向量分片';
+                vectorMemorySearchError.value = '还没有可检索的向量分片（请先完成分片，或检查分片的参与召回开关）';
                 return;
             }
 
@@ -10430,8 +10638,7 @@ const app = createApp({
 
         // Lifecycle
         onMounted(async () => {
-            document.addEventListener('fullscreenchange', syncChatFullscreenState);
-            document.addEventListener('webkitfullscreenchange', syncChatFullscreenState);
+            // [LuzzyRP patch 022] fullscreenchange 监听已随全屏功能移除（v1.2.3）
 
             await loadData();
             fetchQuota(); // Fetch quota after saved settings are loaded
@@ -10676,8 +10883,7 @@ const app = createApp({
             generatedImageObserver?.disconnect();
             generatedImageTasks.clear();
             closeMobileMenu();
-            document.removeEventListener('fullscreenchange', syncChatFullscreenState);
-            document.removeEventListener('webkitfullscreenchange', syncChatFullscreenState);
+            // [LuzzyRP patch 022] fullscreenchange 监听移除已随全屏功能下线（v1.2.3）
             if (window.visualViewport) {
                 window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                 window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
@@ -10874,7 +11080,7 @@ const app = createApp({
             switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
             processMainContent, replaceUserNamePlaceholder,
             currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
-            appVersionLabel, upstreamVersionLabel, changelogHtml, openGitHubRepo,
+            appVersionLabel, upstreamVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop,
             showActiveToolEditor,
             showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
             showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
@@ -10889,7 +11095,7 @@ const app = createApp({
             startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
             tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
             showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
-            filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory,
+            filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory, usageChartRange, usageChartRangeOptions, usageChartProvider, usageChartProviderOptions, usageChartModelOptions, usageChartSelectedModels, usageChartData, toggleUsageChartModel,
             latestMainTokenUsage, formatLatestTokenCount, formatLatestUsageCost,
             getUncachedInputTokens, formatTokenCount, formatTokenAggregate, formatTokenUsageTime, getTokenUsageTypeLabel, clearTokenUsageHistory,
             storageStats, refreshStorageStats, cleanupUnusedStorage, formatStorageSize,
@@ -10904,7 +11110,7 @@ const app = createApp({
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
             isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,
             chatRoundStats, conversationBodyLength, summaryCompressedBodyLength, summaryCompressionRate,
-            editingCharacter, editingPreset, editingUiTemplate, toasts, chatContainer, isChatFullscreen, isMobileKeyboardOpen, inputBox, messageElements,
+            editingCharacter, editingPreset, editingUiTemplate, toasts, chatContainer, isMobileKeyboardOpen, inputBox, messageElements,
             isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
             isSquareLoading, squareUrl, onSquareLoad, // Square exports
             isNovelLoading, novelUrl, onNovelLoad, // Novel exports
@@ -11082,7 +11288,7 @@ const app = createApp({
                 showToast(`成功导入 ${normalized.length} 个分片`, 'success');
             }, error => showToast(`导入失败: ${error.message || 'JSON 格式错误'}`, 'error')),
             toggleMobileMenu, closeMobileMenu,
-            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat, toggleChatFullscreen,
+            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat,
             handleConfirm, handleCancel, // Export handlers
             copyMessage, playMessageActionFeedback, canDeleteMessage, deleteMessage, regenerateMessage,
             editMessage, saveEditMessage, cancelEditMessage,

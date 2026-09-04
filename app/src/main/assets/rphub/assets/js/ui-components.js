@@ -1937,14 +1937,38 @@
             formatCount: { type: Function, required: true },
             formatTime: { type: Function, required: true },
             getTypeLabel: { type: Function, required: true },
-            getUncachedInput: { type: Function, required: true },
-            formatModelLabel: { type: Function, default: null }
+                        getUncachedInput: { type: Function, required: true },
+            formatModelLabel: { type: Function, default: null },
+            chartData: { type: Object, default: () => ({ buckets: [], series: [], peak: 1, count: 0 }) },
+            chartRange: { type: String, default: 'day' },
+            chartRangeOptions: { type: Array, default: () => [] },
+            chartProvider: { type: String, default: 'all' },
+            chartProviderOptions: { type: Array, default: () => [] },
+            chartModelOptions: { type: Array, default: () => [] },
+            chartSelectedModels: { type: Array, default: () => [] }
         },
         emits: [
-            'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
-            'update:page', 'update:help-topic'
+                        'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
+            'update:page', 'update:help-topic', 'update:chart-range', 'update:chart-provider', 'toggle-chart-model'
         ],
-        setup() {
+        setup(props) {
+            // [LuzzyRP patch 025] 用量折线图几何辅助（v1.2.3）
+            const chartPlot = Object.freeze({ left: 44, right: 316, top: 12, bottom: 118 });
+            const usageChartX = (index, count) => {
+                if (!count || count < 2) return (chartPlot.left + chartPlot.right) / 2;
+                return chartPlot.left + (chartPlot.right - chartPlot.left) * index / (count - 1);
+            };
+            const usageChartY = value => chartPlot.bottom - (chartPlot.bottom - chartPlot.top) * Math.max(0, Math.min(1, value / (props.chartData.peak || 1)));
+            const usageChartPoints = series => series.totals.map((value, index) => usageChartX(index, series.totals.length).toFixed(1) + ',' + usageChartY(value).toFixed(1)).join(' ');
+            const usageChartGridValue = step => (props.chartData.peak || 1) * step;
+            const usageChartLabelBuckets = computed(() => {
+                const buckets = props.chartData.buckets || [];
+                if (!buckets.length) return [];
+                if (buckets.length <= 4) return buckets.map((bucket, index) => ({ bucket, index }));
+                const indices = [0, Math.floor((buckets.length - 1) / 2), buckets.length - 1];
+                return indices.map(index => ({ bucket: buckets[index], index }));
+            });
+            const usageChartSeriesColor = key => (props.chartData.series || []).find(series => series.key === key)?.color || 'rgb(var(--tw-gray-300))';
             const formatDuration = (value) => {
                 if (!Number.isFinite(value)) return '--';
                 if (value < 1000) return `${Math.round(value)}ms`;
@@ -1957,6 +1981,7 @@
                 return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
             };
             return {
+                usageChartX, usageChartY, usageChartPoints, usageChartGridValue, usageChartLabelBuckets, usageChartSeriesColor,
                 formatDuration,
                 formatOutputSpeed,
                 formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
@@ -2029,7 +2054,47 @@
                     <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                 </div>
 
-                <div class="flex items-center justify-between mb-3">
+                                <!-- [LuzzyRP patch 025] 用量趋势折线图（v1.2.3，需求 4）：日（小时）/周（天）/月（周）+ 供应商/模型筛选 -->
+                <div class="relative mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" title="日=近24小时（按小时）· 周=近7天（按天）· 月=近28天（按周）">
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-bold text-gray-700">用量趋势</h3>
+                        <div class="flex rounded-lg bg-gray-100 p-0.5">
+                            <button v-for="option in chartRangeOptions" :key="option.value" type="button"
+                                @click="$emit('update:chart-range', option.value)"
+                                class="rounded-md px-3 py-1 text-xs font-bold transition-colors"
+                                :class="chartRange === option.value ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'">{{ option.label }}</button>
+                        </div>
+                    </div>
+                    <div class="mb-3 flex flex-wrap gap-1.5">
+                        <button v-for="option in chartProviderOptions" :key="option.value || '__none__'" type="button"
+                            @click="$emit('update:chart-provider', option.value)"
+                            class="rounded-full border px-2.5 py-1 text-xs font-bold transition-colors"
+                            :class="chartProvider === option.value ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'">{{ option.label }}</button>
+                    </div>
+                    <div v-if="chartModelOptions.length" class="mb-3 flex flex-wrap gap-1.5">
+                        <button v-for="option in chartModelOptions" :key="option.key" type="button"
+                            @click="$emit('toggle-chart-model', option.key)" :title="option.label"
+                            class="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
+                            :class="!chartSelectedModels.length || chartSelectedModels.includes(option.key) ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-gray-100 bg-white text-gray-400'">
+                            <span class="h-2 w-2 flex-none rounded-full" :style="{ background: usageChartSeriesColor(option.key) }"></span>
+                            <span class="truncate">{{ option.label }}</span>
+                        </button>
+                    </div>
+                    <div v-if="!chartData.series.length" class="flex h-36 items-center justify-center rounded-xl border border-dashed border-gray-200 text-xs text-gray-400">该时间窗内暂无用量记录</div>
+                    <svg v-else viewBox="0 0 320 140" class="block w-full" role="img" aria-label="模型用量折线图">
+                        <g v-for="step in [0, 0.25, 0.5, 0.75, 1]" :key="'g' + step">
+                            <line :x1="44" :x2="316" :y1="usageChartY(usageChartGridValue(step))" :y2="usageChartY(usageChartGridValue(step))"
+                                stroke="currentColor" stroke-width="0.5" stroke-dasharray="2 3" class="text-gray-200"></line>
+                            <text :x="40" :y="usageChartY(usageChartGridValue(step)) + 3" text-anchor="end" class="fill-current text-gray-400" font-size="8">{{ formatAggregate(usageChartGridValue(step), 1) }}</text>
+                        </g>
+                        <g v-for="series in chartData.series" :key="series.key">
+                            <polyline :points="usageChartPoints(series)" fill="none" :stroke="series.color" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                            <circle v-for="(value, index) in series.totals" :key="index" :cx="usageChartX(index, series.totals.length)" :cy="usageChartY(value)" r="2" :fill="series.color"></circle>
+                        </g>
+                        <text v-for="item in usageChartLabelBuckets" :key="'x' + item.index" :x="usageChartX(item.index, chartData.buckets.length)" y="132" text-anchor="middle" class="fill-current text-gray-400" font-size="8">{{ item.bucket.label }}</text>
+                    </svg>
+                </div>
+<div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                     <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
                 </div>

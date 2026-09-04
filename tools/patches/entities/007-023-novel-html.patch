@@ -1,5 +1,5 @@
-diff --git a/rp-hub-reference/novel/index.html b/app/src/main/assets/rphub/novel/index.html
-index a172348b..dc25833b 100644
+diff --git a/novel/index.html b/novel/index.html
+index a172348b..e6bc4eab 100644
 --- a/novel/index.html
 +++ b/novel/index.html
 @@ -5,16 +5,17 @@
@@ -26,3 +26,12 @@ index a172348b..dc25833b 100644
      
      <style>
          :root {
+@@ -1201,7 +1202,7 @@
+                 const isSyncingRPHub = ref(false);
+                 const showApiProviderSelect = ref(false);
+                 const RPHUB_PROVIDER_DEFINITIONS = [
+-                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://picui.ogmua.cn/s1/2026/08/21/6a87a751bf871.webp' },
++                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://cdn.sta1n.cn/favicon.ico' // [LuzzyRP patch 023] 同 core-utils：原图床 404（v1.2.3，需求 5.1） },
+                     { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' },
+                     { id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1', icon: 'https://openrouter.ai/favicon.ico' },
+                     { id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1', icon: 'https://siliconflow.cn/favicon.ico' }

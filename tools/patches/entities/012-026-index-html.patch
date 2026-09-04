@@ -1,5 +1,5 @@
-diff --git a/rp-hub-reference/index.html b/app/src/main/assets/rphub/index.html
-index b290e220..cfe2b45f 100644
+diff --git a/index.html b/index.html
+index b290e220..8cad442f 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -130,7 +130,7 @@ index b290e220..cfe2b45f 100644
  </head>
  <body class="bg-gray-50 text-gray-900 font-sans selection:bg-primary-200 selection:text-primary-900">
      <svg aria-hidden="true" style="display: none">
-@@ -122,8 +164,9 @@
+@@ -122,15 +164,16 @@
      <div class="entry-transition" aria-hidden="true">
          <div class="entry-transition-brand">
              <div class="entry-transition-logo">
@@ -142,7 +142,45 @@ index b290e220..cfe2b45f 100644
                  <i></i>
              </div>
          </div>
-@@ -957,7 +1000,7 @@
+     </div>
+ 
+     <div id="app" v-cloak class="h-full flex flex-col md:flex-row relative"
+-        :class="{ 'app-native-fullscreen': isChatFullscreen, 'mobile-keyboard-active': isMobileKeyboardOpen }">
++        :class="{ 'mobile-keyboard-active': isMobileKeyboardOpen }"> <!-- [LuzzyRP patch 022] 全屏态 class 绑定移除（聊天页全屏下线，v1.2.3） -->
+         <component is="style" v-if="settings.fontSize">
+             .markdown-body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(small):not(sub):not(sup):not(code) {
+             font-size: inherit !important;
+@@ -300,7 +343,8 @@
+                     <!-- 实际内容容器 -->
+                     <div class="relative h-12 flex items-center justify-between px-4 pointer-events-auto">
+                         <div class="flex items-center min-w-0">
+-                            <button v-if="!isChatFullscreen" @click="toggleMobileMenu"
++                            <!-- [LuzzyRP patch 022] 菜单按钮的全屏条件渲染已移除（全屏功能下线，v1.2.3） -->
++                            <button @click="toggleMobileMenu"
+                                 class="md:hidden mr-3 text-white/80 hover:text-white transition-colors flex-shrink-0">
+                                 <svg class="w-6 h-6" fill="none" stroke="currentColor"><use href="#icon-menu"></use></svg>
+                             </button>
+@@ -324,18 +368,7 @@
+                             <div v-else class="text-white/60 italic drop-shadow-sm">未选择角色卡</div>
+                         </div>
+                         <div class="flex items-center gap-0">
+-                            <button @click="toggleChatFullscreen"
+-                                class="p-1.5 text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+-                                :title="isChatFullscreen ? '退出全屏' : '全屏聊天'">
+-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-                                    <path v-if="!isChatFullscreen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+-                                        d="M8 4H5a1 1 0 00-1 1v3m12-4h3a1 1 0 011 1v3M4 16v3a1 1 0 001 1h3m8 0h3a1 1 0 001-1v-3">
+-                                    </path>
+-                                    <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+-                                        d="M9 4v4a1 1 0 01-1 1H4m11-5v4a1 1 0 001 1h4M9 20v-4a1 1 0 00-1-1H4m11 5v-4a1 1 0 011-1h4">
+-                                    </path>
+-                                </svg>
+-                            </button>
++                            <!-- [LuzzyRP patch 022] 聊天页右上角全屏按钮已移除（用户需求，v1.2.3） -->
+                             <button @click="clearChat"
+                                 class="p-1.5 text-white/70 hover:text-red-400 rounded-full hover:bg-white/10 transition-colors"
+                                 title="清空聊天">
+@@ -957,7 +990,7 @@
                                                          :disabled="!slot.model"
                                                          :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                          <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
@@ -151,7 +189,7 @@ index b290e220..cfe2b45f 100644
                                                      </button>
                                                  </div>
                                                  <div class="border-t border-gray-100 pt-4 space-y-5">
-@@ -1635,7 +1678,7 @@
+@@ -1635,7 +1668,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -160,7 +198,7 @@ index b290e220..cfe2b45f 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1650,7 +1693,7 @@
+@@ -1650,7 +1683,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -169,7 +207,7 @@ index b290e220..cfe2b45f 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1659,9 +1702,29 @@
+@@ -1659,9 +1692,29 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -200,7 +238,7 @@ index b290e220..cfe2b45f 100644
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1732,7 +1795,7 @@
+@@ -1732,7 +1785,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -209,7 +247,7 @@ index b290e220..cfe2b45f 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1775,6 +1838,19 @@
+@@ -1775,6 +1828,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -229,7 +267,7 @@ index b290e220..cfe2b45f 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1786,7 +1862,7 @@
+@@ -1786,7 +1852,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -238,7 +276,7 @@ index b290e220..cfe2b45f 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1795,9 +1871,23 @@
+@@ -1795,9 +1861,23 @@
                                              </custom-select>
                                          </div>
  
@@ -264,17 +302,26 @@ index b290e220..cfe2b45f 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1910,27 +2000,23 @@
-                                     高级参数
-                                 </h4>
-                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+@@ -1898,41 +1978,7 @@
+                                 </label>
+                             </div>
+ 
+-                            <!-- Render Layer Limit Setting -->
+-                            <div class="pt-6 border-t border-gray-100 mt-6">
+-                                <h4 class="settings-section-heading">
+-                                    <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor"
+-                                        viewBox="0 0 24 24">
+-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+-                                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+-                                        </path>
+-                                    </svg>
+-                                    高级参数
+-                                </h4>
+-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 -                                    <!-- Font Family Setting -->
 -                                    <div
 -                                        class="bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200">
-+                                    <!-- [LuzzyRP patch 014] 外观设置已整体迁至侧边栏「外观」独立页（v1.2.0），设置页不再保留入口/字号重复项 -->
-+                                    <button type="button" @click="currentView = 'appearance'"
-+                                        class="text-left bg-gray-50/60 p-4 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all duration-200 active:scale-[0.99]">
-                                         <label
+-                                        <label
 -                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">界面字体</label>
 -                                        <custom-select v-model="settings.fontFamily" :options="fontFamilyOptions"
 -                                            button-class="rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-400 focus:ring-indigo-100"
@@ -292,23 +339,35 @@ index b290e220..cfe2b45f 100644
 -                                            menu-class="text-sm">
 -                                        </custom-select>
 -                                    </div>
-+                                            class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">外观</label>
-+                                        <span class="flex items-center justify-between gap-2">
-+                                            <span class="text-sm font-medium text-gray-700">主题 · 模式 · 字体</span>
-+                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none"
-+                                                stroke="currentColor" viewBox="0 0 24 24">
-+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-+                                                    d="M9 5l7 7-7 7"></path>
-+                                            </svg>
-+                                        </span>
-+                                        <span class="block text-xs text-gray-400 mt-1.5">已迁至侧边栏「外观」页面</span>
-+                                    </button>
-+                                    <!-- Font Size Setting（编辑锚点：字号控件已迁至外观页，保留空位维持网格布局） -->
-+                                    <div></div>
-                                 </div>
-                             </div>
+-                                </div>
+-                            </div>
++                            <!-- [LuzzyRP patch 021] 设置页残留外观入口区块整体移除（v1.2.3，需求 5.2）：原 patch 014 占位卡去除后该区已无实际内容，区块一并清理；外观唯一入口 = 侧栏「外观」页 -->
  
-@@ -2003,6 +2089,113 @@
+                             <!-- Storage Management -->
+                             <div class="pt-6 border-t border-gray-100 mt-6">
+@@ -1948,11 +1994,7 @@
+                                         </h4>
+                                     </div>
+                                     <div class="flex flex-wrap items-center gap-2">
+-                                        <button type="button" @click="refreshStorageStats"
+-                                            :disabled="storageStats.loading || storageStats.cleaning"
+-                                            class="px-4 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:shadow-none">
+-                                            {{ storageStats.loading ? '统计中...' : (storageStats.hasMeasured ? '重新统计' : '统计') }}
+-                                        </button>
++                                        <!-- [LuzzyRP patch 021] 手动统计按钮移除：进入设置页自动统计（app.js watch），保留清理按钮（v1.2.3，需求 5.3） -->
+                                         <button type="button" @click="cleanupUnusedStorage"
+                                             :disabled="storageStats.loading || storageStats.cleaning || storageStats.orphanedItems === 0"
+                                             class="px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-100 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
+@@ -1968,7 +2010,7 @@
+                                 <div v-else class="space-y-6">
+                                     <div>
+                                         <div class="flex items-center justify-between gap-3 mb-3 text-sm">
+-                                            <span class="font-bold text-gray-600">网页存储空间</span>
++                                            <span class="font-bold text-gray-600">存储空间占用</span><!-- [LuzzyRP patch 021] 文案调整（v1.2.3，需求 5.3） -->
+                                             <span class="font-semibold text-gray-500 whitespace-nowrap">
+                                                 <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
+                                                 <span class="mx-1 text-gray-300">/</span>
+@@ -2003,6 +2045,137 @@
                  </div>
              </div>
  
@@ -382,7 +441,7 @@ index b290e220..cfe2b45f 100644
 +            </div>
 +
 +            <!-- [LuzzyRP patch 014] About View（关于独立页：品牌/版本/上游基线/署名/仓库 + 应用内 CHANGELOG） -->
-+            <div v-if="currentView === 'about'" class="management-view about-view">
++            <div v-if="currentView === 'about'" class="management-view about-view" ref="aboutViewEl" @scroll="onAboutScroll">
 +                <settings-page-header title="关于" @menu="toggleMobileMenu">
 +                    <template #icon>
 +                        <svg class="w-6 h-6 md:w-7 md:h-7 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -403,9 +462,26 @@ index b290e220..cfe2b45f 100644
 +                    </div>
 +
 +                    <div class="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
++                        <!-- [LuzzyRP patch 024] CHANGELOG 版本分类 + 关键词检索（v1.2.3，需求 3） -->
 +                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">更新日志（CHANGELOG）</label>
-+                        <div v-if="changelogHtml" class="markdown-body text-sm text-gray-600 leading-relaxed changelog-body" v-html="changelogHtml"></div>
-+                        <p v-else class="text-xs text-gray-400">暂无更新日志。</p>
++                        <div class="flex flex-col sm:flex-row gap-2 mb-3">
++                            <div class="sm:w-44">
++                                <custom-select v-model="changelogSelectedVersion" :options="changelogVersionOptions"
++                                    button-class="w-full justify-between rounded-lg px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 focus:border-primary-400 focus:ring-primary-100"
++                                    menu-class="text-sm">
++                                </custom-select>
++                            </div>
++                            <div class="relative flex-1">
++                                <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
++                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
++                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
++                                </svg>
++                                <input type="text" v-model="changelogKeyword" placeholder="搜索关键词（标题与正文）"
++                                    class="w-full rounded-lg pl-9 pr-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 placeholder-gray-400 focus:border-primary-400 focus:ring-primary-100 focus:outline-none transition-colors">
++                            </div>
++                        </div>
++                        <div v-if="changelogKeyword" class="text-xs text-gray-400 mb-2">{{ changelogResultCount > 0 ? '命中 ' + changelogResultCount + ' 个版本' : '没有匹配的版本' }}</div>
 +                    </div>
 +
 +                    <div class="flex items-center gap-3 px-1">
@@ -418,11 +494,18 @@ index b290e220..cfe2b45f 100644
 +                    </div>
 +                </div>
 +            </div>
-+
++                    <!-- [LuzzyRP patch 024] 右下角置顶按钮（滚动超过阈值出现，v1.2.3） -->
++                    <button type="button" @click="scrollAboutToTop" aria-label="回到顶部"
++                        class="about-top-fab fixed bottom-5 right-5 z-30 w-11 h-11 rounded-full items-center justify-center bg-white border border-gray-100 shadow-md text-gray-500 hover:text-primary-600 hover:border-primary-100"
++                        :class="{ 'is-visible': aboutFabVisible }">
++                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
++                        </svg>
++                    </button>
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2265,7 @@
+@@ -2072,6 +2245,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -430,15 +513,20 @@ index b290e220..cfe2b45f 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2449,7 @@
+@@ -2255,6 +2429,12 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
 +                :format-model-label="formatUsageModelLabel"
++                :chart-data="usageChartData" :chart-range="usageChartRange" :chart-range-options="usageChartRangeOptions"
++                :chart-provider="usageChartProvider" :chart-provider-options="usageChartProviderOptions"
++                :chart-model-options="usageChartModelOptions" :chart-selected-models="usageChartSelectedModels"
++                @update:chart-range="usageChartRange = $event" @update:chart-provider="usageChartProvider = $event"
++                @toggle-chart-model="toggleUsageChartModel"
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2609,7 @@
+@@ -2414,7 +2594,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -447,7 +535,7 @@ index b290e220..cfe2b45f 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2641,7 @@
+@@ -2446,7 +2626,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -456,7 +544,7 @@ index b290e220..cfe2b45f 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2837,141 @@
+@@ -2642,6 +2822,141 @@
                          </div>
                      </div>
                  </div>
@@ -598,7 +686,7 @@ index b290e220..cfe2b45f 100644
  
              </div>
  
-@@ -2786,11 +3116,295 @@
+@@ -2786,11 +3101,295 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -894,7 +982,7 @@ index b290e220..cfe2b45f 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3487,13 @@
+@@ -2873,6 +3472,13 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

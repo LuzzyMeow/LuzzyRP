@@ -51,6 +51,13 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 
 完整 10 阶 ramp（gray / primary）见 `luzzy-theme.css`，一一对应上游工具类。
 
+### 数据可视化分类色序（v1.2.3，用量趋势图）
+
+多系列折线图按序取色（全部为本文件既有 token；`primary-*` 用 `rgb(var(--tw-*))` 亮暗自适应）：
+`primary-500` → `warning #D4A017` → `primary-600` → `success #5DB872` → `primary-700` →
+`error #C64545` → `primary-400` → `gray-500`；第 9 起合并为「其他」（`gray-400`）。
+禁新增额外色相（同 Do's & Don'ts 约束）。
+
 ### Luzzy「暖幕手记」· 暗色（Claude 暗表面系，gray 色阶反转；v3 层次重调）
 
 | Token | 值 | 用途 |
@@ -109,6 +116,8 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 | 输入岛 | 白纸面 + hairline + 轻投影；发送键 = coral 圆 |
 | 发送/强调按钮 | primary-600 底 + 白字；active = primary-700 |
 | 设置页卡片 | surface-soft 底 + hairline 边；选中态 = coral-100 底 |
+| 用量趋势图（patch 025） | 白卡 + 发丝线 + 纸感轻投影；系列色按「数据可视化分类色序」；粒度分段与供应商/模型 chips 选中态走 primary-* |
+| 关于页 CHANGELOG 工具（patch 024） | 版本下拉 + 关键词搜索框走 primary-* focus 态；置顶 FAB = 白圆钮 + 发丝线 + 纸感投影，primary hover |
 
 ## Glass（雾纸玻璃层 Frost-Paper）
 
@@ -231,6 +240,7 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 - **主题切换转场「纸色翻面」**：全屏遮罩以新模式底色淡入 200ms → 变量切换 → 遮罩淡出 140ms；
   reduced-motion 下直接切换；
 - **气泡进入**：上移 8px + 淡入 200ms；退出淡出 140ms；
+- **关于页置顶 FAB（patch 024）**：进 200ms / 退 140ms ease-out，scale(0.96)+opacity:0 起步；滚动 >240px 显隐；reduced-motion 直接呈现；
 - **招牌动效「荧光笔落笔」（roadmap）**：新 AI 消息落定后关键词上划过 amber 记号
   （reduced-motion 直接显示）——v1 先实现主题转场与气泡动效，落笔动效随正则/markdown
   管线单独迭代。

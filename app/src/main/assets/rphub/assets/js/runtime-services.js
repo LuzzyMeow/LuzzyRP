@@ -826,6 +826,10 @@
                 timestamp: Date.now(),
                 type: meta.type || 'chat',
                 model: String(meta.model || ''),
+                // [LuzzyRP patch 025] provider/protocol 维度落库（v1.2.3）：patch 012 调用侧已传参但构造器漏存，
+                // 导致用量列表 [商名] 前缀与供应商图表分组失效；历史记录由图表层按 apiUrl 反查兜底
+                provider: String(meta.provider || ''),
+                protocol: String(meta.protocol || ''),
                 apiUrl: String(getApiUrl?.() || ''),
                 isStream: meta.isStream === true,
                 durationMs: Number.isFinite(meta.durationMs) ? Math.max(0, meta.durationMs) : null,

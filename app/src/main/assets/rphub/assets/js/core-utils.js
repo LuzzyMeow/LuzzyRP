@@ -948,7 +948,7 @@ window.RPHubUtils = {
                 id: 'sta1n',
                 name: 'STA1N API',
                 apiUrl: 'https://cdn.sta1n.cn/v1',
-                icon: 'https://picui.ogmua.cn/s1/2026/08/21/6a87a751bf871.webp'
+                icon: 'https://cdn.sta1n.cn/favicon.ico' // [LuzzyRP patch 023] 原自建图床 404，改官方 CDN favicon（v1.2.3，需求 5.1）
             }),
             Object.freeze({
                 id: 'deepseek',

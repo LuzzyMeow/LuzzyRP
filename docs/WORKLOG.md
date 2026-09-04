@@ -1292,3 +1292,41 @@ GitHub Release v1.2.2（tag + 三件套 APK，沿用 v1.2.1 排版）。
 - 真机（小米 df97f3c4）未连接：debug 包（EXTRACT 21）构建完成后待 install -r 覆盖
   日常包，按 §6.2 走数据兼容+核心功能回归（重点：破限预设标记改名后的对话回归）；
 - 发版 v1.2.3 时：§3.4 全流程（versionCode 10 / gen-changelog 重跑 / README 版本对应表加行）。
+
+### 会话 20 功能段 · 六大需求开发（2026-09-04，v1.2.3 开发中）
+
+**任务（用户指令）**：①开屏动画自创设计（规定 9 全流程）②向量检索失效排查修复
+③关于页滑动/置顶/版本分类/关键词搜索 ④用量趋势折线图（三粒度+供应商/模型筛选）
+⑤设置页三修（STA1N 图标/残留外观入口/存储自动统计）⑥聊天页去全屏按钮。
+
+**完成**
+- 设计合规：复读 4 项设计 SKILL 主文档（规定 9）；开屏动画三方向板产出
+  docs/design/splash-v1/board-{a,b,c}.html（A 手稿终端·轮盘 16 号 / B 开卷·Aēsop 参照 /
+  C 落笔成序·原研哉视角），待用户选定后落地（patch 027 预留）。
+- patch 021 设置页清理（残留外观入口区整段移除+存储自动统计+文案）：index.html + app.js watch。
+- patch 022 聊天页全屏整体下线（按钮/绑定/ref/函数/监听/暴露，styles.css 上游死规则不触碰）。
+- patch 023 STA1N 图标修复（上游图床 404 → cdn.sta1n.cn/favicon.ico，core-utils + novel 同修）。
+- patch 024 关于页增强（版本章节解析 + 分类/搜索过滤渲染管线 150ms 防抖 + 置顶 FAB +
+  ext 动效层：进 200ms/退 140ms ease-out、scale(0.96) 起步、reduced-motion 降级）。
+- patch 025 用量趋势折线图（数据层三粒度分桶 + provider::model 分序列 + Top8 溢出合并 +
+  token 分类色板；TokenUsageView 纯 SVG 卡；recordApiUsage 补存 provider/protocol——
+  修复 patch 012 半成品导致的 [商名] 前缀从未显示；历史记录 apiUrl 反查兜底）。
+- patch 026 向量检索修复（手动检索摘除保留窗排除 + 死供应商显式报错 + 裸引用回退协议
+  跟随激活商）。排查报告：入库链路完好，前端过滤死区（A 排除窗 > B 桶跳过 > C 阈值 0.45 硬编码遗留）。
+- 设施：EXTRACT 22；verify-markers manifest +13（56 项）；实体范围式再生成
+  （007-023/009-023/012-026）且 6 实体逆向 --check 全过——顺带修复 apply-patches 实体
+  文件名与磁盘名不一致的潜在坑（012-020-assets-js-* 实际名 vs 脚本引用名，被 SKIP 逻辑掩盖）。
+- 门禁：apply-patches 全 SKIP；verify-markers 56 PASS / 0 FAIL；app.js/ui-components.js/
+  runtime-services.js/core-utils.js node --check 全过。
+
+**决策**
+- ③④组件级新增遵循 DESIGN.md 既有 token（非新视觉方向，三方向门不适用；开屏动画走完整门）；
+  折线图分类色序落档 DESIGN.md（数据可视化分类色序节）。
+- 向量阈值滑杆（排查项 C）列候选迭代不随本版；gen-changelog 仍留发版时重跑。
+- CHANGELOG v1.2.3 章节已扩写全量内容；DESIGN.md 增补三处（组件表/分类色序/FAB 动效）。
+
+**遗留 / 下一步**
+- 开屏动画：等用户三选一 → 落地 patch 027（index.html 开屏 DOM + ext 动效）+ CHANGELOG 补条目；
+- 真机回归（小米 df97f3c4 未连接）：EXTRACT 22 debug 包 install -r + §6.2 全量走查
+  （重点：向量检索复测、用量图渲染、关于页搜索/置顶、设置页自动统计）；
+- 模拟器罐装走查 024/025 新 UI 交互（可选，真机回归可覆盖）。

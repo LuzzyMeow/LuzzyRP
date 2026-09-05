@@ -1607,3 +1607,19 @@ EXTRACT 27 debug 包=日常包（数据保留）。
   → 实体逐文件手工合并 → 全实体按 1.9.1 基线再生成 → 指纹表更新（R1 新哈希）→
   verify-markers 计数校准 → 桌面冒烟 → CHANGELOG/WORKLOG → debug 包真机回归。
   网络路径：直连不通时用 gh-proxy.com 镜像（`git fetch https://gh-proxy.com/https://github.com/STA1N156/RP-Hub main`）。
+
+### 会话 21 补充 2 · 桌面深度验收全过 + 冒烟工具化（2026-09-05）
+
+- **新增正式工具 `tools/desktop-smoke.cjs`**（headless Chrome + Node 原生 WebSocket CDP；
+  `CDP_PORT`/`APP_URL` 环境变量可配，退出码 0/1）：挂载健康 / RPHubConfig（029）/
+  品牌卡固定文案（030）/ 记忆节点（031，伪造戳）/ 流式渲染旁路（032）/ 供应商管理器
+  UI 链路（设置页 → 选择器 popover → 管理供应商 → 卡片验收）。
+- **深验收结果（全过）**：①RPHubConfig 运行时=仅 deepseek（editable:true）+ 默认商
+  deepseek；②品牌卡实测文案「基于 RP-Hub 二次开发 · 纯前端 + 原生壳」无版本号；
+  ③管理器 UI 链路：设置页选择器 popover → 管理供应商 → 弹窗内唯一供应商卡=DeepSeek
+  且「编辑」按钮可见、无删除按钮（触发器显示 DeepSeek favicon）；④挂载/渲染健康、
+  未捕获异常 0（偶发 new Function flake 本轮 5 连跑 0 次，继续真机观察）。
+- 验收小坑入册：Vue 合成事件 el.click() 对弹窗按钮可用（此前坑表说部分无效——
+  本轮 button.click() 链路全通，坑表条目收窄为「部分自定义组件」）；弹窗内元素
+  直接全文 querySelector 比逐层容器定位可靠。
+- 待办不变：真机回归（设备未接）+ 1.9.1 同步专场（预案见上节）。

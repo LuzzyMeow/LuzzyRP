@@ -1770,3 +1770,5 @@ PASS；apply-patches 全 SKIP；gen-changelog 重跑 R3 全绿；R1/R2（1.9.1 �
 用量记录 provider 列 + 记忆召回节点；release 待用户真机验证后执行。
 
 **推送记录**：main e56693b0 → d0879862 已推送 GitHub（SSH 通道；HTTPS 直连被 reset，仅影响参考克隆 fetch——镜像 gh-proxy.com 可用）。release 未发布（用户指示：真机人工验证后才推 release 附最新 APK）。debug 包（21:06 后重打，含 1.9.1 同步）已交付桌面。.
+
+**补充 7 追记（真机反馈修复，commit e9124fcd）**：用户真机实测发现 1.9.1 同步后聊天页底部泄漏「记忆内容管理」入口 + 输入岛偏移。根因：1.9.1 上游位移了记忆视图区域的 div 边界，index 实体按偏移应用后 **memory 视图容器提前闭合**（2765），patch 017 记忆内容管理卡（v-if="true" 断链设计）落到视图容器之外裸露为文档级无条件渲染——聊天页垫入 69px 卡片高度（输入岛 absolute bottom-0 随 chat-view-root 上移=偏移）+ 记忆入口泄漏。修复：卡片块移回 memory 容器闭合前（1.9.1 前正确归属，git show 223aa4c1 实证触发器在容器内），实体 012-035-index 再生成逆向 PASS。**教训**：实体按偏移应用后必须做「关键视图容器边界」结构断言（本会话 stack 匹配脚本可复用），单纯 hunks 全部命中 ≠ 结构语义正确。

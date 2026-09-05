@@ -809,10 +809,11 @@
 
 
                 <!-- Input Area (Floating Island) -->
+                <!-- [LuzzyRP patch 033] 输入区过渡定向化：输入区 transition-all→bottom 定向 / 输入岛去过渡（v1.3.0 性能，FAB v4 配方防热区漂移） -->
                 <div
-                    class="absolute bottom-0 left-0 right-0 w-full p-2 md:p-3 z-30 pointer-events-none flex justify-center flex-shrink-0 transition-all duration-300 input-area-mobile">
+                    class="absolute bottom-0 left-0 right-0 w-full p-2 md:p-3 z-30 pointer-events-none flex justify-center flex-shrink-0 transition-[bottom] duration-200 ease-out input-area-mobile">
                     <div
-                        class="relative w-full max-w-lg md:max-w-[30rem] pointer-events-auto p-2.5 md:p-3 bg-white/90 backdrop-blur-xl border border-white/40 shadow-lg rounded-3xl ring-1 ring-black/5 transition-all duration-300 flex flex-col input-island">
+                        class="relative w-full max-w-lg md:max-w-[30rem] pointer-events-auto p-2.5 md:p-3 bg-white/90 backdrop-blur-xl border border-white/40 shadow-lg rounded-3xl ring-1 ring-black/5 flex flex-col input-island">
                         <transition enter-active-class="transition-all duration-200 ease-out"
                             enter-from-class="opacity-0 translate-y-2 scale-95"
                             enter-to-class="opacity-100 translate-y-0 scale-100"
@@ -1079,10 +1080,11 @@
                                 rows="1" ref="inputBox"></textarea>
 
                             <!-- Send/Stop Button -->
+                            <!-- [LuzzyRP patch 033] 发送/中止按钮 transition-all→定向属性（v1.3.0 性能） -->
                             <div class="flex-shrink-0 flex items-center gap-1">
                                 <button v-if="!isConversationBusy" @click="sendMessage"
                                     :disabled="(!userInput.trim() && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
-                                    class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-all shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
+                                    class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-[background-color,box-shadow,transform,opacity] shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
                                     title="发送">
                                     <svg class="w-5 h-5 transform rotate-90" fill="none"
                                         stroke="currentColor" viewBox="0 0 24 24">
@@ -1091,7 +1093,7 @@
                                     </svg>
                                 </button>
                                 <button v-else @click="stopGeneration"
-                                    class="p-2 md:p-2.5 bg-red-500 text-white rounded-2xl md:hover:bg-red-600 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 transition-all shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
+                                    class="p-2 md:p-2.5 bg-red-500 text-white rounded-2xl md:hover:bg-red-600 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 transition-[background-color,box-shadow,transform,opacity] shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
                                     title="中止生成">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                         viewBox="0 0 24 24">

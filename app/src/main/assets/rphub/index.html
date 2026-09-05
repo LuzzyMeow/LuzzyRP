@@ -626,10 +626,11 @@
                                             <template v-if="parseCot(msg.content).main">
                                                 <template
                                                     v-if="index === chatHistory.length - 1 && (isGenerating || isRemoteGenerating)">
+                                                    <!-- [LuzzyRP patch 032] 流式分支旁路渲染 LRU（防中间串灌满缓存，v1.3.0 性能） -->
                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).text"
                                                         class="markdown-body"
                                                         :style="settings.fontSize ? { fontSize: settings.fontSize + 'px' } : {}"
-                                                        v-html="renderMarkdown(processMainContent(parseCot(msg.content).main, true).text, msg.role)">
+                                                        v-html="renderMarkdown(processMainContent(parseCot(msg.content).main, true).text, msg.role, false, { cache: false })">
                                                     </div>
                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).showSpinner"
                                                         class="flex flex-col items-center justify-center p-8 w-full mt-2 gap-4 opacity-90">

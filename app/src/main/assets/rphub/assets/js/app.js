@@ -699,8 +699,9 @@ const app = createApp({
         // [LuzzyRP patch 013] 外观面板 ref 已随 v1.2.0 patch 014 改为独立视图（showAppearancePanel 移除）
 
         // [LuzzyRP patch 014] 关于页数据：版本标签 + 应用内 CHANGELOG 渲染
+        // [LuzzyRP patch 030] upstreamVersionLabel 整链移除（v1.3.0 需求 3）：关于页固定写
+        // 「基于 RP-Hub 二次开发」，不随上游版本漂移——杜绝同步期忘记改基线串的隐患。
         const appVersionLabel = ref('');
-        const upstreamVersionLabel = ref('');
         const changelogHtml = ref('');
         const readBridgeVersion = async () => {
             try {
@@ -708,11 +709,9 @@ const app = createApp({
                 if (bridge && typeof bridge.getVersion === 'function') {
                     const info = await bridge.getVersion();
                     appVersionLabel.value = info && info.versionName ? `v${info.versionName}` : '';
-                    upstreamVersionLabel.value = info && info.upstreamVersion ? info.upstreamVersion : '';
                 }
             } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
             if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.1';
-            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.9.0'; // [LuzzyRP patch 028] 上游基线 1.9.0 同步更新
         };
         const openGitHubRepo = () => {
             const url = 'https://github.com/LuzzyMeow/LuzzyRP';
@@ -11193,7 +11192,7 @@ const app = createApp({
             switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
             processMainContent, replaceUserNamePlaceholder,
             currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
-            appVersionLabel, upstreamVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop,
+            appVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop,
             showActiveToolEditor,
             showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
             showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,

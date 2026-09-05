@@ -57,9 +57,11 @@
                 'margin-top:12px;padding:10px 14px;border-radius:10px;' +
                 'background:rgba(127,127,127,0.08);font-size:12px;line-height:1.7;color:#888;' +
                 'text-align:center;';
+            // [LuzzyRP patch 030] 版本号不再拼入文案（v1.3.0 需求 3）：固定「基于 RP-Hub 二次开发」，
+            // 不随上游同步漂移——info.upstream 仍用于 console 自检（上方第 29 行）
             footer.textContent =
                 'LuzzyRP v' + info.versionName +
-                ' · 基于 RP-Hub v' + info.upstream + ' 二次开发（CC BY-NC 4.0）';
+                ' · 基于 RP-Hub 二次开发（CC BY-NC 4.0）';
             target.appendChild(footer);
         } catch (e) {
             // 注入失败静默降级，不影响上游

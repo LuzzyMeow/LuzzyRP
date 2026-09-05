@@ -1769,3 +1769,4 @@ PASS；apply-patches 全 SKIP；gen-changelog 重跑 R3 全绿；R1/R2（1.9.1 �
 工坊页首屏（007 修复验证）+ UI 模板 JSON 协议兼容 + 抗截断开关（Gemini 模型）+
 用量记录 provider 列 + 记忆召回节点；release 待用户真机验证后执行。
 
+**推送记录**：main e56693b0 → d0879862 已推送 GitHub（SSH 通道；HTTPS 直连被 reset，仅影响参考克隆 fetch——镜像 gh-proxy.com 可用）。release 未发布（用户指示：真机人工验证后才推 release 附最新 APK）。debug 包（21:06 后重打，含 1.9.1 同步）已交付桌面。.

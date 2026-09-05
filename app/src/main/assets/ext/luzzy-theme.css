@@ -296,8 +296,9 @@
  * 统一雾纸玻璃变量（v1.2.0 玻璃补全）：单点调参——流式掉帧时整体上调 alpha
  * ============================================================ */
 :root[data-theme="luzzy"] {
-    --luzzy-glass-alpha: 0.74;   /* 基础面不透明度（气泡/思考卡） */
-    --luzzy-glass-blur: 18px;    /* 基础面模糊半径 */
+    /* v1.3.0 性能档位（patch 034）：气泡/输入岛/侧栏已退实底，双变量现仅思考卡消费 */
+    --luzzy-glass-alpha: 0.74;   /* 思考卡基础面不透明度 */
+    --luzzy-glass-blur: 18px;    /* 思考卡模糊半径 */
 }
 
 /* ============================================================
@@ -348,10 +349,16 @@
     background-color: rgba(32, 30, 27, 0.86);
 }
 
-/* 侧栏（移动端抽屉悬浮于对话之上）：补雾纸 blur；桌面 static 无物可糊，无副作用 */
+/* 侧栏（移动端抽屉悬浮于对话之上）：v1.3.0（patch 034）退实底——高频面 blur 归零（D1） */
 :root[data-theme="luzzy"] .app-sidebar {
-    -webkit-backdrop-filter: blur(16px) !important;
-    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+:root[data-theme="luzzy"][data-mode="light"] .app-sidebar {
+    background-color: rgba(250, 249, 245, 0.97) !important;
+}
+:root[data-theme="luzzy"][data-mode="dark"] .app-sidebar {
+    background-color: rgba(32, 30, 27, 0.97) !important;
 }
 
 /* chrome 发丝线：border-gray-100/80 在雾纸上不可见 → hairline（仅限玻璃面自携） */
@@ -380,19 +387,19 @@
     backdrop-filter: blur(16px) !important;
 }
 
-/* 聊天气泡 · 统一雾纸玻璃（v1.2.0）：与 chrome 玻璃同族配方，
-   立绘透色（blur 18 + saturate 1.2），流式加厚见下方 :has 规则。
-   v1.0.0 此处曾强制实底（backdrop-filter:none）——v1.2.0 玻璃补全后作废。 */
+/* 聊天气泡 · 实底暖纸（[LuzzyRP patch 034] v1.3.0 性能档位，用户拍板 D1：高频面退实底）：
+   DPR 3.25 合成层失效下 blur 玻璃层为滚动/流式卡顿主源，上游移动端 kill-switch 本就禁 blur。
+   立绘透色效果随实底退场（DESIGN.md 已同步）；v1.0.0 实底 → v1.2.0 玻璃 → v1.3.0 回归实底。 */
 :root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
-    background-color: rgba(var(--tw-gray-100) / var(--luzzy-glass-alpha)) !important;
-    -webkit-backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
-    backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    background-color: rgba(var(--tw-gray-100) / 0.97) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
     border-color: rgba(var(--tw-gray-300) / 0.7) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
-    background-color: rgba(var(--tw-gray-200) / var(--luzzy-glass-alpha)) !important;
-    -webkit-backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
-    backdrop-filter: blur(var(--luzzy-glass-blur)) saturate(1.2) !important;
+    background-color: rgba(var(--tw-gray-200) / 0.97) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
     border-color: rgba(var(--tw-gray-300) / 0.7) !important;
 }
 
@@ -401,23 +408,30 @@
    .toast-item/.desc-panel/.wi-footer）。作者级 !important 碾压普通声明，
    主题侧必须同样 !important + 更高特异性（:root 双属性前缀 (0,4,0) > (0,1,0)）夺回。
    ——rc2 暗色未覆盖的死角，雾纸层统一收编（2026-09-01 CDP 实证）。 */
+/* [LuzzyRP patch 034] v1.3.0 性能档位：输入岛退实底 + backdrop-filter 归零——
+   玻璃岛 + transition + 键盘位移是发送键热区漂移的 FAB 同族触发条件（D1 拍板）。
+   特异性 (0,4,0) > .backdrop-blur-xl 重放规则 (0,3,0)，同为 !important 时以此为准。 */
 :root[data-theme="luzzy"][data-mode="light"] .input-island {
-    background-color: rgba(250, 249, 245, 0.9) !important;
+    background-color: rgba(250, 249, 245, 0.97) !important;
     border-color: rgba(230, 223, 216, 0.8) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .input-island {
-    background-color: rgba(32, 30, 27, 0.88) !important;
+    background-color: rgba(32, 30, 27, 0.97) !important;
     border-color: rgba(62, 58, 52, 0.8) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
 }
 
-/* v1.2.0 玻璃补全：typing 气泡与消息气泡统一雾纸（原为实底夺回，现为玻璃 tint） */
+/* v1.3.0（patch 034）：typing 气泡与消息气泡同步实底化（原 v1.2.0 玻璃 tint） */
 :root[data-theme="luzzy"][data-mode="light"] .typing-bubble,
 :root[data-theme="luzzy"][data-mode="light"] .msg-bubble-glass {
-    background-color: rgba(var(--tw-gray-100) / var(--luzzy-glass-alpha)) !important;
+    background-color: rgba(var(--tw-gray-100) / 0.97) !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .typing-bubble,
 :root[data-theme="luzzy"][data-mode="dark"] .msg-bubble-glass {
-    background-color: rgba(var(--tw-gray-200) / var(--luzzy-glass-alpha)) !important;
+    background-color: rgba(var(--tw-gray-200) / 0.97) !important;
 }
 
 :root[data-theme="luzzy"][data-mode="light"] .msg-name-tag {
@@ -565,17 +579,16 @@
     background-color: rgba(var(--tw-gray-200) / 0.94) !important;
 }
 
-/* 流式加厚（v1.2.0 玻璃补全）：生成中的消息行，所在气泡自动提至近实底——
-   正文可读性优先，完成后回落全玻璃。纯 CSS :has（WebView 150 支持），零 patch。 */
+/* 流式加厚（v1.2.0）：随 v1.3.0 气泡实底化失效——规则保留但 blur 归零，防流式期复辟（patch 034） */
 :root[data-theme="luzzy"][data-mode="light"] .chat-view-root:has(.cot-ui.is-live) .msg-bubble-glass {
-    background-color: rgba(var(--tw-gray-100) / 0.88) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(1.1) !important;
-    backdrop-filter: blur(8px) saturate(1.1) !important;
+    background-color: rgba(var(--tw-gray-100) / 0.97) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
 }
 :root[data-theme="luzzy"][data-mode="dark"] .chat-view-root:has(.cot-ui.is-live) .msg-bubble-glass {
-    background-color: rgba(var(--tw-gray-200) / 0.88) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(1.1) !important;
-    backdrop-filter: blur(8px) saturate(1.1) !important;
+    background-color: rgba(var(--tw-gray-200) / 0.97) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
 }
 
 /* 降级：不支持 backdrop-filter → 雾纸实底（与既有 Frost-Paper 降级同配方） */
@@ -612,6 +625,24 @@
     :root[data-theme="luzzy"][data-mode="dark"] .message-action-bar {
         background-color: #2B2824 !important;
     }
+}
+
+/* ============================================================
+ * [LuzzyRP patch 034] v1.3.0 性能治理 · 合成层瘦身
+ * 先验：本机 WebView 分数 DPR 3.25 合成层失效（FAB 案，WORKLOG 会话 20 补充 6）。
+ * 上游 .glass-stabilize 以 will-change:backdrop-filter（非合法动画值）强促
+ * 每个气泡常驻合成层；scroll-reveal 三族 will-change 揭示后不回收——
+ * 渲染窗口 20 条 ≈ 40-60 个常驻候选层 @3.25（单气泡层纹理 ~11MB），
+ * 显存压力/逐帧重绘/绘制错位三连。此处全部归 auto：层按需瞬时创建。
+ * ============================================================ */
+:root[data-theme="luzzy"] .glass-stabilize {
+    will-change: auto;
+}
+
+:root[data-theme="luzzy"] .scroll-reveal-left,
+:root[data-theme="luzzy"] .scroll-reveal-right,
+:root[data-theme="luzzy"] .scroll-reveal-center {
+    will-change: auto;
 }
 
 /* ============================================================
@@ -886,7 +917,9 @@
     100% { opacity: 0; transform: translate(-8px, -118vh) scale(1.18); }
 }
 
-/* 转场：轻微眩晕 + 中心放大 + 失焦沉入 */
+/* 转场：轻微眩晕 + 中心放大 + 溶出（[LuzzyRP patch 034] v1.3.0 去 blur——
+   全屏层 filter 动画逐帧重栅格 @3.25 ≈ 3510×7800 像素/帧，为转场掉帧主源；
+   失焦感由 scale+rotate+opacity 表达，泡泡层随之脱离 filter 父层） */
 .lsp-dive .lsp-dive-btn { animation: none; opacity: 0; transition: opacity .16s ease-out; }
 
 .lsp-dive {
@@ -895,10 +928,10 @@
 }
 
 @keyframes lspDiveZoom {
-    0% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0); }
-    14% { transform: scale(1.02) rotate(-1.1deg); filter: blur(0); }
-    24% { transform: scale(1.05) rotate(.9deg); filter: blur(.6px); }
-    100% { opacity: 0; transform: scale(2.35) rotate(4.5deg); filter: blur(9px); }
+    0% { opacity: 1; transform: scale(1) rotate(0deg); }
+    14% { transform: scale(1.02) rotate(-1.1deg); }
+    24% { transform: scale(1.05) rotate(.9deg); }
+    100% { opacity: 0; transform: scale(2.35) rotate(4.5deg); }
 }
 
 @keyframes lspRiseIn {

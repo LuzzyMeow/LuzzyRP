@@ -775,6 +775,8 @@ const app = createApp({
                     id: String(item?.id || '').trim(),
                     name: String(item?.name || '').trim() || '未命名供应商',
                     apiUrl: String(item?.apiUrl || '').trim(),
+                    // [LuzzyRP patch 035] 图标（URL 或 dataURL）须保全，否则保存后丢失
+                    icon: String(item?.icon || '').trim(),
                     protocol: normalizeProviderProtocol(item?.protocol),
                     models: Array.isArray(item?.models) ? item.models.map(normalizeProviderModelEntry).filter(m => m.id) : [],
                     extraBody: (item?.extraBody && typeof item.extraBody === 'object' && !Array.isArray(item.extraBody))
@@ -4110,6 +4112,13 @@ const app = createApp({
             });
             availableModels.value = merged;
         };
+        // [LuzzyRP patch 035] 供应商模型计数（拉取缓存 + 手动，管理器卡片徽标用）
+        const providerModelCount = (id) => {
+            const cached = providerModels.value[id];
+            if (Array.isArray(cached)) return cached.length;
+            const provider = getApiProviderById(id);
+            return Array.isArray(provider?.models) ? provider.models.length : 0;
+        };
         const fetchModelsForProvider = async (provider) => {
             const apiKey = String((settings.apiProviderKeys || {})[provider.id] || '').trim();
             if (!provider?.apiUrl || !apiKey) throw new Error('未配置 API 地址或 Key');
@@ -4252,6 +4261,105 @@ const app = createApp({
         const providerEditorIsNew = ref(false);
         const providerEditorPresetNotice = ref('');
         const providerEditorPresetModel = ref(null);   // 撤销目标：最近一次触发预设填充的模型行
+        // [LuzzyRP patch 035] 供应商图标：相册选取 + 1:1 裁剪（拖动选块/角点缩放），输出 128×128 dataURL
+        const providerIconInputEl = ref(null);
+        const providerIconCrop = ref(null);   // { src, dispW, dispH, x, y, size, scale }（显示坐标；scale=自然宽/显示宽）
+        const providerIconDrag = ref(null);   // { mode: 'move'|'resize', startX, startY, box0 }
+        const providerEditorIconPreview = computed(() => {
+            const draft = providerEditorDraft.value;
+            if (!draft) return '';
+            if (draft.__iconCleared) return '';
+            if (draft.__iconDataUrl !== undefined) return draft.__iconDataUrl;
+            return draft.icon || '';
+        });
+        const providerIconPick = () => {
+            if (providerIconInputEl.value) {
+                providerIconInputEl.value.value = '';
+                providerIconInputEl.value.click();
+            }
+        };
+        const providerIconClear = () => {
+            if (!providerEditorDraft.value) return;
+            providerEditorDraft.value.__iconDataUrl = '';
+            providerEditorDraft.value.__iconCleared = true;
+        };
+        const providerIconFileChosen = (event) => {
+            const file = event?.target?.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const src = String(reader.result || '');
+                const img = new Image();
+                img.onload = () => {
+                    const maxW = Math.min(window.innerWidth - 32, 380);
+                    const maxH = Math.max(window.innerHeight - 240, 240);
+                    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+                    const dispW = Math.max(1, Math.round(img.naturalWidth * scale));
+                    const dispH = Math.max(1, Math.round(img.naturalHeight * scale));
+                    const size = Math.floor(Math.min(dispW, dispH) * 0.8);
+                    providerIconCrop.value = {
+                        src,
+                        image: img,
+                        dispW,
+                        dispH,
+                        x: Math.floor((dispW - size) / 2),
+                        y: Math.floor((dispH - size) / 2),
+                        size,
+                        scale: img.naturalWidth / dispW
+                    };
+                };
+                img.src = src;
+            };
+            reader.readAsDataURL(file);
+        };
+        const providerIconBoxDown = (event, mode) => {
+            event.preventDefault();
+            providerIconDrag.value = {
+                mode,
+                startX: event.clientX,
+                startY: event.clientY,
+                box0: { ...(providerIconCrop.value || {}) }
+            };
+            const onMove = (moveEvent) => {
+                const crop = providerIconCrop.value;
+                const drag = providerIconDrag.value;
+                if (!crop || !drag) return;
+                const dx = moveEvent.clientX - drag.startX;
+                const dy = moveEvent.clientY - drag.startY;
+                if (drag.mode === 'move') {
+                    crop.x = Math.min(Math.max(drag.box0.x + dx, 0), crop.dispW - crop.size);
+                    crop.y = Math.min(Math.max(drag.box0.y + dy, 0), crop.dispH - crop.size);
+                } else {
+                    const next = Math.min(Math.max(drag.box0.size + Math.max(dx, dy), 48),
+                        Math.min(crop.dispW - crop.x, crop.dispH - crop.y));
+                    crop.size = next;
+                }
+            };
+            const onUp = () => {
+                providerIconDrag.value = null;
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+            };
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
+        };
+        const providerIconCropCancel = () => { providerIconCrop.value = null; };
+        const providerIconCropConfirm = () => {
+            const crop = providerIconCrop.value;
+            if (!crop || !providerEditorDraft.value) { providerIconCrop.value = null; return; }
+            const side = Math.max(1, Math.round(crop.size * crop.scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const context = canvas.getContext('2d');
+            if (context) {
+                context.imageSmoothingQuality = 'high';
+                context.drawImage(crop.image, Math.round(crop.x * crop.scale), Math.round(crop.y * crop.scale), side, side, 0, 0, 128, 128);
+                providerEditorDraft.value.__iconDataUrl = canvas.toDataURL('image/png');
+                providerEditorDraft.value.__iconCleared = false;
+            }
+            providerIconCrop.value = null;
+        };
         // 五组模型 id 热检测预设（大小写不敏感，长词优先；只填空字段不覆盖已编辑值）
         const MODEL_ID_PRESETS = [
             {
@@ -4404,6 +4512,9 @@ const app = createApp({
         const providerEditorIdConflict = computed(() => {
             const draft = providerEditorDraft.value;
             if (!draft || !draft.id) return false;
+            // [LuzzyRP patch 035] 内置商编辑：id 锁定，且 override 合并会重建注册表对象（身份对比失真，
+            // 实测误报「该 id 已被其他供应商占用」），不参与冲突检查
+            if (draft.__builtinEditable) return false;
             // 排除自身（__source 即编辑中的原条目）；只与其他商比较 id
             const self = draft.__source;
             return allApiProviders.value.some(p => p.id === draft.id && p !== self);
@@ -4413,6 +4524,7 @@ const app = createApp({
             // [LuzzyRP patch 029] __builtinEditable：内置商编辑态（id 锁定，保存写 override）
             providerEditorDraft.value = {
                 id: provider.id, name: provider.name, apiUrl: provider.apiUrl || '',
+                icon: provider.icon || '',
                 protocol: normalizeProviderProtocol(provider.protocol),
                 models: (provider.models || []).map(m => ({
                     ...m,
@@ -4468,6 +4580,8 @@ const app = createApp({
                 overrides[cleanId] = {
                     name: cleanName,
                     apiUrl: cleanUrl,
+                    // [LuzzyRP patch 035] 图标：新选 dataURL / 清除为空串 / 未动保持现值
+                    icon: draft.__iconCleared ? '' : (draft.__iconDataUrl !== undefined ? draft.__iconDataUrl : (draft.icon || '')),
                     protocol: normalizeProviderProtocol(draft.protocol),
                     models: draft.models.map(m => ({
                         ...m,
@@ -4511,6 +4625,8 @@ const app = createApp({
                 source.id = cleanId;
                 source.name = cleanName;
                 source.apiUrl = cleanUrl;
+                // [LuzzyRP patch 035] 图标：新选 dataURL / 清除为空串 / 未动保持现值
+                source.icon = draft.__iconCleared ? '' : (draft.__iconDataUrl !== undefined ? draft.__iconDataUrl : (draft.icon || ''));
                 source.protocol = normalizeProviderProtocol(draft.protocol);
                 source.models = models;
                 source.extraBody = { ...(draft.extraBody || {}) };
@@ -11262,6 +11378,7 @@ const app = createApp({
             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
             user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
             showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
+            providerModelCount, providerIconInputEl, providerIconCrop, providerEditorIconPreview, providerIconPick, providerIconClear, providerIconFileChosen, providerIconBoxDown, providerIconCropCancel, providerIconCropConfirm, // [LuzzyRP patch 035]
             editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,

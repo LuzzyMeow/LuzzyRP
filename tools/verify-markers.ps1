@@ -107,6 +107,8 @@ $Manifest = @(
     @{ Id = '032-stream-index';       File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 032]';                   Min = 1 },
     @{ Id = '033-input-index';        File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 033]';                   Min = 2 },
     @{ Id = '034-perf-theme';         File = '../ext/luzzy-theme.css';           Mode = 'contains';     Needle = '[LuzzyRP patch 034]';                   Min = 4 },
+    @{ Id = '035-icon-index';         File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 035]';                   Min = 3 },
+    @{ Id = '035-icon-app';           File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 035]';                   Min = 7 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

@@ -242,7 +242,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-034，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-035，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -280,6 +280,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 032 | runtime-services.js + index.html | 流式渲染降载：间隔 60→120ms（三协议）+ 流式期渲染 LRU 旁路（v1.3.0） |
 | 033 | index.html | 输入区过渡定向化（transition-all→bottom 定向/输入岛去过渡/按钮定向属性，FAB v4 配方根除热区漂移；v1.3.0） |
 | 034 | ext/luzzy-theme.css | 性能治理（扩展层直改）：D1 高频面退实底（气泡/typing/输入岛/侧栏 blur 归零）+ will-change 合成层瘦身 + 开屏 lspDiveZoom 去 filter:blur（v1.3.0，DESIGN.md 已同步） |
+| 035 | index.html + app.js | 供应商图标（相册选取 + 1:1 裁剪拖拽 + 128×128 dataURL 持久化，选择器/管理卡圆角显示）+ 管理卡两行式布局（防名称截断）+ 模型数徽标 + 内置商编辑冲突误报修复（override 合并致身份对比失真）+ 模型来源提示（/models 拉取缓存语义澄清；v1.3.0） |
 
 **新增 patch 的规则**：
 

@@ -43,7 +43,7 @@ async function main() {
         ws.send(JSON.stringify({ id, method, params }));
     });
     const evalJs = async (expr) => {
-        const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true });
+        const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
         if (r.result?.exceptionDetails) return { __error: (r.result.exceptionDetails.exception?.description || r.result.exceptionDetails.text).slice(0, 300) };
         return r.result?.result?.value;
     };
@@ -102,6 +102,22 @@ async function main() {
                 }))
             };
         })()`);
+    // patch 035 验收：DeepSeek 编辑器（冲突误报消失 + 图标行存在）
+    report.editor035 = await evalJs(`(() => {
+        const editBtn = [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === '编辑' && b.closest('.rounded-xl.border') && b.closest('.rounded-xl.border').innerText.includes('DeepSeek'))[0];
+        if (!editBtn) return { opened: false, reason: 'DeepSeek 编辑按钮未找到' };
+        editBtn.click();
+        return new Promise((resolve) => setTimeout(() => {
+            const bodyText = document.body.innerText;
+            const heading = [...document.querySelectorAll('h3, div')].some((e) => e.children.length === 0 && e.textContent.trim() === '编辑供应商');
+            resolve({
+                opened: heading,
+                conflictFalsePositive: bodyText.includes('该 id 已被其他供应商占用'),
+                iconRowPresent: bodyText.includes('从相册选择') && bodyText.includes('供应商图标'),
+                idLockedLabel: bodyText.includes('内置供应商，固定')
+            });
+        }, 900));
+    })()`);
     report.exceptions = exceptions;
     console.log(JSON.stringify(report, null, 2));
     ws.close();

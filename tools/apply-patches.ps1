@@ -377,14 +377,14 @@ $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'novel/index.html';             Entity = '007-029-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'assets/js/core-utils.js';      Entity = '009-029-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-033-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-031-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'index.html';                   Entity = '012-035-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-035-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/ui-components.js';   Entity = '012-026-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/runtime-services.js'; Entity = '012-032-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-033）=="
+Write-Host "== 实体 patch（007/009/012-035）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

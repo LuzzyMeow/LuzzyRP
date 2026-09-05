@@ -1624,10 +1624,44 @@ EXTRACT 27 debug 包=日常包（数据保留）。
   直接全文 querySelector 比逐层容器定位可靠。
 - 待办不变：真机回归（设备未接）+ 1.9.1 同步专场（预案见上节）。
 
-### 会话 21 补充 3 · debug 包桌面交付（2026-09-05，用户指示）
+### 会话 21 补充 3 · 用户真机反馈四项修复与功能（patch 035，2026-09-05）
 
-- `LuzzyRP-v1.3.0-dev-debug.apk`（41.1MB，17:03 修复后构建，SHA256 前缀
-  B5E57670057A0EB8）已复制至用户桌面，**用户手动安装 + 人工测试**；
+**用户真机实测反馈（5 截图）→ 定性与修复**：
+1. **「DeepSeek 没配模型却出现在选择器」**——定性：非配置，是 `/models` 在线拉取的
+   **内存缓存**（fetchModelsForProvider 需非空 Key 才拉取；Key 即改即存，拉取发生在
+   Key 在场时；清 Key 后缓存仍在、重启即消失）。修复=语义澄清：编辑器空态文案改写 +
+   管理卡新增模型数徽标（providerModelCount：拉取缓存+手动）。
+2. **「该 id 已被其他供应商占用」误报**——实锤 bug：providerEditorIdConflict 按
+   对象身份排除自身，而 035 前置的 029 override 合并会重建内置商注册表对象 → 身份
+   失效必误报。修复=`__builtinEditable` 短路冲突检查（id 本就锁定）。桌面冒烟断言
+   conflictFalsePositive=false ✓。
+3. **「STA1N 只显示一个 S」**——管理卡名称 span 被 4 个操作按钮 flex 挤压截断
+   （flex-1 basis-0 可缩至 0）。修复=卡片两行式重构（图标 + 名称/徽标行 + 按钮行
+   flex-wrap）+ 卡片新增图标位。HTML 结构手术用文件级脚本（6 组精确替换全过）。
+4. **供应商图标（新功能）**——编辑器「从相册选择」→ 1:1 裁剪覆盖层（方框拖动 +
+   右下角圆点缩放，box-shadow 遮罩）→ 确认裁 128×128 dataURL → 保存（内置商写
+   override.icon、用户商写 source.icon；normalizeUserApiProviders 补 icon 字段保全）
+   → 选择器触发器/管理卡圆角显示（与 DeepSeek favicon 同规格）；支持清除恢复默认。
+   规定 9：组件级新增循 DESIGN.md token，豁免三方向（迭代先例）。
+
+**实施与门禁**：patch 035 登记（index.html 3 标记 + app.js 7 标记，manifest +2 →
+**73 PASS / 0 FAIL**）；实体 012-035-index / 012-035-app 再生成（**注意**：参考克隆
+已快进 1.9.1，实体基线必须锚定 94a0cd9——用 `git show 94a0cd9:<file>` 取基线再 diff，
+否则 pre 哈希错位；头部归一用行首锚定宽松正则，Windows 反斜杠路径不再漏配）；
+逆向 8/8 PASS；gen-changelog 重跑（R3 全绿）；desktop-smoke.cjs 扩展 035 验收项
+（编辑器打开无冲突误报 + 图标行在位 + id 锁定标签）+ awaitPromise 修复，全绿。
+
+**工具与工程记录**：tools/desktop-smoke.cjs 正式入库（会话新门禁）；裁剪覆盖层置于
+文档尾部（transition 弹窗教训）；管理卡重构经验=弹窗内元素直接全文 querySelector
+比逐层容器定位可靠；el.click() 对弹窗按钮本轮全部可用（坑表条目收窄）。
+
+**遗留 / 下一步**：重打包 debug APK 交付桌面（本轮）；真机回归含 035 专项（图标
+选取/裁剪/显示、冲突误报消失、卡片名称完整、模型数徽标）；1.9.1 同步专场（预案不变）。
+
+### 会话 21 补充 4 · debug 包桌面交付（2026-09-05，用户指示；21:06 二次更新含 patch 035）
+
+- `LuzzyRP-v1.3.0-dev-debug.apk`（41.1MB，21:06 构建=含 patch 035 四项修复与功能，
+  SHA256 前缀 C77452EBE4630D38；17:03 旧包作废）已复制至用户桌面，**用户手动安装 + 人工测试**；
   release 推送暂缓（用户明确指示），versionCode 10 与设备日常包同版可覆盖安装。
 - 人工测试要点（对应四需求）：门扉开屏→沉溺按钮→转场（含帧率体感）；气泡实底新观感
   （D1，亮/暗双看）；发送键点击准确性；供应商管理器仅 DeepSeek+编辑按钮（STA1N 若在用

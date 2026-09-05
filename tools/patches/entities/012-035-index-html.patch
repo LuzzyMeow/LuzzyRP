@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..995f51db 100644
+index b290e220..abbf8c73 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -756,7 +756,7 @@ index b290e220..995f51db 100644
  
              </div>
  
-@@ -2786,11 +3116,297 @@
+@@ -2786,11 +3116,329 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -786,9 +786,17 @@ index b290e220..995f51db 100644
 +                    </p>
 +                    <div v-for="provider in allApiProviders" :key="provider.id"
 +                        class="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
-+                        <div class="flex items-center gap-2">
-+                            <span class="min-w-0 flex-1 flex items-center gap-2">
-+                                <span class="min-w-0 flex-1 truncate text-sm font-bold text-gray-800">{{ provider.name }}</span>
++                        <!-- [LuzzyRP patch 035] 卡片两行式：图标 + 名称/徽标行 + 按钮行（防名称被按钮挤压截断） -->
++                        <div class="flex items-start gap-2.5">
++                            <span class="w-9 h-9 rounded-lg bg-white border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
++                                <img v-if="provider.icon" :src="provider.icon" class="w-full h-full object-cover" alt="">
++                                <svg v-else class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
++                                </svg>
++                            </span>
++                            <div class="min-w-0 flex-1 flex flex-col gap-2">
++                                <div class="flex items-center gap-2 min-w-0">
++                                    <span class="min-w-0 truncate text-sm font-bold text-gray-800">{{ provider.name }}</span>
 +                                <!-- [LuzzyRP patch 015] 协议徽标 -->
 +                                <span v-if="provider.protocol && provider.protocol !== 'openai'"
 +                                    class="flex-shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-600 uppercase">{{ provider.protocol }}</span>
@@ -799,8 +807,11 @@ index b290e220..995f51db 100644
 +                                <span class="flex-shrink-0 h-1.5 w-1.5 rounded-full"
 +                                    :class="isProviderConfigured(provider) ? 'bg-emerald-500' : 'bg-gray-300'"
 +                                    :title="isProviderConfigured(provider) ? '已配置 Key' : '未配置 Key'"></span>
-+                            </span>
-+                            <button type="button" @click="testProviderConnection(provider.id)"
++                                    <span v-if="providerModelCount(provider.id)"
++                                        class="flex-shrink-0 rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-600">{{ providerModelCount(provider.id) }} 模型</span>
++                                </div>
++                                <div class="flex items-center gap-2 flex-wrap">
++                                    <button type="button" @click="testProviderConnection(provider.id)"
 +                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
 +                                检测
 +                            </button>
@@ -822,8 +833,10 @@ index b290e220..995f51db 100644
 +                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 +                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
 +                                </svg>
-+                            </button>
++                                </button>
++                            </div>
 +                        </div>
++                    </div>
 +                        <div v-if="!apiProviderOptions.some(item => item.id === provider.id)" class="text-xs font-mono text-gray-400 truncate">{{ provider.apiUrl || '未配置 API 地址（点「编辑」填写）' }}</div>
 +                        <div v-else class="text-xs font-mono text-gray-400 truncate">{{ provider.apiUrl }}</div>
 +                        <!-- [LuzzyRP patch 015] key 收进编辑器，列表行保留只读回显 -->
@@ -899,6 +912,25 @@ index b290e220..995f51db 100644
 +                    </button>
 +                </div>
 +                <div class="flex-1 overflow-y-auto p-4 space-y-4">
++                    <!-- [LuzzyRP patch 035] 供应商图标：相册选取 + 1:1 裁剪 -->
++                    <div class="flex items-center gap-3">
++                        <div class="w-12 h-12 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
++                            <img v-if="providerEditorIconPreview" :src="providerEditorIconPreview" class="w-full h-full object-cover" alt="供应商图标">
++                            <svg v-else class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
++                            </svg>
++                        </div>
++                        <div class="flex flex-col gap-1.5 min-w-0">
++                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">供应商图标 <span class="text-gray-300 normal-case font-normal">（可选，方形裁剪）</span></label>
++                            <div class="flex gap-2">
++                                <button type="button" @click="providerIconPick"
++                                    class="h-8 px-3 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 transition-all active:scale-95">从相册选择</button>
++                                <button v-if="providerEditorIconPreview" type="button" @click="providerIconClear"
++                                    class="h-8 px-3 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 transition-all active:scale-95">清除</button>
++                            </div>
++                            <input ref="providerIconInputEl" type="file" accept="image/*" class="hidden" @change="providerIconFileChosen">
++                        </div>
++                    </div>
 +                    <!-- 基础信息 -->
 +                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 +                        <div>
@@ -1039,7 +1071,7 @@ index b290e220..995f51db 100644
 +                                    placeholder='如 {"reasoning_effort": "max"} 或 reasoning_effort:max'>
 +                            </div>
 +                        </div>
-+                        <p v-if="providerEditorDraft.models.length === 0" class="text-[11px] text-gray-400">暂无手动模型。仍可拉取该商 /models 列表；手动模型会与拉取结果合并展示。</p>
++                        <p v-if="providerEditorDraft.models.length === 0" class="text-[11px] text-gray-400">暂无手动模型。选择器里的同商模型来自 /models 在线拉取缓存（配置 Key 后自动拉取，仅本次运行有效，重启后需重新拉取）；手动模型会与拉取结果合并展示。</p>
 +                    </div>
 +                </div>
 +                <div class="p-4 border-t border-gray-100 flex justify-end gap-2">
@@ -1054,7 +1086,34 @@ index b290e220..995f51db 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3489,14 @@
+@@ -2828,6 +3476,26 @@
+             @update:result-count="editingActiveTool.data.resultCount = $event"
+             @update:tavily-api-key="editingActiveTool.data.tavilyApiKey = $event"></active-tool-editor-modal>
+ 
++        <!-- [LuzzyRP patch 035] 图标 1:1 裁剪覆盖层（文档尾部，视图区之外） -->
++        <div v-if="providerIconCrop" class="fixed inset-0 z-[70] bg-black/85 flex flex-col select-none" style="touch-action: none;">
++            <div class="flex items-center justify-between px-4 py-3 flex-shrink-0">
++                <button type="button" @click="providerIconCropCancel" class="text-white/80 hover:text-white text-sm px-2 py-1">取消</button>
++                <span class="text-white text-sm font-bold tracking-wide">裁剪图标（1:1）</span>
++                <button type="button" @click="providerIconCropConfirm" class="text-teal-300 hover:text-teal-200 text-sm font-bold px-2 py-1">确认</button>
++            </div>
++            <div class="flex-1 flex items-center justify-center overflow-hidden">
++                <div class="relative shadow-2xl" :style="{ width: providerIconCrop.dispW + 'px', height: providerIconCrop.dispH + 'px' }">
++                    <img :src="providerIconCrop.src" class="absolute inset-0 w-full h-full pointer-events-none" draggable="false" alt="原图">
++                    <div class="absolute border-2 border-teal-300 cursor-move box-border"
++                        :style="{ left: providerIconCrop.x + 'px', top: providerIconCrop.y + 'px', width: providerIconCrop.size + 'px', height: providerIconCrop.size + 'px', boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.55)' }"
++                        @pointerdown="providerIconBoxDown($event, 'move')">
++                        <span class="absolute -right-2 -bottom-2 w-4 h-4 rounded-full bg-teal-300 border-2 border-white cursor-nwse-resize"
++                            @pointerdown.stop="providerIconBoxDown($event, 'resize')"></span>
++                    </div>
++                </div>
++            </div>
++            <p class="text-white/50 text-xs text-center pb-6 flex-shrink-0">拖动方框选取区域 · 拖动右下角圆点调整大小 · 确认后裁为 128×128</p>
++        </div>
+         <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
+         <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"
+             @close="showExportModal = false" @select-all="selectAllExportItems"
+@@ -2873,6 +3541,14 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

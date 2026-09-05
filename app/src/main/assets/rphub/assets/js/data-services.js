@@ -1646,7 +1646,9 @@ ${content}
 
     const findUiTemplateUpdateBlock = (text) => {
         const source = String(text || '');
-        const taggedCandidate = window.RPHubCardUtils.findLastUnprotectedMatch(source, /<ui_template_updates\b[^>]*>/i);
+        const taggedCandidate = window.RPHubCardUtils.findLastUnprotectedMatch(
+            source, /<ui_template_updates\b[^>]*>/i, { includeUiTemplateUpdates: true }
+        );
         const taggedTail = taggedCandidate ? source.slice(taggedCandidate.index).trimEnd() : '';
         const tagged = taggedTail.match(/^<ui_template_updates\b[^>]*>([\s\S]*?)(?:<\/ui_template_updates>)?$/i);
         if (tagged) {
@@ -1663,250 +1665,99 @@ ${content}
         return match ? source.slice(0, match.index).trimEnd() : source;
     };
 
-    const parseUiTemplateUpdates = (rawContent) => {
-        const normalizedContent = String(rawContent || '')
-            .replace(/^<ui_template_updates\b[^>]*>\s*/i, '')
-            .replace(/\s*<\/ui_template_updates>$/i, '')
+    const parseUiTemplateUpdates = (rawContent, expectedTemplates = []) => {
+        const source = String(rawContent || '').trim()
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '')
             .trim();
-        const lines = normalizedContent ? normalizedContent.split(/\r?\n/) : [];
-        const updates = [];
-        const parseError = (message, lineNumber) => {
-            const error = new SyntaxError(`简化变量格式错误：第 ${lineNumber} 行${message}`);
-            error.jsonSource = normalizedContent;
-            error.jsonLine = lineNumber;
-            throw error;
-        };
-        const parseVariableLines = (items, startLine) => {
-            const variables = {};
-            for (let index = 0; index < items.length; index += 1) {
-                const item = items[index];
-                const lineNumber = item.lineNumber || startLine;
-                const text = String(item.text || '').replace(/^(?:&#x20;)+/, '').trim();
-                if (!text) continue;
-                const separator = text.indexOf('=');
-                if (separator <= 0) parseError('应为“路径=值”', lineNumber || startLine);
-                const path = text.slice(0, separator).trim();
-                if (!path) parseError('缺少变量路径', lineNumber || startLine);
-                let rawValue = text.slice(separator + 1).trim();
-                if (!rawValue) {
-                    variables[path] = '';
-                    continue;
-                }
-                let parsedValue;
-                try {
-                    parsedValue = JSON.parse(rawValue);
-                } catch (error) {
-                    if (!/^[\[{]/.test(rawValue)) {
-                        variables[path] = rawValue;
-                        continue;
-                    }
-                    let completed = false;
-                    for (let nextIndex = index + 1; nextIndex < items.length; nextIndex += 1) {
-                        const continuation = String(items[nextIndex].text || '')
-                            .replace(/^(?:&#x20;)+/, '')
-                            .trim();
-                        if (!continuation) continue;
-                        rawValue += `\n${continuation}`;
-                        try {
-                            parsedValue = JSON.parse(rawValue);
-                            index = nextIndex;
-                            completed = true;
-                            break;
-                        } catch (continuationError) {
-                            // Continue collecting a multi-line JSON array/object.
-                        }
-                    }
-                    if (!completed) parseError('右侧数组或对象没有完整结束，必须写成有效JSON', lineNumber);
-                }
-                variables[path] = parsedValue;
-            }
-            return variables;
-        };
-        let currentId = '';
-        let currentLines = [];
-        let hasIdSections = false;
-        lines.forEach((rawLine, index) => {
-            const text = rawLine.trim();
-            const lineNumber = index + 1;
-            if (!text) return;
-            const open = text.match(/^<id\s*=\s*([^>]+)>$/i);
-            const close = text.match(/^<\/id\s*=\s*([^>]+)>$/i);
-            if (open) {
-                if (currentId) parseError('不能嵌套模板ID区块', lineNumber);
-                if (!hasIdSections && currentLines.length) parseError('多个模板时所有变量都必须写在模板ID区块内', lineNumber);
-                currentId = open[1].trim();
-                if (!currentId) parseError('缺少模板ID', lineNumber);
-                currentLines = [];
-                hasIdSections = true;
-                return;
-            }
-            if (close) {
-                if (!currentId) parseError('出现了没有对应开始标签的模板ID结束标签', lineNumber);
-                if (close[1].trim() !== currentId) parseError(`模板ID结束标签不匹配，应为“</id=${currentId}>”`, lineNumber);
-                updates.push({ id: currentId, variables: parseVariableLines(currentLines, lineNumber) });
-                currentId = '';
-                currentLines = [];
-                return;
-            }
-            if (hasIdSections && !currentId) parseError('模板ID区块之间只能留空行', lineNumber);
-            currentLines.push({ text, lineNumber });
-        });
-        if (currentId) parseError(`缺少结束标签“</id=${currentId}>”`, lines.length || 1);
-        if (hasIdSections) return { updates };
-        return { updates: [{ id: '', variables: parseVariableLines(currentLines, 1) }] };
+        if (!source) return { updates: [] };
+        let parsed;
+        try {
+            parsed = JSON.parse(source);
+        } catch (error) {
+            const parseError = new SyntaxError(`JSON变量块格式错误：${error.message}`);
+            parseError.jsonSource = source;
+            throw parseError;
+        }
+        if (expectedTemplates.length > 1 && Array.isArray(parsed)
+            && parsed.every(item => item && typeof item === 'object' && !Array.isArray(item)
+                && typeof item.id === 'string' && Object.prototype.hasOwnProperty.call(item, 'variables'))) {
+            return { updates: parsed.map(item => ({ id: item.id.trim(), variables: item.variables })) };
+        }
+        return { updates: [{ id: '', variables: parsed }] };
     };
 
     const normalizeUiTemplateUpdateList = (parsed, expectedTemplates = []) => {
         const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+        const isUnsafeKey = key => ['__proto__', 'prototype', 'constructor'].includes(String(key));
+        const valueType = value => Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
+        const DYNAMIC_ANY = Symbol('dynamic-any');
         const issues = [];
         const updates = isRecord(parsed) && Array.isArray(parsed.updates) ? parsed.updates : [];
-        if (!isRecord(parsed) || !Array.isArray(parsed.updates)) issues.push('变量块缺少有效的更新分段');
-
+        if (!isRecord(parsed) || !Array.isArray(parsed.updates)) issues.push('变量块缺少有效的JSON更新内容');
+        if (!issues.length && !updates.length) return updates;
         const templatesById = new Map(expectedTemplates.map(template => [String(template.id), template]));
         const receivedById = new Map();
         updates.forEach((update, index) => {
-            const location = `第 ${index + 1} 项`;
-            if (!isRecord(update)) {
-                issues.push(`${location}不是有效对象`);
-                return;
-            }
-
-            const variables = update.variables;
-            if (!Object.prototype.hasOwnProperty.call(update, 'variables')) {
-                issues.push(`${location}缺少变量内容`);
-            } else if (variables === null || typeof variables !== 'object') {
-                issues.push(`${location}的“variables”必须是对象或数组`);
-            }
+            const location = '第 ' + (index + 1) + ' 项';
+            if (!isRecord(update)) { issues.push(location + '不是有效对象'); return; }
+            if (!Object.prototype.hasOwnProperty.call(update, 'variables')) { issues.push(location + '缺少 variables 字段'); return; }
+            if (update.variables === null || typeof update.variables !== 'object') { issues.push(location + '的 variables 必须是对象或数组'); return; }
             const unknownFields = Object.keys(update).filter(key => !['id', 'variables'].includes(key));
-            if (unknownFields.length) issues.push(`${location}包含未定义字段：${unknownFields.join('、')}`);
-
+            if (unknownFields.length) issues.push(location + '包含未定义字段：' + unknownFields.join('、'));
             const explicitId = typeof update.id === 'string' ? update.id.trim() : '';
             const id = explicitId || (expectedTemplates.length === 1 ? String(expectedTemplates[0].id) : '');
-            if (!id) {
-                issues.push(expectedTemplates.length > 1
-                    ? `${location}缺少模板ID；多个模板时不能使用无ID简化格式`
-                    : `${location}缺少有效模板ID`);
-                return;
-            }
-            if (!templatesById.has(id)) {
-                const validIds = [...templatesById.keys()];
-                const expected = validIds.length === 1
-                    ? `，当前模板ID应为“${validIds[0]}”`
-                    : `，可用模板ID：${validIds.map(value => `“${value}”`).join('、')}`;
-                issues.push(`${location}使用了未知模板ID“${id}”${expected}`);
-                return;
-            }
+            if (!id) { issues.push(expectedTemplates.length > 1 ? location + '缺少模板ID；多模板必须使用JSON数组成员的 id 字段' : location + '缺少有效模板ID'); return; }
+            if (!templatesById.has(id)) { issues.push(location + '使用了未知模板ID“' + id + '”'); return; }
             if (!receivedById.has(id)) receivedById.set(id, []);
-            receivedById.get(id).push({ variables });
+            receivedById.get(id).push({ variables: update.variables });
         });
-
+        const dynamicSampleFor = (expected, path, schemaText) => {
+            if (!isRecord(expected) || !path) return undefined;
+            const escaped = String(path).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+            const hasIdMarker = String(schemaText || '').includes(path + '.{id}')
+                || String(schemaText || '').includes(path + '{id}');
+            const allowsNewKey = new RegExp('新增(?:键|\\s*id)[^\\n]*' + escaped, 'i').test(schemaText);
+            if (!hasIdMarker && !allowsNewKey) return undefined;
+            return Object.values(expected)[0] ?? DYNAMIC_ANY;
+        };
+        const validateValue = (expected, actual, path, schemaText, unknownNames, invalidNames) => {
+            if (isUnsafeKey(String(path).split('.').pop())) { unknownNames.push(path); return; }
+            if (Array.isArray(actual)) {
+                if (!Array.isArray(expected)) { invalidNames.push(path || '$root'); return; }
+                const sample = expected[0];
+                if (sample !== undefined) actual.forEach((item, index) => validateValue(sample, item, (path || '$root') + '[' + index + ']', schemaText, unknownNames, invalidNames));
+                return;
+            }
+            if (isRecord(actual)) {
+                if (!isRecord(expected)) { invalidNames.push(path || '$root'); return; }
+                Object.entries(actual).forEach(([key, value]) => {
+                    if (isUnsafeKey(key)) { unknownNames.push(path ? path + '.' + key : key); return; }
+                    const childPath = path ? path + '.' + key : key;
+                    if (Object.prototype.hasOwnProperty.call(expected, key)) validateValue(expected[key], value, childPath, schemaText, unknownNames, invalidNames);
+                    else {
+                        const dynamic = dynamicSampleFor(expected, path, schemaText);
+                        if (dynamic === undefined) unknownNames.push(childPath);
+                        else if (dynamic !== DYNAMIC_ANY) validateValue(dynamic, value, childPath, schemaText, unknownNames, invalidNames);
+                    }
+                });
+                return;
+            }
+            if (expected !== undefined && expected !== null && valueType(expected) !== valueType(actual)) invalidNames.push(path || '$root');
+        };
         receivedById.forEach((received, id) => {
             const template = templatesById.get(id);
             const label = template.name || id;
-            const currentVariables = template.variableState || {};
-            const schemaText = stringifyUiSchema(template.variableSchema);
-            if (received.length > 1) issues.push(`模板“${label}”重复输出了 ${received.length} 次`);
-
-            const variables = received[0].variables;
-            if (Array.isArray(currentVariables)) {
-                if (!Array.isArray(variables)) issues.push(`模板“${label}”必须完整输出数组变量`);
-                return;
-            }
-            if (!isRecord(variables)) {
-                issues.push(`模板“${label}”的变量不是有效对象`);
-                return;
-            }
+            if (received.length > 1) issues.push('模板“' + label + '”重复输出了 ' + received.length + ' 次');
             const unknownNames = [];
             const invalidNames = [];
-            const dynamicRoots = new Set();
-            schemaText.split(/\r?\n/).filter(line => /新增键|新增\s*id|只增添\s*\/\s*修改/.test(line)).forEach(line => {
-                Object.keys(currentVariables).forEach(key => {
-                    if (line.includes(key)) dynamicRoots.add(key);
-                });
-            });
-            const dynamicPrefixes = [...schemaText.matchAll(/([A-Za-z][A-Za-z0-9_]*?)\{id\}/g)]
-                .map(match => match[1]);
-            const socialNodes = Array.isArray(variables.social_nodes) ? variables.social_nodes : currentVariables.social_nodes;
-            const socialIds = new Set((Array.isArray(socialNodes) ? socialNodes : []).map(node => String(node?.id || '')));
-            Object.entries(variables).forEach(([path, value]) => {
-                const match = path.match(/^social_nodes(?:\.\d+|\[\d+\])\.id$/);
-                if (match && value !== undefined && value !== null && String(value).trim()) {
-                    socialIds.add(String(value).trim());
-                }
-            });
-            const findExpectedPath = (expected, path) => {
-                let current = expected;
-                let appendedArray = null;
-                const parts = splitUiTemplatePath(path);
-                for (let index = 0; index < parts.length; index += 1) {
-                    const part = parts[index];
-                    if (Array.isArray(current) && /^\d+$/.test(part) && Number(part) === current.length && current.length > 0) {
-                        appendedArray = current;
-                        current = current[0];
-                        continue;
-                    }
-                    if ((!isRecord(current) && !Array.isArray(current)) || !Object.prototype.hasOwnProperty.call(current, part)) {
-                        if (index === parts.length - 1
-                            && appendedArray === currentVariables.social_nodes
-                            && ['id', 'name', 'relation', 'group', 'tags'].includes(part)) {
-                            return { found: true, value: undefined };
-                        }
-                        return { found: false, value: undefined };
-                    }
-                    appendedArray = null;
-                    current = current[part];
-                }
-                return { found: true, value: current };
-            };
-            const findDynamicExpected = (path) => {
-                const parts = splitUiTemplatePath(path);
-                const root = parts[0];
-                let sample;
-                if (parts.length > 1 && dynamicRoots.has(root) && isRecord(currentVariables[root])) {
-                    sample = Object.values(currentVariables[root])[0];
-                } else if (parts.length > 0) {
-                    const prefix = dynamicPrefixes.find(value => root.startsWith(value));
-                    const id = prefix ? root.slice(prefix.length) : '';
-                    if (!prefix || !id || !socialIds.has(id)) return { found: false };
-                    sample = Object.entries(currentVariables).find(([key]) => key.startsWith(prefix))?.[1];
-                } else {
-                    return { found: false };
-                }
-                if (parts.length <= (dynamicRoots.has(root) ? 2 : 1)) return { found: true, value: sample };
-                return findExpectedPath(sample, parts.slice(dynamicRoots.has(root) ? 2 : 1).join('.'));
-            };
-            const inspectVariables = (expected, actual, prefix = '') => {
-                Object.keys(actual).forEach(name => {
-                    const path = prefix ? `${prefix}.${name}` : name;
-                    const resolved = findExpectedPath(expected, name);
-                    if (!resolved.found) {
-                        const dynamic = findDynamicExpected(path);
-                        if (!dynamic.found) {
-                            unknownNames.push(path);
-                        } else if (isRecord(actual[name]) && isRecord(dynamic.value)) {
-                            inspectVariables(dynamic.value, actual[name], path);
-                        } else if ((Array.isArray(dynamic.value) && !Array.isArray(actual[name]))
-                            || (isRecord(dynamic.value) && !isRecord(actual[name]))) {
-                            invalidNames.push(path);
-                        }
-                    } else if (isRecord(actual[name])) {
-                        if (isRecord(resolved.value)) inspectVariables(resolved.value, actual[name], path);
-                        else invalidNames.push(path);
-                    } else if ((Array.isArray(resolved.value) && !Array.isArray(actual[name]))
-                        || (isRecord(resolved.value) && !isRecord(actual[name]))) {
-                        invalidNames.push(path);
-                    }
-                });
-            };
-            inspectVariables(currentVariables, variables);
-            if (unknownNames.length) issues.push(`模板“${label}”输出了未定义变量：${unknownNames.join('、')}`);
-            if (invalidNames.length) issues.push(`模板“${label}”变量结构错误：${invalidNames.join('、')}`);
+            validateValue(template.variableState || {}, received[0].variables, '', stringifyUiSchema(template.variableSchema), unknownNames, invalidNames);
+            if (unknownNames.length) issues.push('模板“' + label + '”输出了未定义变量：' + unknownNames.join('、'));
+            if (invalidNames.length) issues.push('模板“' + label + '”变量类型或结构错误：' + invalidNames.join('、'));
         });
-
         if (issues.length) throw new Error(issues.join('；'));
         return updates;
     };
-
     const applyUiTemplateUpdateListToTemplate = (template, updates, { model = '', turn = null, source = 'ai' } = {}) => {
         let fieldCount = 0;
         let changed = false;
@@ -1915,9 +1766,24 @@ ${content}
             if (update.id && update.id !== template.id) return;
             if (update.variables === null || typeof update.variables !== 'object') return;
             const changes = {};
-            const variableEntries = Array.isArray(update.variables)
-                ? [['$root', update.variables]]
-                : Object.entries(update.variables);
+            const variableEntries = [];
+            const collectEntries = (value, path = '') => {
+                if (Array.isArray(value) || value === null || typeof value !== 'object') {
+                    if (path) variableEntries.push([path, value]);
+                    return;
+                }
+                const entries = Object.entries(value);
+                if (!entries.length && path) variableEntries.push([path, value]);
+                entries.forEach(([key, child]) => {
+                    const childPath = path ? `${path}.${key}` : key;
+                    const current = getUiTemplateValue(template.variableState || {}, childPath);
+                    if (child && typeof child === 'object' && !Array.isArray(child)
+                        && current && typeof current === 'object' && !Array.isArray(current)) collectEntries(child, childPath);
+                    else variableEntries.push([childPath, child]);
+                });
+            };
+            if (Array.isArray(update.variables)) variableEntries.push(['$root', update.variables]);
+            else collectEntries(update.variables);
             variableEntries.forEach(([key, value]) => {
                 const oldValue = key === '$root'
                     ? template.variableState

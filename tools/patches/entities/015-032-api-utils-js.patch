@@ -1,24 +1,53 @@
-diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
-index 473672b8..fd3746a5 100644
---- a/assets/js/runtime-services.js
-+++ b/assets/js/runtime-services.js
-@@ -54,7 +54,9 @@
-         };
+diff --git a/assets/js/api-utils.js b/assets/js/api-utils.js
+index e00fe28b..007fa94a 100644
+--- a/assets/js/api-utils.js
++++ b/assets/js/api-utils.js
+@@ -8,6 +8,39 @@
+         return `${apiRoot}/${String(path || '').replace(/^\/+/, '')}`;
      };
  
--    const STREAM_RENDER_INTERVAL = 60;
-+    // [LuzzyRP patch 032] 流式渲染降载：60→120ms——全文重算链（正则→marked→DOMPurify→DOMParser）
-+    // 按此间隔触发，降频即近半流式 CPU 峰值（v1.3.0 性能；三协议 readStreamingResponse 共用）。
++    // [LuzzyRP patch 015] 三协议适配助手（自旧 runtime-services 移植，1.9.1 传输层重构后
++    // anthropic/gemini 适配器落位于本文件；openai 路径保持上游实现零改动）
++    const throwApiError = (message) => {
++        const error = new Error(message);
++        error.isApiError = true;
++        throw error;
++    };
++    const parsePayloadStrict = (rawText, status) => {
++        const data = JSON.parse(rawText);
++        const apiError = extractApiErrorMessage(data, status);
++        if (apiError) throwApiError(apiError);
++        return data;
++    };
++    const readFailedResponse = async (response) => {
++        let detail = '';
++        try {
++            const rawText = await response.text();
++            if (rawText) {
++                try {
++                    detail = parsePayloadStrict(rawText, response.status);
++                } catch (error) {
++                    if (error.isApiError) throw error;
++                    detail = rawText;
++                }
++            }
++        } catch (error) {
++            if (error.isApiError) throw error;
++        }
++        throw new Error(formatApiErrorMessage(response.status, detail));
++    };
++    // [LuzzyRP patch 032] 流式渲染降载：60→120ms（openai 路径下方 interval 与适配器共用）
 +    const STREAM_RENDER_INTERVAL = 120;
- 
-     const readStreamingResponse = async (response, onDelta) => {
-         const reader = response.body.getReader();
-@@ -144,6 +146,20 @@
-     };
++
+     const parsePayload = (text, status) => {
+         const data = JSON.parse(text);
+         const error = extractApiErrorMessage(data, status);
+@@ -62,6 +95,20 @@
+     const requestJson = options => withApiResponse(options, async response => parsePayload(await response.text(), response.status));
  
      const requestChatCompletion = async (options) => {
-+        // [LuzzyRP patch 015] 三协议适配：openai（原路径）| anthropic（Messages API）| gemini（GenerateContent API）
-+        // 调用方传入的 url 是 OpenAI 形态（buildApiEndpoint 产物，含 /v1/chat/completions）；
++        // [LuzzyRP patch 015] 三协议适配：openai（上游原路径）| anthropic（Messages API）| gemini（GenerateContent API）。
++        // 调用方传入的 url 是 OpenAI 形态（buildApiEndpoint 产物，含 /chat/completions）；
 +        // 非 openai 协议先剥掉 OpenAI 路径得到裸 base，再由各适配器拼自己的端点。
 +        const protocol = options.protocol || 'openai';
 +        if (protocol !== 'openai') {
@@ -31,20 +60,30 @@ index 473672b8..fd3746a5 100644
 +        }
 +        if (protocol === 'anthropic') return requestAnthropicCompletion(options);
 +        if (protocol === 'gemini') return requestGeminiCompletion(options);
-         const response = await fetch(options.url, {
-             method: 'POST',
-             headers: {
-@@ -155,6 +171,8 @@
-                 messages: options.messages,
-                 temperature: options.temperature,
+         const startedAt = Date.now();
+         const result = { content: '', reasoning: '', usage: null, finishReason: null, isStream: false };
+         let receivedPayload = false;
+@@ -84,6 +131,9 @@
+             return await withApiResponse({ ...options, body: {
+                 model: options.model, messages: options.messages, temperature: options.temperature,
                  ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
++                // [LuzzyRP patch 015] max_tokens（模型元数据）与供应商级 extraBody 注入
 +                ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
 +                ...(options.extraBody || {}),
-                 stream: options.stream,
+                 stream: !!options.stream,
                  ...(options.stream ? { stream_options: { include_usage: true } } : {})
-             }),
-@@ -170,6 +188,342 @@
-         return { ...result, isStream };
+             } }, async (response, touch) => {
+@@ -135,7 +185,7 @@
+                 };
+                 const reader = rawText === undefined ? response.body.getReader() : null;
+                 const decoder = new TextDecoder();
+-                const interval = setInterval(flush, 60);
++                const interval = setInterval(flush, STREAM_RENDER_INTERVAL);
+                 try {
+                     if (reader) {
+                         while (!done) {
+@@ -169,6 +219,355 @@
+         }
      };
  
 +    // --- [LuzzyRP patch 015] Anthropic Messages 协议适配 ---
@@ -107,7 +146,7 @@ index 473672b8..fd3746a5 100644
 +        return budget < total ? { type: 'enabled', budget_tokens: budget } : null;
 +    };
 +
-+    const requestAnthropicCompletion = async (options) => {
++    const requestAnthropicCompletionInternal = async (options) => {
 +        const { system, messages } = toAnthropicMessages(options.messages || []);
 +        const thinkingConfig = options.reasoningEffort ? anthropicThinkingConfig(options.maxTokens) : null;
 +        const response = await fetch(options.url, {
@@ -177,7 +216,7 @@ index 473672b8..fd3746a5 100644
 +                }
 +                return { content, reasoning, usage, isStream: true };
 +            }
-+            const data = parsePayload(rawText, response.status);
++            const data = parsePayloadStrict(rawText, response.status);
 +            let content = '';
 +            let reasoning = '';
 +            (data.content || []).forEach(block => {
@@ -236,7 +275,7 @@ index 473672b8..fd3746a5 100644
 +    // --- [LuzzyRP patch 015] Google Gemini 协议适配 ---
 +    // url 形如 {base}/v1beta/models/{id}:streamGenerateContent?alt=sse&key=...；system 抽出为 systemInstruction。
 +    const GEMINI_THINKING_BUDGETS = { low: 1024, medium: 8192, high: 24576, max: 32768 };
-+    const requestGeminiCompletion = async (options) => {
++    const requestGeminiCompletionInternal = async (options) => {
 +        const base = String(options.url || '').replace(/\/+$/, '');
 +        const method = options.stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?';
 +        const url = `${base}/v1beta/models/${encodeURIComponent(options.model)}:${method}key=${encodeURIComponent(options.apiKey)}`;
@@ -383,66 +422,19 @@ index 473672b8..fd3746a5 100644
 +        }
 +    };
 +
-     window.RPHubApiClient = Object.freeze({ requestChatCompletion });
++    // [LuzzyRP patch 025] 适配器统一用量指标（与上游 openai 路径 onUsage 契约对齐）
++    const withUsageMetrics = (adapter) => async (options) => {
++        const startedAt = Date.now();
++        const result = await adapter(options);
++        options.onUsage?.(result.usage, {
++            isStream: result.isStream, durationMs: Date.now() - startedAt,
++            outputCharacters: (result.content || '').length + (result.reasoning || '').length
++        });
++        return result;
++    };
++    const requestAnthropicCompletion = withUsageMetrics(requestAnthropicCompletionInternal);
++    const requestGeminiCompletion = withUsageMetrics(requestGeminiCompletionInternal);
++
+     window.RPHubApiUtils = Object.freeze({ buildApiEndpoint });
+     window.RPHubApiClient = Object.freeze({ requestChatCompletion, requestJson });
  })();
- 
-@@ -269,10 +623,13 @@
-             return modified;
-         };
- 
--        const renderMarkdown = (text, role = 'assistant', skipRegex = false) => {
-+        // [LuzzyRP patch 032] options.cache=false 旁路 LRU：流式期全文逐 tick 变化，中间串写缓存
-+        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动（v1.3.0 性能；唯一调用方=index.html 流式分支）。
-+        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}) => {
-             if (!text) return '';
-             const cacheKey = `${role}_${skipRegex}_${text}`;
--            if (renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
-+            const allowCache = options.cache !== false;
-+            if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
- 
-             let processed = applyDisplayRegex(text, role, skipRegex);
-             const trimmed = processed.trim();
-@@ -298,12 +655,13 @@
-                     container.outerHTML,
-                     postText.trim() ? sanitizeMarkdown(postText) : ''
-                 ].join('');
--                return cacheValue(renderedCache, cacheKey, result);
-+                return allowCache ? cacheValue(renderedCache, cacheKey, result) : result;
-             }
- 
-             if (/^\s*<(div|table|section|article|aside|header|footer|style|script)/i.test(trimmed)
-                 && !trimmed.includes('```')) {
--                return cacheValue(renderedCache, cacheKey, DOMPurify.sanitize(processed, cleanConfig));
-+                const sanitizedBlock = DOMPurify.sanitize(processed, cleanConfig);
-+                return allowCache ? cacheValue(renderedCache, cacheKey, sanitizedBlock) : sanitizedBlock;
-             }
- 
-             const lowerTrimmed = trimmed.toLowerCase();
-@@ -322,11 +680,14 @@
-                 const paragraphsChanged = replaceEscapedHtmlParagraphs(documentNode);
-                 const panelsChanged = replaceScriptedPanels(documentNode);
-                 const modified = codeBlocksChanged || paragraphsChanged || panelsChanged;
--                if (modified) return cacheValue(renderedCache, cacheKey, documentNode.body.innerHTML);
-+                if (modified) {
-+                    const frameHtml = documentNode.body.innerHTML;
-+                    return allowCache ? cacheValue(renderedCache, cacheKey, frameHtml) : frameHtml;
-+                }
-             } catch (error) {
-                 console.error('Error rendering HTML preview:', error);
-             }
--            return cacheValue(renderedCache, cacheKey, html);
-+            return allowCache ? cacheValue(renderedCache, cacheKey, html) : html;
-         };
- 
-         return { clearCaches, contentUsesHtmlFrame, renderMarkdown };
-@@ -474,6 +835,10 @@
-                 timestamp: Date.now(),
-                 type: meta.type || 'chat',
-                 model: String(meta.model || ''),
-+                // [LuzzyRP patch 025] provider/protocol 维度落库（v1.2.3）：patch 012 调用侧已传参但构造器漏存，
-+                // 导致用量列表 [商名] 前缀与供应商图表分组失效；历史记录由图表层按 apiUrl 反查兜底
-+                provider: String(meta.provider || ''),
-+                protocol: String(meta.protocol || ''),
-                 apiUrl: String(getApiUrl?.() || ''),
-                 isStream: meta.isStream === true,
-                 durationMs: Number.isFinite(meta.durationMs) ? Math.max(0, meta.durationMs) : null,

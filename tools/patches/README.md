@@ -384,7 +384,7 @@
 #    013-017 实施时自带）。verify-markers.ps1 按本登记表逐项校验。
 # 2. 实体重放：tools/patches/entities/*.patch 为「上游 1.8.9 基线 → 当前态」
 #    的逐文件完整 diff（由 rp-hub-reference 克隆生成，含全部标记），覆盖
-#    007/009/012-020；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
+#    007/009/012-035/015-032（1.9.1 同步后共 9 枚，含新增 015-032-api-utils）；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
 #    同步新版上游重放失败时：手工合并 → 用 rp-hub-reference 检出对应新版基线
 #    重新生成实体 → 复跑 verify-markers.ps1 全绿。
 # 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节

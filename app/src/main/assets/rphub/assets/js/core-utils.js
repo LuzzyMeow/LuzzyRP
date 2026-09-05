@@ -17,41 +17,48 @@ const generateUUID = () => {
 
 const parseCotCache = new Map();
 const parseCot = (text) => {
-    if (!text) return { cot: '', main: '', sys: '', isFinished: false };
+    if (!text) return { cot: '', rawCot: '', ranges: [], closingTags: '', main: '', isFinished: false };
     if (parseCotCache.has(text)) return parseCotCache.get(text);
 
-    // 匹配 thinking/think/cot 标签，兼容未闭合、带空格闭合和缺少斜杠的错误闭合
-    const cotPattern = /<(thinking|think|cot)>([\s\S]*?)(?:<\/\s*\1\s*>|<\s*\1\s*>|$)/gi;
+    // 重复开标签仍属于分析；只有真正的闭合标签才能放行正文。
+    const tokens = /<(html|script|style|ui_template_updates)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)|<!--[\s\S]*?(?:-->|$)|```[\s\S]*?(?:```|$)|`[^`\r\n]*`|<\s*(\/?)\s*(thinking|think|cot)\s*>|<\/?[a-zA-Z][\w:-]*(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
+    const openTags = [];
+    const ranges = [];
+    let blockStart = 0;
     let cotContent = '';
-    let mainContent = text;
-    let isFinished = false;
-
-    // 提取 CoT 内容并从正文中移除
-    mainContent = mainContent.replace(cotPattern, (match, tag, content) => {
-        // 对 CoT 的内容中的 < 符号进行转义，防止 DOMPurify 吞掉类似 <动作> 或 <thinking> 的标签
-        // 通过跳过 ``` 和 ` 块，保证代码块的正常显示和复制功能
-        const parts = content.split(/(```[\s\S]*?```|`[^`]+`)/);
-        let escapedContent = parts.map((part, i) => {
-            if (i % 2 === 1) return part; // 保留代码块原样
-            return part.replace(/</g, "&lt;"); // 仅转义左括号，不影响 Markdown 的 > 引用块语法
-        }).join('');
-
-        cotContent += escapedContent;
-        // 如果匹配项包含闭合标签，则认为思维链已结束
-        if (match.includes('</') || (match.match(new RegExp('<' + tag + '>', 'gi')) || []).length > 1) {
-            isFinished = true;
+    let mainContent = '';
+    let cursor = 0;
+    let hasCot = false;
+    const append = (part) => {
+        if (openTags.length) cotContent += part;
+        else mainContent += part;
+    };
+    for (const match of text.matchAll(tokens)) {
+        append(text.slice(cursor, match.index));
+        if (!match[3]) append(match[0]);
+        else {
+            const tag = match[3].toLowerCase();
+            if (!match[2]) {
+                hasCot = true;
+                if (!openTags.length) blockStart = match.index;
+                if (!openTags.includes(tag)) openTags.push(tag);
+                if (cotContent) cotContent += '\n';
+            } else if (openTags[openTags.length - 1] === tag) {
+                openTags.pop();
+                if (!openTags.length) ranges.push({ start: blockStart, end: match.index + match[0].length });
+            }
         }
-        return '';
-    });
-
-    let sys = '';
-    const sysMatch = mainContent.match(/\n\n\[系统指令:\s*([\s\S]*?)\]\s*$/);
-    if (sysMatch) {
-        sys = sysMatch[1];
-        mainContent = mainContent.slice(0, sysMatch.index).trim();
+        cursor = match.index + match[0].length;
     }
+    // 流式拆开的标签暂不展示，下一段到达后会重新解析完整文本。
+    append(text.slice(cursor).replace(/<\s*\/?\s*(?:t|th|thi|thin|think|thinki|thinkin|thinking|c|co|cot)?\s*$/i, ''));
 
-    const result = { cot: cotContent.trim(), main: mainContent.trim(), sys: sys, isFinished };
+    if (openTags.length) ranges.push({ start: blockStart, end: text.length });
+    const rawCot = cotContent.trim();
+    const cot = rawCot.split(/(```[\s\S]*?(?:```|$)|`[^`\r\n]*`)/)
+        .map((part, index) => index % 2 ? part : part.replace(/</g, '&lt;')).join('');
+    const closingTags = [...openTags].reverse().map(tag => `</${tag}>`).join('');
+    const result = { cot, rawCot, ranges, closingTags, main: mainContent.trim(), isFinished: hasCot && !openTags.length };
     parseCotCache.set(text, result);
     // Limit cache size to prevent memory leaks in extremely long sessions
     if (parseCotCache.size > 2000) {
@@ -60,6 +67,13 @@ const parseCot = (text) => {
     }
     return result;
 };
+
+// 后一个 image### 不能作为前一个标签的结尾；抗截断时必须显式闭合。
+const getImageTagRegex = (requireClosing = false) => new RegExp(
+    'image###((?:(?!image###|###)' + (requireClosing ? '[\\s\\S]' : '[^\\r\\n]') + ')*?)'
+        + (requireClosing ? '###' : '(?:###|(?=\\r?\\n)|$)'),
+    'gi'
+);
 
 const compressImage = (source, maxWidth = 300, quality = 0.7) => new Promise((resolve) => {
     const image = new Image();
@@ -92,20 +106,6 @@ const getApiUsagePayload = (data) => {
     return null;
 };
 
-const extractApiUsageFromText = (rawText) => {
-    try {
-        return getApiUsagePayload(JSON.parse(rawText));
-    } catch (_) { }
-    let usage = null;
-    String(rawText || '').split(/\r?\n/).forEach(line => {
-        const payload = line.trim().replace(/^data:\s*/, '');
-        if (!payload || payload === '[DONE]') return;
-        try {
-            usage = getApiUsagePayload(JSON.parse(payload)) || usage;
-        } catch (_) { }
-    });
-    return usage;
-};
 
 const normalizeApiUsage = (usage) => {
     const source = usage && typeof usage === 'object' ? usage : {};
@@ -210,10 +210,10 @@ window.RPHubUtils = {
     compressImage,
     defaultAvatar,
     extractApiErrorMessage,
-    extractApiUsageFromText,
     formatApiErrorMessage,
     generateUUID,
     getApiUsagePayload,
+    getImageTagRegex,
     normalizeApiUsage,
     parseCot,
     stringifyErrorDetail
@@ -247,6 +247,9 @@ window.RPHubUtils = {
         return String(value);
     };
 
+    const isNativeReasoningPart = part => part?.thought === true
+        || /reason|thinking|thought/i.test(String(part?.type || ''));
+
     const extractNativeReasoning = (source = {}) => {
         if (!source || typeof source !== 'object') return '';
         const directKeys = ['reasoning_content', 'reasoning', 'thinking', 'thinking_content', 'thought', 'thoughts', 'reasoning_text'];
@@ -259,12 +262,7 @@ window.RPHubUtils = {
             if (text) return text;
         }
         if (Array.isArray(source.content)) {
-            return source.content.map(part => {
-                const type = String(part?.type || '').toLowerCase();
-                return type.includes('reason') || type.includes('thinking') || type.includes('thought')
-                    ? normalizeNativeReasoningPart(part)
-                    : '';
-            }).join('');
+            return source.content.filter(isNativeReasoningPart).map(normalizeNativeReasoningPart).join('');
         }
         return '';
     };
@@ -281,31 +279,52 @@ window.RPHubUtils = {
         return { pattern: normalizedPattern, flags: normalizedFlags };
     };
 
-    const protectedContentPattern = /(<!DOCTYPE html>[\s\S]*?<\/html>|<html\b[^>]*>[\s\S]*?<\/html>|<script\b[^>]*>[\s\S]*?<\/script>|<style\b[^>]*>[\s\S]*?<\/style>|<!DOCTYPE html>[\s\S]*$|<html\b[^>]*>[\s\S]*$|<script\b[^>]*>[\s\S]*$|<style\b[^>]*>[\s\S]*$|<(?:thinking|cot|think)>[\s\S]*?(?:<\/(?:thinking|cot|think)>|<(?:thinking|cot|think)>|$)|```[\s\S]*?```|```[\s\S]*$|`[^`]+`|<\/?(?!ui_template_updates\b)[a-zA-Z][\w:-]*[^>]*>)/gi;
-    const exactProtectedContentPattern = /^(<!DOCTYPE html>[\s\S]*?<\/html>|<html\b[^>]*>[\s\S]*?<\/html>|<script\b[^>]*>[\s\S]*?<\/script>|<style\b[^>]*>[\s\S]*?<\/style>|<!DOCTYPE html>[\s\S]*$|<html\b[^>]*>[\s\S]*$|<script\b[^>]*>[\s\S]*$|<style\b[^>]*>[\s\S]*$|<(?:thinking|cot|think)>[\s\S]*?(?:<\/(?:thinking|cot|think)>|<(?:thinking|cot|think)>|$)|```[\s\S]*?```|```[\s\S]*$|`[^`]+`|<\/?(?!ui_template_updates\b)[a-zA-Z][\w:-]*[^>]*>)$/i;
-    const transformUnprotectedText = (text, transform) => String(text || '')
-        .split(protectedContentPattern)
-        .map(part => !part || exactProtectedContentPattern.test(part) ? part : transform(part))
+    const protectedContentPattern = /(<!DOCTYPE html>[\s\S]*?<\/html>|<html\b[^>]*>[\s\S]*?<\/html>|<script\b[^>]*>[\s\S]*?<\/script>|<style\b[^>]*>[\s\S]*?<\/style>|<!DOCTYPE html>[\s\S]*$|<html\b[^>]*>[\s\S]*$|<script\b[^>]*>[\s\S]*$|<style\b[^>]*>[\s\S]*$|<ui_template_updates\b[^>]*>[\s\S]*?(?:<\/ui_template_updates>|$)|<!--[\s\S]*?(?:-->|$)|```[\s\S]*?```|```[\s\S]*$|`[^`]+`|<\/?[a-zA-Z][\w:-]*(?:[^"'<>]|"[^"]*"|'[^']*')*>)/gi;
+    const exactProtectedContentPattern = new RegExp('^' + protectedContentPattern.source + '$', 'i');
+    const splitProtectedText = (text) => {
+        const source = String(text || '');
+        const parts = [];
+        const appendPlain = value => value.split(protectedContentPattern).forEach(part => {
+            if (part) parts.push({ text: part, protected: exactProtectedContentPattern.test(part) });
+        });
+        let cursor = 0;
+        for (const { start, end } of window.RPHubUtils.parseCot(source).ranges) {
+            appendPlain(source.slice(cursor, start));
+            parts.push({ text: source.slice(start, end), protected: true });
+            cursor = end;
+        }
+        appendPlain(source.slice(cursor));
+        return parts;
+    };
+    const transformUnprotectedText = (text, transform) => splitProtectedText(text)
+        .map(part => part.protected ? part.text : transform(part.text))
         .join('');
 
-    const findLastUnprotectedMatch = (text, pattern) => {
+    const findUnprotectedMatches = (text, pattern, { includeUiTemplateUpdates = false } = {}) => {
         const source = String(text || '');
         let offset = 0;
-        let lastMatch = null;
-        source.split(protectedContentPattern).forEach(part => {
-            if (!part) return;
-            if (!exactProtectedContentPattern.test(part)) {
+        const matches = [];
+        splitProtectedText(source).forEach(({ text: part, protected: isProtected }) => {
+            // 变量解析器只需看到块的开标签；块内 JSON 仍不参与普通匹配。
+            const searchable = !isProtected ? part : includeUiTemplateUpdates
+                ? (part.match(/^<ui_template_updates\b[^>]*>/i)?.[0] || '') : '';
+            if (searchable) {
                 const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
                 const matcher = new RegExp(pattern.source, flags.replace('y', ''));
                 let match;
-                while ((match = matcher.exec(part)) !== null) {
-                    lastMatch = { index: offset + match.index, text: match[0] };
+                while ((match = matcher.exec(searchable)) !== null) {
+                    match.index += offset;
+                    matches.push(match);
                     if (!match[0]) matcher.lastIndex += 1;
                 }
             }
             offset += part.length;
         });
-        return lastMatch;
+        return matches;
+    };
+    const findLastUnprotectedMatch = (text, pattern, options) => {
+        const match = findUnprotectedMatches(text, pattern, options).pop();
+        return match ? { index: match.index, text: match[0] } : null;
     };
 
     const encodeUtf8 = (value) => {
@@ -907,6 +926,8 @@ window.RPHubUtils = {
         extractNativeReasoning,
         findPngCharacterPayload,
         findLastUnprotectedMatch,
+        findUnprotectedMatches,
+        isNativeReasoningPart,
         getImageStyleArtists,
         imageUrlToPngBytes,
         injectPngTextChunk,

@@ -1,5 +1,5 @@
-diff --git a/rp-hub-reference/assets/js/data-services.js b/app/src/main/assets/rphub/assets/js/data-services.js
-index b4591669..39aa4aef 100644
+diff --git a/assets/js/data-services.js b/assets/js/data-services.js
+index c3dfb3ba..dc0a0ecc 100644
 --- a/assets/js/data-services.js
 +++ b/assets/js/data-services.js
 @@ -1024,6 +1024,9 @@

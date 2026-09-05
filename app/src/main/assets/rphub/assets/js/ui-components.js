@@ -1457,7 +1457,74 @@
                 } catch (error) {
                     return String(value);
                 }
+            },
+            checkProtocol() {
+                const utils = window.RPHubUiTemplateUtils;
+                const checks = [];
+                if (!utils?.normalizeUiTemplateUpdateList) {
+                    this.protocolCheck = { ok: false, message: '模板校验器尚未加载', checks: [] };
+                    return;
+                }
+                let variableState;
+                try {
+                    variableState = JSON.parse(this.templateData.variableStateText || '{}');
+                    if (variableState === null || typeof variableState !== 'object') throw new Error('变量状态必须是 JSON 对象或数组');
+                    checks.push('变量 JSON 格式正确');
+                } catch (error) {
+                    this.protocolCheck = { ok: false, message: error.message || '变量 JSON 格式错误', checks: [] };
+                    return;
+                }
+                let variableSchema = this.templateData.variableSchemaText || '';
+                if (variableSchema.trim()) {
+                    try { variableSchema = JSON.parse(variableSchema); } catch (error) { /* 变量说明允许使用普通文字 */ }
+                }
+                try {
+                    const template = {
+                        id: this.templateData.id || '__preview__',
+                        name: this.templateData.name || '当前模板',
+                        variableState,
+                        variableSchema
+                    };
+                    utils.normalizeUiTemplateUpdateList({ updates: [{ id: template.id, variables: variableState }] }, [template]);
+                    checks.push('变量结构与 JSON 更新协议兼容');
+                } catch (error) {
+                    this.protocolCheck = { ok: false, message: error.message || '变量结构检查失败', checks };
+                    return;
+                }
+                if (!String(this.templateData.htmlTemplate || '').trim()) {
+                    this.protocolCheck = { ok: false, message: 'HTML 模板为空', checks };
+                    return;
+                }
+                checks.push('HTML 模板可用于预览');
+                this.protocolCheck = { ok: true, message: '模板协议检查通过', checks };
             }
+        },
+        data() {
+            return { protocolCheck: null, protocolCheckTimer: null };
+        },
+        computed: {
+            protocolCheckInput() {
+                return this.show && this.tab === 'edit'
+                    ? [this.templateData.htmlTemplate, this.templateData.variableStateText, this.templateData.variableSchemaText]
+                    : null;
+            }
+        },
+        watch: {
+            protocolCheckInput: {
+                immediate: true,
+                handler(input) {
+                    clearTimeout(this.protocolCheckTimer);
+                    this.protocolCheckTimer = null;
+                    this.protocolCheck = null;
+                    if (input) this.protocolCheckTimer = setTimeout(() => {
+                        this.protocolCheckTimer = null;
+                        this.checkProtocol();
+                    }, 500);
+                }
+            }
+        },
+        beforeUnmount() {
+            clearTimeout(this.protocolCheckTimer);
         },
         template: `
             <modal-shell v-if="show" overlay-class="z-50 bg-black/50 backdrop-blur-sm p-2 md:p-3 animate-fade-in"
@@ -1531,6 +1598,11 @@
                                 <textarea :value="templateData.htmlTemplate" @input="updateField('htmlTemplate', $event.target.value)" rows="22"
                                     class="w-full bg-white border-0 border-t border-gray-100 rounded-none px-4 py-3 text-gray-800 focus:ring-2 focus:ring-inset focus:ring-primary-500 focus:outline-none font-mono text-sm shadow-inner leading-relaxed resize-y min-h-[460px]" placeholder="<section>...</section>"></textarea>
                             </details>
+                            <div v-if="protocolCheck" aria-live="polite" class="rounded-xl border px-4 py-3 text-sm" :class="protocolCheck.ok ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700' : 'border-rose-200 bg-rose-50/70 text-rose-700'">
+                                <div class="font-bold">{{ protocolCheck.ok ? protocolCheck.message : '模板协议检查未通过' }}</div>
+                                <div v-if="!protocolCheck.ok" class="mt-1 text-xs whitespace-pre-wrap break-words">{{ protocolCheck.message }}</div>
+                                <div v-else-if="protocolCheck.checks && protocolCheck.checks.length" class="mt-1 text-xs opacity-80">{{ protocolCheck.checks.join(' · ') }}</div>
+                            </div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">变量JSON</label>

@@ -1,0 +1,63 @@
+diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
+index d2e47294..54cf97d2 100644
+--- a/assets/js/runtime-services.js
++++ b/assets/js/runtime-services.js
+@@ -96,10 +96,13 @@
+             return modified;
+         };
+ 
+-        const renderMarkdown = (text, role = 'assistant', skipRegex = false) => {
++        // [LuzzyRP patch 032] options.cache=false 旁路 LRU：流式期全文逐 tick 变化，中间串写缓存
++        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动（v1.3.0 性能；唯一调用方=index.html 流式分支）。
++        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}) => {
+             if (!text) return '';
+             const cacheKey = `${role}_${skipRegex}_${text}`;
+-            if (renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
++            const allowCache = options.cache !== false;
++            if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
+ 
+             let processed = applyDisplayRegex(text, role, skipRegex);
+             const trimmed = processed.trim();
+@@ -125,12 +128,13 @@
+                     container.outerHTML,
+                     postText.trim() ? sanitizeMarkdown(postText) : ''
+                 ].join('');
+-                return cacheValue(renderedCache, cacheKey, result);
++                return allowCache ? cacheValue(renderedCache, cacheKey, result) : result;
+             }
+ 
+             if (/^\s*<(div|table|section|article|aside|header|footer|style|script)/i.test(trimmed)
+                 && !trimmed.includes('```')) {
+-                return cacheValue(renderedCache, cacheKey, DOMPurify.sanitize(processed, cleanConfig));
++                const sanitizedBlock = DOMPurify.sanitize(processed, cleanConfig);
++                return allowCache ? cacheValue(renderedCache, cacheKey, sanitizedBlock) : sanitizedBlock;
+             }
+ 
+             const lowerTrimmed = trimmed.toLowerCase();
+@@ -149,11 +153,14 @@
+                 const paragraphsChanged = replaceEscapedHtmlParagraphs(documentNode);
+                 const panelsChanged = replaceScriptedPanels(documentNode);
+                 const modified = codeBlocksChanged || paragraphsChanged || panelsChanged;
+-                if (modified) return cacheValue(renderedCache, cacheKey, documentNode.body.innerHTML);
++                if (modified) {
++                    const frameHtml = documentNode.body.innerHTML;
++                    return allowCache ? cacheValue(renderedCache, cacheKey, frameHtml) : frameHtml;
++                }
+             } catch (error) {
+                 console.error('Error rendering HTML preview:', error);
+             }
+-            return cacheValue(renderedCache, cacheKey, html);
++            return allowCache ? cacheValue(renderedCache, cacheKey, html) : html;
+         };
+ 
+         return { clearCaches, contentUsesHtmlFrame, renderMarkdown };
+@@ -306,6 +313,9 @@
+                 type: meta.type || 'chat',
+                 model: String(meta.model || ''),
+                 apiUrl: String(meta.apiUrl ?? getApiUrl?.() ?? ''),
++                // [LuzzyRP patch 025] 供应商维度补存（趋势图/筛选依赖；缺失历史由图表层按 apiUrl 反查兜底）
++                provider: String(meta.provider ?? ''),
++                protocol: String(meta.protocol ?? ''),
+                 isStream: meta.isStream === true,
+                 durationMs: Number.isFinite(meta.durationMs) ? Math.max(0, meta.durationMs) : null,
+                 outputCharacters: Number.isFinite(meta.outputCharacters) ? Math.max(0, meta.outputCharacters) : null,

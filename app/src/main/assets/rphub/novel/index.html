@@ -7,14 +7,13 @@
     <!-- Vue 3 -->
     <script src="../vendor/vue.global.prod.js"></script>
     <!-- Tailwind CSS -->
-<!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
-    <script src="../vendor/tailwind.js"></script>
+    <script src="../vendor/tailwind.js"></script><!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
     <!-- Marked for Markdown rendering -->
     <script src="../vendor/marked.min.js"></script>
+    <script src="../assets/js/built-in-content.js"></script>
+    <script src="../assets/js/core-utils.js"></script>
     <script src="../assets/js/api-utils.js"></script>
     <!-- Google Fonts -->
-
-
 
     
     <style>
@@ -1337,25 +1336,14 @@
                     }
                 };
 
-                const readSseContent = async (response, onContent) => {
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop();
-                        lines.forEach(line => {
-                            if (!line.startsWith('data: ')) return;
-                            const dataText = line.slice(6);
-                            if (dataText === '[DONE]') return;
-                            try {
-                                onContent(JSON.parse(dataText).choices[0].delta.content || '');
-                            } catch (error) { }
-                        });
-                    }
+                const requestNovelCompletion = async (options, onContent) => {
+                    const result = await window.RPHubApiClient.requestChatCompletion({
+                        url: buildApiEndpoint(settings.value.apiUrl, 'chat/completions'),
+                        apiKey: settings.value.apiKey, ...options,
+                        onDelta: ({ content }) => onContent?.(content)
+                    });
+                    if (!result.isStream) onContent?.(result.content);
+                    return result;
                 };
 
                 // 列表交错动画钩子
@@ -1548,24 +1536,14 @@
                     // 并发调用函数
                     const callAI = async (persona) => {
                         try {
-                            const response = await fetch(buildApiEndpoint(settings.value.apiUrl, 'chat/completions'), {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.value.apiKey}` },
-                                body: JSON.stringify({
-                                    model: reviewModel,
-                                    messages: [
-                                        { role: "system", content: persona.systemPrompt },
-                                        { role: "user", content: fullContent }
-                                    ],
-                                    stream: true
-                                })
-                            });
-
-                            if (!response.ok) throw new Error(response.statusText);
-
-                            await readSseContent(response, content => {
-                                reviews.value[persona.id] += content;
-                            });
+                            await requestNovelCompletion({
+                                model: reviewModel,
+                                messages: [
+                                    { role: 'system', content: persona.systemPrompt },
+                                    { role: 'user', content: fullContent }
+                                ],
+                                stream: true
+                            }, content => { reviews.value[persona.id] += content; });
                             reviewStatus.value[persona.id] = 'done';
                         } catch (e) {
                             console.error(`${persona.name} 点评失败:`, e);
@@ -2373,17 +2351,9 @@
                     }
                     isLoadingModels.value = true;
                     try {
-                        const response = await fetch(buildApiEndpoint(settings.value.apiUrl, 'models'), {
-                            headers: { 'Authorization': `Bearer ${settings.value.apiKey}` }
+                        const data = await window.RPHubApiClient.requestJson({
+                            url: buildApiEndpoint(settings.value.apiUrl, 'models'), apiKey: settings.value.apiKey
                         });
-                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                        const responseText = await response.text();
-                        let data;
-                        try {
-                            data = JSON.parse(responseText);
-                        } catch (_) {
-                            throw new Error('模型接口返回了网页内容，请检查 API 地址');
-                        }
                         if (data.data) {
                             availableModels.value = data.data.sort((a, b) => a.id.localeCompare(b.id));
                         }
@@ -2601,21 +2571,12 @@
 5. 严禁输出任何 Markdown 代码块标记（如 \`\`\`json），直接输出纯 JSON 字符串。`;
 
                     try {
-                        const response = await fetch(buildApiEndpoint(settings.value.apiUrl, 'chat/completions'), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.value.apiKey}` },
-                            body: JSON.stringify({
-                                model: commentModel,
-                                messages: [
-                                    { role: "user", content: fullContent + "\n\n" + prompt }
-                                ],
-                                stream: false
-                            })
+                        const result = await requestNovelCompletion({
+                            model: commentModel,
+                            messages: [{ role: 'user', content: fullContent + "\n\n" + prompt }],
+                            stream: false
                         });
-
-                        if (!response.ok) throw new Error(response.statusText);
-                        const data = await response.json();
-                        let content = data.choices[0].message.content;
+                        let content = result.content;
                         
                         // 清理可能存在的 Markdown 标记
                         content = content.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -2770,22 +2731,11 @@ ${charPrompt}
                         // 打印发送给 AI 的完整内容
 
                         try {
-                            const response = await fetch(buildApiEndpoint(settings.value.apiUrl, 'chat/completions'), {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.value.apiKey}` },
-                                body: JSON.stringify({
-                                    model: settings.value.model,
-                                    messages: context,
-                                    stream: true,
-                                    temperature: 1.0
-                                }),
-                                signal: abortController.value.signal
-                            });
-
-                            if (!response.ok) throw new Error(response.statusText);
-
                             let fullContent = '';
-                            await readSseContent(response, content => {
+                            await requestNovelCompletion({
+                                model: settings.value.model, messages: context, stream: true,
+                                temperature: 1.0, signal: abortController.value.signal
+                            }, content => {
                                 fullContent += content;
                                 streamContent.value = fullContent;
                                 nextTick(() => { if (mainScroll.value) mainScroll.value.scrollTop = mainScroll.value.scrollHeight; });

@@ -398,7 +398,7 @@ Luzzy.copyToClipboard = function (text) {
 
 ## 9. 当前状态与已知问题（2026-09-05 会话 21 快照 · v1.2.3 已发布 + v1.3.0 开发中）
 
-> 完整过程见 `docs/WORKLOG.md` 会话 15-21。上游基线 RP-Hub **1.9.0**（2026-09-04 会话 20 同步）。
+> 完整过程见 `docs/WORKLOG.md` 会话 15-21。上游基线 RP-Hub **1.9.1**（2026-09-05 会话 21 二次同步）。
 
 ### 版本状态（2026-09-05 · 会话 21）
 
@@ -411,11 +411,11 @@ Luzzy.copyToClipboard = function (text) {
   用户商；默认商切 deepseek；**023 校验项退役由 029 接管**）；⑤ patch 030 关于页
   「基于 RP-Hub」固定文案（防同步遗忘）；⑥ patch 031 记忆召回思考节点（盖戳+渲染，
   零模板改动）。
-- **门禁现状**：verify-markers **71 PASS / 0 FAIL**（+10 净增校验；023 两项退役→029
-  接管）；实体再生成 5 枚（007-029-novel / 009-029-core-utils / 012-031-app /
-  012-032-runtime / 012-033-index），逆向 --check 8/8 PASS；gen-changelog 已重跑
-  （R3 全绿）；**apply-patches 011 重放块退役**（SKIP 检测失配崩溃实证，028 目标 DOM
-  不复存在）。
+- **门禁现状**：verify-markers **74 PASS / 0 FAIL**（015-runtime 退役→015-api-utils 接管、
+  032 拆 runtime/apiutils 双项）；实体全量 **9 枚以 1.9.1 基线（7b39385）再生成**（含新增
+  015-032-api-utils），逆向 9/9 PASS；gen-changelog 已重跑（R3 全绿）；apply-patches 011
+  退役（SKIP 失配实证）+ **008 字符串块退役**（v2→v3 迁移路径过时，v4 色板由 index 实体
+  承载）；指纹表更新至 7b39385（+character/novel 两行）。
 - **待办**：debug 包真机回归（§6.2 + 性能专项：流式 10s 录制对比 / elementFromPoint
   热区向量 / 开屏逐帧）；玻璃档位（D1）视觉走查（亮/暗双模式）。
 - **明确不做（本版）**：壳层 textZoom/offscreenPreRaster（零收益）、styles.css 低频蓝

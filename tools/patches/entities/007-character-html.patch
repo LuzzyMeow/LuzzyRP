@@ -1,8 +1,8 @@
-diff --git a/rp-hub-reference/character/index.html b/app/src/main/assets/rphub/character/index.html
-index c85886ba..33f72766 100644
+diff --git a/character/index.html b/character/index.html
+index 22a55314..47f5d8e5 100644
 --- a/character/index.html
 +++ b/character/index.html
-@@ -6,13 +6,14 @@
+@@ -6,13 +6,13 @@
      <meta name="viewport"
          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
      <title>角色卡工坊</title>
@@ -14,7 +14,6 @@ index c85886ba..33f72766 100644
 -    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 -    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 +
-+
 +    <link rel="stylesheet" href="../assets/css/local-fonts.css">
 +<!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
 +    <script src="../vendor/tailwind.js"></script>
@@ -23,13 +22,13 @@ index c85886ba..33f72766 100644
 +    <script src="../vendor/localforage.min.js"></script>
      <script src="../assets/js/built-in-content.js"></script>
      <script src="../assets/js/core-utils.js"></script>
-     <style>
-@@ -2278,7 +2279,7 @@
+     <script src="../assets/js/api-utils.js"></script>
+@@ -2279,7 +2279,7 @@
                          textContent = fullText.replace(htmlMatch[0], '').trim();
                      } else {
                          // 如果没有检测到 HTML 块，则提供一个基础的 HTML 结构，以便注入样式和脚本并显示正文
 -                        uiHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><script src="https://cdn.tailwindcss.com"></` + `script></head><body class="bg-base-100 p-4"></body></html>`;
-+    <script src="../vendor/tailwind.js"></script>
++                        uiHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><script src="../vendor/tailwind.js"></` + `script></head><body class="bg-base-100 p-4"></body></html>`;
                          textContent = fullText;
                      }
  

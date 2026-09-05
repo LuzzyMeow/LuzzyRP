@@ -13,7 +13,7 @@
 > [!IMPORTANT]
 > ## 📖 二创声明（Attribution）
 >
-> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.0**。
+> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.1**。
 >
 > - 遵循上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）** 许可协议；
 > - 仅对**前端**进行优化与封装，**后端代码（presence-server）完全未动**；
@@ -23,7 +23,7 @@
 ![Status](https://img.shields.io/badge/Status-v1.2.3--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
-![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.0-4FC08D?logo=vue.js&logoColor=white)
+![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.1-4FC08D?logo=vue.js&logoColor=white)
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-F5A623)
 
 ---

@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..abbf8c73 100644
+index b353e870..75a366f6 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -212,7 +212,7 @@ index b290e220..abbf8c73 100644
                                                      </div>
                                                      <div v-if="processMainContent(parseCot(msg.content).main, true).showSpinner"
                                                          class="flex flex-col items-center justify-center p-8 w-full mt-2 gap-4 opacity-90">
-@@ -765,10 +809,11 @@
+@@ -745,10 +789,11 @@
  
  
                  <!-- Input Area (Floating Island) -->
@@ -226,7 +226,7 @@ index b290e220..abbf8c73 100644
                          <transition enter-active-class="transition-all duration-200 ease-out"
                              enter-from-class="opacity-0 translate-y-2 scale-95"
                              enter-to-class="opacity-100 translate-y-0 scale-100"
-@@ -957,7 +1002,7 @@
+@@ -887,7 +932,7 @@
                                                          :disabled="!slot.model"
                                                          :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                          <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
@@ -235,7 +235,7 @@ index b290e220..abbf8c73 100644
                                                      </button>
                                                  </div>
                                                  <div class="border-t border-gray-100 pt-4 space-y-5">
-@@ -1035,10 +1080,11 @@
+@@ -967,10 +1012,11 @@
                                  rows="1" ref="inputBox"></textarea>
  
                              <!-- Send/Stop Button -->
@@ -248,7 +248,7 @@ index b290e220..abbf8c73 100644
                                      title="发送">
                                      <svg class="w-5 h-5 transform rotate-90" fill="none"
                                          stroke="currentColor" viewBox="0 0 24 24">
-@@ -1047,7 +1093,7 @@
+@@ -979,7 +1025,7 @@
                                      </svg>
                                  </button>
                                  <button v-else @click="stopGeneration"
@@ -257,7 +257,7 @@ index b290e220..abbf8c73 100644
                                      title="中止生成">
                                      <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                          viewBox="0 0 24 24">
-@@ -1635,7 +1681,7 @@
+@@ -1567,7 +1613,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -266,7 +266,7 @@ index b290e220..abbf8c73 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1650,7 +1696,7 @@
+@@ -1582,7 +1628,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -275,7 +275,7 @@ index b290e220..abbf8c73 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1659,9 +1705,30 @@
+@@ -1591,9 +1637,30 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -307,7 +307,7 @@ index b290e220..abbf8c73 100644
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1732,7 +1799,7 @@
+@@ -1664,7 +1731,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -316,7 +316,7 @@ index b290e220..abbf8c73 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1775,6 +1842,19 @@
+@@ -1707,6 +1774,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -336,7 +336,7 @@ index b290e220..abbf8c73 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1786,7 +1866,7 @@
+@@ -1718,7 +1798,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -345,7 +345,7 @@ index b290e220..abbf8c73 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1795,9 +1875,23 @@
+@@ -1727,9 +1807,23 @@
                                              </custom-select>
                                          </div>
  
@@ -371,7 +371,7 @@ index b290e220..abbf8c73 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1898,41 +1992,7 @@
+@@ -1829,41 +1923,7 @@
                                  </label>
                              </div>
  
@@ -414,7 +414,7 @@ index b290e220..abbf8c73 100644
  
                              <!-- Storage Management -->
                              <div class="pt-6 border-t border-gray-100 mt-6">
-@@ -1948,11 +2008,7 @@
+@@ -1879,11 +1939,7 @@
                                          </h4>
                                      </div>
                                      <div class="flex flex-wrap items-center gap-2">
@@ -427,7 +427,7 @@ index b290e220..abbf8c73 100644
                                          <button type="button" @click="cleanupUnusedStorage"
                                              :disabled="storageStats.loading || storageStats.cleaning || storageStats.orphanedItems === 0"
                                              class="px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-100 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-@@ -1968,7 +2024,7 @@
+@@ -1899,7 +1955,7 @@
                                  <div v-else class="space-y-6">
                                      <div>
                                          <div class="flex items-center justify-between gap-3 mb-3 text-sm">
@@ -436,7 +436,7 @@ index b290e220..abbf8c73 100644
                                              <span class="font-semibold text-gray-500 whitespace-nowrap">
                                                  <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
                                                  <span class="mx-1 text-gray-300">/</span>
-@@ -2003,6 +2059,138 @@
+@@ -1934,6 +1990,138 @@
                  </div>
              </div>
  
@@ -575,7 +575,7 @@ index b290e220..abbf8c73 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2260,7 @@
+@@ -2003,6 +2191,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -583,7 +583,7 @@ index b290e220..abbf8c73 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2444,12 @@
+@@ -2186,6 +2375,12 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -596,7 +596,7 @@ index b290e220..abbf8c73 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2609,7 @@
+@@ -2338,7 +2533,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -605,7 +605,7 @@ index b290e220..abbf8c73 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2641,7 @@
+@@ -2370,7 +2565,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -614,10 +614,10 @@ index b290e220..abbf8c73 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2837,141 @@
-                         </div>
+@@ -2686,6 +2881,141 @@
                      </div>
                  </div>
+             </div>
 +                    <!-- [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
 +                         ⚠ v-if="true" 为显式断链：本卡紧邻上方 classic 卡的 v-else-if，production 编译
 +                         丢弃中间注释后两元素直接相邻，会被 Vue 并入条件链（enabled=false 时整卡消失） -->
@@ -754,9 +754,9 @@ index b290e220..abbf8c73 100644
 +                    </div>
 +
  
-             </div>
+         </div>
  
-@@ -2786,11 +3116,329 @@
+@@ -2710,11 +3040,329 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -1086,7 +1086,7 @@ index b290e220..abbf8c73 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2828,6 +3476,26 @@
+@@ -2752,6 +3400,26 @@
              @update:result-count="editingActiveTool.data.resultCount = $event"
              @update:tavily-api-key="editingActiveTool.data.tavilyApiKey = $event"></active-tool-editor-modal>
  
@@ -1113,7 +1113,7 @@ index b290e220..abbf8c73 100644
          <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
          <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"
              @close="showExportModal = false" @select-all="selectAllExportItems"
-@@ -2873,6 +3541,14 @@
+@@ -2797,6 +3465,14 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

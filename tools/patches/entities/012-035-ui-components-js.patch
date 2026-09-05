@@ -1,5 +1,5 @@
 diff --git a/assets/js/ui-components.js b/assets/js/ui-components.js
-index 7fcb10e7..2b273530 100644
+index 4bcb59cd..30bd1f35 100644
 --- a/assets/js/ui-components.js
 +++ b/assets/js/ui-components.js
 @@ -350,9 +350,10 @@
@@ -103,7 +103,7 @@ index 7fcb10e7..2b273530 100644
                                      <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-@@ -1895,13 +1937,38 @@
+@@ -1967,13 +2009,38 @@
              formatCount: { type: Function, required: true },
              formatTime: { type: Function, required: true },
              getTypeLabel: { type: Function, required: true },
@@ -146,7 +146,7 @@ index 7fcb10e7..2b273530 100644
              const formatDuration = (value) => {
                  if (!Number.isFinite(value)) return '--';
                  if (value < 1000) return `${Math.round(value)}ms`;
-@@ -1914,6 +1981,7 @@
+@@ -1986,6 +2053,7 @@
                  return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
              };
              return {
@@ -154,7 +154,7 @@ index 7fcb10e7..2b273530 100644
                  formatDuration,
                  formatOutputSpeed,
                  formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
-@@ -1986,7 +2054,47 @@
+@@ -2058,7 +2126,47 @@
                      <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                  </div>
  
@@ -203,7 +203,7 @@ index 7fcb10e7..2b273530 100644
                      <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                      <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
                  </div>
-@@ -1995,7 +2103,7 @@
+@@ -2067,7 +2175,7 @@
                          class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                          <div class="mb-3 min-w-0">
                              <div class="flex min-w-0 items-center justify-between gap-3">
@@ -212,7 +212,7 @@ index 7fcb10e7..2b273530 100644
                                   <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                              </div>
                              <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">
-@@ -2054,7 +2162,8 @@
+@@ -2126,7 +2234,8 @@
              settings: { type: Object, required: true },
              updateStatus: { type: Object, required: true },
              helpTopic: String,
@@ -222,7 +222,7 @@ index 7fcb10e7..2b273530 100644
          },
          emits: [
              'menu', 'export', 'import', 'create', 'update:show-settings', 'update:help-topic',
-@@ -2173,7 +2282,7 @@
+@@ -2245,7 +2354,7 @@
                                          <div class="flex gap-2">
                                              <button @click="$emit('select-model')" class="settings-model-button truncate"
                                                  :title="settings.uiTemplateModel || '未选择模型'">

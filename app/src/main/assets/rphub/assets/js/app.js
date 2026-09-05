@@ -2,7 +2,7 @@ const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, watch, n
 const { useStorageManagement, useTokenUsage } = window.RPHubComposables;
 const { createMessageRenderer } = window.RPHubMessageRenderer;
 const { AppSidebar } = window.RPHubLayoutComponents;
-const { requestChatCompletion } = window.RPHubApiClient;
+const { requestChatCompletion, requestJson } = window.RPHubApiClient;
 const { buildApiEndpoint } = window.RPHubApiUtils;
 const {
     ActionConfirmModal,
@@ -38,10 +38,11 @@ const {
 const {
     compressImage,
     defaultAvatar,
+    // [LuzzyRP patch 026/015] extractApiErrorMessage 为向量检索/嵌入错误链依赖（上游 1.9.1 移出解构，需保留）
     extractApiErrorMessage,
-    extractApiUsageFromText,
     generateUUID,
     getApiUsagePayload,
+    getImageTagRegex,
     normalizeApiUsage,
     parseCot,
     stringifyErrorDetail
@@ -56,7 +57,6 @@ const {
     getVectorMemoryFingerprint,
     getVectorMemoryText,
     getVectorLexicalMatch,
-    hasVectorEmbedding,
     isEmbeddingLike,
     isEnabledVectorMemory,
     isVectorMemory,
@@ -620,7 +620,6 @@ const app = createApp({
             contextSize: MAX_CONTEXT_SIZE,
             temperature: 1.0,
             reasoningEffort: '',
-            autoFetchModels: true,
             stream: true,
             activeToolAggressiveness: 'adaptive',
             activeToolAggressivenessVersion: 2,
@@ -628,6 +627,8 @@ const app = createApp({
             useCharacterBackground: true,
             immersiveMode: false,
             showLatestUsageBar: false,
+            preventTruncation: false,
+            truncationMaxAttempts: 5,
             styleFilterEnabled: true,
             uiTemplateEnabled: false,
             uiTemplateModel: '',
@@ -1183,6 +1184,8 @@ const app = createApp({
         });
 
         const currentModelMode = ref('quality');
+        const isGeminiModel = computed(() => /gemini/i.test(String(settings.model || '')));
+        const isTruncationEnabled = computed(() => isGeminiModel.value && settings.preventTruncation);
         const modelMode = computed({
             get: () => {
                 return currentModelMode.value;
@@ -1718,8 +1721,6 @@ const app = createApp({
         const worldInfoKeysText = ref('');
         const editingActiveTool = reactive({ id: undefined, data: {} });
 
-        const sysInstruction = ref('');
-        const showInstructionPanel = ref(false);
         const showContextViewerModal = ref(false);
         const showStoryBranchModal = ref(false);
         const showStoryBranchNameEditor = ref(false);
@@ -1777,6 +1778,16 @@ const app = createApp({
             saveStoredValue: setStoredValue,
             toast: (...args) => showToast(...args)
         });
+        // [LuzzyRP patch 012/025] 记录与请求元数据跟随实际请求（多商路由）：调用方可传
+        // url/apiKey/provider/protocol 覆盖全局默认；provider/protocol 进入用量记录供趋势图筛选
+        const requestTrackedChatCompletion = (options, type) => {
+            const request = { url: buildApiEndpoint(settings.apiUrl, 'chat/completions'), apiKey: settings.apiKey, ...options };
+            return requestChatCompletion({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
+                type, model: request.model, apiUrl: request.url, apiKey: request.apiKey,
+                provider: options.provider ?? settings.apiProviderId ?? '',
+                protocol: options.protocol ?? '', ...metrics
+            }) });
+        };
         const {
             cleanupUnusedStorage,
             formatStorageSize,
@@ -2763,8 +2774,8 @@ const app = createApp({
             const cards = [...event.currentTarget.querySelectorAll('.generated-image-card')];
             const imageIndex = cards.indexOf(card);
             const message = chatHistory.value[messageIndex];
-            const mainText = parseCot(message?.content || '').main;
-            const imageMatches = [...mainText.matchAll(/image###([^\r\n]*?)(?:###|(?=\r?\n)|$)/g)];
+            const sourceText = String(message?.content || '');
+            const imageMatches = cardUtils.findUnprotectedMatches(sourceText, getImageTagRegex(isTruncationEnabled.value));
             const imageMatch = imageMatches[imageIndex];
             if (!message || imageIndex < 0 || !imageMatch) return;
             if (card.classList.contains('is-rerolling')) return;
@@ -2777,11 +2788,9 @@ const app = createApp({
             const swapIndex = Math.floor(Math.random() * (tags.length - 1));
             [tags[swapIndex], tags[swapIndex + 1]] = [tags[swapIndex + 1], tags[swapIndex]];
             const updatedToken = `image###${tags.join(', ')}###`;
-            const updatedMainText = mainText.slice(0, imageMatch.index)
+            const updatedContent = sourceText.slice(0, imageMatch.index)
                 + updatedToken
-                + mainText.slice(imageMatch.index + imageMatch[0].length);
-            const mainStart = message.content.lastIndexOf(mainText);
-            if (mainStart < 0) return;
+                + sourceText.slice(imageMatch.index + imageMatch[0].length);
             const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
             if (!sourceUrl) return;
             // [LuzzyRP patch 015] 自定义生图 reroll：保留伪 URL 结构，仅更新 prompt 随机参数
@@ -2815,9 +2824,7 @@ const app = createApp({
                     finishLoading();
                     return;
                 }
-                message.content = originalContent.slice(0, mainStart)
-                    + updatedMainText
-                    + originalContent.slice(mainStart + mainText.length);
+                message.content = updatedContent;
                 message.shouldAnimate = false;
                 scheduleChatHistorySave();
                 showToast('已重新生成图片', 'success');
@@ -3072,6 +3079,10 @@ const app = createApp({
         };
 
         const getLastAssistantMessage = () => [...chatHistory.value].reverse().find(msg => msg && msg.role === 'assistant');
+        const summarizeUiTemplateFailure = (reason) => {
+            const text = String(reason || 'UI模板变量校验失败').replace(/\s+/g, ' ').trim();
+            return text.length > 800 ? `${text.slice(0, 797)}...` : text;
+        };
         const buildMainModelUiTemplateUpdatePrompt = () => {
             if (!settings.uiTemplateEnabled || !settings.uiTemplateMainModelAnalysis) return '';
             const templates = activeUiTemplates.value;
@@ -3096,14 +3107,15 @@ const app = createApp({
                 return { handled: false, changed: false };
             }
             delete targetMessage.uiTemplateAnalysisFailure;
-            const recordFailure = (result, reason) => {
+            const recordFailure = (reason) => {
+                const summary = summarizeUiTemplateFailure(reason);
                 targetMessage.uiTemplateAnalysisFailure = {
-                    result,
-                    reason,
+                    summary,
+                    reason: summary,
                     sourceMessageId: targetMessage.id || null
                 };
                 failUiTemplateAnalysis('变量分析失败，下次请求将自动修正', targetMessage.id || null);
-                console.warn('[UI模板] 主模型变量分析失败:', reason, result);
+                console.warn('[UI模板] 主模型变量分析失败:', summary);
                 return { handled: true, changed: false };
             };
             const match = findUiTemplateUpdateBlock(targetMessage.content);
@@ -3111,19 +3123,19 @@ const app = createApp({
                 const missingTemplates = templates
                     .map(template => `模板“${template.name || '未命名'}”（ID：${template.id}）`)
                     .join('；');
-                return recordFailure(`未输出：${missingTemplates}`, `未输出UI模板变量块：${missingTemplates}`);
+                return recordFailure(`未输出UI模板变量块：${missingTemplates}`);
             }
 
             let updates = [];
             try {
                 const updateContent = match[1];
-                const parsed = parseUiTemplateUpdates(updateContent);
+                const parsed = parseUiTemplateUpdates(updateContent, templates);
                 updates = normalizeUiTemplateUpdateList(parsed, templates);
             } catch (e) {
                 const reason = e instanceof SyntaxError
                     ? `变量块格式错误：${e.message}`
                     : e.message;
-                return recordFailure(e?.jsonSource || match[1], reason);
+                return recordFailure(reason);
             }
 
             const targetMessageIndex = chatHistory.value.findIndex(msg => msg === targetMessage || (targetMessage.id && msg.id === targetMessage.id));
@@ -3188,12 +3200,11 @@ const app = createApp({
             const userMessage = chatHistory.value[userIndex];
             const failure = failureMessage.uiTemplateAnalysisFailure;
             const correctionPrompt = BUILTIN_PROMPTS.buildMainModelUiTemplateCorrectionPrompt({
-                failedResult: failure.result,
+                failureSummary: failure.summary || summarizeUiTemplateFailure(failure.reason),
                 failureReason: failure.reason
             });
             userMessage.uiTemplateCorrection = {
-                result: failure.result,
-                reason: failure.reason,
+                summary: failure.summary || summarizeUiTemplateFailure(failure.reason),
                 sourceMessageId: failure.sourceMessageId || failureMessage.id || null
             };
             delete failureMessage.uiTemplateAnalysisFailure;
@@ -3849,7 +3860,7 @@ const app = createApp({
             if (isAutoImageGenEnabled.value) return text; // 生图开启时保留
             return String(text)
                 .replace(/<image\b[^>]*>[\s\S]*?<\/image>/gi, '')
-                .replace(/image###([^\r\n]*?)(?:###|(?=\r?\n)|$)/gi, '')
+                .replace(getImageTagRegex(isTruncationEnabled.value), '')
                 .replace(/[ \t]+\n/g, '\n')
                 .replace(/\n{3,}/g, '\n\n')
                 .trim();
@@ -3894,6 +3905,7 @@ const app = createApp({
                         : (script.replaceString || '');
 
                     if (!regexPattern) return;
+                    const isImageGenScript = (script.name || script.scriptName) === 'NAI画图正则';
 
                     // 解析 /pattern/flags 格式
                     if (regexPattern.startsWith('/') && regexPattern.lastIndexOf('/') > 0) {
@@ -3907,8 +3919,9 @@ const app = createApp({
                     }
 
                     ({ pattern: regexPattern, flags } = cardUtils.normalizeRegexModifiers(regexPattern, flags));
-
-                    const re = new RegExp(regexPattern, flags);
+                    const re = isImageGenScript
+                        ? getImageTagRegex(isTruncationEnabled.value)
+                        : new RegExp(regexPattern, flags);
 
                     // --- Protection Logic Start ---
                     // 只有当正则不包含 < 或 > 且不包含 markdown 代码块标记 (```) 时，才启用 HTML/代码块保护
@@ -3943,7 +3956,7 @@ const app = createApp({
             marked,
             DOMPurify
         });
-        watch(() => [settings.disableImages, settings.styleFilterEnabled, regexScripts.value, user.name], () => {
+        watch(() => [settings.disableImages, settings.styleFilterEnabled, isTruncationEnabled.value, regexScripts.value, user.name], () => {
             clearMessageRenderCaches();
         }, { deep: true });
 
@@ -4798,7 +4811,7 @@ const app = createApp({
                             signal
                         })
                     )
-            ));
+            ), () => true);
         };
 
         const checkImageGenStatus = async () => {
@@ -4910,16 +4923,17 @@ const app = createApp({
             reader.readAsDataURL(file);
         });
         const recognizeChatImage = async (image) => {
-            const requestStartedAt = Date.now();
+            // [LuzzyRP patch 015/025] 识图走多商路由 + provider/protocol 透传
             const visionResolved = resolveModelRequest(settings.visionModel);
             try {
-                const result = await requestChatCompletion({
-                url: buildApiEndpoint(visionResolved.url, 'chat/completions'),
+                const result = await requestTrackedChatCompletion({
+                    url: buildApiEndpoint(visionResolved.url, 'chat/completions'),
                     apiKey: visionResolved.apiKey,
                     model: visionResolved.model,
                     protocol: visionResolved.protocol,
                     maxTokens: visionResolved.modelMeta?.maxOutput || null,
                     extraBody: visionResolved.extraBody,
+                    provider: visionResolved.providerId || '',
                     temperature: 0.2,
                     stream: false,
                     messages: [{
@@ -4935,7 +4949,7 @@ const app = createApp({
                             }
                         ]
                     }]
-                });
+                }, 'image_recognition');
                 const target = pendingChatImages.value.find(item => item.id === image.id);
                 if (!target) return true;
                 const description = (Array.isArray(result.content)
@@ -4944,15 +4958,6 @@ const app = createApp({
                 if (!description) throw new Error('识图模型没有返回有效描述');
                 target.description = description;
                 target.status = 'ready';
-                recordApiUsage(result.usage, {
-                    type: 'image_recognition',
-                    model: visionResolved.model,
-                    provider: visionResolved.providerId || '',
-                    protocol: visionResolved.protocol,
-                    isStream: false,
-                    durationMs: Date.now() - requestStartedAt,
-                    outputCharacters: description.length
-                });
                 return true;
             } catch (error) {
                 const target = pendingChatImages.value.find(item => item.id === image.id);
@@ -5030,11 +5035,6 @@ const app = createApp({
             clearPendingChatImages();
 
             let finalContent = content;
-            if (sysInstruction.value.trim()) {
-                finalContent += '\n\n[系统指令: ' + sysInstruction.value.trim() + ']';
-                sysInstruction.value = ''; // Auto clear after sending
-            }
-
             if (cardInteraction) {
                 chatHistory.value.push({
                     role: 'user',
@@ -5110,12 +5110,12 @@ const app = createApp({
                 const messageEl = chatContainer.value?.querySelector(`[data-chat-index="${index}"] .message-content-wrapper`);
                 const messageHeight = messageEl?.getBoundingClientRect?.().height || 0;
                 msg.isEditing_Message = true;
-                const cotMatch = msg.content.match(/<(thinking|think|cot)>[\s\S]*?(?:<\/\s*\1\s*>|<\s*\1\s*>|$)/i);
+                const cotInfo = parseCot(msg.content);
                 const uiTemplateUpdateMatch = findUiTemplateUpdateBlock(msg.content);
-                msg.originalCot = cotMatch ? cotMatch[0] : '';
-                msg.originalSys = parseCot(msg.content).sys;
+                msg.originalCot = cotInfo.ranges.map(({ start, end }) => msg.content.slice(start, end)).join('\n\n')
+                    + cotInfo.closingTags;
                 msg.originalUiTemplateUpdate = uiTemplateUpdateMatch ? uiTemplateUpdateMatch[0] : '';
-                msg.originalEditMessageContent = stripUiTemplateUpdateBlock(parseCot(msg.content).main);
+                msg.originalEditMessageContent = stripUiTemplateUpdateBlock(cotInfo.main);
                 msg.editMessageContent = msg.originalEditMessageContent;
                 msg.editMessageHeight = Math.min(0.7 * window.innerHeight, Math.max(88, Math.round(messageHeight || 160)));
             }
@@ -5126,7 +5126,6 @@ const app = createApp({
             delete message.editMessageContent;
             delete message.editMessageHeight;
             delete message.originalCot;
-            delete message.originalSys;
             delete message.originalUiTemplateUpdate;
             delete message.originalEditMessageContent;
         };
@@ -5135,10 +5134,13 @@ const app = createApp({
             const msg = chatHistory.value[index];
             if (msg) {
                 const contentChanged = String(msg.editMessageContent || '') !== String(msg.originalEditMessageContent || '');
-                let finalContent = msg.editMessageContent;
-                if (msg.originalSys) {
-                    finalContent = finalContent + '\n\n[系统指令:\n' + msg.originalSys + ']';
+                if (!contentChanged) {
+                    clearMessageEditState(msg);
+                    await saveChatHistoryNow();
+                    showToast('消息未改动', 'success');
+                    return;
                 }
+                let finalContent = msg.editMessageContent;
                 if (msg.originalUiTemplateUpdate) {
                     finalContent = finalContent.trimEnd() + '\n\n' + msg.originalUiTemplateUpdate;
                 }
@@ -5146,16 +5148,9 @@ const app = createApp({
                     finalContent = msg.originalCot + '\n\n' + finalContent;
                 }
                 msg.content = finalContent;
-                if (contentChanged) {
-                    delete msg.styleFilterHits;
-                    openStyleFilterMessageKey.value = '';
-                }
+                delete msg.styleFilterHits;
+                openStyleFilterMessageKey.value = '';
                 clearMessageEditState(msg);
-                if (!contentChanged) {
-                    await saveChatHistoryNow();
-                    showToast('消息已保存', 'success');
-                    return;
-                }
                 abortConversationBackgroundWork();
                 const snapshot = await ensureConversationMessageIds();
                 const affectedTurn = snapshot.turns.find(turnInfo =>
@@ -5261,18 +5256,20 @@ const app = createApp({
                 .map(m => ({
                     role: m.role,
                     name: m.role === 'user' ? user.name : (m.name || currentCharacter.value.name),
-                    content: replaceUserNamePlaceholder(appendMessageImageDescriptions(m, parseCot(m.content || '').main))
+                    content: replaceUserNamePlaceholder(appendMessageImageDescriptions(
+                        m,
+                        parseCot(stripUiTemplateUpdateBlock(m.content || '')).main
+                    ))
                 }));
             const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
 
+            // [LuzzyRP patch 015] UI 模板副模型走多商路由
             const uiTemplateResolved = resolveModelRequest(settings.uiTemplateModel);
             const fallbackModel = uiTemplateResolved.model.trim();
             if (!fallbackModel) {
                 markUiTemplateStatus('skipped', '未选模型');
                 return false;
             }
-            const url = buildApiEndpoint(uiTemplateResolved.url, 'chat/completions');
-
             try {
                 const updateRun = startUiTemplateUpdateRun();
                 const isCurrentRun = () => isUiTemplateUpdateRunCurrent(updateRun.seq, lockedTargetMessageId);
@@ -5300,20 +5297,18 @@ const app = createApp({
 
                 await Promise.all(templates.map(async (template) => {
                     const model = fallbackModel;
-                    const requestStartedAt = Date.now();
                     try {
                         const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                         const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
-                        // [LuzzyRP patch 015] 走三协议适配层（原裸 fetch 仅支持 openai）
-                        const responseResult = await requestChatCompletion({
-                            url,
+                        const result = await requestTrackedChatCompletion({
+                            // [LuzzyRP patch 015/025] 多商路由 + provider 透传
+                            url: buildApiEndpoint(uiTemplateResolved.url, 'chat/completions'),
                             apiKey: uiTemplateResolved.apiKey,
-                            model,
+                            model, temperature: 0.2, stream: false,
                             protocol: uiTemplateResolved.protocol,
                             maxTokens: uiTemplateResolved.modelMeta?.maxOutput || null,
                             extraBody: uiTemplateResolved.extraBody,
-                            temperature: 0.2,
-                            stream: false,
+                            provider: uiTemplateResolved.providerId || '',
                             messages: [
                                 {
                                     role: 'system',
@@ -5325,28 +5320,24 @@ const app = createApp({
                                         userName: user.name
                                     }))
                                 },
-                                {
-                                    role: 'user',
-                                    content: JSON.stringify({
-                                        recentMessages
-                                    }, null, 2)
-                                }
+                                { role: 'user', content: JSON.stringify({ recentMessages }, null, 2) }
                             ],
                             signal: updateRun.signal
-                        });
+                        }, 'ui_template');
                         if (!isCurrentRun()) return;
-                        let content = responseResult.content || '';
-                        const parsed = parseUiTemplateUpdates(content);
-                        const updates = normalizeUiTemplateUpdates(parsed, template);
-                        recordApiUsage(responseResult.usage, {
-                            type: 'ui_template',
+                        const content = parseCot(result.content).main;
+                        const latestUiTemplateAnalysis = {
+                            time: new Date().toISOString(),
                             model,
-                            provider: uiTemplateResolved.providerId || '',
-                            protocol: uiTemplateResolved.protocol,
-                            isStream: false,
-                            durationMs: Date.now() - requestStartedAt,
-                            outputCharacters: content.length
-                        });
+                            templateId: template.id,
+                            templateName: template.name || template.id,
+                            content: String(content)
+                        };
+                        window.__RPHubLastUiTemplateAnalysis = latestUiTemplateAnalysis;
+                        console.info('[UI模板][副模型] 最新一次变量输出：', latestUiTemplateAnalysis);
+                        const updateBlock = findUiTemplateUpdateBlock(content);
+                        const parsed = parseUiTemplateUpdates(updateBlock ? updateBlock[1] : content, [template]);
+                        const updates = normalizeUiTemplateUpdates(parsed, template);
                         pendingTemplateUpdates.push({ template, updates, model });
                     } catch (e) {
                         if (updateRun.signal.aborted || !isCurrentRun()) return;
@@ -5707,13 +5698,11 @@ const app = createApp({
         const usesThinkingCotTag = (model) => /(?:deepseek|glm|kimi)/i.test(String(parseModelRef(model).bareId || ''));
         const getMessageThinkingText = (message, includeNativeReasoning = true) => {
             const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
-            const content = String(message?.content || '');
-            const thinkingPattern = /<(thinking|think|cot)>([\s\S]*?)(?:<\/\s*\1\s*>|<\s*\1\s*>|$)/gi;
-            for (const match of content.matchAll(thinkingPattern)) parts.push(String(match[2] || '').trim());
+            parts.push(parseCot(message?.content || '').rawCot);
             return [...new Set(parts)].filter(Boolean).join('\n\n');
         };
         const wrapAnalysis = (tag, text) => text
-            ? `<${tag}>\n${text}\n</${tag}>\n`
+            ? `<${tag}>\n${text.replace(/<\s*\/?\s*(?:thinking|think|cot)\s*>/gi, '')}\n</${tag}>\n`
             : '';
         const appendNextResponsePrompt = (messageList, { cotEnabled = false, useThinkingTag = false, writingStylePrompt = '' } = {}) => {
             const target = [...messageList].reverse().find(message => (
@@ -5734,6 +5723,18 @@ const app = createApp({
             });
             target.content = `${String(target.content || '').trimEnd()}\n\n${prompt}`;
         };
+        const isLikelyTruncatedResponse = (text) => {
+            const parsed = parseCot(stripUiTemplateUpdateBlock(String(text || '')));
+            if (parsed.ranges.length && !parsed.isFinished) return true;
+            const value = parsed.main
+                .replace(/image###[^\r\n]*###\s*$/i, '')
+                .replace(/[*_~`]+\s*$/g, '')
+                .trim();
+            if (!value) return false;
+            return !/(?:###|[。！？!?；;：:.!?…」』）》）】〕］\]}"'’”>])$/.test(value);
+        };
+        const getTruncationMaxAttempts = () => Math.min(10, Math.max(5, Number(settings.truncationMaxAttempts) || 5));
+
         let _wasCancelled = false;
         const generateResponse = async (startTime = null, options = {}) => {
             const reuseGeneratingState = options.reuseGeneratingState === true;
@@ -5741,6 +5742,9 @@ const app = createApp({
             const activeToolDepth = Number(options.activeToolDepth) || 0;
             const continueAssistantMessageId = options.continueAssistantMessageId || null;
             const continuationToolCallId = options.continuationToolCallId || null;
+            const continuationAttempt = Number(options.continuationAttempt) || 0;
+            const continuationPrompt = String(options.continuationPrompt || '请直接接着上一条回复续写，不要重复已经输出的内容，也不要解释续写过程。');
+            // [LuzzyRP patch 015] 聊天主模型走多商路由（provider/protocol 供请求分派与用量记录）
             const requestModelResolved = resolveModelRequest(settings.model);
             const requestModel = requestModelResolved.model;
 
@@ -5752,9 +5756,6 @@ const app = createApp({
             const continuationTargetMessage = continueAssistantMessageId
                 ? chatHistory.value.find(msg => msg && msg.role === 'assistant' && msg.id === continueAssistantMessageId) || null
                 : null;
-            const initialAssistantOutputLength = continuationTargetMessage
-                ? String(continuationTargetMessage.content || '').length + String(continuationTargetMessage.reasoning || '').length
-                : 0;
             if (!continuationTargetMessage && activeToolDepth === 0) {
                 resetActiveToolResultContext();
             }
@@ -5764,8 +5765,9 @@ const app = createApp({
             // 避免底部全局 typing 占位气泡冒出来。
             isReceiving.value = !!continuationTargetMessage;
             isThinking.value = false;
-            activeToolContinuationMessageId.value = continuationTargetMessage?.id || null;
-            activeToolContinuationToolCallId.value = continuationTargetMessage ? continuationToolCallId : null;
+            const isToolContinuation = !!(continuationTargetMessage && continuationToolCallId);
+            activeToolContinuationMessageId.value = isToolContinuation ? continuationTargetMessage.id : null;
+            activeToolContinuationToolCallId.value = isToolContinuation ? continuationToolCallId : null;
             activeToolContinuationHasResponse.value = false;
             abortController.value = new AbortController();
             let generationStartTime = startTime || Date.now();
@@ -6075,7 +6077,9 @@ const app = createApp({
                     const cleanSourceContent = (source) => {
                         // Remove internal thinking/COT from history before sending, then restore only the retained recent blocks.
                         const parsedData = parseCot(source.content || '');
-                        let content = stripDisabledImageGenContext(stripNextResponsePrompt(stripUiTemplateContextInjection(parsedData.main)));
+                        let content = stripUiTemplateContextInjection(parsedData.main);
+                        if (!settings.uiTemplateEnabled || !settings.uiTemplateMainModelAnalysis) content = stripUiTemplateUpdateBlock(content);
+                        content = stripDisabledImageGenContext(stripNextResponsePrompt(content));
                         const recentThinking = source.role === 'assistant' ? recentThinkingByMessage.get(source) : '';
                         if (recentThinking) content = `${wrapAnalysis(retainedThinkingTag, recentThinking)}${content}`;
                         if (source === openingSourceMessage && openingThinking) content = `${openingThinking}${content}`;
@@ -6086,13 +6090,9 @@ const app = createApp({
                             && !suppressUiTemplateCorrection
                             && source.uiTemplateCorrection) {
                             content = `${BUILTIN_PROMPTS.buildMainModelUiTemplateCorrectionPrompt({
-                                failedResult: source.uiTemplateCorrection.result,
+                                failureSummary: source.uiTemplateCorrection.summary,
                                 failureReason: source.uiTemplateCorrection.reason
                             })}\n\n${content.trimStart()}`;
-                        }
-                        const cleanSys = stripDisabledImageGenContext(parsedData.sys || '');
-                        if (cleanSys && source.role === 'user') {
-                            content += '\n\n[系统指令: ' + cleanSys + ']';
                         }
                         return content.trim();
                     };
@@ -6178,6 +6178,12 @@ const app = createApp({
                 name,
                 content
             }));
+            if (continueAssistantMessageId && !continuationToolCallId) {
+                apiMessages.push({
+                    role: 'user',
+                    content: continuationPrompt
+                });
+            }
 
             let generatedAssistantMessageId = null;
             let assistantMessage = null;
@@ -6185,7 +6191,7 @@ const app = createApp({
             let continuationToolCall = null;
             let continuationContentStarted = false;
             let continuationReasoningStarted = false;
-            let responseUsage = null;
+            let generationFailed = false;
 
             if (continuingAssistantMessage && continuationToolCallId && Array.isArray(continuingAssistantMessage.toolCalls)) {
                 continuationToolCall = continuingAssistantMessage.toolCalls.find(call => call && call.id === continuationToolCallId) || null;
@@ -6222,11 +6228,17 @@ const app = createApp({
                 }
 
                 const existing = String(message[field] || '');
+                const appendValue = isContinuation && field === 'content' && !hasStarted
+                    ? String(text).replace(/^\s+/, '')
+                    : text;
+                if (!appendValue) return;
 
                 if (isContinuation && !hasStarted && existing.trim()) {
-                    message[field] = existing.replace(/\s+$/, '') + '\n\n' + text;
+                    message[field] = field === 'content'
+                        ? existing.replace(/\s+$/, '') + appendValue
+                        : existing.replace(/\s+$/, '') + '\n\n' + appendValue;
                 } else {
-                    message[field] = existing + text;
+                    message[field] = existing + appendValue;
                 }
 
                 if (isContinuation && !hasStarted) {
@@ -6237,39 +6249,6 @@ const app = createApp({
                     promoteActiveToolCallsFromAssistant(message);
                 }
                 if (isContinuation) activeToolContinuationHasResponse.value = true;
-            };
-
-            const nativeReasoningClosedMessages = new WeakSet();
-            const normalizeNativeReasoningBoundary = (message) => {
-                if (!message) return;
-                if (nativeReasoningClosedMessages.has(message)) return;
-                const reasoning = String(message.reasoning || '');
-                const closeMatch = reasoning.match(/<\/\s*(thinking|think|cot)\s*>/i);
-                if (!closeMatch) return;
-
-                const before = reasoning.slice(0, closeMatch.index)
-                    .replace(/<\s*(thinking|think|cot)\s*>/gi, '')
-                    .trim();
-                const after = reasoning.slice(closeMatch.index + closeMatch[0].length).trim();
-                message.reasoning = before;
-                if (after) {
-                    message.content = [String(message.content || '').trimEnd(), after]
-                        .filter(Boolean)
-                        .join('\n\n');
-                }
-                nativeReasoningClosedMessages.add(message);
-                isThinking.value = false;
-                collapseNativeReasoning(message);
-            };
-
-            const appendAssistantReasoning = (message, text) => {
-                if (!message || !text) return;
-                if (nativeReasoningClosedMessages.has(message)) {
-                    appendAssistantText(message, 'content', text);
-                    return;
-                }
-                appendAssistantText(message, 'reasoning', text);
-                normalizeNativeReasoningBoundary(message);
             };
 
             const createAssistantMessage = (content = '', reasoning = '') => reactive({
@@ -6319,8 +6298,7 @@ const app = createApp({
                 if (assistantMessage) return assistantMessage;
                 if (continuingAssistantMessage) {
                     assistantMessage = prepareAssistantMessageForAppend(continuingAssistantMessage);
-                    normalizeNativeReasoningBoundary(assistantMessage);
-                    if (reasoning) appendAssistantReasoning(assistantMessage, reasoning);
+                    if (reasoning) appendAssistantText(assistantMessage, 'reasoning', reasoning);
                     if (content) appendAssistantText(assistantMessage, 'content', content);
                     isReceiving.value = true;
                     return assistantMessage;
@@ -6330,7 +6308,6 @@ const app = createApp({
                 // [LuzzyRP patch 031] 记忆召回节点：创建时盖戳（仅新消息；续写保留原戳）
                 const memoryRecallStamp = extractMemoryRecallStamp();
                 if (memoryRecallStamp) assistantMessage.memoryRecall = memoryRecallStamp;
-                normalizeNativeReasoningBoundary(assistantMessage);
                 promoteActiveToolCallsFromAssistant(assistantMessage);
                 chatHistory.value.push(assistantMessage);
                 isReceiving.value = true;
@@ -6338,13 +6315,15 @@ const app = createApp({
             };
 
             try {
-                const responseResult = await requestChatCompletion({
-                url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
+                const responseResult = await requestTrackedChatCompletion({
+                    // [LuzzyRP patch 015/025] 多商路由 + provider 透传
+                    url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
                     apiKey: requestModelResolved.apiKey,
                     model: requestModel,
                     protocol: requestModelResolved.protocol,
                     maxTokens: requestModelResolved.modelMeta?.maxOutput || null,
                     extraBody: requestModelResolved.extraBody,
+                    provider: requestModelResolved.providerId || '',
                     messages: apiMessages,
                     temperature: settings.temperature,
                     reasoningEffort: settings.reasoningEffort,
@@ -6361,7 +6340,7 @@ const app = createApp({
                             seededContent = !!content;
                             seededReasoning = !!reasoning;
                             if (seededReasoning) {
-                                isThinking.value = !nativeReasoningClosedMessages.has(assistantMessage);
+                                isThinking.value = true;
                             }
                             if (seededContent && !reasoning) {
                                 isThinking.value = false;
@@ -6370,8 +6349,9 @@ const app = createApp({
                             await nextTick();
                         }
                         if (reasoning && !seededReasoning) {
-                            appendAssistantReasoning(assistantMessage, reasoning);
-                            isThinking.value = !nativeReasoningClosedMessages.has(assistantMessage);
+                            // 原生思考中的文字标签不能改变 API 已指定的通道。
+                            appendAssistantText(assistantMessage, 'reasoning', reasoning);
+                            isThinking.value = true;
                         }
                         if (content && !seededContent) {
                             appendAssistantText(assistantMessage, 'content', content);
@@ -6379,8 +6359,7 @@ const app = createApp({
                             collapseNativeReasoning(assistantMessage);
                         }
                     }
-                });
-                responseUsage = responseResult.usage || responseUsage;
+                }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
 
                 if (!responseResult.isStream) {
                     const { content, reasoning } = responseResult;
@@ -6400,24 +6379,14 @@ const app = createApp({
                     }
                 }
                 const duration = Date.now() - generationStartTime;
-                const outputCharacters = assistantMessage
-                    ? Math.max(0, String(assistantMessage.content || '').length
-                        + String(assistantMessage.reasoning || '').length
-                        - initialAssistantOutputLength)
-                    : 0;
-                recordApiUsage(responseUsage, {
-                    type: activeToolDepth > 0 ? 'tool_continuation' : 'chat',
-                    model: requestModel,
-                    provider: requestModelResolved.providerId || '',
-                    protocol: requestModelResolved.protocol,
-                    isStream: responseResult.isStream,
-                    durationMs: duration,
-                    outputCharacters
-                });
 
                 if (assistantMessage) {
                     generatedAssistantMessageId = assistantMessage.id;
-                    if (settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis) {
+                    const deferUiTemplateAnalysis = isTruncationEnabled.value
+                        && activeToolDepth === 0
+                        && continuationAttempt < getTruncationMaxAttempts()
+                        && isLikelyTruncatedResponse(assistantMessage.content);
+                    if (settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis && !deferUiTemplateAnalysis) {
                         applyMainModelUiTemplateUpdates(assistantMessage, requestModel);
                     }
 
@@ -6425,6 +6394,7 @@ const app = createApp({
                     if (recentGenerationTimes.value.length > 5) recentGenerationTimes.value.shift();
                 }
             } catch (error) {
+                generationFailed = true;
                 if (error.name === 'AbortError') {
                     _wasCancelled = true;
                     showToast('生成已中止', 'info');
@@ -6478,32 +6448,65 @@ const app = createApp({
                     continuationToolCall.status = 'done';
                 }
                 collapseActiveNativeReasoning();
+                const wasCancelled = _wasCancelled;
+                _wasCancelled = false;
+                const shouldAutoContinue = isTruncationEnabled.value
+                    && !wasCancelled
+                    && !generationFailed
+                    && activeToolDepth === 0
+                    && continuationAttempt < getTruncationMaxAttempts()
+                    && assistantMessage
+                    && isLikelyTruncatedResponse(assistantMessage.content);
+                if (shouldAutoContinue) {
+                    isGenerating.value = true;
+                    isReceiving.value = true;
+                }
                 await saveChatHistoryNow();
-                isGenerating.value = false;
-                isReceiving.value = false;
                 isThinking.value = false;
+                if (!shouldAutoContinue) {
+                    isGenerating.value = false;
+                    isReceiving.value = false;
+                }
                 if (!continueAssistantMessageId || activeToolContinuationMessageId.value === continueAssistantMessageId) {
                     activeToolContinuationMessageId.value = null;
                     activeToolContinuationToolCallId.value = null;
                     activeToolContinuationHasResponse.value = false;
                 }
                 abortController.value = null;
-                const wasCancelled = _wasCancelled;
-                _wasCancelled = false;
                 if (waitTimer) {
                     clearInterval(waitTimer);
                     waitTimer = null;
                 }
 
-                const needsPostGenerationTurns = !wasCancelled
-                    && ((settings.uiTemplateEnabled && generatedAssistantMessageId)
-                        || memorySettings.enabled);
-                const activeToolContinued = !wasCancelled && assistantMessage
-                    ? await handleActiveToolCallFromAssistant(assistantMessage, activeToolDepth)
-                    : false;
+                const activeToolContinued = shouldAutoContinue
+                    ? false
+                    : (!wasCancelled && assistantMessage
+                        ? await handleActiveToolCallFromAssistant(assistantMessage, activeToolDepth)
+                        : false);
                 if (!activeToolContinued) {
                     resetActiveToolResultContext();
                 }
+                if (shouldAutoContinue) {
+                    nextTick(() => {
+                        if (chatHistory.value[chatHistory.value.length - 1] !== assistantMessage
+                            || !assistantMessage.id) {
+                            isGenerating.value = false;
+                            isReceiving.value = false;
+                            return;
+                        }
+                        generateResponse(Date.now(), {
+                            reuseGeneratingState: true,
+                            continueAssistantMessageId: assistantMessage.id,
+                            continuationAttempt: continuationAttempt + 1,
+                            continuationPrompt: '输出被截断，请按输出规则衔接着最后一个字尽快补全当前阶段剧情，不要重复已经输出的内容，不要冗余输出，不要开启新的剧情段落。'
+                        });
+                    });
+                    return;
+                }
+
+                const needsPostGenerationTurns = !wasCancelled
+                    && ((settings.uiTemplateEnabled && generatedAssistantMessageId)
+                        || memorySettings.enabled);
                 const hasCompletedTurns = !activeToolContinued && needsPostGenerationTurns && buildConversationTurnSnapshot().turns.length > 0;
 
                 if (hasCompletedTurns && settings.uiTemplateEnabled && generatedAssistantMessageId && !settings.uiTemplateMainModelAnalysis) {
@@ -6682,73 +6685,28 @@ const app = createApp({
             };
         };
 
-        const getClassicSummaryResponseContent = (rawText) => {
-            const readContent = (value) => {
-                if (Array.isArray(value)) {
-                    return value.map(item => item?.text || item?.content || '').join('');
-                }
-                return String(value || '');
-            };
-
-            try {
-                const data = JSON.parse(rawText);
-                const apiError = extractApiErrorMessage(data);
-                if (apiError) throw new Error(apiError);
-                return readContent(data.choices?.[0]?.message?.content || data.choices?.[0]?.text);
-            } catch (error) {
-                if (error?.name !== 'SyntaxError') throw error;
-            }
-
-            let content = '';
-            String(rawText || '').split(/\r?\n/).forEach(line => {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith('data:')) return;
-                const payload = trimmed.replace(/^data:\s*/, '');
-                if (!payload || payload === '[DONE]') return;
-                try {
-                    const data = JSON.parse(payload);
-                    const choice = data.choices?.[0];
-                    content += readContent(choice?.delta?.content || choice?.message?.content || choice?.text);
-                } catch (_) { }
-            });
-            return content;
-        };
-
         const requestClassicMemoryCompletion = async (requestMessages, signal) => {
+            // [LuzzyRP patch 015] 总结副模型走多商路由（provider/protocol 透传进用量记录）
             const classicResolved = resolveModelRequest(memorySettings.classicModel);
             if (!classicResolved.url || !classicResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
-            if (!classicResolved.model) throw new Error('请先选择总结模式副模型');
             const model = classicResolved.model;
+            if (!model) throw new Error('请先选择总结模式副模型');
 
-            const requestStartedAt = Date.now();
-            // [LuzzyRP patch 015] 走三协议适配层（原裸 fetch 仅支持 openai）
-            const result = await requestChatCompletion({
+            const result = await requestTrackedChatCompletion({
                 url: buildApiEndpoint(classicResolved.url, 'chat/completions'),
                 apiKey: classicResolved.apiKey,
-                model,
+                model, temperature: 0.2, stream: false, messages: requestMessages, signal,
                 protocol: classicResolved.protocol,
                 maxTokens: classicResolved.modelMeta?.maxOutput || null,
                 extraBody: classicResolved.extraBody,
-                temperature: 0.2,
-                stream: false,
-                messages: requestMessages,
-                signal
-            });
-            const summary = String(result.content || '')
+                provider: classicResolved.providerId || ''
+            }, 'summary');
+            const summary = parseCot(result.content).main
                 .replace(/^```(?:text|markdown)?\s*/i, '')
                 .replace(/\s*```$/, '')
                 .replace(/^(?:最新对话总结|总结)[:：]\s*/i, '')
                 .trim();
             if (!summary) throw new Error('副模型没有返回有效总结');
-            recordApiUsage(result.usage, {
-                type: 'summary',
-                model,
-                provider: classicResolved.providerId || '',
-                protocol: classicResolved.protocol,
-                isStream: false,
-                durationMs: Date.now() - requestStartedAt,
-                outputCharacters: summary.length
-            });
             return summary.replace(/\n{3,}/g, '\n\n');
         };
 
@@ -7210,10 +7168,13 @@ const app = createApp({
                 model,
                 provider: embeddingResolved.providerId || '',
                 protocol: embeddingResolved.protocol,
+                apiUrl: embeddingResolved.url,
+                apiKey: embeddingResolved.apiKey,
                 isStream: false,
                 durationMs: Date.now() - requestStartedAt,
                 outputCharacters: 0
             });
+
             return vectors;
         };
 
@@ -9819,7 +9780,7 @@ const app = createApp({
                 : `${baseUrl}/generate?tag=$1&token=${encodeURIComponent(imageGenToken)}&model=${settings.imageModel}&artist=${encodedTargetArtists}&size=${settings.imageSize}&steps=40&scale=6&cfg=0&sampler=k_dpmpp_2m_sde&negative={{{{bad anatomy}}}},{bad feet},bad hands,{{{bad proportions}}},{blurry},cloned face,cropped,{{{deformed}}},{{{disfigured}}},error,{{{extra arms}}},{extra digit},{{{extra legs}}},extra limbs,{{extra limbs}},{fewer digits},{{{fused fingers}}},gross proportions,ink eyes,ink hair,jpeg artifacts,{{{{long neck}}}},low quality,{malformed limbs},{{missing arms}},{missing fingers}},{{missing legs}},{{{more than 2 nipples}}},mutated hands,{{{mutation}}},normal quality,owres,{{poorly drawn face}},{{poorly drawn hands}},reen eyes,signature,text,{{too many fingers}},{{{ugly}}},username,uta,watermark,worst quality,{{{more than 2 legs}}},awkward hand sign,weird hand gesture,contorted hand,unnatural finger pose,deformed hand gesture,{shaka},{hang loose},{{rock on}},{shaka sign}&nocache=0&noise_schedule=karras`;
             const imageGenRegexContent = {
                 name: imageGenRegexName,
-                regex: '/image###([^\\r\\n]*?)(?:###|(?=\\r?\\n)|$)/g',
+                regex: getImageTagRegex().toString(),
             replacement: `<div class="generated-image-card is-generating" data-image-request="${imageRequestUrl}" style="width:100%;height:auto;max-width:100%;box-sizing:border-box;padding:2px;border:1px solid rgba(255,255,255,.58);background:transparent;position:relative;border-radius:12px;overflow:hidden;display:flex;justify-content:center;align-items:center;box-shadow:0 4px 14px rgba(148,163,184,.06)"><img alt="" style="max-width:100%;height:100%;width:100%;display:block;object-fit:contain;border-radius:9px;transition:transform .3s ease"><div class="generated-image-progress" aria-live="polite"><svg class="generated-image-spinner" viewBox="0 0 50 50" aria-hidden="true"><circle class="generated-image-spinner-path" cx="25" cy="25" r="20" fill="none" stroke-width="2"></circle></svg><span class="generated-image-progress-label">等待生成</span><span class="generated-image-progress-track"><i class="generated-image-progress-bar"></i></span></div><button type="button" class="generated-image-reroll" title="重新生成图片" aria-label="重新生成图片"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button></div>`,
                 placement: [2],
                 markdownOnly: true,
@@ -11110,12 +11071,10 @@ const app = createApp({
                 selectCharacter(0);
             }
 
-            if (settings.autoFetchModels) {
-                // [LuzzyRP patch 012] 启动仅拉取激活商模型，其余已配置商在选择器打开时惰性补拉
-                const activeProvider = getApiProviderById(settings.apiProviderId);
-                if (isProviderConfigured(activeProvider)) {
-                    fetchModelsForProvider(activeProvider).catch(() => { });
-                }
+            // [LuzzyRP patch 012] 启动仅拉取激活商模型，其余已配置商在选择器打开时惰性补拉
+            const activeProvider = getApiProviderById(settings.apiProviderId);
+            if (isProviderConfigured(activeProvider)) {
+                fetchModelsForProvider(activeProvider).catch(() => { });
             }
 
             // Initial Status Check
@@ -11136,9 +11095,6 @@ const app = createApp({
                     && !e.target.closest('.settings-help-trigger')
                     && !e.target.closest('.settings-help-popover')) {
                     settingsHelpTopic.value = '';
-                }
-                if (showInstructionPanel.value && !e.target.closest('.instruction-panel-container')) {
-                    showInstructionPanel.value = false;
                 }
                 if (showTokenUsageTimeFilter.value && !e.target.closest('.token-usage-time-filter-container')) {
                     showTokenUsageTimeFilter.value = false;
@@ -11170,11 +11126,14 @@ const app = createApp({
         const processMainContent = (mainText, isGeneratingState) => {
             mainText = stripUiTemplateUpdateBlock(mainText);
             if (!isGeneratingState) return { text: mainText, showSpinner: false };
-            const imageStart = mainText.lastIndexOf('image###');
+            const imageStart = cardUtils.findLastUnprotectedMatch(mainText, /image###/gi)?.index ?? -1;
             if (imageStart !== -1) {
                 const imageTail = mainText.slice(imageStart + 'image###'.length);
-                if (!imageTail.includes('###') && !/[\r\n]/.test(imageTail)) {
-                    mainText = mainText.slice(0, imageStart);
+                if (!imageTail.includes('###')
+                    && (isTruncationEnabled.value || !/[\r\n]/.test(imageTail))) {
+                    const lineBreak = imageTail.search(/[\r\n]/);
+                    mainText = mainText.slice(0, imageStart)
+                        + (lineBreak >= 0 ? imageTail.slice(lineBreak) : '');
                 }
             }
             const patterns = ['```html', '```vue', '<!DOCTYPE', '<div', '<style'];
@@ -11353,9 +11312,9 @@ const app = createApp({
             switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
             processMainContent, replaceUserNamePlaceholder,
             currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
-            appVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop,
+            appVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop, // [LuzzyRP patch 030/024]
             showActiveToolEditor,
-            showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
+            showExportModal, exportItems, selectedExportIndices, // Export Modal
             showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
             lastContextTotalLength, lastContextFloorCount, // Context Viewer
             showStoryBranchModal, showStoryBranchNameEditor, storyBranchNameDraft,
@@ -11368,14 +11327,14 @@ const app = createApp({
             startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
             tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
             showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
-            filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory, usageChartRange, usageChartRangeOptions, usageChartProvider, usageChartProviderOptions, usageChartModelOptions, usageChartSelectedModels, usageChartData, toggleUsageChartModel,
+            filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory, usageChartRange, usageChartRangeOptions, usageChartProvider, usageChartProviderOptions, usageChartModelOptions, usageChartSelectedModels, usageChartData, toggleUsageChartModel, // [LuzzyRP patch 025]
             latestMainTokenUsage, formatLatestTokenCount, formatLatestUsageCost,
             getUncachedInputTokens, formatTokenCount, formatTokenAggregate, formatTokenUsageTime, getTokenUsageTypeLabel, clearTokenUsageHistory,
             storageStats, refreshStorageStats, cleanupUnusedStorage, formatStorageSize,
             showCharacterExportModal, openCharacterExportModal, confirmCharacterExport, // Character Export Modal
             updateModalRef, latestUpdateConfig,
-            showConfirmModal, confirmMessage, modelMode, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
-            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel,
+            showConfirmModal, confirmMessage, modelMode, isGeminiModel, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
+            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel, // [LuzzyRP patch 012]
             user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
             showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
             providerModelCount, providerIconInputEl, providerIconCrop, providerEditorIconPreview, providerIconPick, providerIconClear, providerIconFileChosen, providerIconBoxDown, providerIconCropCancel, providerIconCropConfirm, // [LuzzyRP patch 035]
@@ -11449,118 +11408,6 @@ const app = createApp({
                     showToast(`${modeName}已清空`, 'success');
                 });
             },
-            exportMemories: async () => {
-                const isClassicMode = memorySettings.mode === MEMORY_MODE_CLASSIC;
-                let exportData;
-                if (isClassicMode) {
-                    if (classicMemories.value.length === 0) { showToast('当前模式没有记忆可导出', 'info'); return; }
-                    const exportedMemories = [...classicMemories.value]
-                        .sort((a, b) => (a.turn || 0) - (b.turn || 0))
-                        .map(memory => {
-                            const sourceMemories = isSecondaryClassicMemory(memory)
-                                ? getSecondaryClassicSourceMemories(memory)
-                                : [];
-                            return {
-                                turn: memory.turn,
-                                turnStart: memory.turnStart,
-                                turnEnd: memory.turnEnd,
-                                secondaryCompressed: memory.secondaryCompressed === true,
-                                summaryModel: memory.summaryModel || '',
-                                user: {
-                                    content: memory.sourceUserText
-                                        || sourceMemories.map(item => item.sourceUserText || '').filter(Boolean).join('\n\n'),
-                                    messageIds: memory.sourceUserIds || []
-                                },
-                                assistant: {
-                                    content: memory.sourceAssistantText
-                                        || sourceMemories.map(item => item.sourceAssistantText || '').filter(Boolean).join('\n\n'),
-                                    messageIds: memory.sourceAssistantIds || []
-                                },
-                                summary: memory.summary,
-                                sourceMemories: isSecondaryClassicMemory(memory)
-                                    ? cloneForStorage(memory.sourceMemories || [])
-                                    : undefined
-                            };
-                        });
-                    exportData = {
-                        type: 'rp-hub-summary-memories',
-                        version: 2,
-                        character: currentCharacter.value?.name || 'unknown',
-                        exportedAt: new Date().toISOString(),
-                        total: exportedMemories.length,
-                        memories: exportedMemories
-                    };
-                } else {
-                    exportData = await compactMemoriesForStorageAsync(memories.value);
-                    if (exportData.length === 0) { showToast('当前模式没有记忆可导出', 'info'); return; }
-                }
-                const blob = downloadJsonFile(
-                    exportData,
-                    `${isClassicMode ? 'summary_memories' : 'vector_memories'}_${currentCharacter.value?.name || 'unknown'}.json`,
-                    isClassicMode ? 2 : 0,
-                    { revokeDelay: 1000 }
-                );
-                showToast(`${isClassicMode ? '总结模式' : '向量'}记忆已导出，约 ${Math.max(1, Math.round(blob.size / 1024))} KB`, 'success');
-            },
-            importMemories: (event) => readJsonFileInput(event, async data => {
-                const isClassicMode = memorySettings.mode === MEMORY_MODE_CLASSIC;
-                if (isClassicMode) {
-                    if (data?.type !== 'rp-hub-summary-memories' || !Array.isArray(data.memories)) {
-                        throw new Error('这不是总结模式记忆文件');
-                    }
-                    const normalized = prepareClassicMemoriesForRuntime(data.memories.map(memory => ({
-                        id: generateUUID(),
-                        timestamp: Date.now(),
-                        turn: memory?.turn,
-                        turnStart: memory?.turnStart,
-                        turnEnd: memory?.turnEnd,
-                        summary: memory?.summary,
-                        enabled: true,
-                        classicMemory: true,
-                        secondaryCompressed: memory?.secondaryCompressed === true,
-                        summaryModel: String(memory?.summaryModel || ''),
-                        sourceUserIds: Array.isArray(memory?.user?.messageIds) ? memory.user.messageIds : [],
-                        sourceAssistantIds: Array.isArray(memory?.assistant?.messageIds) ? memory.assistant.messageIds : [],
-                        sourceUserText: String(memory?.user?.content || ''),
-                        sourceAssistantText: String(memory?.assistant?.content || ''),
-                        sourceMemories: Array.isArray(memory?.sourceMemories) ? memory.sourceMemories : []
-                    })));
-                    if (normalized.length === 0) throw new Error('文件中没有有效的总结模式记忆');
-                    const existingKeys = new Set(classicMemories.value.map(memory => getClassicMemoryKey(memory.sourceAssistantIds, memory.turn)));
-                    const added = normalized.filter(memory => {
-                        const key = getClassicMemoryKey(memory.sourceAssistantIds, memory.turn);
-                        if (existingKeys.has(key)) return false;
-                        existingKeys.add(key);
-                        return true;
-                    });
-                    classicMemories.value = [...classicMemories.value, ...added];
-                    await saveClassicMemoriesNow();
-                    showToast(`成功导入 ${added.length} 条总结模式记忆`, 'success');
-                    return;
-                }
-
-                const items = Array.isArray(data) ? data : data?.memories;
-                if (!Array.isArray(items)) throw new Error('文件内容不正确');
-                const normalized = items
-                    .filter(m => m && m.vectorMemory === true && hasVectorEmbedding(m))
-                    .map(m => {
-                        const { importance, ...memoryData } = m;
-                        return {
-                            ...memoryData,
-                            id: memoryData.id || generateUUID(),
-                            timestamp: memoryData.timestamp || Date.now(),
-                            turn: memoryData.turn || 0,
-                            summary: String(memoryData.summary || memoryData.paragraph || '').trim(),
-                            vectorMemory: true,
-                            chunkMode: 'paragraph',
-                            enabled: memoryData.enabled !== false
-                        };
-                    });
-                if (normalized.length === 0) throw new Error('这不是向量记忆文件');
-                memories.value = [...memories.value, ...prepareMemoriesForRuntime(normalized)];
-                await saveMemoriesNow();
-                showToast(`成功导入 ${normalized.length} 个分片`, 'success');
-            }, error => showToast(`导入失败: ${error.message || 'JSON 格式错误'}`, 'error')),
             toggleMobileMenu, closeMobileMenu,
             fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat,
             handleConfirm, handleCancel, // Export handlers

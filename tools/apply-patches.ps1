@@ -150,31 +150,11 @@ foreach ($sub in $subPages) {
 }
 
 # ------------------------------------------------------------------
-# Patch 008 · 主题色板 var() 化 v4（RGB 三元组 + <alpha-value>；v4=blue/indigo 色板收编，
-#   蓝色板由实体 patch 012-020 承载——本字符串块仅保留 v2→v3 历史迁移路径）
-# 对应：DESIGN.md 主题技术契约。v3：三元组格式使透明度修饰符
-#（bg-gray-50/60 等）由 JIT 自动注入 alpha——v2 纯 var() 会让带 alpha
-# 的工具类被 JIT 回退成纯白（暗色白块根因，jsdom+CDP 实证）。
-# 预期冲突点：上游改色板结构/新增色阶时需重打
+# Patch 008 · 已退役（v1.3.0 会话 21）：本字符串块是 v2→v3 历史迁移路径（var() 单值→
+#   RGB 三元组），实际 v4 色板（三元组+blue/indigo 收编）由实体 012-035-index-html.patch
+#   承载——上游 1.9.1 色板为十六进制硬编码，v2 形态锚不存在属预期，重放报 FAIL 为误报。
+#   实体对 1.9.1 dry-run CLEAN 实证，退役后由实体统一承载。
 # ------------------------------------------------------------------
-$titleContent = [System.IO.File]::ReadAllText($titlePath)
-if ($titleContent -match '<alpha-value>') {
-    Write-Host "[SKIP] 008-theme-vars (已应用)"
-} else {
-    if ($titleContent -match "50: 'var\(--tw-gray-50\)'") {
-        $keys = @(50, 100, 200, 300, 400, 500, 600, 700, 800, 900)
-        for ($i = 0; $i -lt 10; $i++) {
-            $titleContent = $titleContent.Replace("'$($keys[$i])': 'var(--tw-gray-$($keys[$i]))'", "'$($keys[$i])': 'rgb(var(--tw-gray-$($keys[$i])) / <alpha-value>)'")
-            $titleContent = $titleContent.Replace("$($keys[$i]): 'var(--tw-gray-$($keys[$i]))'", "$($keys[$i]): 'rgb(var(--tw-gray-$($keys[$i])) / <alpha-value>)'")
-            $titleContent = $titleContent.Replace("'$($keys[$i])': 'var(--tw-primary-$($keys[$i]))'", "'$($keys[$i])': 'rgb(var(--tw-primary-$($keys[$i])) / <alpha-value>)'")
-            $titleContent = $titleContent.Replace("$($keys[$i]): 'var(--tw-primary-$($keys[$i]))'", "$($keys[$i]): 'rgb(var(--tw-primary-$($keys[$i])) / <alpha-value>)'")
-        }
-        [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
-        Write-Host "[ OK ] 008-theme-vars"
-    } else {
-        Write-Host "[FAIL] 008-theme-vars: 未找到 var() 色板，上游可能已改色板结构"
-    }
-}
 
 # ------------------------------------------------------------------
 # Patch 009 · 字体选项：内置改「经典」系 + 新增 luzzy 默认（core-utils.js）
@@ -376,15 +356,16 @@ function Get-FileSha256Local([string]$Path) {
 $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'novel/index.html';             Entity = '007-029-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
-    @{ File = 'assets/js/core-utils.js';      Entity = '009-029-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
+    @{ File = 'assets/js/core-utils.js';      Entity = '009-035-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
     @{ File = 'index.html';                   Entity = '012-035-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
     @{ File = 'assets/js/app.js';             Entity = '012-035-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/ui-components.js';   Entity = '012-026-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/runtime-services.js'; Entity = '012-032-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
+    @{ File = 'assets/js/ui-components.js';   Entity = '012-035-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/runtime-services.js'; Entity = '012-035-runtime-services-js.patch'; Marker = '[LuzzyRP patch 032]' },
+    @{ File = 'assets/js/api-utils.js';       Entity = '015-032-api-utils-js.patch';      Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/data-services.js';   Entity = '016-035-data-services-js.patch';  Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-035）=="
+Write-Host "== 实体 patch（007/009/012-035/015-032）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

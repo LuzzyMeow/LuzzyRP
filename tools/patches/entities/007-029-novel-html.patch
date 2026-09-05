@@ -1,8 +1,8 @@
 diff --git a/novel/index.html b/novel/index.html
-index a172348b..68a9a32d 100644
+index 7e8034a1..ee68a77b 100644
 --- a/novel/index.html
 +++ b/novel/index.html
-@@ -5,16 +5,17 @@
+@@ -5,18 +5,16 @@
      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
      <title>小说生成</title>
      <!-- Vue 3 -->
@@ -10,23 +10,22 @@ index a172348b..68a9a32d 100644
 +    <script src="../vendor/vue.global.prod.js"></script>
      <!-- Tailwind CSS -->
 -    <script src="https://cdn.tailwindcss.com"></script>
-+<!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
-+    <script src="../vendor/tailwind.js"></script>
++    <script src="../vendor/tailwind.js"></script><!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
      <!-- Marked for Markdown rendering -->
 -    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 +    <script src="../vendor/marked.min.js"></script>
+     <script src="../assets/js/built-in-content.js"></script>
+     <script src="../assets/js/core-utils.js"></script>
      <script src="../assets/js/api-utils.js"></script>
      <!-- Google Fonts -->
 -    <link rel="preconnect" href="https://fonts.googleapis.com">
 -    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 -    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
 +
-+
-+
      
      <style>
          :root {
-@@ -1200,11 +1201,10 @@
+@@ -1202,11 +1200,10 @@
                  const apiProviders = ref([]);
                  const isSyncingRPHub = ref(false);
                  const showApiProviderSelect = ref(false);

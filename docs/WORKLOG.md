@@ -1737,3 +1737,35 @@ EXTRACT 27 debug 包=日常包（数据保留）。
 专项回归：用量记录 provider 字段、Gemini 截断续写、多商路由、记忆召回节点、
 工坊页首屏（007 修复验证）、UI 模板 JSON 协议兼容、亮暗切换+首帧防闪蓝。
 回滚点：每阶段独立 commit；app.js 手工合并是唯一高危区（--reject 逐 hunk + 每步冒烟）。
+
+### 会话 21 补充 7 · 上游 1.9.1 同步执行完成（2026-09-05）
+
+**执行（按补充 6 预案）**：①覆盖 10 文件至 1.9.1（7b39385）；②字符串块 001-006/009/010/
+011b 重放 OK（008 字符串块退役——v2→v3 迁移路径过时，v4 色板由 index 实体承载；
+004 探测器 WARN 在实体应用后消除）；③4 枚 CLEAN 实体直放（index 全量 31 hunks /
+data-services 016 / ui-components / core-utils 009-029）；④app.js 实体 --reject 部分应用
+（20 hunks 拒绝逐个手工）：reroll 分流重放到上游 sourceText 新实现 / fetchModels 保留
+多商版 / checkApiStatus 保留协议分型 / 识图+UI模板+总结改走 requestTrackedChatCompletion
+（多商路由+provider 透传）/ 031 盖戳重排进新 ensureAssistantMessage / embeddings 换
+026+gemini batchEmbedContents 版 / expose 区合并（保留 extractApiErrorMessage 导入——
+上游移除但我方 026/015 依赖；清上游死引用 toggleChatFullscreen）/ **012 onMounted 改
+无条件懒拉取激活商**（上游删 autoFetchModels）；⑤runtime-services：025 provider/
+protocol 字段进新 record 形态（meta 优先语义采纳）；api-utils：015 协议分派入口+
+anthropic/gemini 适配器移植+max_tokens/extraBody+032 间隔 120（withUsageMetrics 统一
+onUsage 指标）；⑥character/novel：007 在 1.9.1 干净基线正确重打（含 hunk2 残缺缺陷
+修复）+ novel 029 精简；⑦实体全量 9 枚以 7b39385 基线再生成（含新增
+015-032-api-utils），逆向 9/9 PASS；⑧指纹表更新至 7b39385（+character/novel）；
+⑨manifest 校准（015-runtime 退役→015-api-utils、032 拆双项）→ **74 PASS / 0 FAIL**。
+
+**关键修复（执行中抓错）**：expose 残留 toggleChatFullscreen 引用 → setup 抛
+ReferenceError → 应用渲染空壳（合并后首帧冒烟捕获）——上游自摘 expose 但我方暴露行
+仍有引用所致，清除后恢复。教训：**上游删除的符号必须在合并时全库清点引用**。
+
+**门禁终态**：verify-markers 74 PASS / 0 FAIL；9 实体逆向 9/9 PASS；全 JS node --check
+PASS；apply-patches 全 SKIP；gen-changelog 重跑 R3 全绿；R1/R2（1.9.1 指纹）全过；
+桌面冒烟全绿（挂载/品牌卡/管理器/035 编辑器/零异常）。
+
+**遗留 / 下一步**：debug 包重打交付桌面（含 1.9.1 同步）；真机回归专项=§6.2 全量+
+工坊页首屏（007 修复验证）+ UI 模板 JSON 协议兼容 + 抗截断开关（Gemini 模型）+
+用量记录 provider 列 + 记忆召回节点；release 待用户真机验证后执行。
+

@@ -7,7 +7,6 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>角色卡工坊</title>
 
-
     <link rel="stylesheet" href="../assets/css/local-fonts.css">
 <!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
     <script src="../vendor/tailwind.js"></script>
@@ -16,6 +15,7 @@
     <script src="../vendor/localforage.min.js"></script>
     <script src="../assets/js/built-in-content.js"></script>
     <script src="../assets/js/core-utils.js"></script>
+    <script src="../assets/js/api-utils.js"></script>
     <style>
         :root {
             --app-visual-height: 100vh;
@@ -1790,24 +1790,24 @@
                     model: '',
                     stream: true
                 });
-                const getApiBaseUrl = () => {
-                    const baseUrl = api.url.replace(/\/+$/, '');
-                    return baseUrl.endsWith('/v1') ? baseUrl : `${baseUrl}/v1`;
-                };
-                const requestWorkshopCompletion = (messages, { stream, temperature }) => {
+                const requestWorkshopCompletion = async (messages, { stream, temperature, onContent }) => {
                     if (!String(api.url || '').trim()) throw new Error('请先填写当前 API 预设的地址');
                     if (!String(api.key || '').trim()) throw new Error('请先填写当前 API 预设的 Key');
                     if (!String(api.model || '').trim()) throw new Error('请先在主界面选择模型');
-                    const apiUrl = getApiBaseUrl();
-                    return fetch(`${apiUrl}/chat/completions`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${api.key}`
-                        },
-                        body: JSON.stringify({ model: api.model, messages, stream, temperature }),
-                        signal: abortController.value.signal
+                    let rawContent = '';
+                    const display = ({ content, reasoning }) => {
+                        rawContent += content;
+                        const parsed = window.RPHubUtils.parseCot(rawContent);
+                        if (!parsed.main && (reasoning || parsed.cot)) generationStatus.value = '正在思考...';
+                        if (parsed.main) onContent?.(parsed.main);
+                    };
+                    const result = await window.RPHubApiClient.requestChatCompletion({
+                        url: window.RPHubApiUtils.buildApiEndpoint(api.url, 'chat/completions'),
+                        apiKey: api.key, model: api.model, messages, stream, temperature,
+                        signal: abortController.value.signal, onDelta: display
                     });
+                    if (!result.isStream) display(result);
+                    return result;
                 };
 
                 const targetFields = ['name', 'description', 'personality', 'first_mes', 'creator_notes', 'system_prompt', 'post_history_instructions'];
@@ -2279,7 +2279,7 @@
                         textContent = fullText.replace(htmlMatch[0], '').trim();
                     } else {
                         // 如果没有检测到 HTML 块，则提供一个基础的 HTML 结构，以便注入样式和脚本并显示正文
-    <script src="../vendor/tailwind.js"></script>
+                        uiHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><script src="../vendor/tailwind.js"></` + `script></head><body class="bg-base-100 p-4"></body></html>`;
                         textContent = fullText;
                     }
 
@@ -2460,58 +2460,6 @@
                     return (fenced ? fenced[1] : text).trim();
                 };
 
-                const extractNativeReasoning = cardUtils.extractNativeReasoning;
-
-                const hasInlineThinking = (text = '') => /<\s*(think|cot)\b/i.test(String(text || ''));
-                const stripInlineThinking = (text = '') => String(text || '').replace(/<\s*(think|cot)\b[^>]*>[\s\S]*?(?:<\s*\/\s*\1\s*>|<\s*\1\s*>|$)/gi, '').trimStart();
-                const readWorkshopStream = async (response, onContent) => {
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let rawContent = '';
-                    let reasoning = '';
-                    let sseBuffer = '';
-                    let receivedContent = false;
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        sseBuffer += decoder.decode(value, { stream: true });
-                        const lines = sseBuffer.split('\n');
-                        sseBuffer = lines.pop() || '';
-                        for (const line of lines) {
-                            const data = line.trim().replace(/^data:\s*/, '');
-                            if (!line.trim().startsWith('data:') || data === '[DONE]') continue;
-                            try {
-                                const json = JSON.parse(data);
-                                const choice = json.choices?.[0];
-                                const delta = choice?.delta || choice?.message || {};
-                                const reasoningDelta = extractNativeReasoning(delta) || extractNativeReasoning(choice);
-                                if (reasoningDelta) {
-                                    reasoning += reasoningDelta;
-                                    if (!receivedContent) generationStatus.value = '正在思考...';
-                                }
-
-                                const content = delta.content || '';
-                                if (!content) continue;
-                                rawContent += content;
-                                if (hasInlineThinking(rawContent) && !receivedContent) {
-                                    generationStatus.value = '正在思考...';
-                                }
-                                const visibleContent = stripInlineThinking(rawContent);
-                                if (hasInlineThinking(rawContent) && !visibleContent.trim()) {
-                                    generationStatus.value = '正在思考...';
-                                    continue;
-                                }
-                                if (!visibleContent) continue;
-                                receivedContent = true;
-                                onContent(visibleContent);
-                            } catch (_) { }
-                        }
-                    }
-
-                    return { rawContent, reasoning };
-                };
 
                 const hasFlag = (script, flag) => {
                     return (script.flags || '').includes(flag);
@@ -2627,20 +2575,12 @@ ${FIRST_MESSAGE_FINAL_CHECKS}
                     const systemPrompt = singlePlayerDiffSystemPrompt;
 
                     try {
-                        // We force non-stream for Diff to ensure integrity before parsing?
-                        // Or stream and buffer. Stream gives better feedback.
-                        // Let's use the existing stream logic structure but adapted.
-
                         generationStatus.value = '正在等待API响应...';
-                        const response = await requestWorkshopCompletion([
+                        let fullContent = '';
+                        await requestWorkshopCompletion([
                             { role: 'system', content: systemPrompt },
                             { role: 'user', content: context + `\n\n用户修改指令：${finalPrompt}` }
-                        ], { stream: true, temperature: 0.7 });
-
-                        if (!response.ok) throw new Error('API Request Failed');
-
-                        let fullContent = '';
-                        await readWorkshopStream(response, visibleContent => {
+                        ], { stream: true, temperature: 0.7, onContent: visibleContent => {
                             fullContent = visibleContent;
                             generationProgress.value = Math.min(99, generationProgress.value + 1);
 
@@ -2676,7 +2616,7 @@ ${FIRST_MESSAGE_FINAL_CHECKS}
                             } else if (cleanSample.length > 5) {
                                 generationStatus.value = '正在整理变更内容...';
                             }
-                        });
+                        } });
 
                         processDiffs(fullContent);
 
@@ -3611,39 +3551,13 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
 
                         try {
                             if (!isRetry) generationStatus.value = '正在等待API响应...';
-                            const response = await requestWorkshopCompletion([
+                            await requestWorkshopCompletion([
                                 { role: 'system', content: systemPrompt },
                                 { role: 'user', content: `### 用户的描述\n${prompt.value}\n\n请开始生成。` }
-                            ], { stream: api.stream, temperature: 1 });
-
-                            if (!response.ok) {
-                                let errorDetail = '';
-                                try {
-                                    const errorData = await response.json();
-                                    errorDetail = errorData.error?.message || JSON.stringify(errorData);
-                                } catch (e) {
-                                    errorDetail = await response.text();
-                                }
-                                throw new Error(`API 请求失败 (状态码 ${response.status}): ${errorDetail}`);
-                            }
-
-                            if (api.stream) {
-                                let buffer = '';
-                                await readWorkshopStream(response, visibleContent => {
-                                    buffer = visibleContent;
-                                    parseBuffer(buffer);
-                                });
-                                fullContent = buffer;
-                            } else {
-                                const data = await response.json();
-                                const message = data.choices?.[0]?.message || {};
-                                const reasoning = extractNativeReasoning(message);
-                                const rawContent = message.content || '';
-                                if (reasoning || hasInlineThinking(rawContent)) generationStatus.value = '正在思考...';
-                                const content = stripInlineThinking(rawContent);
-                                parseBuffer(content);
-                                fullContent = content;
-                            }
+                            ], {
+                                stream: api.stream, temperature: 1,
+                                onContent: content => { fullContent = content; parseBuffer(content); }
+                            });
 
                             // Check for truncation (missing avatar prompt or missing regex scripts when requested)
                             const hasAvatarPrompt = /<image>[\s\S]*?<\/image>/i.test(fullContent);

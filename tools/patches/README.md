@@ -312,6 +312,59 @@
 #     + 200ms 退场；色值全部 DESIGN.md token（品牌级画面，classic 同样生效）
 #   - 对应：用户需求 1（自创开屏启动动画）+ 设计硬性规定 9 全流程
 #   - 预期冲突点：上游改 entry-transition 区块 / head 注入结构时需重打
+# 028-theme-single-track.patch（2026-09-05，v1.2.3 需求 2 · 补记）
+#   - index.html + app.js: 主题单轨化——「界面主题」卡与主题切换移除，恒定「暖幕手记」；
+#     老用户 classic 无条件迁移 luzzy（settings.theme 迁移 + expose 清理）
+#   - 补记：本登记行于 v1.3.0 会话 21 补齐（会话 20 补充 4 遗漏本表登记）
+#   - 预期冲突点：上游改外观页结构时需重打
+#
+# 029-providers-deepseek-only.patch（2026-09-05，v1.3.0 需求 2，用户拍板 D3）
+#   - core-utils.js: 内置供应商精简为仅 DeepSeek（editable: true 开放编辑）；
+#     默认商 sta1n→deepseek（defaultApiProviderId/defaultApiConfig 同步切换）
+#   - app.js: ①migrateRemovedBuiltinProviders 启动迁移——sta1n/openrouter/siliconflow 无损转
+#     等价用户商（URL/Key/模型槽位引用保留；记忆嵌入引用不改写，patch 026 显式报错兜底）
+#     ②apiProviderOverrides 持久化 + allApiProviders override 合并 + 编辑器内置分支
+#     （id 锁定）+ 设置页 URL 直编写 override
+#   - index.html: 管理器编辑按钮/设置页 URL 输入框对 editable 内置商放开；编辑器 id 锁定
+#   - novel/index.html: 兜底供应商副本同步精简（patch 023 图标修复随条目退位）
+#   - 对应：用户需求 2（仅留 DeepSeek + 支持编辑内置供应商）
+#   - 预期冲突点：上游改内置列表/供应商管理器/编辑器结构时需重打
+#
+# 030-about-no-upstream-version.patch（2026-09-05，v1.3.0 需求 3）
+#   - index.html: 品牌卡「基于 RP-Hub {{ upstreamVersionLabel }}」→「基于 RP-Hub」（去插值）
+#   - app.js: upstreamVersionLabel 整链移除（ref/填充/硬编码兜底/expose）
+#   - ext/luzzy-ext.js: 注入页脚同文案固定；LuzzyBridge.UPSTREAM_VERSION 保留仅诊断
+#   - 对应：用户需求 3（防上游同步遗忘基线串）
+#   - 预期冲突点：上游改关于页品牌卡结构时需重打
+#
+# 031-memory-recall-node.patch（2026-09-05，v1.3.0 需求 4）
+#   - app.js: extractMemoryRecallStamp（创建时盖戳——检索早于消息懒创建，只能此处绑定；
+#     识别 patch 016 结构化召回块，摘要=片段数+相似度区间）+ getTimelineSteps 时间线首位
+#     渲染「记忆召回」thinking 型节点（模板通用 step 渲染，零模板改动）
+#   - 对应：用户需求 4（记忆系统插入显示独立节点）；纯文本回复不强制出卡（D2 拍板）
+#   - 预期冲突点：上游改 getTimelineSteps / ensureAssistantMessage / 上下文查看器结构时需重打
+#
+# 032-stream-render-degrade.patch（2026-09-05，v1.3.0 需求 1）
+#   - runtime-services.js: STREAM_RENDER_INTERVAL 60→120ms（三协议共用）；
+#     renderMarkdown options.cache=false 流式 LRU 旁路（防中间串灌满 2000 上限）
+#   - index.html: 流式分支调用传入 { cache: false }
+#   - 对应：用户需求 1（流式卡顿——O(n²) 全文重算链降频 + 缓存污染消除）
+#   - 预期冲突点：上游改流式节流/渲染缓存结构时需重打
+#
+# 033-input-area-transition.patch（2026-09-05，v1.3.0 需求 1）
+#   - index.html: 输入区 transition-all→transition-[bottom] 定向；输入岛去过渡；
+#     发送/中止按钮 transition-all→定向属性（FAB v4 配方，根除分数 DPR 合成层热区漂移）
+#   - 对应：用户需求 1（发送键点击热区漂移）；配套 ext/luzzy-theme.css 输入岛退实底
+#   - 预期冲突点：上游改输入岛/按钮类结构时需重打
+#
+# 034-perf-theme-governance.patch（2026-09-05，v1.3.0 需求 1，扩展层 ext/luzzy-theme.css）
+#   - D1 玻璃档位（用户拍板）：气泡/typing/输入岛/侧栏退实底（blur 归零，alpha 0.97），
+#     :has 流式加厚同步失效；思考卡/模态等低频面保留磨砂
+#   - 合成层瘦身：glass-stabilize / scroll-reveal 三族 will-change→auto（常驻 40-60 层→按需）
+#   - 开屏 lspDiveZoom 去 filter:blur（全屏逐帧重栅格主源），失焦感由 scale+rotate+opacity 表达
+#   - 对应：用户需求 1（跑满刷新率/气泡卡顿/开屏掉帧）；DESIGN.md 已同步
+#   - 预期冲突点：上游改玻璃组件类名 / scroll-reveal 结构时需重打
+#
 ## 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

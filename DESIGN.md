@@ -117,6 +117,8 @@ LuzzyRP 是移动端 AI 角色扮演应用——「每次对话，都像一本�
 | 发送/强调按钮 | primary-600 底 + 白字；active = primary-700 |
 | 设置页卡片 | surface-soft 底 + hairline 边；选中态 = coral-100 底 |
 | 用量趋势图（patch 025） | 白卡 + 发丝线 + 纸感轻投影；系列色按「数据可视化分类色序」；粒度分段与供应商/模型 chips 选中态走 primary-* |
+| 思考卡片 · 记忆召回节点（patch 031，v1.3.0） | 时间线首位 thinking 型节点「记忆召回」，详情=召回摘要（片段数+相似度区间，markdown 渲染）；循通用 step 渲染零新增样式；无卡片回复不显示（D2） |
+| 供应商管理器 · 可编辑内置商（patch 029，v1.3.0） | DeepSeek 卡片开放「编辑」按钮（id 锁定态置灰）；循既有编辑器/行卡样式，零新增 token |
 | 关于页 CHANGELOG 工具（patch 024） | 版本下拉 + 关键词搜索框走 primary-* focus 态；置顶 FAB = 白圆钮 + 发丝线 + 纸感投影，primary hover |
 
 ## Glass（雾纸玻璃层 Frost-Paper）
@@ -183,6 +185,25 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 - **降级**：`@supports not (backdrop-filter…)` → `#F5F0E8` / `#2B2824` 实底（同雾纸降级配方）；
 - 选择器族：`.cot-ui.native-thinking-card`（+ `.cot-header` / `.is-open` / `.is-live` / 卡内 `.bg-gray-50`）。
 
+### 性能档位 · 高频面退实底（v1.3.0，用户拍板 D1，patch 034）
+
+分数 DPR 3.25 合成层失效先验（FAB 案，WORKLOG 会话 20 补充 6）下，高频玻璃面 =
+逐帧主线程重绘 + 绘制错位双重风险源。D1 档位：**高频面全部退实底，低频面保留磨砂**——
+
+| 表面 | v1.3.0 档位 |
+|------|------------|
+| 聊天气泡 / typing 气泡 | 实底 `gray-100/.97`（暗 `gray-200/.97`）+ blur 0——立绘透色效果随实底退场 |
+| 输入岛（`.input-island`） | 实底 0.97 + blur 0（键盘邻接面，热区漂移根除配套） |
+| 侧栏抽屉（`.app-sidebar`） | 实底 0.97 + blur 0 |
+| 思考卡（`.cot-ui.native-thinking-card`） | **保留磨砂**（v1.1.0 三方向选定设计），live 态既有降级不变 |
+| 模态面板 / 消息操作工具条 / 弹层 | **保留磨砂**（低频面） |
+| `:has(.is-live)` 流式加厚 | 随气泡实底化失效（规则保留但 blur 归零，防流式期复辟） |
+
+- 单点变量 `--luzzy-glass-alpha / --luzzy-glass-blur` 自 v1.3.0 起仅思考卡消费；
+- 配套合成层瘦身：`.glass-stabilize` / scroll-reveal 三族 `will-change: auto`
+  （渲染窗口常驻 40-60 个候选层 → 按需瞬时创建）；
+- 视觉回滚点：patch 034 单 commit，可独立回退。
+
 ## 外观独立页 · 关于页 · 供应商编辑器（v1.2.0）
 
 ### 外观独立页（外观设置全应用唯一入口）
@@ -243,8 +264,10 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 - **关于页置顶 FAB（patch 024）**：进 200ms / 退 140ms ease-out，scale(0.96)+opacity:0 起步；滚动 >240px 显隐；reduced-motion 直接呈现；
 - **开屏「开卷 · 门扉」（patch 027 v3，用户决策）**：v3 起为门扉交互——构图淡入 →
   加载进度条自左向右（coral→amber 笔尖渐变）→ 「沉溺」按钮浮现（呼吸微动）并**等待点击**；
-  点击转场 = 轻微眩晕（微摆+失焦）+ 泡泡上浮（水下隐喻呼应「沉溺」）+ 中心放大坠入主界面；
-  原掀封叙事与自动退场移除。行为脚本 `ext/luzzy-splash.js`（状态机 ~40 行，
+  点击转场 = 轻微眩晕（微摆）+ 泡泡上浮（水下隐喻呼应「沉溺」）+ 中心放大坠入主界面；
+  **v1.3.0（patch 034）起转场移除 filter:blur**——全屏层 filter 逐帧重栅格（DPR 3.25
+  ≈3510×7800 像素/帧）为掉帧主源，失焦感由 scale+rotate+opacity 表达，泡泡层随之脱离
+  filter 父层；原掀封叙事与自动退场移除。行为脚本 `ext/luzzy-splash.js`（状态机 ~40 行，
   animationend + 兜底收殓）；reduced-motion 近零时长直出可点态、转场退化 220ms 淡出。
   设计存档 `docs/design/splash-v1/`；
 - **招牌动效「荧光笔落笔」（roadmap）**：新 AI 消息落定后关键词上划过 amber 记号
@@ -256,6 +279,8 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 ✅ coral 稀缺使用（按钮/选中/链接/头像环）；✅ 记号克制；✅ 亮暗分别过 4.5:1；
 ✅ 色值只用本文件与 luzzy-theme.css 的 token，不临场发明颜色。
 ❌ 紫渐变 / emoji 图标 / 左彩边圆角卡 / 均匀深蓝底+霓虹 glow（GitHub-dark 套壳）；
+❌ **高频表面新增 backdrop-filter 或常驻 will-change**（v1.3.0 性能档位）——玻璃只上
+  低频 chrome（模态/工具条/思考卡）；滚动/流式路径上的表面一律实底 + `will-change: auto`；
 ❌ 裸改上游文件（规定 2）；❌ 触碰 built-in-content.js（规定 1）；❌ 字体走 CDN（规定 4）；
 ❌ **新增 UI 使用裸 `blue-*` / `indigo-*` / `violet-*` 色相工具类**（v1.2.1 起）——一律用
   `primary-*`（luzzy 主题下即品牌珊瑚陶土色，classic 主题下为上游蓝，语义正确）；

@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index f73b1ddd..ba1f4ac0 100644
+index f73b1ddd..50b95649 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -225,6 +225,13 @@ const app = createApp({
@@ -78,7 +78,7 @@ index f73b1ddd..ba1f4ac0 100644
          const normalizeFontSize = (value) => {
              const size = Number(value);
              return Number.isFinite(size) ? Math.max(12, Math.min(20, Math.round(size))) : 16;
-@@ -654,6 +683,47 @@ const app = createApp({
+@@ -654,6 +683,46 @@ const app = createApp({
              document.documentElement.dataset.appFont = normalizeFontFamily(value);
          };
          watch(() => settings.fontFamily, applyFontFamily, { immediate: true });
@@ -98,8 +98,9 @@ index f73b1ddd..ba1f4ac0 100644
 +        // [LuzzyRP patch 013] 外观面板 ref 已随 v1.2.0 patch 014 改为独立视图（showAppearancePanel 移除）
 +
 +        // [LuzzyRP patch 014] 关于页数据：版本标签 + 应用内 CHANGELOG 渲染
++        // [LuzzyRP patch 030] upstreamVersionLabel 整链移除（v1.3.0 需求 3）：关于页固定写
++        // 「基于 RP-Hub 二次开发」，不随上游版本漂移——杜绝同步期忘记改基线串的隐患。
 +        const appVersionLabel = ref('');
-+        const upstreamVersionLabel = ref('');
 +        const changelogHtml = ref('');
 +        const readBridgeVersion = async () => {
 +            try {
@@ -107,11 +108,9 @@ index f73b1ddd..ba1f4ac0 100644
 +                if (bridge && typeof bridge.getVersion === 'function') {
 +                    const info = await bridge.getVersion();
 +                    appVersionLabel.value = info && info.versionName ? `v${info.versionName}` : '';
-+                    upstreamVersionLabel.value = info && info.upstreamVersion ? info.upstreamVersion : '';
 +                }
 +            } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
 +            if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.1';
-+            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.9.0'; // [LuzzyRP patch 028] 上游基线 1.9.0 同步更新
 +        };
 +        const openGitHubRepo = () => {
 +            const url = 'https://github.com/LuzzyMeow/LuzzyRP';
@@ -126,7 +125,7 @@ index f73b1ddd..ba1f4ac0 100644
  
          const showApiProviderSelector = ref(false);
          const selectedApiProviderId = ref(DEFAULT_API_PROVIDER_ID);
-@@ -673,10 +743,154 @@ const app = createApp({
+@@ -673,10 +742,166 @@ const app = createApp({
          const isCustomApiProviderId = (id) => customApiProviderOptions.some(provider => provider.id === id);
          const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
          const normalizeApiProviderUrl = (url) => String(url || '').replace(/\/+$/, '').toLowerCase();
@@ -187,7 +186,19 @@ index f73b1ddd..ba1f4ac0 100644
 +                return true;
 +            });
 +        });
-+        const allApiProviders = computed(() => [...apiProviderOptions, ...userApiProviders.value]);
++        // [LuzzyRP patch 029] 可编辑内置商：override 合并（编辑器保存 / 设置页 URL 直编写入
++        // settings.apiProviderOverrides，不触碰冻结内置条目；id 恒为内置 id，key 槽与引用体系不受影响）
++        const builtinProviderOverrides = computed(() => {
++            const raw = settings.apiProviderOverrides;
++            return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
++        });
++        const allApiProviders = computed(() => [
++            ...apiProviderOptions.map(provider => {
++                const override = builtinProviderOverrides.value[provider.id];
++                return override ? { ...provider, ...override, id: provider.id } : provider;
++            }),
++            ...userApiProviders.value
++        ]);
 +        const getApiProviderById = (id) => allApiProviders.value.find(provider => provider.id === id);
          const getApiProviderByUrl = (url) => {
              const currentUrl = normalizeApiProviderUrl(url);
@@ -283,7 +294,7 @@ index f73b1ddd..ba1f4ac0 100644
          };
          const syncCurrentApiKeyToProvider = () => {
              const providerId = settings.apiProviderId || selectedApiProvider.value.id || DEFAULT_API_PROVIDER_ID;
-@@ -688,15 +902,39 @@ const app = createApp({
+@@ -688,15 +913,92 @@ const app = createApp({
                  settings[getCustomApiUrlKey(providerId)] = settings.apiUrl || '';
              }
          };
@@ -309,10 +320,62 @@ index f73b1ddd..ba1f4ac0 100644
 +            }
 +            settings.apiProvidersMigrated = true;
 +        };
++        // [LuzzyRP patch 029] 内置供应商精简迁移（v1.3.0 需求 2，用户拍板 D3）：退出内置的
++        // sta1n/openrouter/siliconflow 无损转为等价用户自定义商——URL/Key 保留、激活商切换、
++        // 模型槽位引用前缀改写。⚠ 本函数在 normalizeApiProviderSettings()（:980 调用）时执行，
++        // 不得引用 MODEL_REF_FIELD_LABELS（:4120，届时未初始化）与 memorySettings（:1386，同 TDZ）——
++        // 记忆嵌入/总结引用不在此改写，指向已退出内置商时由 patch 026 显式报错兜底（重选即可）。
++        const REMOVED_BUILTIN_PROVIDERS = Object.freeze([
++            Object.freeze({ id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1' }),
++            Object.freeze({ id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1' }),
++            Object.freeze({ id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1' })
++        ]);
++        const MODEL_REF_FIELDS = ['model', 'qualityModel', 'balancedModel', 'fastModel', 'visionModel', 'uiTemplateModel'];
++        const migrateRemovedBuiltinProviders = () => {
++            if (settings.apiProvidersBuiltinMigrated) return;
++            const keys = settings.apiProviderKeys || {};
++            const hasLegacyRef = (id) => Boolean(String(keys[id] || '').trim())
++                || settings.apiProviderId === id
++                || MODEL_REF_FIELDS.some(field => typeof settings[field] === 'string' && settings[field].startsWith(`${id}::`));
++            const idMap = {};
++            REMOVED_BUILTIN_PROVIDERS.forEach((legacy) => {
++                if (!hasLegacyRef(legacy.id)) return;
++                const provider = {
++                    id: createUserApiProviderId(),
++                    name: legacy.name,
++                    apiUrl: legacy.apiUrl,
++                    protocol: 'openai',
++                    models: [],
++                    extraBody: {}
++                };
++                const legacyKey = String(keys[legacy.id] || '').trim();
++                if (legacyKey) keys[provider.id] = legacyKey;
++                idMap[legacy.id] = provider.id;
++                if (settings.apiProviderId === legacy.id) settings.apiProviderId = provider.id;
++                settings.apiProviders = [...normalizeUserApiProviders(settings.apiProviders), provider];
++            });
++            if (Object.keys(idMap).length > 0) {
++                const remapRef = (ref) => {
++                    if (typeof ref !== 'string') return ref;
++                    const sep = ref.indexOf('::');
++                    if (sep <= 0) return ref;
++                    const legacyId = ref.slice(0, sep);
++                    return idMap[legacyId] ? `${idMap[legacyId]}${ref.slice(sep)}` : ref;
++                };
++                MODEL_REF_FIELDS.forEach((field) => {
++                    if (typeof settings[field] === 'string') settings[field] = remapRef(settings[field]);
++                });
++            }
++            settings.apiProvidersBuiltinMigrated = true;
++        };
          const normalizeApiProviderSettings = () => {
              if (!settings.apiProviderKeys || typeof settings.apiProviderKeys !== 'object' || Array.isArray(settings.apiProviderKeys)) {
                  settings.apiProviderKeys = {};
              }
++            // [LuzzyRP patch 029] 可编辑内置商 override 容器
++            if (!settings.apiProviderOverrides || typeof settings.apiProviderOverrides !== 'object' || Array.isArray(settings.apiProviderOverrides)) {
++                settings.apiProviderOverrides = {};
++            }
 +            settings.apiProviders = normalizeUserApiProviders(settings.apiProviders);
              [...apiProviderOptions, ...customApiProviderOptions].forEach(provider => {
                  if (typeof settings.apiProviderKeys[provider.id] !== 'string') {
@@ -320,10 +383,11 @@ index f73b1ddd..ba1f4ac0 100644
                  }
              });
 +            migrateLegacyCustomProviders();
++            migrateRemovedBuiltinProviders();
  
              let provider = getApiProviderById(settings.apiProviderId);
              if (!provider && !isCustomApiProviderId(settings.apiProviderId)) {
-@@ -720,22 +958,22 @@ const app = createApp({
+@@ -720,22 +1022,22 @@ const app = createApp({
              settings.apiKey = settings.apiProviderKeys[settings.apiProviderId] || '';
          };
          const selectedApiProvider = computed(() => {
@@ -351,7 +415,7 @@ index f73b1ddd..ba1f4ac0 100644
              settings.apiKey = settings.apiProviderKeys[provider.id] || '';
              showApiProviderSelector.value = false;
          };
-@@ -754,6 +992,21 @@ const app = createApp({
+@@ -754,6 +1056,34 @@ const app = createApp({
          watch(() => settings.apiUrl, (newUrl) => {
              if (isCustomApiProviderId(settings.apiProviderId)) {
                  settings[getCustomApiUrlKey(settings.apiProviderId)] = newUrl || '';
@@ -363,6 +427,19 @@ index f73b1ddd..ba1f4ac0 100644
 +                const entry = settings.apiProviders.find(item => item.id === provider.id);
 +                if (entry) entry.apiUrl = String(newUrl || '').trim();
 +            }
++            // [LuzzyRP patch 029] 可编辑内置商：设置页 URL 直编写入 override（空值不落盘）
++            const builtinEditable = apiProviderOptions.find(item => item.id === settings.apiProviderId && item.editable);
++            if (builtinEditable) {
++                const nextUrl = String(newUrl || '').trim();
++                if (nextUrl) {
++                    const overrides = { ...(settings.apiProviderOverrides || {}) };
++                    const current = overrides[builtinEditable.id] || {};
++                    if (current.apiUrl !== nextUrl) {
++                        overrides[builtinEditable.id] = { ...current, apiUrl: nextUrl };
++                        settings.apiProviderOverrides = overrides;
++                    }
++                }
++            }
 +        });
 +
 +        // 用户自定义商：注册表中 URL 被编辑（管理弹窗）时同步激活商的 apiUrl
@@ -373,7 +450,7 @@ index f73b1ddd..ba1f4ac0 100644
              }
          });
  
-@@ -761,9 +1014,16 @@ const app = createApp({
+@@ -761,9 +1091,16 @@ const app = createApp({
              const iframe = document.querySelector('iframe[src*="character"]');
              if (iframe && iframe.contentWindow) {
                  try {
@@ -391,7 +468,7 @@ index f73b1ddd..ba1f4ac0 100644
                      };
                      iframe.contentWindow.postMessage(syncData, '*');
                  } catch (e) {
-@@ -791,14 +1051,27 @@ const app = createApp({
+@@ -791,14 +1128,27 @@ const app = createApp({
                          icon: ''
                      }))
                  ];
@@ -422,7 +499,7 @@ index f73b1ddd..ba1f4ac0 100644
                          customApiUrl2: settings.customApiUrl2
                      },
                      providers
-@@ -1450,6 +1723,173 @@ const app = createApp({
+@@ -1450,6 +1800,173 @@ const app = createApp({
              scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
              toast: (...args) => showToast(...args)
          });
@@ -596,7 +673,7 @@ index f73b1ddd..ba1f4ac0 100644
          // Export Modal State
          const showExportModal = ref(false);
          const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
-@@ -1775,6 +2215,11 @@ const app = createApp({
+@@ -1775,6 +2292,11 @@ const app = createApp({
                              settings[key] = savedSettings[key];
                          }
                      });
@@ -608,7 +685,7 @@ index f73b1ddd..ba1f4ac0 100644
                      if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
                          const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                          settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
-@@ -1989,6 +2434,88 @@ const app = createApp({
+@@ -1989,6 +2511,88 @@ const app = createApp({
              return payload;
          };
  
@@ -697,7 +774,7 @@ index f73b1ddd..ba1f4ac0 100644
          const renderGeneratedImageJob = (card, task, job) => {
              if (!card?.isConnected) return task.cards.delete(card);
              task.job = job;
-@@ -2006,15 +2533,21 @@ const app = createApp({
+@@ -2006,15 +2610,21 @@ const app = createApp({
                  return;
              }
              if (job.status === 'running') {
@@ -725,7 +802,7 @@ index f73b1ddd..ba1f4ac0 100644
              if (!imageUrl) {
                  card.classList.remove('is-generating');
                  card.classList.add('is-generation-error');
-@@ -2095,7 +2628,10 @@ const app = createApp({
+@@ -2095,7 +2705,10 @@ const app = createApp({
              card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
              const label = card.querySelector('.generated-image-progress-label');
              const bar = card.querySelector('.generated-image-progress-bar');
@@ -737,7 +814,7 @@ index f73b1ddd..ba1f4ac0 100644
              if (!task.job) {
              if (label) label.textContent = '等待生成';
                  if (bar) bar.style.width = '0%';
-@@ -2105,7 +2641,9 @@ const app = createApp({
+@@ -2105,7 +2718,9 @@ const app = createApp({
              card.dataset.imageJobState = 'loading';
              card.classList.add('is-generating');
              card.classList.remove('is-generation-error');
@@ -748,7 +825,7 @@ index f73b1ddd..ba1f4ac0 100644
              card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
              if (task.job) renderGeneratedImageJob(card, task, task.job);
              return task.promise;
-@@ -2167,9 +2705,22 @@ const app = createApp({
+@@ -2167,9 +2782,22 @@ const app = createApp({
              if (mainStart < 0) return;
              const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
              if (!sourceUrl) return;
@@ -774,7 +851,7 @@ index f73b1ddd..ba1f4ac0 100644
  
              const originalContent = message.content;
              const finishLoading = () => {
-@@ -2179,7 +2730,7 @@ const app = createApp({
+@@ -2179,7 +2807,7 @@ const app = createApp({
              card.classList.add('is-rerolling');
              button.disabled = true;
  
@@ -783,7 +860,7 @@ index f73b1ddd..ba1f4ac0 100644
              if (job.status === 'done') {
                  if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                      finishLoading();
-@@ -2283,6 +2834,16 @@ const app = createApp({
+@@ -2283,6 +2911,16 @@ const app = createApp({
              }
          }, { flush: 'sync' });
  
@@ -800,7 +877,7 @@ index f73b1ddd..ba1f4ac0 100644
          watch(() => settings.imageSize, () => {
              const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
              if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
-@@ -3092,7 +3653,7 @@ const app = createApp({
+@@ -3092,7 +3730,7 @@ const app = createApp({
              const tags = new Set();
  
              availableModels.value.forEach(m => {
@@ -809,7 +886,7 @@ index f73b1ddd..ba1f4ac0 100644
                  let found = false;
                  for (const family of popularModelFamilies) {
                      if (id.includes(family)) {
-@@ -3118,18 +3679,21 @@ const app = createApp({
+@@ -3118,18 +3756,21 @@ const app = createApp({
              if (activeModelTag.value && activeModelTag.value !== 'all') {
                  if (activeModelTag.value === 'other') {
                      result = result.filter(m => {
@@ -834,7 +911,7 @@ index f73b1ddd..ba1f4ac0 100644
              }
  
              return result.sort((a, b) => a.id.localeCompare(b.id));
-@@ -3304,6 +3868,93 @@ const app = createApp({
+@@ -3304,6 +3945,93 @@ const app = createApp({
              clearMessageRenderCaches();
          }, { deep: true });
  
@@ -928,7 +1005,7 @@ index f73b1ddd..ba1f4ac0 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3361,25 +4012,93 @@ const app = createApp({
+@@ -3361,25 +4089,93 @@ const app = createApp({
          };
  
          // API & Models
@@ -1038,7 +1115,7 @@ index f73b1ddd..ba1f4ac0 100644
              }
          };
  
-@@ -3391,9 +4110,376 @@ const app = createApp({
+@@ -3391,9 +4187,414 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1263,8 +1340,9 @@ index f73b1ddd..ba1f4ac0 100644
 +            const self = draft.__source;
 +            return allApiProviders.value.some(p => p.id === draft.id && p !== self);
 +        });
-+        const openProviderEditor = (provider, isNew) => {
++        const openProviderEditor = (provider, isNew, opts = {}) => {
 +            // draft 为浅拷贝（models 逐条拷贝），取消不污染原数据；extraBodyText 供懒编辑输入框回显
++            // [LuzzyRP patch 029] __builtinEditable：内置商编辑态（id 锁定，保存写 override）
 +            providerEditorDraft.value = {
 +                id: provider.id, name: provider.name, apiUrl: provider.apiUrl || '',
 +                protocol: normalizeProviderProtocol(provider.protocol),
@@ -1275,7 +1353,8 @@ index f73b1ddd..ba1f4ac0 100644
 +                    extraBodyText: Object.keys(m.extraBody || {}).length > 0 ? JSON.stringify(m.extraBody) : ''
 +                })),
 +                extraBody: { ...(provider.extraBody || {}) },
-+                __source: provider
++                __source: provider,
++                __builtinEditable: !!opts.builtinEditable
 +            };
 +            providerEditorIsNew.value = !!isNew;
 +            providerEditorPresetNotice.value = '';
@@ -1283,6 +1362,11 @@ index f73b1ddd..ba1f4ac0 100644
 +            showProviderEditor.value = true;
 +        };
 +        const editUserApiProvider = (provider) => {
++            // [LuzzyRP patch 029] 可编辑内置商（DeepSeek）：编辑器直开，保存写 override
++            if (provider.editable && apiProviderOptions.some(item => item.id === provider.id)) {
++                openProviderEditor(provider, false, { builtinEditable: true });
++                return;
++            }
 +            const source = settings.apiProviders.find(item => item.id === provider.id);
 +            if (!source) return;
 +            openProviderEditor(source, false);
@@ -1309,6 +1393,37 @@ index f73b1ddd..ba1f4ac0 100644
 +            if (!cleanUrl) { showToast('API URL 不能为空', 'error'); return; }
 +            if (providerEditorIdConflict.value) { showToast('供应商 id 与现有供应商重复', 'error'); return; }
 +            commitExtraRowsToDraft();
++            // [LuzzyRP patch 029] 可编辑内置商：id 锁定，保存写 settings.apiProviderOverrides（冻结条目不写回）
++            if (draft.__builtinEditable) {
++                if (cleanId !== String(draft.__source.id)) { showToast('内置供应商 id 不可修改', 'error'); return; }
++                const overrides = { ...(settings.apiProviderOverrides || {}) };
++                overrides[cleanId] = {
++                    name: cleanName,
++                    apiUrl: cleanUrl,
++                    protocol: normalizeProviderProtocol(draft.protocol),
++                    models: draft.models.map(m => ({
++                        ...m,
++                        contextLength: parseLengthToken(m.contextLength) ?? null,
++                        maxOutput: parseLengthToken(m.maxOutput) ?? null
++                    })).map(normalizeProviderModelEntry).filter(m => m.id),
++                    extraBody: { ...(draft.extraBody || {}) }
++                };
++                settings.apiProviderOverrides = overrides;
++                const cachedBuiltin = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
++                const manualBuiltin = overrides[cleanId].models.map(m => ({ ...m, manual: true }))
++                    .filter(m => !cachedBuiltin.some(e => e.id === m.id));
++                if (manualBuiltin.length > 0) {
++                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...cachedBuiltin] };
++                }
++                rebuildMergedAvailableModels();
++                if (settings.apiProviderId === cleanId) {
++                    settings.apiUrl = cleanUrl;
++                }
++                showProviderEditor.value = false;
++                providerEditorDraft.value = null;
++                showToast('已保存内置供应商修改', 'success');
++                return;
++            }
 +            const source = draft.__source;
 +            const oldId = source.id;
 +            const idChanged = cleanId !== oldId;
@@ -1415,7 +1530,7 @@ index f73b1ddd..ba1f4ac0 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3461,11 +4547,26 @@ const app = createApp({
+@@ -3461,11 +4662,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1446,7 +1561,7 @@ index f73b1ddd..ba1f4ac0 100644
              ));
          };
  
-@@ -3579,11 +4680,15 @@ const app = createApp({
+@@ -3579,11 +4795,15 @@ const app = createApp({
          });
          const recognizeChatImage = async (image) => {
              const requestStartedAt = Date.now();
@@ -1465,7 +1580,7 @@ index f73b1ddd..ba1f4ac0 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3610,7 +4715,9 @@ const app = createApp({
+@@ -3610,7 +4830,9 @@ const app = createApp({
                  target.status = 'ready';
                  recordApiUsage(result.usage, {
                      type: 'image_recognition',
@@ -1476,7 +1591,7 @@ index f73b1ddd..ba1f4ac0 100644
                      isStream: false,
                      durationMs: Date.now() - requestStartedAt,
                      outputCharacters: description.length
-@@ -3625,7 +4732,8 @@ const app = createApp({
+@@ -3625,7 +4847,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -1486,7 +1601,7 @@ index f73b1ddd..ba1f4ac0 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3754,43 +4862,7 @@ const app = createApp({
+@@ -3754,43 +4977,7 @@ const app = createApp({
              });
          };
  
@@ -1531,7 +1646,7 @@ index f73b1ddd..ba1f4ac0 100644
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -3962,12 +5034,13 @@ const app = createApp({
+@@ -3962,12 +5149,13 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -1547,7 +1662,7 @@ index f73b1ddd..ba1f4ac0 100644
  
              try {
                  const updateRun = startUiTemplateUpdateRun();
-@@ -4000,47 +5073,45 @@ const app = createApp({
+@@ -4000,47 +5188,45 @@ const app = createApp({
                      try {
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
@@ -1627,7 +1742,7 @@ index f73b1ddd..ba1f4ac0 100644
                              isStream: false,
                              durationMs: Date.now() - requestStartedAt,
                              outputCharacters: content.length
-@@ -4402,7 +5473,7 @@ const app = createApp({
+@@ -4402,7 +5588,7 @@ const app = createApp({
                  defaultResultCount: ACTIVE_TOOL_DEFAULT_RESULT_COUNT
              });
          };
@@ -1636,7 +1751,7 @@ index f73b1ddd..ba1f4ac0 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              const content = String(message?.content || '');
-@@ -4439,7 +5510,8 @@ const app = createApp({
+@@ -4439,7 +5625,8 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -1646,7 +1761,54 @@ index f73b1ddd..ba1f4ac0 100644
  
              if (!currentCharacter.value) {
                  showToast('请先选择一个角色', 'error');
-@@ -5003,9 +6075,12 @@ const app = createApp({
+@@ -4982,6 +6169,36 @@ const app = createApp({
+                 isReasoningAutoCollapsed: false
+             });
+ 
++            // [LuzzyRP patch 031] 记忆召回节点数据戳（v1.3.0 需求 4）：从本次请求上下文提取向量召回块摘要。
++            // 时序约束：检索/嵌入完成早于 assistant 消息创建（懒创建），故只能在创建时盖戳、
++            // 渲染期读取戳（getTimelineSteps）。识别走 data-services 暴露的 isVectorMemoryRecallContent
++            // （patch 016 结构化召回块生态）；失败静默降级为无节点，不影响主流程。
++            const extractMemoryRecallStamp = () => {
++                try {
++                    const utils = window.RPHubContextUtils;
++                    if (!utils || typeof utils.isVectorMemoryRecallContent !== 'function') return null;
++                    const contexts = Array.isArray(lastContextMessages.value) ? lastContextMessages.value : [];
++                    let fragments = 0;
++                    const sims = [];
++                    contexts.forEach((ctxMsg) => {
++                        const ctxContent = typeof ctxMsg?.content === 'string' ? ctxMsg.content : '';
++                        if (!ctxContent || !utils.isVectorMemoryRecallContent(ctxContent)) return;
++                        fragments += (ctxContent.match(/<memory_fragment\b[^>]*>/g) || []).length;
++                        const simMatches = ctxContent.matchAll(/similarity="([^"]*)"/g);
++                        for (const simMatch of simMatches) {
++                            const num = Number.parseFloat(simMatch[1]);
++                            if (Number.isFinite(num)) sims.push(num <= 1 ? Math.round(num * 100) : Math.round(num));
++                        }
++                    });
++                    if (fragments === 0) return null;
++                    const rangeText = sims.length > 0 ? `，相似度 ${Math.min(...sims)}%~${Math.max(...sims)}%` : '';
++                    return `生成前从角色记忆库向量检索并注入 ${fragments} 条记忆片段${rangeText}。召回由最近对话驱动，` +
++                        '内容已进入本次请求上下文（明细见上下文查看器「角色记忆（向量召回）」条目）。';
++                } catch (e) {
++                    return null;
++                }
++            };
++
+             const ensureAssistantMessage = (content = '', reasoning = '') => {
+                 if (assistantMessage) return assistantMessage;
+                 if (continuingAssistantMessage) {
+@@ -4994,6 +6211,9 @@ const app = createApp({
+                 }
+ 
+                 assistantMessage = createAssistantMessage(content, reasoning);
++                // [LuzzyRP patch 031] 记忆召回节点：创建时盖戳（仅新消息；续写保留原戳）
++                const memoryRecallStamp = extractMemoryRecallStamp();
++                if (memoryRecallStamp) assistantMessage.memoryRecall = memoryRecallStamp;
+                 normalizeNativeReasoningBoundary(assistantMessage);
+                 promoteActiveToolCallsFromAssistant(assistantMessage);
+                 chatHistory.value.push(assistantMessage);
+@@ -5003,9 +6223,12 @@ const app = createApp({
  
              try {
                  const responseResult = await requestChatCompletion({
@@ -1661,7 +1823,7 @@ index f73b1ddd..ba1f4ac0 100644
                      messages: apiMessages,
                      temperature: settings.temperature,
                      reasoningEffort: settings.reasoningEffort,
-@@ -5069,6 +6144,8 @@ const app = createApp({
+@@ -5069,6 +6292,8 @@ const app = createApp({
                  recordApiUsage(responseUsage, {
                      type: activeToolDepth > 0 ? 'tool_continuation' : 'chat',
                      model: requestModel,
@@ -1670,7 +1832,7 @@ index f73b1ddd..ba1f4ac0 100644
                      isStream: responseResult.isStream,
                      durationMs: duration,
                      outputCharacters
-@@ -5374,35 +6451,36 @@ const app = createApp({
+@@ -5374,35 +6599,36 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -1725,7 +1887,7 @@ index f73b1ddd..ba1f4ac0 100644
                  isStream: false,
                  durationMs: Date.now() - requestStartedAt,
                  outputCharacters: summary.length
-@@ -5781,39 +6859,78 @@ const app = createApp({
+@@ -5781,39 +7007,78 @@ const app = createApp({
              return fragments;
          };
  
@@ -1830,7 +1992,7 @@ index f73b1ddd..ba1f4ac0 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5824,9 +6941,11 @@ const app = createApp({
+@@ -5824,9 +7089,11 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -1843,7 +2005,7 @@ index f73b1ddd..ba1f4ac0 100644
                  isStream: false,
                  durationMs: Date.now() - requestStartedAt,
                  outputCharacters: 0
-@@ -5862,7 +6981,8 @@ const app = createApp({
+@@ -5862,7 +7129,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -1853,7 +2015,7 @@ index f73b1ddd..ba1f4ac0 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6126,10 +7246,6 @@ const app = createApp({
+@@ -6126,10 +7394,6 @@ const app = createApp({
              return retainedTurns;
          };
  
@@ -1864,7 +2026,7 @@ index f73b1ddd..ba1f4ac0 100644
          const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6165,6 +7281,30 @@ const app = createApp({
+@@ -6165,6 +7429,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -1895,7 +2057,7 @@ index f73b1ddd..ba1f4ac0 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6184,9 +7324,30 @@ const app = createApp({
+@@ -6184,9 +7472,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -1929,7 +2091,7 @@ index f73b1ddd..ba1f4ac0 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6215,16 +7376,15 @@ const app = createApp({
+@@ -6215,16 +7524,15 @@ const app = createApp({
                  return;
              }
  
@@ -1952,7 +2114,7 @@ index f73b1ddd..ba1f4ac0 100644
                  return;
              }
  
-@@ -6241,21 +7401,43 @@ const app = createApp({
+@@ -6241,21 +7549,43 @@ const app = createApp({
              );
  
              try {
@@ -2004,7 +2166,7 @@ index f73b1ddd..ba1f4ac0 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6301,6 +7483,264 @@ const app = createApp({
+@@ -6301,6 +7631,264 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2269,7 +2431,26 @@ index f73b1ddd..ba1f4ac0 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -8097,7 +9537,10 @@ const app = createApp({
+@@ -7008,6 +8596,18 @@ const app = createApp({
+             const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
+             const cotInfo = parseCot(message.content || '');
+ 
++            // 0. [LuzzyRP patch 031] 记忆召回节点（v1.3.0 需求 4）：时间线首位（检索先于生成）；
++            //    仅携带 memoryRecall 戳的消息显示——纯文本回复无卡片时不可见（与「原生思考」同条件，拍板 D2）
++            if (message.memoryRecall) {
++                steps.push({
++                    id: 'luzzy-memory-recall',
++                    type: 'thinking',
++                    title: '记忆召回',
++                    text: message.memoryRecall,
++                    charCount: getTimelineCharCount(message.memoryRecall)
++                });
++            }
++
+             // 1. 初始原生思考
+             const reasoningText = String(getAssistantReasoningText(message) || '').trim();
+             if (reasoningText) {
+@@ -8097,7 +9697,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2281,7 +2462,7 @@ index f73b1ddd..ba1f4ac0 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: '/image###([^\\r\\n]*?)(?:###|(?=\\r?\\n)|$)/g',
-@@ -9192,8 +10635,7 @@ const app = createApp({
+@@ -9192,8 +10795,7 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2291,7 +2472,7 @@ index f73b1ddd..ba1f4ac0 100644
  
              await loadData();
              fetchQuota(); // Fetch quota after saved settings are loaded
-@@ -9393,7 +10835,11 @@ const app = createApp({
+@@ -9393,7 +10995,11 @@ const app = createApp({
              }
  
              if (settings.autoFetchModels) {
@@ -2304,7 +2485,7 @@ index f73b1ddd..ba1f4ac0 100644
              }
  
              // Initial Status Check
-@@ -9434,8 +10880,7 @@ const app = createApp({
+@@ -9434,8 +11040,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2314,15 +2495,15 @@ index f73b1ddd..ba1f4ac0 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9632,6 +11077,7 @@ const app = createApp({
+@@ -9632,6 +11237,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
-+            appVersionLabel, upstreamVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop,
++            appVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop,
              showActiveToolEditor,
              showExportModal, sysInstruction, showInstructionPanel, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9646,20 +11092,22 @@ const app = createApp({
+@@ -9646,20 +11252,22 @@ const app = createApp({
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
              tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
              showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
@@ -2349,7 +2530,7 @@ index f73b1ddd..ba1f4ac0 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9676,6 +11124,14 @@ const app = createApp({
+@@ -9676,6 +11284,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2364,7 +2545,7 @@ index f73b1ddd..ba1f4ac0 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9829,7 +11285,7 @@ const app = createApp({
+@@ -9829,7 +11445,7 @@ const app = createApp({
                  showToast(`成功导入 ${normalized.length} 个分片`, 'success');
              }, error => showToast(`导入失败: ${error.message || 'JSON 格式错误'}`, 'error')),
              toggleMobileMenu, closeMobileMenu,

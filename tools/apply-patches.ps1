@@ -47,7 +47,7 @@ if ($titleContent -notmatch 'rphub-update-api') {
 # ------------------------------------------------------------------
 # Patch 003 · 已退役（v1.2.3，patch 027）：入口字标由「开卷」开屏 DOM 承载，
 #   上游 entry-transition 区块在 index.html 被整体替换；003 标记保留于 index.html
-#   注释，原意图由实体 012-027-index-html.patch 覆盖（先于 003 的重放不再执行）。
+#   注释，原意图由实体 012-033-index-html.patch 覆盖（先于 003 的重放不再执行）。
 # ------------------------------------------------------------------
 
 # ------------------------------------------------------------------
@@ -234,8 +234,10 @@ if ($appContent -match "fontFamily: 'luzzy'") {
 # 预期冲突点：上游改设置页结构 / fontFamily watch 区域 / settings 加载块时需重打
 # ------------------------------------------------------------------
 $titleContent = [System.IO.File]::ReadAllText($titlePath)
-if ($titleContent -match '界面主题') {
-    Write-Host "[SKIP] 011-theme-ui (已应用)"
+# [LuzzyRP patch 028 退役 011]：主题单轨化已移除「界面主题」卡 DOM，重放目标不复存在；
+# 主题字段逻辑由实体 012-031-app-js.patch 承载。会话 21 实证：SKIP 检测失配导致重放崩溃，故退役。
+if (-not ($titleContent -match '界面主题')) {
+    Write-Host "[SKIP] 011-theme-ui (已退役：028 单轨化移除主题卡 DOM，目标不复存在)"
 } else {
     $startIdx = $titleContent.IndexOf('                                    <!-- Font Family Setting -->')
     $endIdx = $titleContent.IndexOf('                                    <!-- Font Size Setting -->', $startIdx)
@@ -373,16 +375,16 @@ function Get-FileSha256Local([string]$Path) {
 }
 $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
-    @{ File = 'novel/index.html';             Entity = '007-023-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
-    @{ File = 'assets/js/core-utils.js';      Entity = '009-023-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-028-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-028-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'novel/index.html';             Entity = '007-029-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
+    @{ File = 'assets/js/core-utils.js';      Entity = '009-029-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
+    @{ File = 'index.html';                   Entity = '012-033-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-031-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/ui-components.js';   Entity = '012-026-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/runtime-services.js'; Entity = '012-026-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/runtime-services.js'; Entity = '012-032-runtime-services-js.patch'; Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/data-services.js';   Entity = '016-data-services-js.patch';      Marker = '[LuzzyRP patch 016]' }
 )
 Write-Host ""
-Write-Host "== 实体 patch（007/009/012-028）=="
+Write-Host "== 实体 patch（007/009/012-033）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')

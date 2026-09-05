@@ -1498,3 +1498,76 @@ EXTRACT 27 debug 包=日常包（数据保留）。
   （arm64-v8a / universal / x86_64，各 17.3MB）：
   https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.2.3
 - 遗留：无（发版流程 §3.4 全项完成；下一版 v1.3.0 候选见 README 规划表）。
+
+---
+
+## 会话 21 · v1.3.0 性能与功能小版本（2026-09-05，探索阶段）
+
+**任务（用户指令，四项）**：①手机端性能优化（高刷未跑满/聊天卡顿/发送键点击热区漂移/气泡与流式卡顿/开屏掉帧）②内置供应商仅保留 DeepSeek 且支持编辑内置供应商 ③关于页「基于 RP-Hub」行去掉版本号 1.9.0（防同步遗忘）④思考卡片内新增「记忆嵌入」独立节点。
+
+**开始状态**：main e56693b0 干净；v1.2.3 正式版已发布（versionCode 10）；verify-markers 61 PASS / 0 FAIL。
+
+**探索安排**：三路子代理并行（性能管线 / 内置供应商体系 / 思考卡片×记忆链路）；关于页版本号串已主会话定位（index.html:2138 + app.js:703/711/715/11080 + luzzy-ext.js:29/62 + luzzy-bridge.js:48 + LuzzyBridge.kt UPSTREAM_VERSION）。规定 9：4 项设计 SKILL 主文档已复读；豁免判定=性能修复（机械操作）+ 开屏迭代（方向 B 已选定）+ 节点/编辑按钮（组件级新增循 DESIGN.md token）。
+
+### 会话 21 实施 · 四需求全量落地（2026-09-05，patch 029-034）
+
+**探索结论（三路子代理 + 主会话，行号级锚点）**：
+- 性能四根因：①流式每 60ms 对增长全文跑「正则→marked→DOMPurify→DOMParser→iframe」
+  全链 O(n²) 重算 + v-html 全量替换（runtime-services.js:57/624-682）；②玻璃层爆炸——
+  luzzy-theme.css 33 处 backdrop-filter 重放上游移动端 kill-switch + `.glass-stabilize`
+  给每气泡强挂 will-change（styles.css:1913，非法动画值仅起促层作用）+ scroll-reveal
+  三族不回收 → 渲染窗口常驻 40-60 候选层 @3.25（单气泡层 ~11MB）；③发送键热区漂移 =
+  FAB 同族（输入岛玻璃+transition-all+键盘位移，DPR 3.25 合成层绘制错位）；④开屏
+  lspDiveZoom filter:blur(0→9px) 全屏层逐帧重栅格 ≈3510×7800 像素/帧。壳层（WebViewSetup.kt）
+  无性能负配置，不动 Kotlin。
+- 供应商：唯一数据源 core-utils.js:946-971；锁定=模板反向查询；**sta1n 深度绑定
+  defaultApiProviderId 链路（直删白屏）**；扩展层被「解构捕获+freeze+闭包」三重隔离
+  挡死 → 必须走 patch；工坊同步已有用户商 remap 兜底（app.js:1059-1066）。
+- 记忆节点：getTimelineSteps（app.js:8560 区）单点驱动 + 模板通用 step 渲染（零模板改动）；
+  **时序约束=检索/嵌入早于 assistant 消息懒创建 → 只能创建时盖戳、渲染期读戳**；
+  识别走 window.RPHubContextUtils.isVectorMemoryRecallContent（patch 016 生态）。
+- **TDZ 陷阱（实抓）**：memorySettings 定义于 :1386、MODEL_REF_FIELD_LABELS 于 :4120，
+  均晚于 normalizeApiProviderSettings() 调用点 :980——迁移函数不得引用（注释入册）。
+
+**实施（用户拍板 D1=高频面退实底 / D2=「记忆召回」不强制出卡 / D3=STA1N 无损迁移）**：
+1. patch 032（commit 124f6daa）：STREAM_RENDER_INTERVAL 60→120ms（三协议共用 :57）+
+   renderMarkdown `options.cache=false` 流式 LRU 旁路（唯一调用方=index.html 流式分支）。
+2. patch 034（commit 509f6f80，ext/luzzy-theme.css）：D1 高频面退实底（气泡/typing/
+   输入岛/侧栏 blur 归零 alpha 0.97，:has 流式加厚同步失效；思考卡/模态/工具条保留磨砂）+
+   glass-stabilize/scroll-reveal 三族 will-change→auto + lspDiveZoom 去 filter:blur
+   （泡泡脱离 filter 父层）。
+3. patch 033（commit e2cec220，index.html 字节级）：输入区 transition-all→`transition-[bottom]`
+   定向、输入岛去过渡、发送/中止按钮 `transition-[background-color,box-shadow,transform,opacity]`。
+4. patch 029（commit 3a4b8908）：core-utils 精简仅 DeepSeek（editable）+ 默认商切 deepseek；
+   app.js 六处（allApiProviders override 合并 / migrateRemovedBuiltinProviders 老用户迁移
+   （URL/Key/模型槽位引用保留）/ normalize 容器 / apiUrl watch 直编 override / 编辑器内置
+   分支 id 锁定 + 保存写 apiProviderOverrides）；index.html 编辑按钮+URL 框放开+id 置灰；
+   novel 兜底副本同步；**patch 023 随条目退位（校验项 029 接管）**。
+5. patch 030（commit c170b5db）：关于页「基于 RP-Hub 二次开发」固定文案（index 去插值 +
+   app.js upstreamVersionLabel 整链移除 + luzzy-ext 页脚同改；UPSTREAM_VERSION 保留仅诊断）。
+6. patch 031（commit b93f333d）：extractMemoryRecallStamp 盖戳（片段数+相似度区间，
+   失败静默降级）+ getTimelineSteps 时间线首位「记忆召回」thinking 型节点。
+7. 门禁与登记链：verify-markers manifest 023×2 退役→029 接管 + 新增 029-034 十项
+   （**71 PASS / 0 FAIL**）；实体再生成 5 枚（007-029-novel / 009-029-core-utils /
+   012-031-app / 012-032-runtime / 012-033-index，pre 哈希与基线逐一对齐，逆向
+   --check 8/8 PASS）；tools/patches/README 登记 028（补记，会话 20 遗漏）+ 029-034；
+   gen-changelog 重跑（R3 全绿）；CHANGELOG v1.3.0 章节 / DESIGN.md（性能档位玻璃表 +
+   记忆节点 + 编辑内置商组件行 + Motion 去 blur + Don'ts 高频玻璃禁令）/ README 规划表 /
+   AGENTS §4.2 表 001-034 + §9 快照 / HARD_REQUIREMENTS 范围号同步。
+8. **apply-patches 011 重放块退役（意外发现）**：SKIP 检测锚「界面主题」被 028 移除后
+   失配 → 落入重放分支 IndexOf 崩溃（会话 20 补充 4 后从未重跑 apply-patches 故未暴露）。
+   按 003 先例退役（倒置条件 SKIP + 退役注释），重跑全 SKIP。
+
+**过程抓错（诚实记录）**：①index.html 两次被 Edit 工具翻转混合行尾（3462/3461、3467/3464
+整文件伪 diff）——两次均 git checkout 回滚后字节级脚本重放（numstat 恢复 2/1、8/5 行级），
+坑表规则第三次验证有效；②patch 032 首次编辑把 HTML 注释插进 div 标签属性间（非法结构），
+自查发现后移至标签外；③PS 5.1 无 `??` 运算符、`.Split(string)` 按字符拆分——脚本写法坑两次。
+
+**遗留 / 下一步**：
+- 真机回归（小米 df97f3c4）：debug 包 install -r + §6.2 全量 + 性能专项（流式 10s
+  Performance 录制前后对比 / elementFromPoint 热区偏移向量 / 开屏逐帧）+ D1 玻璃档位
+  亮暗目测 + 供应商迁移/DeepSeek 编辑/记忆节点专项走查；
+- 老用户迁移注意：激活商=STA1N/OpenRouter/SiliconFlow 时自动转用户商（Key 保留）；
+  记忆嵌入引用不改写（TDZ 约束），指向已退内置商时 patch 026 显式报错兜底（重选即可）；
+- v1.4.0 候选（本版明确不做）：styles.css 低频蓝收编、向量阈值滑杆、壳层 textZoom
+  （理由：零症状贡献/归因污染/独立设计决策，见会话 21 对话记录）。

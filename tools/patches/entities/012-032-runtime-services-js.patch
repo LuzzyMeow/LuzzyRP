@@ -1,8 +1,19 @@
 diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
-index 473672b8..3da206e7 100644
+index 473672b8..fd3746a5 100644
 --- a/assets/js/runtime-services.js
 +++ b/assets/js/runtime-services.js
-@@ -144,6 +144,20 @@
+@@ -54,7 +54,9 @@
+         };
+     };
+ 
+-    const STREAM_RENDER_INTERVAL = 60;
++    // [LuzzyRP patch 032] 流式渲染降载：60→120ms——全文重算链（正则→marked→DOMPurify→DOMParser）
++    // 按此间隔触发，降频即近半流式 CPU 峰值（v1.3.0 性能；三协议 readStreamingResponse 共用）。
++    const STREAM_RENDER_INTERVAL = 120;
+ 
+     const readStreamingResponse = async (response, onDelta) => {
+         const reader = response.body.getReader();
+@@ -144,6 +146,20 @@
      };
  
      const requestChatCompletion = async (options) => {
@@ -23,7 +34,7 @@ index 473672b8..3da206e7 100644
          const response = await fetch(options.url, {
              method: 'POST',
              headers: {
-@@ -155,6 +169,8 @@
+@@ -155,6 +171,8 @@
                  messages: options.messages,
                  temperature: options.temperature,
                  ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
@@ -32,7 +43,7 @@ index 473672b8..3da206e7 100644
                  stream: options.stream,
                  ...(options.stream ? { stream_options: { include_usage: true } } : {})
              }),
-@@ -170,6 +186,342 @@
+@@ -170,6 +188,342 @@
          return { ...result, isStream };
      };
  
@@ -375,7 +386,56 @@ index 473672b8..3da206e7 100644
      window.RPHubApiClient = Object.freeze({ requestChatCompletion });
  })();
  
-@@ -474,6 +826,10 @@
+@@ -269,10 +623,13 @@
+             return modified;
+         };
+ 
+-        const renderMarkdown = (text, role = 'assistant', skipRegex = false) => {
++        // [LuzzyRP patch 032] options.cache=false 旁路 LRU：流式期全文逐 tick 变化，中间串写缓存
++        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动（v1.3.0 性能；唯一调用方=index.html 流式分支）。
++        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}) => {
+             if (!text) return '';
+             const cacheKey = `${role}_${skipRegex}_${text}`;
+-            if (renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
++            const allowCache = options.cache !== false;
++            if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
+ 
+             let processed = applyDisplayRegex(text, role, skipRegex);
+             const trimmed = processed.trim();
+@@ -298,12 +655,13 @@
+                     container.outerHTML,
+                     postText.trim() ? sanitizeMarkdown(postText) : ''
+                 ].join('');
+-                return cacheValue(renderedCache, cacheKey, result);
++                return allowCache ? cacheValue(renderedCache, cacheKey, result) : result;
+             }
+ 
+             if (/^\s*<(div|table|section|article|aside|header|footer|style|script)/i.test(trimmed)
+                 && !trimmed.includes('```')) {
+-                return cacheValue(renderedCache, cacheKey, DOMPurify.sanitize(processed, cleanConfig));
++                const sanitizedBlock = DOMPurify.sanitize(processed, cleanConfig);
++                return allowCache ? cacheValue(renderedCache, cacheKey, sanitizedBlock) : sanitizedBlock;
+             }
+ 
+             const lowerTrimmed = trimmed.toLowerCase();
+@@ -322,11 +680,14 @@
+                 const paragraphsChanged = replaceEscapedHtmlParagraphs(documentNode);
+                 const panelsChanged = replaceScriptedPanels(documentNode);
+                 const modified = codeBlocksChanged || paragraphsChanged || panelsChanged;
+-                if (modified) return cacheValue(renderedCache, cacheKey, documentNode.body.innerHTML);
++                if (modified) {
++                    const frameHtml = documentNode.body.innerHTML;
++                    return allowCache ? cacheValue(renderedCache, cacheKey, frameHtml) : frameHtml;
++                }
+             } catch (error) {
+                 console.error('Error rendering HTML preview:', error);
+             }
+-            return cacheValue(renderedCache, cacheKey, html);
++            return allowCache ? cacheValue(renderedCache, cacheKey, html) : html;
+         };
+ 
+         return { clearCaches, contentUsesHtmlFrame, renderMarkdown };
+@@ -474,6 +835,10 @@
                  timestamp: Date.now(),
                  type: meta.type || 'chat',
                  model: String(meta.model || ''),

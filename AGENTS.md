@@ -242,7 +242,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-020，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-034，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -266,6 +266,20 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 018 | index.html head + ext/luzzy-ext.js | 开屏主题防闪蓝（head 内联脚本按 localStorage 快照写 data-theme/data-mode + luzzy-theme.css 由尾部 link 移入 head 首帧注入；快照由 luzzy-ext.js MutationObserver 维护；v1.2.1） |
 | 019 | ui-components.js + index.html + ext/luzzy-theme.css | 侧栏品牌字样 LuzzyRP + 底部簇外观→设置→关于（关于置底）+ 外观页主题预览交互化（色板随 data-theme 取色 --luzzy-prev-*，luzzy 下点击卡片直接切亮/暗模式；v1.2.1） |
 | 020 | app.js | 向量分桶检索失败 toast 外化（注入检索/手动检索两处 catch，30s 全局节流，showToast 降级兜底；v1.2.2） |
+| 021 | index.html + app.js | 设置页清理：残留外观入口移除 + 存储自动统计（v1.2.3） |
+| 022 | index.html + app.js | 聊天页全屏按钮与全部全屏逻辑下线（v1.2.3） |
+| 023 | core-utils.js + novel/index.html | STA1N 图标修复（上游图床 404 → 官方 CDN favicon；**v1.3.0 patch 029 随内置精简退位**，校验项已由 029 接管） |
+| 024 | ui-components.js + index.html + app.js | 关于页工具化：版本分类下拉 + 关键词搜索 + 置顶 FAB（v1.2.3） |
+| 025 | runtime-services.js + ui-components.js + app.js + index.html | 用量趋势折线图（三粒度/多模型分类色/供应商筛选）+ recordApiUsage 补存 provider/protocol（v1.2.3） |
+| 026 | app.js + data-services.js | 向量检索死区修复：手动检索摘除保留窗 + 死供应商显式报错 + 裸引用回退跟随激活商（v1.2.3） |
+| 027 | index.html + ext/luzzy-theme.css + ext/luzzy-splash.js | 自创开屏「开卷」（v3 门扉交互：淡入→进度条→沉溺按钮→眩晕泡泡放大转场；上游 entry-transition 退役，003 并入退役；v1.2.3） |
+| 028 | index.html + app.js | 主题单轨化：经典主题与切换移除，恒定暖幕手记，老用户强制迁移（v1.2.3） |
+| 029 | core-utils.js + app.js + index.html + novel/index.html | 内置供应商精简仅留 DeepSeek（editable + apiProviderOverrides 持久化 + override 合并注册表 + 编辑器内置分支 id 锁定 + URL 直编）+ 默认商切 deepseek + 老用户迁移 migrateRemovedBuiltinProviders（STA1N/OpenRouter/SiliconFlow 无损转用户商；v1.3.0，D3 拍板） |
+| 030 | index.html + app.js + ext/luzzy-ext.js | 关于页「基于 RP-Hub」固定文案（upstreamVersionLabel 整链移除，防同步遗忘基线串；v1.3.0） |
+| 031 | app.js | 记忆召回思考节点：创建时盖戳（extractMemoryRecallStamp 识别 016 召回块）+ getTimelineSteps 首位渲染（零模板改动；v1.3.0） |
+| 032 | runtime-services.js + index.html | 流式渲染降载：间隔 60→120ms（三协议）+ 流式期渲染 LRU 旁路（v1.3.0） |
+| 033 | index.html | 输入区过渡定向化（transition-all→bottom 定向/输入岛去过渡/按钮定向属性，FAB v4 配方根除热区漂移；v1.3.0） |
+| 034 | ext/luzzy-theme.css | 性能治理（扩展层直改）：D1 高频面退实底（气泡/typing/输入岛/侧栏 blur 归零）+ will-change 合成层瘦身 + 开屏 lspDiveZoom 去 filter:blur（v1.3.0，DESIGN.md 已同步） |
 
 **新增 patch 的规则**：
 
@@ -381,11 +395,32 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-04 会话 20 快照 · v1.2.2 已发布 + 上游 1.9.0 已同步）
+## 9. 当前状态与已知问题（2026-09-05 会话 21 快照 · v1.2.3 已发布 + v1.3.0 开发中）
 
-> 完整过程见 `docs/WORKLOG.md` 会话 15-20。上游基线 RP-Hub **1.9.0**（2026-09-04 会话 20 同步）。
+> 完整过程见 `docs/WORKLOG.md` 会话 15-21。上游基线 RP-Hub **1.9.0**（2026-09-04 会话 20 同步）。
 
-### 版本状态（2026-09-04 · 会话 19）
+### 版本状态（2026-09-05 · 会话 21）
+
+- **v1.3.0 开发中**（v1.2.3 已于 2026-09-05 正式发布，versionCode 10，Release 附三件套 APK）：
+  ① patch 032 流式渲染降载（间隔 60→120ms + 流式 LRU 旁路）；② patch 034 性能治理
+  （D1 高频面退实底：气泡/typing/输入岛/侧栏 blur 归零；glass-stabilize/scroll-reveal
+  will-change 瘦身；开屏 lspDiveZoom 去 filter:blur）；③ patch 033 输入区过渡定向化
+  （发送键热区漂移根除，FAB v4 配方）；④ patch 029 内置供应商精简仅留 DeepSeek
+  （editable + apiProviderOverrides；老用户 STA1N/OpenRouter/SiliconFlow 无损迁移为
+  用户商；默认商切 deepseek；**023 校验项退役由 029 接管**）；⑤ patch 030 关于页
+  「基于 RP-Hub」固定文案（防同步遗忘）；⑥ patch 031 记忆召回思考节点（盖戳+渲染，
+  零模板改动）。
+- **门禁现状**：verify-markers **71 PASS / 0 FAIL**（+10 净增校验；023 两项退役→029
+  接管）；实体再生成 5 枚（007-029-novel / 009-029-core-utils / 012-031-app /
+  012-032-runtime / 012-033-index），逆向 --check 8/8 PASS；gen-changelog 已重跑
+  （R3 全绿）；**apply-patches 011 重放块退役**（SKIP 检测失配崩溃实证，028 目标 DOM
+  不复存在）。
+- **待办**：debug 包真机回归（§6.2 + 性能专项：流式 10s 录制对比 / elementFromPoint
+  热区向量 / 开屏逐帧）；玻璃档位（D1）视觉走查（亮/暗双模式）。
+- **明确不做（本版）**：壳层 textZoom/offscreenPreRaster（零收益）、styles.css 低频蓝
+  收编与向量阈值滑杆（v1.4.0 候选，理由见 WORKLOG 会话 21）。
+
+### 版本状态（2026-09-04 · 会话 19 · 历史快照）
 
 - **v1.2.2（versionCode 9 / EXTRACT_VERSION 20）已发布**（2026-09-04，Release v1.2.2 附三件套 APK；commit b815589b）：
   ① patch 008 v4 blue/indigo 色板收编（toggle 蓝/叙事视角 luzzy 下珊瑚化，classic 原值）；

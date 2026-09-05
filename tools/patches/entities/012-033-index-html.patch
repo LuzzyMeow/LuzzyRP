@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..8074bdfc 100644
+index b290e220..2ba7ecd4 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -199,7 +199,34 @@ index b290e220..8074bdfc 100644
                              <button @click="clearChat"
                                  class="p-1.5 text-white/70 hover:text-red-400 rounded-full hover:bg-white/10 transition-colors"
                                  title="清空聊天">
-@@ -957,7 +1000,7 @@
+@@ -583,10 +626,11 @@
+                                             <template v-if="parseCot(msg.content).main">
+                                                 <template
+                                                     v-if="index === chatHistory.length - 1 && (isGenerating || isRemoteGenerating)">
++                                                    <!-- [LuzzyRP patch 032] 流式分支旁路渲染 LRU（防中间串灌满缓存，v1.3.0 性能） -->
+                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).text"
+                                                         class="markdown-body"
+                                                         :style="settings.fontSize ? { fontSize: settings.fontSize + 'px' } : {}"
+-                                                        v-html="renderMarkdown(processMainContent(parseCot(msg.content).main, true).text, msg.role)">
++                                                        v-html="renderMarkdown(processMainContent(parseCot(msg.content).main, true).text, msg.role, false, { cache: false })">
+                                                     </div>
+                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).showSpinner"
+                                                         class="flex flex-col items-center justify-center p-8 w-full mt-2 gap-4 opacity-90">
+@@ -765,10 +809,11 @@
+ 
+ 
+                 <!-- Input Area (Floating Island) -->
++                <!-- [LuzzyRP patch 033] 输入区过渡定向化：输入区 transition-all→bottom 定向 / 输入岛去过渡（v1.3.0 性能，FAB v4 配方防热区漂移） -->
+                 <div
+-                    class="absolute bottom-0 left-0 right-0 w-full p-2 md:p-3 z-30 pointer-events-none flex justify-center flex-shrink-0 transition-all duration-300 input-area-mobile">
++                    class="absolute bottom-0 left-0 right-0 w-full p-2 md:p-3 z-30 pointer-events-none flex justify-center flex-shrink-0 transition-[bottom] duration-200 ease-out input-area-mobile">
+                     <div
+-                        class="relative w-full max-w-lg md:max-w-[30rem] pointer-events-auto p-2.5 md:p-3 bg-white/90 backdrop-blur-xl border border-white/40 shadow-lg rounded-3xl ring-1 ring-black/5 transition-all duration-300 flex flex-col input-island">
++                        class="relative w-full max-w-lg md:max-w-[30rem] pointer-events-auto p-2.5 md:p-3 bg-white/90 backdrop-blur-xl border border-white/40 shadow-lg rounded-3xl ring-1 ring-black/5 flex flex-col input-island">
+                         <transition enter-active-class="transition-all duration-200 ease-out"
+                             enter-from-class="opacity-0 translate-y-2 scale-95"
+                             enter-to-class="opacity-100 translate-y-0 scale-100"
+@@ -957,7 +1002,7 @@
                                                          :disabled="!slot.model"
                                                          :class="['flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all', modelMode === slot.mode && slot.model ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50', !slot.model ? 'cursor-not-allowed opacity-45' : 'active:scale-[0.98]']">
                                                          <span class="flex-none text-xs font-bold">槽位 {{ slotIndex + 1 }}</span>
@@ -208,7 +235,29 @@ index b290e220..8074bdfc 100644
                                                      </button>
                                                  </div>
                                                  <div class="border-t border-gray-100 pt-4 space-y-5">
-@@ -1635,7 +1678,7 @@
+@@ -1035,10 +1080,11 @@
+                                 rows="1" ref="inputBox"></textarea>
+ 
+                             <!-- Send/Stop Button -->
++                            <!-- [LuzzyRP patch 033] 发送/中止按钮 transition-all→定向属性（v1.3.0 性能） -->
+                             <div class="flex-shrink-0 flex items-center gap-1">
+                                 <button v-if="!isConversationBusy" @click="sendMessage"
+                                     :disabled="(!userInput.trim() && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
+-                                    class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-all shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
++                                    class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-[background-color,box-shadow,transform,opacity] shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
+                                     title="发送">
+                                     <svg class="w-5 h-5 transform rotate-90" fill="none"
+                                         stroke="currentColor" viewBox="0 0 24 24">
+@@ -1047,7 +1093,7 @@
+                                     </svg>
+                                 </button>
+                                 <button v-else @click="stopGeneration"
+-                                    class="p-2 md:p-2.5 bg-red-500 text-white rounded-2xl md:hover:bg-red-600 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 transition-all shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
++                                    class="p-2 md:p-2.5 bg-red-500 text-white rounded-2xl md:hover:bg-red-600 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 transition-[background-color,box-shadow,transform,opacity] shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
+                                     title="中止生成">
+                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                         viewBox="0 0 24 24">
+@@ -1635,7 +1681,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -217,7 +266,7 @@ index b290e220..8074bdfc 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1650,7 +1693,7 @@
+@@ -1650,7 +1696,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -226,7 +275,7 @@ index b290e220..8074bdfc 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1659,9 +1702,29 @@
+@@ -1659,9 +1705,30 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -253,11 +302,12 @@ index b290e220..8074bdfc 100644
                                          </div>
                                      </div>
 -                                    <div v-if="isCustomApiProvider" class="relative">
-+                                    <div v-if="isCustomApiProvider || isUserApiProvider" class="relative">
++                                    <div v-if="isCustomApiProvider || isUserApiProvider || <!-- [LuzzyRP patch 029] 可编辑内置商：设置页 API URL 输入框放开（写 override） -->
++                                    <div v-if="isCustomApiProvider || isUserApiProvider || selectedApiProvider.editable" class="relative">
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1732,7 +1795,7 @@
+@@ -1732,7 +1799,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -266,7 +316,7 @@ index b290e220..8074bdfc 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1775,6 +1838,19 @@
+@@ -1775,6 +1842,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -286,7 +336,7 @@ index b290e220..8074bdfc 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1786,7 +1862,7 @@
+@@ -1786,7 +1866,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -295,7 +345,7 @@ index b290e220..8074bdfc 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1795,9 +1871,23 @@
+@@ -1795,9 +1875,23 @@
                                              </custom-select>
                                          </div>
  
@@ -321,7 +371,7 @@ index b290e220..8074bdfc 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1898,41 +1988,7 @@
+@@ -1898,41 +1992,7 @@
                                  </label>
                              </div>
  
@@ -364,7 +414,7 @@ index b290e220..8074bdfc 100644
  
                              <!-- Storage Management -->
                              <div class="pt-6 border-t border-gray-100 mt-6">
-@@ -1948,11 +2004,7 @@
+@@ -1948,11 +2008,7 @@
                                          </h4>
                                      </div>
                                      <div class="flex flex-wrap items-center gap-2">
@@ -377,7 +427,7 @@ index b290e220..8074bdfc 100644
                                          <button type="button" @click="cleanupUnusedStorage"
                                              :disabled="storageStats.loading || storageStats.cleaning || storageStats.orphanedItems === 0"
                                              class="px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-100 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-@@ -1968,7 +2020,7 @@
+@@ -1968,7 +2024,7 @@
                                  <div v-else class="space-y-6">
                                      <div>
                                          <div class="flex items-center justify-between gap-3 mb-3 text-sm">
@@ -386,7 +436,7 @@ index b290e220..8074bdfc 100644
                                              <span class="font-semibold text-gray-500 whitespace-nowrap">
                                                  <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
                                                  <span class="mx-1 text-gray-300">/</span>
-@@ -2003,6 +2055,134 @@
+@@ -2003,6 +2059,138 @@
                  </div>
              </div>
  
@@ -470,7 +520,8 @@ index b290e220..8074bdfc 100644
 +                            onerror="this.style.display='none'">
 +                        <div class="min-w-0">
 +                            <div class="text-lg font-bold text-gray-800">LuzzyRP <span class="text-sm font-semibold text-gray-500">{{ appVersionLabel }}</span></div>
-+                            <div class="text-xs text-gray-500 mt-0.5">基于 <a href="https://github.com/STA1N156/RP-Hub" target="_blank" rel="noopener" class="text-primary-600 hover:underline">RP-Hub</a> {{ upstreamVersionLabel }} 二次开发 · 纯前端 + 原生壳</div>
++                            <div class="text-xs text-gray-500 mt-0.5"><!-- [LuzzyRP patch 030] 版本号移除（v1.3.0 需求 3）：固定「基于 RP-Hub 二次开发」，防上游同步遗忘 -->
++                            <div class="text-xs text-gray-500 mt-0.5">基于 <a href="https://github.com/STA1N156/RP-Hub" target="_blank" rel="noopener" class="text-primary-600 hover:underline">RP-Hub</a> 二次开发 · 纯前端 + 原生壳</div>
 +                            <div class="text-xs text-gray-400 mt-0.5">CC BY-NC 4.0 · 仅限侧载分发，禁止商用与上架商店</div>
 +                        </div>
 +                    </div>
@@ -510,18 +561,21 @@ index b290e220..8074bdfc 100644
 +                    </div>
 +                </div>
 +            </div>
-+                    <!-- [LuzzyRP patch 024] 右下角置顶按钮（滚动超过阈值出现，v1.2.3） -->
-+                    <button type="button" @click="scrollAboutToTop" aria-label="回到顶部"
-+                        class="about-top-fab fixed bottom-5 right-5 z-30 w-11 h-11 rounded-full items-center justify-center bg-white border border-gray-100 shadow-md text-gray-500 hover:text-primary-600 hover:border-primary-100"
-+                        :class="{ 'is-visible': aboutFabVisible }">
-+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-+                        </svg>
-+                    </button>
++                    <!-- [LuzzyRP patch 024/028] 置顶按钮 v3：sticky 行容器钉底 + 按钮 opacity 淡入淡出
++     （不用 fixed/transform 动画，规避 WebView 合成层失效导致的绘制错位，v1.2.3） -->
++<div class="lsp-fab-row">
++    <button type="button" @click="scrollAboutToTop" aria-label="回到顶部"
++        class="about-top-fab fixed bottom-5 right-5 z-30 w-11 h-11 rounded-full bg-white border border-gray-100 shadow-md text-gray-500 hover:text-primary-600 hover:border-primary-100"
++        :class="{ 'is-visible': aboutFabVisible }">
++        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
++        </svg>
++    </button>
++</div>
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2252,7 @@
+@@ -2072,6 +2260,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -529,7 +583,7 @@ index b290e220..8074bdfc 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2436,12 @@
+@@ -2255,6 +2444,12 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -542,7 +596,7 @@ index b290e220..8074bdfc 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2601,7 @@
+@@ -2414,7 +2609,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -551,7 +605,7 @@ index b290e220..8074bdfc 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2633,7 @@
+@@ -2446,7 +2641,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -560,7 +614,7 @@ index b290e220..8074bdfc 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2829,141 @@
+@@ -2642,6 +2837,141 @@
                          </div>
                      </div>
                  </div>
@@ -702,7 +756,7 @@ index b290e220..8074bdfc 100644
  
              </div>
  
-@@ -2786,11 +3108,295 @@
+@@ -2786,11 +3116,297 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -750,7 +804,8 @@ index b290e220..8074bdfc 100644
 +                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
 +                                检测
 +                            </button>
-+                            <button v-if="!apiProviderOptions.some(item => item.id === provider.id)" type="button"
++                            <!-- [LuzzyRP patch 029] 可编辑内置商（DeepSeek）：editable 标志开放编辑按钮 -->
++                            <button v-if="provider.editable || !apiProviderOptions.some(item => item.id === provider.id)" type="button"
 +                                @click="editUserApiProvider(provider)"
 +                                class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
 +                                编辑
@@ -847,9 +902,10 @@ index b290e220..8074bdfc 100644
 +                    <!-- 基础信息 -->
 +                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 +                        <div>
-+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">供应商 ID <span class="text-gray-300 normal-case font-normal">（引用前缀，保存后自动重映射）</span></label>
-+                            <input v-model="providerEditorDraft.id" type="text"
-+                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all"
++                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5"><!-- [LuzzyRP patch 029] 内置商编辑态：id 锁定（引用体系身份，不可改） -->
++                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">供应商 ID <span class="text-gray-300 normal-case font-normal">{{ providerEditorDraft.__builtinEditable ? '（内置供应商，固定）' : '（引用前缀，保存后自动重映射）' }}</span></label>
++                            <input v-model="providerEditorDraft.id" type="text" :disabled="providerEditorDraft.__builtinEditable"
++                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
 +                                placeholder="如 my-provider">
 +                            <p v-if="providerEditorIdConflict" class="mt-1 text-[11px] text-red-500">该 id 已被其他供应商占用</p>
 +                        </div>
@@ -998,7 +1054,7 @@ index b290e220..8074bdfc 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3479,14 @@
+@@ -2873,6 +3489,14 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

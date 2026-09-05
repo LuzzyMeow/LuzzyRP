@@ -1,5 +1,5 @@
 diff --git a/novel/index.html b/novel/index.html
-index a172348b..e6bc4eab 100644
+index a172348b..68a9a32d 100644
 --- a/novel/index.html
 +++ b/novel/index.html
 @@ -5,16 +5,17 @@
@@ -26,12 +26,18 @@ index a172348b..e6bc4eab 100644
      
      <style>
          :root {
-@@ -1201,7 +1202,7 @@
+@@ -1200,11 +1201,10 @@
+                 const apiProviders = ref([]);
                  const isSyncingRPHub = ref(false);
                  const showApiProviderSelect = ref(false);
++                // [LuzzyRP patch 029] 内置供应商精简（同步 core-utils）：兜底副本仅保留 DeepSeek
++                // （editable 标志由主页面下发；原 sta1n/openrouter/siliconflow 迁移见 app.js，patch 023 随条目退位）
                  const RPHUB_PROVIDER_DEFINITIONS = [
 -                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://picui.ogmua.cn/s1/2026/08/21/6a87a751bf871.webp' },
-+                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://cdn.sta1n.cn/favicon.ico' // [LuzzyRP patch 023] 同 core-utils：原图床 404（v1.2.3，需求 5.1） },
-                     { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' },
-                     { id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1', icon: 'https://openrouter.ai/favicon.ico' },
-                     { id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1', icon: 'https://siliconflow.cn/favicon.ico' }
+-                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' },
+-                    { id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1', icon: 'https://openrouter.ai/favicon.ico' },
+-                    { id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1', icon: 'https://siliconflow.cn/favicon.ico' }
++                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' }
+                 ];
+ 
+                 const currentModelTarget = ref('model');

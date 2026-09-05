@@ -7858,6 +7858,20 @@ const app = createApp({
             .slice((memoryManager.vectorPage - 1) * LIST_PAGE_SIZE, memoryManager.vectorPage * LIST_PAGE_SIZE));
         const displayedMemoryManagerClassic = computed(() => sortMemoryManagerClassic(memoryManager.classicList)
             .slice((memoryManager.classicPage - 1) * LIST_PAGE_SIZE, memoryManager.classicPage * LIST_PAGE_SIZE));
+        // [LuzzyRP patch 036] 记忆内容管理器实时联动：面板展开且作用域为当前会话时，
+        // memories/classicMemories 变化（向量/总结补录新增分片等）即时同步进管理器列表。
+        // 017 原实现为打开时一次性快照，补录完成后不刷新（真机实测反馈）。
+        // 非当前作用域（其他角色/分支）仍走 loadMemoryManagerData 的存储读取，不做联动。
+        // 分页不重置（新增分片追加展示）；管理器自身编辑走 writeMemoryManager* 自带同步。
+        watch(
+            () => [memories.value.length, classicMemories.value.length, memoryManager.visible, memoryManager.selectedCharId, memoryManager.branchId],
+            () => {
+                if (!memoryManager.visible) return;
+                if (!isMemoryManagerCurrentScope(getMemoryManagerScopeId())) return;
+                memoryManager.vectorList = [...memories.value];
+                memoryManager.classicList = [...classicMemories.value];
+            }
+        );
         const openMemoryManagerEditor = (type, memory) => {
             memoryManager.expandedShardId = '';
             memoryManager.editor = {

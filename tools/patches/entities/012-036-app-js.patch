@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 7935f439..3840fad5 100644
+index 7935f439..b0f8e432 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -38,6 +38,8 @@ const {
@@ -2179,7 +2179,7 @@ index 7935f439..3840fad5 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6207,6 +7708,264 @@ const app = createApp({
+@@ -6207,6 +7708,278 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2333,6 +2333,20 @@ index 7935f439..3840fad5 100644
 +            .slice((memoryManager.vectorPage - 1) * LIST_PAGE_SIZE, memoryManager.vectorPage * LIST_PAGE_SIZE));
 +        const displayedMemoryManagerClassic = computed(() => sortMemoryManagerClassic(memoryManager.classicList)
 +            .slice((memoryManager.classicPage - 1) * LIST_PAGE_SIZE, memoryManager.classicPage * LIST_PAGE_SIZE));
++        // [LuzzyRP patch 036] 记忆内容管理器实时联动：面板展开且作用域为当前会话时，
++        // memories/classicMemories 变化（向量/总结补录新增分片等）即时同步进管理器列表。
++        // 017 原实现为打开时一次性快照，补录完成后不刷新（真机实测反馈）。
++        // 非当前作用域（其他角色/分支）仍走 loadMemoryManagerData 的存储读取，不做联动。
++        // 分页不重置（新增分片追加展示）；管理器自身编辑走 writeMemoryManager* 自带同步。
++        watch(
++            () => [memories.value.length, classicMemories.value.length, memoryManager.visible, memoryManager.selectedCharId, memoryManager.branchId],
++            () => {
++                if (!memoryManager.visible) return;
++                if (!isMemoryManagerCurrentScope(getMemoryManagerScopeId())) return;
++                memoryManager.vectorList = [...memories.value];
++                memoryManager.classicList = [...classicMemories.value];
++            }
++        );
 +        const openMemoryManagerEditor = (type, memory) => {
 +            memoryManager.expandedShardId = '';
 +            memoryManager.editor = {
@@ -2444,7 +2458,7 @@ index 7935f439..3840fad5 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -6914,6 +8673,18 @@ const app = createApp({
+@@ -6914,6 +8687,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2463,7 +2477,7 @@ index 7935f439..3840fad5 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -8003,7 +9774,10 @@ const app = createApp({
+@@ -8003,7 +9788,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2475,7 +2489,7 @@ index 7935f439..3840fad5 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -9098,8 +10872,7 @@ const app = createApp({
+@@ -9098,8 +10886,7 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2485,7 +2499,7 @@ index 7935f439..3840fad5 100644
  
              await loadData();
              fetchQuota(); // Fetch quota after saved settings are loaded
-@@ -9298,7 +11071,11 @@ const app = createApp({
+@@ -9298,7 +11085,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2498,7 +2512,7 @@ index 7935f439..3840fad5 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -9335,8 +11112,7 @@ const app = createApp({
+@@ -9335,8 +11126,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2508,7 +2522,7 @@ index 7935f439..3840fad5 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9536,6 +11312,7 @@ const app = createApp({
+@@ -9536,6 +11326,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2516,7 +2530,7 @@ index 7935f439..3840fad5 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9550,20 +11327,23 @@ const app = createApp({
+@@ -9550,20 +11341,23 @@ const app = createApp({
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
              tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
              showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
@@ -2544,7 +2558,7 @@ index 7935f439..3840fad5 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9580,6 +11360,14 @@ const app = createApp({
+@@ -9580,6 +11374,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2559,3 +2573,12 @@ index 7935f439..3840fad5 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
+@@ -9621,7 +11423,7 @@ const app = createApp({
+                 });
+             },
+             toggleMobileMenu, closeMobileMenu,
+-            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat, toggleChatFullscreen,
++            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat,
+             handleConfirm, handleCancel, // Export handlers
+             copyMessage, playMessageActionFeedback, canDeleteMessage, deleteMessage, regenerateMessage,
+             editMessage, saveEditMessage, cancelEditMessage,

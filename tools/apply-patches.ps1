@@ -358,7 +358,7 @@ $entityItems = @(
     @{ File = 'novel/index.html';             Entity = '007-029-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
     @{ File = 'assets/js/core-utils.js';      Entity = '009-035-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
     @{ File = 'index.html';                   Entity = '012-035-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-035-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-036-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/ui-components.js';   Entity = '012-035-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/runtime-services.js'; Entity = '012-035-runtime-services-js.patch'; Marker = '[LuzzyRP patch 032]' },
     @{ File = 'assets/js/api-utils.js';       Entity = '015-032-api-utils-js.patch';      Marker = '[LuzzyRP patch 015]' },

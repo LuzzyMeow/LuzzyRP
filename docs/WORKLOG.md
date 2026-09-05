@@ -1772,3 +1772,24 @@ PASS；apply-patches 全 SKIP；gen-changelog 重跑 R3 全绿；R1/R2（1.9.1 �
 **推送记录**：main e56693b0 → d0879862 已推送 GitHub（SSH 通道；HTTPS 直连被 reset，仅影响参考克隆 fetch——镜像 gh-proxy.com 可用）。release 未发布（用户指示：真机人工验证后才推 release 附最新 APK）。debug 包（21:06 后重打，含 1.9.1 同步）已交付桌面。.
 
 **补充 7 追记（真机反馈修复，commit e9124fcd）**：用户真机实测发现 1.9.1 同步后聊天页底部泄漏「记忆内容管理」入口 + 输入岛偏移。根因：1.9.1 上游位移了记忆视图区域的 div 边界，index 实体按偏移应用后 **memory 视图容器提前闭合**（2765），patch 017 记忆内容管理卡（v-if="true" 断链设计）落到视图容器之外裸露为文档级无条件渲染——聊天页垫入 69px 卡片高度（输入岛 absolute bottom-0 随 chat-view-root 上移=偏移）+ 记忆入口泄漏。修复：卡片块移回 memory 容器闭合前（1.9.1 前正确归属，git show 223aa4c1 实证触发器在容器内），实体 012-035-index 再生成逆向 PASS。**教训**：实体按偏移应用后必须做「关键视图容器边界」结构断言（本会话 stack 匹配脚本可复用），单纯 hunks 全部命中 ≠ 结构语义正确。
+
+### 会话 21 补充 8 · 版本号定稿 + 真机反馈修复 patch 036（2026-09-06）
+
+**版本号定稿**：versionCode 11 / versionName 1.3.0（build.gradle.kts）；CHANGELOG v1.3.0
+状态改「构建完成，发布暂缓（用户真机验证通过后发布）」；README 规划表 v1.3.0 行
+✅ 已发布；AGENTS §9 快照更新至 1.9.1/74 PASS（§9 残留旧段清理）。**release 暂缓**
+（用户指示：发现新 bug 暂缓，验证通过后再发布 release 附 APK）。
+
+**真机反馈修复（patch 036）**：未配置嵌入模型 → 已有对话 → 配置嵌入模型 → 记忆页补录
+成功 → **记忆内容管理器不实时更新**。根因：017 管理器为「打开时一次性快照」
+（memoryManager.vectorList = [...memories.value]），补录 push 进响应式 memories 后无任何
+联动刷新（全文件无 watch(memories)）。修复=面板展开且作用域为当前会话时 watch
+memories/classicMemories 长度变化即时重快照（分页不重置；管理器自身编辑走
+writeMemoryManager* 自带同步不受影响；非当前作用域仍走存储读取路径）。注册 patch 036
+（app.js 1 标记，manifest +1 → **75 PASS / 0 FAIL**；实体 012-036-app 再生成逆向 PASS；
+AGENTS §4.2 表 +036 行；patches/README +036 条目；CHANGELOG 修复条目 + gen 重跑）。
+同批完成：AGENTS §9 残留旧门禁段清理（前次行替换 no-op 遗留）。
+
+**遗留 / 下一步**：debug 包（versionCode 11 / versionName 1.3.0）重打交付桌面 → 用户
+真机验证（重点：补录后管理器实时更新、1.9.1 各项、035 图标）→ 用户确认后执行
+release（GitHub Release 附三件套 APK）。

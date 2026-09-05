@@ -281,6 +281,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 033 | index.html | 输入区过渡定向化（transition-all→bottom 定向/输入岛去过渡/按钮定向属性，FAB v4 配方根除热区漂移；v1.3.0） |
 | 034 | ext/luzzy-theme.css | 性能治理（扩展层直改）：D1 高频面退实底（气泡/typing/输入岛/侧栏 blur 归零）+ will-change 合成层瘦身 + 开屏 lspDiveZoom 去 filter:blur（v1.3.0，DESIGN.md 已同步） |
 | 035 | index.html + app.js | 供应商图标（相册选取 + 1:1 裁剪拖拽 + 128×128 dataURL 持久化，选择器/管理卡圆角显示）+ 管理卡两行式布局（防名称截断）+ 模型数徽标 + 内置商编辑冲突误报修复（override 合并致身份对比失真）+ 模型来源提示（/models 拉取缓存语义澄清；v1.3.0） |
+| 036 | app.js | 记忆内容管理器实时联动：面板展开且作用域为当前会话时 watch memories/classicMemories 变化即时同步列表（修复补录成功后管理器不更新的存量缺陷，017 打开时快照无联动；v1.3.0） |
 
 **新增 patch 的规则**：
 
@@ -396,7 +397,7 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-05 会话 21 快照 · v1.2.3 已发布 + v1.3.0 开发中）
+## 9. 当前状态与已知问题（2026-09-06 会话 21 快照 · v1.3.0 已发布 · 上游基线 1.9.1）
 
 > 完整过程见 `docs/WORKLOG.md` 会话 15-21。上游基线 RP-Hub **1.9.1**（2026-09-05 会话 21 二次同步）。
 
@@ -411,11 +412,9 @@ Luzzy.copyToClipboard = function (text) {
   用户商；默认商切 deepseek；**023 校验项退役由 029 接管**）；⑤ patch 030 关于页
   「基于 RP-Hub」固定文案（防同步遗忘）；⑥ patch 031 记忆召回思考节点（盖戳+渲染，
   零模板改动）。
-- **门禁现状**：verify-markers **74 PASS / 0 FAIL**（015-runtime 退役→015-api-utils 接管、
-  032 拆 runtime/apiutils 双项）；实体全量 **9 枚以 1.9.1 基线（7b39385）再生成**（含新增
-  015-032-api-utils），逆向 9/9 PASS；gen-changelog 已重跑（R3 全绿）；apply-patches 011
-  退役（SKIP 失配实证）+ **008 字符串块退役**（v2→v3 迁移路径过时，v4 色板由 index 实体
-  承载）；指纹表更新至 7b39385（+character/novel 两行）。
+- **门禁现状**：verify-markers **74 PASS / 0 FAIL**（实体 9 枚以 1.9.1 基线再生成，逆向
+  9/9 PASS；008/011 字符串块退役，015-runtime→015-api-utils 接管，032 拆双项）；
+  **v1.3.0 正式版已发布（2026-09-06，versionCode 11，Release 附三件套 APK）**。
 - **待办**：debug 包真机回归（§6.2 + 性能专项：流式 10s 录制对比 / elementFromPoint
   热区向量 / 开屏逐帧）；玻璃档位（D1）视觉走查（亮/暗双模式）。
 - **明确不做（本版）**：壳层 textZoom/offscreenPreRaster（零收益）、styles.css 低频蓝

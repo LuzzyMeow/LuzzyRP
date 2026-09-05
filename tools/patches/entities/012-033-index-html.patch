@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..2ba7ecd4 100644
+index b290e220..995f51db 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -302,7 +302,7 @@ index b290e220..2ba7ecd4 100644
                                          </div>
                                      </div>
 -                                    <div v-if="isCustomApiProvider" class="relative">
-+                                    <div v-if="isCustomApiProvider || isUserApiProvider || <!-- [LuzzyRP patch 029] 可编辑内置商：设置页 API URL 输入框放开（写 override） -->
++                                    <!-- [LuzzyRP patch 029] 可编辑内置商：设置页 API URL 输入框放开（写 override） -->
 +                                    <div v-if="isCustomApiProvider || isUserApiProvider || selectedApiProvider.editable" class="relative">
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
@@ -520,7 +520,7 @@ index b290e220..2ba7ecd4 100644
 +                            onerror="this.style.display='none'">
 +                        <div class="min-w-0">
 +                            <div class="text-lg font-bold text-gray-800">LuzzyRP <span class="text-sm font-semibold text-gray-500">{{ appVersionLabel }}</span></div>
-+                            <div class="text-xs text-gray-500 mt-0.5"><!-- [LuzzyRP patch 030] 版本号移除（v1.3.0 需求 3）：固定「基于 RP-Hub 二次开发」，防上游同步遗忘 -->
++                            <!-- [LuzzyRP patch 030] 版本号移除（v1.3.0 需求 3）：固定「基于 RP-Hub 二次开发」，防上游同步遗忘 -->
 +                            <div class="text-xs text-gray-500 mt-0.5">基于 <a href="https://github.com/STA1N156/RP-Hub" target="_blank" rel="noopener" class="text-primary-600 hover:underline">RP-Hub</a> 二次开发 · 纯前端 + 原生壳</div>
 +                            <div class="text-xs text-gray-400 mt-0.5">CC BY-NC 4.0 · 仅限侧载分发，禁止商用与上架商店</div>
 +                        </div>
@@ -902,7 +902,7 @@ index b290e220..2ba7ecd4 100644
 +                    <!-- 基础信息 -->
 +                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 +                        <div>
-+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5"><!-- [LuzzyRP patch 029] 内置商编辑态：id 锁定（引用体系身份，不可改） -->
++                            <!-- [LuzzyRP patch 029] 内置商编辑态：id 锁定（引用体系身份，不可改） -->
 +                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">供应商 ID <span class="text-gray-300 normal-case font-normal">{{ providerEditorDraft.__builtinEditable ? '（内置供应商，固定）' : '（引用前缀，保存后自动重映射）' }}</span></label>
 +                            <input v-model="providerEditorDraft.id" type="text" :disabled="providerEditorDraft.__builtinEditable"
 +                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"

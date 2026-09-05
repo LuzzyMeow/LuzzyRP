@@ -1571,3 +1571,39 @@ EXTRACT 27 debug 包=日常包（数据保留）。
   记忆嵌入引用不改写（TDZ 约束），指向已退内置商时 patch 026 显式报错兜底（重选即可）；
 - v1.4.0 候选（本版明确不做）：styles.css 低频蓝收编、向量阈值滑杆、壳层 textZoom
   （理由：零症状贡献/归因污染/独立设计决策，见会话 21 对话记录）。
+
+### 会话 21 补充 · 桌面冒烟捕获致命伤 + 上游 1.9.1 发现与同步预案（2026-09-05）
+
+**① 桌面 CDP 冒烟（本会话新立门禁，捕获一处致命伤）**：
+- 方法：headless Chrome + Node 原生 WebSocket 驱动 CDP（`--headless=new` 的
+  `--dump-dom` 在本机无输出，改走 remote-debugging-port）；加载真实应用 file://，
+- **捕获 patch 029/030 的三处标记误插标签内部**（URL guard 的 v-if 值被拦腰截断、
+  编辑器 label 重复、品牌卡多出未闭合 div）——根因：内联 `pwsh -Command` 的多层引号
+  把字节级脚本中 `"`n"` 换行查找搅坏（后续字节级手术一律写脚本文件执行，不再内联）；
+  症状=Vue 模板编译 `new Function` 报 "Unexpected token '<'" → **应用整体不挂载**。
+  verify-markers 只数标记串、node --check 只验 JS 语法，双双无法发现此类损伤——
+  **桌面冒烟由此成为标准门禁**（脚本思路存档于本会话 git 历史 _tmp_smoke.cjs）。
+- 修复：文件级脚本三处精确重修（commit 70af5c3c）+ 实体 012-033 再生成（逆向 PASS）；
+  修复后复验：挂载成功、chatView 渲染、门扉按设计等待点击、`window.RPHubConfig`
+  与外层 JS/生成文件语法全过；遗留一个**偶发** new Function "Unexpected token '<'"
+  （约 1/5 次出现、不阻断挂载，基线单跑未见——疑似 file:// 时序 flake，真机回归观察）。
+- ⚠ 13:06 构建的 debug APK 含致命损伤已废弃，**修复后 30s 重打**（树干净态构建）。
+
+**② 上游 RP-Hub 1.9.1 已发布（6 新提交，94a0cd9 → 7b39385）——同步预案**：
+- 参考克隆已快进至 7b39385（gh-proxy.com 镜像 fetch 成功；本机直连 GitHub 被 reset、
+  无本地代理；**下次同步无需网络**）。
+- 公告：抗 Gemini 截断模式 / UI 模板协议检查 / 记忆系统优化 / 修复 / 去除废弃功能。
+- 变更规模：10 文件 +904/-1373（app.js 768 churn 大删改、data-services 334、
+  runtime-services 185 净删、index.html 154、built-in-content 139、core-utils 161、
+  ui-components 122、character 133、novel 109、api-utils 172）。
+- **nsfw_rules 已核验逐字节一致（6374 字节，规定 1 ✓）**；styles.css 上游未动（R2 不变）。
+- 试重放结论（已回滚，树保持 70af5c3c 干净态）：001/002/005/006/009/010/011b OK；
+  004/007 WARN（上游重引入 CDN 引用需再本地化）；**008 FAIL（上游改 tailwind 色板
+  结构，v4 色板 patch 需重锚）**；实体链在 character 处中断——全量 §4.3 手工合并。
+- 交点预警：032 流式降载（runtime-services 大删改）、016/026/031 记忆链路
+  （data-services 记忆系统被上游"优化"）、029/030/033 index/app 各区域均有 churn；
+  022 全屏可能被上游自行移除（可退役）。
+- 同步 SOP（下次会话执行）：逐文件覆盖 → 字符串块修复（008 重锚 / 004+007 再本地化）
+  → 实体逐文件手工合并 → 全实体按 1.9.1 基线再生成 → 指纹表更新（R1 新哈希）→
+  verify-markers 计数校准 → 桌面冒烟 → CHANGELOG/WORKLOG → debug 包真机回归。
+  网络路径：直连不通时用 gh-proxy.com 镜像（`git fetch https://gh-proxy.com/https://github.com/STA1N156/RP-Hub main`）。

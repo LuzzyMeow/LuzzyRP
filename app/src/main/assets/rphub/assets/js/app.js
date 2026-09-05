@@ -6169,6 +6169,36 @@ const app = createApp({
                 isReasoningAutoCollapsed: false
             });
 
+            // [LuzzyRP patch 031] 记忆召回节点数据戳（v1.3.0 需求 4）：从本次请求上下文提取向量召回块摘要。
+            // 时序约束：检索/嵌入完成早于 assistant 消息创建（懒创建），故只能在创建时盖戳、
+            // 渲染期读取戳（getTimelineSteps）。识别走 data-services 暴露的 isVectorMemoryRecallContent
+            // （patch 016 结构化召回块生态）；失败静默降级为无节点，不影响主流程。
+            const extractMemoryRecallStamp = () => {
+                try {
+                    const utils = window.RPHubContextUtils;
+                    if (!utils || typeof utils.isVectorMemoryRecallContent !== 'function') return null;
+                    const contexts = Array.isArray(lastContextMessages.value) ? lastContextMessages.value : [];
+                    let fragments = 0;
+                    const sims = [];
+                    contexts.forEach((ctxMsg) => {
+                        const ctxContent = typeof ctxMsg?.content === 'string' ? ctxMsg.content : '';
+                        if (!ctxContent || !utils.isVectorMemoryRecallContent(ctxContent)) return;
+                        fragments += (ctxContent.match(/<memory_fragment\b[^>]*>/g) || []).length;
+                        const simMatches = ctxContent.matchAll(/similarity="([^"]*)"/g);
+                        for (const simMatch of simMatches) {
+                            const num = Number.parseFloat(simMatch[1]);
+                            if (Number.isFinite(num)) sims.push(num <= 1 ? Math.round(num * 100) : Math.round(num));
+                        }
+                    });
+                    if (fragments === 0) return null;
+                    const rangeText = sims.length > 0 ? `，相似度 ${Math.min(...sims)}%~${Math.max(...sims)}%` : '';
+                    return `生成前从角色记忆库向量检索并注入 ${fragments} 条记忆片段${rangeText}。召回由最近对话驱动，` +
+                        '内容已进入本次请求上下文（明细见上下文查看器「角色记忆（向量召回）」条目）。';
+                } catch (e) {
+                    return null;
+                }
+            };
+
             const ensureAssistantMessage = (content = '', reasoning = '') => {
                 if (assistantMessage) return assistantMessage;
                 if (continuingAssistantMessage) {
@@ -6181,6 +6211,9 @@ const app = createApp({
                 }
 
                 assistantMessage = createAssistantMessage(content, reasoning);
+                // [LuzzyRP patch 031] 记忆召回节点：创建时盖戳（仅新消息；续写保留原戳）
+                const memoryRecallStamp = extractMemoryRecallStamp();
+                if (memoryRecallStamp) assistantMessage.memoryRecall = memoryRecallStamp;
                 normalizeNativeReasoningBoundary(assistantMessage);
                 promoteActiveToolCallsFromAssistant(assistantMessage);
                 chatHistory.value.push(assistantMessage);
@@ -8562,6 +8595,18 @@ const app = createApp({
             const isLastMessage = chatHistory.value && chatHistory.value[chatHistory.value.length - 1] === message;
             const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
             const cotInfo = parseCot(message.content || '');
+
+            // 0. [LuzzyRP patch 031] 记忆召回节点（v1.3.0 需求 4）：时间线首位（检索先于生成）；
+            //    仅携带 memoryRecall 戳的消息显示——纯文本回复无卡片时不可见（与「原生思考」同条件，拍板 D2）
+            if (message.memoryRecall) {
+                steps.push({
+                    id: 'luzzy-memory-recall',
+                    type: 'thinking',
+                    title: '记忆召回',
+                    text: message.memoryRecall,
+                    charCount: getTimelineCharCount(message.memoryRecall)
+                });
+            }
 
             // 1. 初始原生思考
             const reasoningText = String(getAssistantReasoningText(message) || '').trim();

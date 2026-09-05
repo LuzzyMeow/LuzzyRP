@@ -1667,3 +1667,73 @@ EXTRACT 27 debug 包=日常包（数据保留）。
   （D1，亮/暗双看）；发送键点击准确性；供应商管理器仅 DeepSeek+编辑按钮（STA1N 若在用
   应自动迁移为自定义商且 Key 保留）；关于页无上游版本号；记忆开启时 AI 回复思考卡
   首位「记忆召回」节点；流式生成流畅度体感。异常即报（对照桌面冒烟基线）。
+
+### 会话 21 补充 6 · 上游 1.9.1 合并调查完成——四路并行分析汇总（2026-09-05）
+
+> 四路只读分析（app.js 专区 / 流式+记忆链路 / HTML+配置+vendor / ext 契约核查）交叉
+> 验证。上游 7b39385（1.9.1）：10 文件 +904/−1373；参考克隆已快进；nsfw_rules 完好
+> （6374 字节）；破限标记改回 rp_hub_default。公告：抗Gemini截断/UI模板协议检查/
+> 记忆系统优化/修复/去除废弃功能。
+
+**核心事实（交叉验证）**：
+1. **实体 dry-run 实测（对 7b39385 只读 apply --check）：8 枚中 4 枚 CLEAN**——index.html
+   全部二创（31 hunks）+ data-services（016）+ ui-components（012-026）+ core-utils
+   （009-029）**零手工合并直放**；上游 index.html 改动区（604-629 删临时指令消息块/
+   868-924 删指令按钮/961-1013 快捷面板+抗截断 UI/1857-1901 设置栅格/2284-2296 删记忆
+   导入导出按钮/2864-2872 脚本顺序对调）与我方 31 hunks 零交集；tailwind.config 未动
+   （008 直放）；entry-transition 存活（027 直放）；021 前导上下文后移按偏移命中。
+2. **冲突仅 4 实体**：app.js（首败 015 生图 reroll@old:2167，2673 行实体 --reject 逐
+   hunk）、runtime-services（首败 032 间隔@old:54——**上游把 OpenAI 传输层整体迁往
+   api-utils.js 重写**+172：withApiResponse 120s 超时/requestJson 通道/传输层 onUsage
+   记账；runtime 内 STREAM_RENDER_INTERVAL/readStreamingResponse 全库消失）、
+   character@6 / novel@5（子页 head 插入脚本行，007 实体重做）。
+3. **记忆链路逐字未动**：data-services 334 churn 全是 UI 模板 JSON 协议改造；召回块
+   结构/_preventContextMerge/isVectorMemoryRecallContent/RPHubContextUtils 全存活 →
+   016 零冲突、026/031 依赖安全；app.js 记忆区上游未触碰（getTimelineSteps 新 6911、
+   lastContextMessages 赋值新 4845），仅 031 盖戳调用需重排（上游删
+   normalizeNativeReasoningBoundary 链）。
+4. **app.js 逐 patch 判定**（+280/−488，新基线 9939 行）：无冲突保留=010/011/013/014/
+   017/020/021/024/026/028/029/030+031 渲染块；需手工合并=012（chat 请求点被
+   requestTrackedChatCompletion 收编+fetchModels 保留我方+autoFetchModels 删改无条件
+   懒拉取）/015（7 请求检测点+图片重掷按上游 sourceText 版重放我方分流+
+   enforceSpecialRules 合并 getImageTagRegex+checkApiStatus 保留我方）/022（上游未删
+   全屏不退役；settings/expose 区重推导+顺带清上游死代码 toggleChatFullscreen 函数体）/
+   025（方案 A：requestTrackedChatCompletion 包装器加 url/apiKey/recordMeta 透传统一
+   4 请求点——唯一架构级决策点）/031 轻（盖戳重排）/035 轻（唯一碰撞 checkApiStatus）。
+   **合并时保留解构导入 extractApiErrorMessage**（上游移除，026/015 依赖）。
+5. **上游新功能适配判定**：抗 Gemini 截断=记忆/供应商侧零适配（isGeminiModel 对
+   providerId::gemini-* 引用串仍命中，续写重入走我方 resolveModelRequest）；UI 模板
+   协议检查=自包含组件零登记；parseCot 新契约=我方无内部结构依赖。
+6. **上游删除项（用户可见，需告知）**：临时指令功能全链、记忆页导出/导入按钮（017
+   管理器仍可导入导出）、自动获取模型开关（改无条件懒拉取激活商）；采纳删除
+   sysInstruction 链/hasVectorEmbedding/原生思考边界链。
+7. **🚨 存量缺陷顺带修**：patch 007 hunk2 残缺行（裸 </script> 截断主脚本）→
+   **角色卡工坊页 JS 自 v1.0.0 起整体不执行**（回归盲区）。合并时重生成 hunk2
+   （完整 uiHTML 行 + `</`+`script>` 拼接防截断），专项回归工坊页首屏。
+8. **零改动面**：styles.css 上游零 diff（R2 门不动）、vendor/ 零 diff（无新增 CDN；
+   可选：novel 中文字体 Noto Serif SC+Ma Shan Zheng 本地化）、ext 三文件零契约断裂
+   （theme 选择器 25/25 存活；亮暗切换回归列入专项）、api-utils 强依赖 core-utils
+   先载（上游已对调脚本顺序，我方 005 的 </body> 锚不受影响）。
+
+**执行计划（下会话按此执行，每阶段独立 commit）**：
+1. 覆盖 10 文件（排除 vendor/fonts）。
+2. 重放字符串块 001-006（预期全 OK；011 已退役）。
+3. 直放 4 枚 CLEAN 实体。
+4. 手工合并 A（请求管线一次成型）：requestTrackedChatCompletion 透传改造（决策点 A）
+   → 012/015 四请求点改走包装器 → 025 meta 入包装器 → generateResponse 头插
+   requestModelResolved（上游 continuation 选项后）。
+5. 手工合并 B（同区碰撞）：fetchModels/checkApiStatus 保留我方；图片重掷按上游
+   sourceText 版重放我方分流；enforceSpecialRules 合并；UI模板采纳上游 failureSummary。
+6. 手工合并 C：022 settings/expose 重推导+清上游死代码；031 盖戳重排进新
+   ensureAssistantMessage；012 onMounted 无条件懒拉取；**保留 extractApiErrorMessage 导入**。
+7. runtime/api-utils：032 间隔重锚 api-utils:138；渲染 LRU 旁路同构重放；025 字段实体
+   （新 :302-318）；requestJson 通道协议核对。
+8. character/novel 实体重做（007 修复 + 029 novel）。
+9. 全量实体以 **7b39385** 为基线再生成（⚠️ 基线锚定纪律：合并完成后绝不能再引用
+   94a0cd9 工作树——本会话已踩过一次 pre 哈希错位）→ 指纹表更新 → nsfw_rules 复核 →
+   verify-markers 计数校准全绿。
+10. 桌面冒烟全量（挂载/功能/035 验收/新上游功能可见性）+ gen-changelog + 文档链
+    （CHANGELOG/README/AGENTS/WORKLOG）+ debug 包真机交付。
+专项回归：用量记录 provider 字段、Gemini 截断续写、多商路由、记忆召回节点、
+工坊页首屏（007 修复验证）、UI 模板 JSON 协议兼容、亮暗切换+首帧防闪蓝。
+回滚点：每阶段独立 commit；app.js 手工合并是唯一高危区（--reject 逐 hunk + 每步冒烟）。

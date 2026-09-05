@@ -1437,3 +1437,24 @@ practical guide + Smashing Magazine Improving User Flow，通用原则中置信�
 **真机验证**：设备 USB 再次掉线，EXTRACT 25 包已构建待装。待验清单：门扉开场节拍、
 沉溺按钮浮现/呼吸、点击转场全程（眩晕/泡泡/放大）、外观页主题卡移除+模式切换、
 classic 老数据迁移（设备 settings.theme 可能为 classic）。
+
+### 会话 20 补充 5 · 开屏 v3 门扉 + 主题单轨化 真机验证通过（2026-09-05，EXTRACT 27）
+
+**门扉（51.7fps 录屏 gate_rec3.mp4 + 截图）**：淡入构图 → 进度条自左向右走满 →
+「沉 溺」按钮浮现+呼吸等待 → 点击后 **眩晕+泡泡+中心放大转场真机成立**
+（gate3_c.png 45 帧逐帧：微晃→泡泡环升起→构图以按钮为轴放大、blur 失焦加深→
+聊天页从溶解的开屏背后浮现→完全抵达）；转场后数据完好。
+**公告弹层被压**（modal-suppressed 截图，z-200 持续生效）。
+
+**主题单轨化（patch 028）**：外观页「界面主题」卡消失、外观预览双卡全为暖幕手记
+（亮/暗模式切换保留且工作）、模式卡恒显、界面字体/对话字号不变、
+「经典主题为上游原版配色」过时提示句清除（appearance-single 截图）；
+classic 老数据强制迁移 luzzy（本机 settings.theme 经历 classic→luzzy 无感迁移）。
+
+**过程踩坑（再次入册）**：EXTRACT 25 首装消费掉版本号后，挂载修复又改了 assets
+却未再 bump → install -r 跳过解压 → 设备 filesDir 仍是旧 index.html → 转场无反应
+（run-as grep 设备侧文件定位）。教训：**同一构建周期内多次改 assets 必须逐次 bump**，
+且装机前用 run-as 校验设备侧文件内容。EXTRACT 现 27。
+
+**收尾状态**：verify-markers 60 PASS / 0 FAIL；全部门禁与真机验证通过；
+EXTRACT 27 debug 包=日常包（数据保留）。

@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b290e220..e2e00975 100644
+index b290e220..8074bdfc 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -386,7 +386,7 @@ index b290e220..e2e00975 100644
                                              <span class="font-semibold text-gray-500 whitespace-nowrap">
                                                  <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
                                                  <span class="mx-1 text-gray-300">/</span>
-@@ -2003,6 +2055,133 @@
+@@ -2003,6 +2055,134 @@
                  </div>
              </div>
  
@@ -449,7 +449,8 @@ index b290e220..e2e00975 100644
 +                            button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
 +                        </custom-select>
 +                    </div>
-+                    <p class="text-xs text-gray-400 leading-relaxed px-1">修改即时生效并自动保存；经典主题为上游原版配色，不含雾纸玻璃。</p>
++                    <!-- [LuzzyRP patch 028] 原提示「…经典主题为上游原版配色，不含雾纸玻璃。」随主题单轨化移除 -->
++                    <p class="text-xs text-gray-400 leading-relaxed px-1">修改即时生效并自动保存。</p>
 +                </div>
 +            </div>
 +
@@ -520,7 +521,7 @@ index b290e220..e2e00975 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2072,6 +2251,7 @@
+@@ -2072,6 +2252,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -528,7 +529,7 @@ index b290e220..e2e00975 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2255,6 +2435,12 @@
+@@ -2255,6 +2436,12 @@
                  :page="tokenUsagePage" :page-count="tokenUsagePageCount" :help-topic="settingsHelpTopic"
                  :format-aggregate="formatTokenAggregate" :format-count="formatTokenCount"
                  :format-time="formatTokenUsageTime" :get-type-label="getTokenUsageTypeLabel"
@@ -541,7 +542,7 @@ index b290e220..e2e00975 100644
                  :get-uncached-input="getUncachedInputTokens" @menu="toggleMobileMenu"
                  @clear="clearTokenUsageHistory" @update:filter="tokenUsageFilter = $event"
                  @update:time-filter="tokenUsageTimeFilter = $event"
-@@ -2414,7 +2600,7 @@
+@@ -2414,7 +2601,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -550,7 +551,7 @@ index b290e220..e2e00975 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2446,7 +2632,7 @@
+@@ -2446,7 +2633,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -559,7 +560,7 @@ index b290e220..e2e00975 100644
                                  </button>
                              </div>
  
-@@ -2642,6 +2828,141 @@
+@@ -2642,6 +2829,141 @@
                          </div>
                      </div>
                  </div>
@@ -701,7 +702,7 @@ index b290e220..e2e00975 100644
  
              </div>
  
-@@ -2786,11 +3107,295 @@
+@@ -2786,11 +3108,295 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -997,7 +998,7 @@ index b290e220..e2e00975 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2873,6 +3478,13 @@
+@@ -2873,6 +3479,14 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>
@@ -1008,6 +1009,7 @@ index b290e220..e2e00975 100644
 +    <script src="../ext/luzzy-changelog.js"></script>
 +<!-- [LuzzyRP patch 005] 扩展层挂载（theme/bridge/ext + patch 014 changelog） -->
 +    <script src="../ext/luzzy-ext.js"></script>
++    <script src="../ext/luzzy-splash.js"></script>
  </body>
  
  </html>

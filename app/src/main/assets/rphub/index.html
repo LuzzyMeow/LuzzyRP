@@ -2114,7 +2114,8 @@
                             button-class="rounded-lg px-3 py-2 text-sm text-gray-700" menu-class="text-sm">
                         </custom-select>
                     </div>
-                    <p class="text-xs text-gray-400 leading-relaxed px-1">修改即时生效并自动保存；经典主题为上游原版配色，不含雾纸玻璃。</p>
+                    <!-- [LuzzyRP patch 028] 原提示「…经典主题为上游原版配色，不含雾纸玻璃。」随主题单轨化移除 -->
+                    <p class="text-xs text-gray-400 leading-relaxed px-1">修改即时生效并自动保存。</p>
                 </div>
             </div>
 
@@ -3485,6 +3486,7 @@
     <script src="../ext/luzzy-changelog.js"></script>
 <!-- [LuzzyRP patch 005] 扩展层挂载（theme/bridge/ext + patch 014 changelog） -->
     <script src="../ext/luzzy-ext.js"></script>
+    <script src="../ext/luzzy-splash.js"></script>
 </body>
 
 </html>

@@ -1486,3 +1486,15 @@ EXTRACT 27 debug 包=日常包（数据保留）。
   keyframes 片段吃掉后续规则、旧 transform 残留），最终整体重写 FAB+splash 区段并
   按行手术清除 v1 残段；期间多次构建失败（it.logger/Function2/standardOutput 编译错）
   后带病安装旧 APK 造成验证假象——**构建守卫必须先于安装判定**已入流程。
+
+### 会话 20 补充 7 · v1.2.3 正式版发布（2026-09-05）
+
+- versionCode 10 / versionName 1.2.3；CHANGELOG 定稿（状态转正式版 + 构建结果）；README
+  徽章 + 版本对应表 + 版本规划表三处更新；gen-changelog 重生成（R3 门禁全绿 61 PASS）；
+- assembleDebug + assembleRelease 双构建；debug 包（日常数据包）装机冒烟：门扉 → 沉溺 →
+  关于页显示「v1.2.3 · 基于 RP-Hub 1.9.0 · 正式版已发布（2026-09-05）」✓；
+  release 包未装真机（避免数据分裂，仅分发）；
+- commit fe760038 推送；GitHub Release v1.2.3 创建并附三件套 APK
+  （arm64-v8a / universal / x86_64，各 17.3MB）：
+  https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.2.3
+- 遗留：无（发版流程 §3.4 全项完成；下一版 v1.3.0 候选见 README 规划表）。

@@ -934,9 +934,13 @@ window.RPHubUtils = {
         systemRegexNames: Object.freeze(['NAI画图正则']),
         systemWorldInfoNames: Object.freeze(['自动生图']),
         imageGenBaseUrl: 'https://nai.sta1n.cn',
-        defaultApiProviderId: 'sta1n',
+        // [LuzzyRP patch 029] 内置供应商精简（v1.3.0 需求 2，用户拍板 D3）：仅保留 DeepSeek 且开放编辑
+        // （editable）。原 sta1n/openrouter/siliconflow 由 app.js migrateRemovedBuiltinProviders 启动时
+        // 无损迁移为等价用户自定义商（URL/Key/模型槽位引用保留）；默认商随列表切换为 deepseek。
+        // 注：patch 023 的 STA1N favicon 修复随条目移除退位（novel 兜底副本同步精简）。
+        defaultApiProviderId: 'deepseek',
         defaultApiConfig: Object.freeze({
-            apiUrl: 'https://cdn.sta1n.cn/v1',
+            apiUrl: 'https://api.deepseek.com/v1',
             apiKey: '',
             model: '',
             qualityModel: '',
@@ -945,28 +949,11 @@ window.RPHubUtils = {
         }),
         apiProviderOptions: Object.freeze([
             Object.freeze({
-                id: 'sta1n',
-                name: 'STA1N API',
-                apiUrl: 'https://cdn.sta1n.cn/v1',
-                icon: 'https://cdn.sta1n.cn/favicon.ico' // [LuzzyRP patch 023] 原自建图床 404，改官方 CDN favicon（v1.2.3，需求 5.1）
-            }),
-            Object.freeze({
                 id: 'deepseek',
                 name: 'DeepSeek',
                 apiUrl: 'https://api.deepseek.com/v1',
-                icon: 'https://www.deepseek.com/favicon.ico'
-            }),
-            Object.freeze({
-                id: 'openrouter',
-                name: 'OpenRouter',
-                apiUrl: 'https://openrouter.ai/api/v1',
-                icon: 'https://openrouter.ai/favicon.ico'
-            }),
-            Object.freeze({
-                id: 'siliconflow',
-                name: 'SiliconFlow',
-                apiUrl: 'https://api.siliconflow.cn/v1',
-                icon: 'https://siliconflow.cn/favicon.ico'
+                icon: 'https://www.deepseek.com/favicon.ico',
+                editable: true
             })
         ]),
         activeTools: window.RPHubBuiltinContent.activeTools,

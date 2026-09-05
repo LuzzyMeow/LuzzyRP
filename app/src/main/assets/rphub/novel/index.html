@@ -1201,11 +1201,10 @@
                 const apiProviders = ref([]);
                 const isSyncingRPHub = ref(false);
                 const showApiProviderSelect = ref(false);
+                // [LuzzyRP patch 029] 内置供应商精简（同步 core-utils）：兜底副本仅保留 DeepSeek
+                // （editable 标志由主页面下发；原 sta1n/openrouter/siliconflow 迁移见 app.js，patch 023 随条目退位）
                 const RPHUB_PROVIDER_DEFINITIONS = [
-                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://cdn.sta1n.cn/favicon.ico' // [LuzzyRP patch 023] 同 core-utils：原图床 404（v1.2.3，需求 5.1） },
-                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' },
-                    { id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1', icon: 'https://openrouter.ai/favicon.ico' },
-                    { id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1', icon: 'https://siliconflow.cn/favicon.ico' }
+                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' }
                 ];
 
                 const currentModelTarget = ref('model');

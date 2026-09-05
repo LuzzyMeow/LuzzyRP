@@ -1727,7 +1727,8 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div v-if="isCustomApiProvider || isUserApiProvider" class="relative">
+                                    <div v-if="isCustomApiProvider || isUserApiProvider || <!-- [LuzzyRP patch 029] 可编辑内置商：设置页 API URL 输入框放开（写 override） -->
+                                    <div v-if="isCustomApiProvider || isUserApiProvider || selectedApiProvider.editable" class="relative">
                                         <div
                                             class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3158,7 +3159,8 @@
                                 class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
                                 检测
                             </button>
-                            <button v-if="!apiProviderOptions.some(item => item.id === provider.id)" type="button"
+                            <!-- [LuzzyRP patch 029] 可编辑内置商（DeepSeek）：editable 标志开放编辑按钮 -->
+                            <button v-if="provider.editable || !apiProviderOptions.some(item => item.id === provider.id)" type="button"
                                 @click="editUserApiProvider(provider)"
                                 class="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 transition-all active:scale-95 whitespace-nowrap">
                                 编辑
@@ -3255,9 +3257,10 @@
                     <!-- 基础信息 -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">供应商 ID <span class="text-gray-300 normal-case font-normal">（引用前缀，保存后自动重映射）</span></label>
-                            <input v-model="providerEditorDraft.id" type="text"
-                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all"
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5"><!-- [LuzzyRP patch 029] 内置商编辑态：id 锁定（引用体系身份，不可改） -->
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">供应商 ID <span class="text-gray-300 normal-case font-normal">{{ providerEditorDraft.__builtinEditable ? '（内置供应商，固定）' : '（引用前缀，保存后自动重映射）' }}</span></label>
+                            <input v-model="providerEditorDraft.id" type="text" :disabled="providerEditorDraft.__builtinEditable"
+                                class="w-full h-9 bg-white border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 focus:outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                                 placeholder="如 my-provider">
                             <p v-if="providerEditorIdConflict" class="mt-1 text-[11px] text-red-500">该 id 已被其他供应商占用</p>
                         </div>

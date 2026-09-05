@@ -799,7 +799,19 @@ const app = createApp({
                 return true;
             });
         });
-        const allApiProviders = computed(() => [...apiProviderOptions, ...userApiProviders.value]);
+        // [LuzzyRP patch 029] 可编辑内置商：override 合并（编辑器保存 / 设置页 URL 直编写入
+        // settings.apiProviderOverrides，不触碰冻结内置条目；id 恒为内置 id，key 槽与引用体系不受影响）
+        const builtinProviderOverrides = computed(() => {
+            const raw = settings.apiProviderOverrides;
+            return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        });
+        const allApiProviders = computed(() => [
+            ...apiProviderOptions.map(provider => {
+                const override = builtinProviderOverrides.value[provider.id];
+                return override ? { ...provider, ...override, id: provider.id } : provider;
+            }),
+            ...userApiProviders.value
+        ]);
         const getApiProviderById = (id) => allApiProviders.value.find(provider => provider.id === id);
         const getApiProviderByUrl = (url) => {
             const currentUrl = normalizeApiProviderUrl(url);
@@ -924,9 +936,61 @@ const app = createApp({
             }
             settings.apiProvidersMigrated = true;
         };
+        // [LuzzyRP patch 029] 内置供应商精简迁移（v1.3.0 需求 2，用户拍板 D3）：退出内置的
+        // sta1n/openrouter/siliconflow 无损转为等价用户自定义商——URL/Key 保留、激活商切换、
+        // 模型槽位引用前缀改写。⚠ 本函数在 normalizeApiProviderSettings()（:980 调用）时执行，
+        // 不得引用 MODEL_REF_FIELD_LABELS（:4120，届时未初始化）与 memorySettings（:1386，同 TDZ）——
+        // 记忆嵌入/总结引用不在此改写，指向已退出内置商时由 patch 026 显式报错兜底（重选即可）。
+        const REMOVED_BUILTIN_PROVIDERS = Object.freeze([
+            Object.freeze({ id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1' }),
+            Object.freeze({ id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1' }),
+            Object.freeze({ id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1' })
+        ]);
+        const MODEL_REF_FIELDS = ['model', 'qualityModel', 'balancedModel', 'fastModel', 'visionModel', 'uiTemplateModel'];
+        const migrateRemovedBuiltinProviders = () => {
+            if (settings.apiProvidersBuiltinMigrated) return;
+            const keys = settings.apiProviderKeys || {};
+            const hasLegacyRef = (id) => Boolean(String(keys[id] || '').trim())
+                || settings.apiProviderId === id
+                || MODEL_REF_FIELDS.some(field => typeof settings[field] === 'string' && settings[field].startsWith(`${id}::`));
+            const idMap = {};
+            REMOVED_BUILTIN_PROVIDERS.forEach((legacy) => {
+                if (!hasLegacyRef(legacy.id)) return;
+                const provider = {
+                    id: createUserApiProviderId(),
+                    name: legacy.name,
+                    apiUrl: legacy.apiUrl,
+                    protocol: 'openai',
+                    models: [],
+                    extraBody: {}
+                };
+                const legacyKey = String(keys[legacy.id] || '').trim();
+                if (legacyKey) keys[provider.id] = legacyKey;
+                idMap[legacy.id] = provider.id;
+                if (settings.apiProviderId === legacy.id) settings.apiProviderId = provider.id;
+                settings.apiProviders = [...normalizeUserApiProviders(settings.apiProviders), provider];
+            });
+            if (Object.keys(idMap).length > 0) {
+                const remapRef = (ref) => {
+                    if (typeof ref !== 'string') return ref;
+                    const sep = ref.indexOf('::');
+                    if (sep <= 0) return ref;
+                    const legacyId = ref.slice(0, sep);
+                    return idMap[legacyId] ? `${idMap[legacyId]}${ref.slice(sep)}` : ref;
+                };
+                MODEL_REF_FIELDS.forEach((field) => {
+                    if (typeof settings[field] === 'string') settings[field] = remapRef(settings[field]);
+                });
+            }
+            settings.apiProvidersBuiltinMigrated = true;
+        };
         const normalizeApiProviderSettings = () => {
             if (!settings.apiProviderKeys || typeof settings.apiProviderKeys !== 'object' || Array.isArray(settings.apiProviderKeys)) {
                 settings.apiProviderKeys = {};
+            }
+            // [LuzzyRP patch 029] 可编辑内置商 override 容器
+            if (!settings.apiProviderOverrides || typeof settings.apiProviderOverrides !== 'object' || Array.isArray(settings.apiProviderOverrides)) {
+                settings.apiProviderOverrides = {};
             }
             settings.apiProviders = normalizeUserApiProviders(settings.apiProviders);
             [...apiProviderOptions, ...customApiProviderOptions].forEach(provider => {
@@ -935,6 +999,7 @@ const app = createApp({
                 }
             });
             migrateLegacyCustomProviders();
+            migrateRemovedBuiltinProviders();
 
             let provider = getApiProviderById(settings.apiProviderId);
             if (!provider && !isCustomApiProviderId(settings.apiProviderId)) {
@@ -999,6 +1064,19 @@ const app = createApp({
             if (provider && provider.apiUrl !== (newUrl || '').trim()) {
                 const entry = settings.apiProviders.find(item => item.id === provider.id);
                 if (entry) entry.apiUrl = String(newUrl || '').trim();
+            }
+            // [LuzzyRP patch 029] 可编辑内置商：设置页 URL 直编写入 override（空值不落盘）
+            const builtinEditable = apiProviderOptions.find(item => item.id === settings.apiProviderId && item.editable);
+            if (builtinEditable) {
+                const nextUrl = String(newUrl || '').trim();
+                if (nextUrl) {
+                    const overrides = { ...(settings.apiProviderOverrides || {}) };
+                    const current = overrides[builtinEditable.id] || {};
+                    if (current.apiUrl !== nextUrl) {
+                        overrides[builtinEditable.id] = { ...current, apiUrl: nextUrl };
+                        settings.apiProviderOverrides = overrides;
+                    }
+                }
             }
         });
 
@@ -4331,8 +4409,9 @@ const app = createApp({
             const self = draft.__source;
             return allApiProviders.value.some(p => p.id === draft.id && p !== self);
         });
-        const openProviderEditor = (provider, isNew) => {
+        const openProviderEditor = (provider, isNew, opts = {}) => {
             // draft 为浅拷贝（models 逐条拷贝），取消不污染原数据；extraBodyText 供懒编辑输入框回显
+            // [LuzzyRP patch 029] __builtinEditable：内置商编辑态（id 锁定，保存写 override）
             providerEditorDraft.value = {
                 id: provider.id, name: provider.name, apiUrl: provider.apiUrl || '',
                 protocol: normalizeProviderProtocol(provider.protocol),
@@ -4343,7 +4422,8 @@ const app = createApp({
                     extraBodyText: Object.keys(m.extraBody || {}).length > 0 ? JSON.stringify(m.extraBody) : ''
                 })),
                 extraBody: { ...(provider.extraBody || {}) },
-                __source: provider
+                __source: provider,
+                __builtinEditable: !!opts.builtinEditable
             };
             providerEditorIsNew.value = !!isNew;
             providerEditorPresetNotice.value = '';
@@ -4351,6 +4431,11 @@ const app = createApp({
             showProviderEditor.value = true;
         };
         const editUserApiProvider = (provider) => {
+            // [LuzzyRP patch 029] 可编辑内置商（DeepSeek）：编辑器直开，保存写 override
+            if (provider.editable && apiProviderOptions.some(item => item.id === provider.id)) {
+                openProviderEditor(provider, false, { builtinEditable: true });
+                return;
+            }
             const source = settings.apiProviders.find(item => item.id === provider.id);
             if (!source) return;
             openProviderEditor(source, false);
@@ -4377,6 +4462,37 @@ const app = createApp({
             if (!cleanUrl) { showToast('API URL 不能为空', 'error'); return; }
             if (providerEditorIdConflict.value) { showToast('供应商 id 与现有供应商重复', 'error'); return; }
             commitExtraRowsToDraft();
+            // [LuzzyRP patch 029] 可编辑内置商：id 锁定，保存写 settings.apiProviderOverrides（冻结条目不写回）
+            if (draft.__builtinEditable) {
+                if (cleanId !== String(draft.__source.id)) { showToast('内置供应商 id 不可修改', 'error'); return; }
+                const overrides = { ...(settings.apiProviderOverrides || {}) };
+                overrides[cleanId] = {
+                    name: cleanName,
+                    apiUrl: cleanUrl,
+                    protocol: normalizeProviderProtocol(draft.protocol),
+                    models: draft.models.map(m => ({
+                        ...m,
+                        contextLength: parseLengthToken(m.contextLength) ?? null,
+                        maxOutput: parseLengthToken(m.maxOutput) ?? null
+                    })).map(normalizeProviderModelEntry).filter(m => m.id),
+                    extraBody: { ...(draft.extraBody || {}) }
+                };
+                settings.apiProviderOverrides = overrides;
+                const cachedBuiltin = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
+                const manualBuiltin = overrides[cleanId].models.map(m => ({ ...m, manual: true }))
+                    .filter(m => !cachedBuiltin.some(e => e.id === m.id));
+                if (manualBuiltin.length > 0) {
+                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...cachedBuiltin] };
+                }
+                rebuildMergedAvailableModels();
+                if (settings.apiProviderId === cleanId) {
+                    settings.apiUrl = cleanUrl;
+                }
+                showProviderEditor.value = false;
+                providerEditorDraft.value = null;
+                showToast('已保存内置供应商修改', 'success');
+                return;
+            }
             const source = draft.__source;
             const oldId = source.id;
             const idChanged = cleanId !== oldId;

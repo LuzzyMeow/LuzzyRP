@@ -1,6 +1,7 @@
 package com.luzzymeow.luzzyrp.util
 
 import android.content.Context
+import com.luzzymeow.luzzyrp.BuildConfig
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -30,11 +31,8 @@ object AssetExtractor {
         "ext" to "ext"
     )
 
-    /** 解压标记文件前缀（内含版本号） */
-    private const val MARKER_PREFIX = ".extracted_v"
-
-    /** 当前解压版本——应用版本升级需更新时 +1（触发重新解压） */
-    private const val EXTRACT_VERSION = 27
+    /** 解压标记文件名（内容存构建期资产签名） */
+    private const val MARKER_NAME = ".extracted_sig"
 
     /**
      * 返回 WebView 实际加载的入口 HTML 的绝对路径。
@@ -51,10 +49,11 @@ object AssetExtractor {
     }
 
     private fun needsExtract(target: File): Boolean {
-        return !File(target, markerName(EXTRACT_VERSION)).exists()
+        val marker = File(target, MARKER_NAME)
+        if (!marker.exists()) return true
+        // 标记内容与构建期签名不一致（资产或构建变更）→ 重新解压
+        return runCatching { marker.readText().trim() != BuildConfig.ASSET_SIGNATURE }.getOrDefault(true)
     }
-
-    private fun markerName(version: Int): String = "$MARKER_PREFIX$version"
 
     private fun extract(context: Context, assetRoot: String, target: File) {
         try {
@@ -68,12 +67,12 @@ object AssetExtractor {
 
             copyAssetDir(context, assetRoot, target)
 
-            // 写解压标记（版本号锚定，升级时改 EXTRACT_VERSION 触发重新解压）
-            File(target, markerName(EXTRACT_VERSION)).writeText(EXTRACT_VERSION.toString())
+            // 写解压标记（内容=构建期资产签名；资产变更时由 needsExtract 判定重解压）
+            File(target, MARKER_NAME).writeText(BuildConfig.ASSET_SIGNATURE)
 
-            // 保险：清理旧版本标记
+            // 保险：清理旧格式标记（.extracted_v*）
             target.listFiles()
-                ?.filter { it.name.startsWith(MARKER_PREFIX) && it.name != markerName(EXTRACT_VERSION) }
+                ?.filter { it.name.startsWith(".extracted_v") }
                 ?.forEach { it.delete() }
 
             Log.i(TAG, "解压完成: $assetRoot -> ${target.absolutePath}")
@@ -88,7 +87,7 @@ object AssetExtractor {
         val assetManager = context.assets
         val entries = assetManager.list(assetPath) ?: return
         for (entry in entries) {
-            if (entry.startsWith(MARKER_PREFIX)) continue // 目录内永不复写解压标记
+            if (entry.startsWith(".extracted")) continue // 目录内永不复写解压标记（.extracted_sig/.extracted_v*）
             val childAssetPath = if (assetPath.isEmpty()) entry else "$assetPath/$entry"
             val childDest = File(destDir, entry)
 

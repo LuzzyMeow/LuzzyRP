@@ -37,11 +37,19 @@
     // ============================================================
     function injectAboutBranding() {
         try {
-            var containers = document.querySelectorAll('[class*="about"], [class*="About"], [class*="version"], [class*="Version"]');
+            // [LuzzyRP patch 028] v2：锚点改为 .about-view 显式容器。
+            // 旧逻辑 [class*="about"] 泛匹配 + 取末位，patch 024 的置顶按钮
+            // （about-top-fab）成为末位匹配 → 品牌卡被注入按钮内部（绘制错位根因）。
+            var target = document.querySelector('.about-view');
             var info = window.Luzzy && window.Luzzy.getVersion ? window.Luzzy.getVersion() : null;
-            if (!info || containers.length === 0) return;
+            if (!info || !target) return;
 
-            if (document.getElementById('luzzy-about-branding')) return;
+            var existing = document.getElementById('luzzy-about-branding');
+            if (existing) {
+                // 已注入但落在错误父级（旧版本残留）→ 迁移到正确锚点
+                if (existing.parentElement !== target) target.appendChild(existing);
+                return;
+            }
 
             var footer = document.createElement('div');
             footer.id = 'luzzy-about-branding';
@@ -52,7 +60,6 @@
             footer.textContent =
                 'LuzzyRP v' + info.versionName +
                 ' · 基于 RP-Hub v' + info.upstream + ' 二次开发（CC BY-NC 4.0）';
-            var target = containers[containers.length - 1];
             target.appendChild(footer);
         } catch (e) {
             // 注入失败静默降级，不影响上游

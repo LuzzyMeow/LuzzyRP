@@ -28,6 +28,18 @@
   自左向右 → **「沉溺」按钮浮现并等待点击**；点击转场 = 轻微眩晕 + 水下泡泡上浮 +
   中心放大坠入主界面（行为脚本 ext/luzzy-splash.js）；reduced-motion 直出可点态、
   转场退化 220ms 淡出。
+- **关于页 CHANGELOG 自动同步（双保险，用户指令）**：Gradle genChangelog 任务
+  （preBuild 挂钩，构建即从仓库根 CHANGELOG.md 重生成应用内数据）+
+  gen-changelog.mjs --check 模式 + verify-markers R3-changelog-sync 门禁拦截过期——
+  「忘记更新」在机制上不可能。
+- **资产签名自动解压（patch 028）**：构建期对 rphub/ext 资产树计算签名注入
+  BuildConfig.ASSET_SIGNATURE，AssetExtractor 启动比对，资产变更即自动重解压——
+  根治「改 assets 忘 bump EXTRACT_VERSION」坑（本会话三踩）。
+- **关于页置顶按钮错位修复（patch 024/028 v4）**：luzzy-ext.js 品牌注入泛匹配
+  选择器 [class*="about"] 命中 FAB 按钮类名致品牌卡注入按钮内部（箭头挤偏 + 灰卡
+  溢出错位）；锚点改显式 .about-view + 已注入实例迁移；FAB 定位改 fixed + 零动效
+  （本机 WebView 分数 DPR 合成层失效规避）；品牌基线串 1.8.9→1.9.0（LuzzyBridge/
+  app.js 回退标签）。真机 CDP 实证箭头居中 [0,0]、钉扎右下角标准位。
 - **主题单轨化（patch 028）**：**经典（原版）主题与主题切换功能移除**，恒定
   「暖幕手记」（亮/暗模式保留，外观页预览卡简化为模式切换）；老用户 classic 设置
   无条件迁移至 luzzy；界面字体 / 对话字号等外观设置不变。DESIGN.md 契约同步。

@@ -635,44 +635,13 @@
    品牌色收编 · 上游遗留蓝色 → Luzzy 品牌珊瑚陶土色（v1.2.1）
    ------------------------------------------------------------
    范围：仅 :root[data-theme="luzzy"]；classic 选择器不匹配零影响。
-   对象：① styles.css 开屏 .entry-transition 家族的硬编码 blue hex/rgba
+   对象：① styles.css 开屏 .entry-transition 家族（该收编规则已随 patch 027 v3 移除，目标 DOM 不复存在）
         ② index.html 设置页两处渐变横幅（from-blue-500/to-indigo-600、
           from-indigo-600/to-violet-700，不改类名，覆盖 gradient 自定义属性）
    规则来源：DESIGN.md Colors 章「禁新增裸 blue/indigo/violet 色相」。
    ============================================================ */
 
-/* —— 开屏品牌底盘与渐变 —— */
-:root[data-theme="luzzy"] .entry-transition {
-    background:
-        linear-gradient(118deg, transparent 0 28%, rgba(255, 255, 255, 0.78) 44%, rgb(var(--tw-gray-100) / 0.52) 52%, transparent 66%),
-        radial-gradient(ellipse at 50% 47%, rgba(255, 255, 255, 0.98) 0 18%, rgb(var(--tw-gray-100) / 0.64) 42%, transparent 68%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.995), rgb(var(--tw-gray-50) / 0.99) 54%, rgb(var(--tw-gray-100) / 0.99)) !important;
-}
-
-:root[data-theme="luzzy"] .entry-transition::before {
-    background:
-        linear-gradient(112deg, transparent 30%, rgba(255, 255, 255, 0.82) 42%, rgb(var(--tw-primary-500) / 0.14) 50%, transparent 62%) !important;
-}
-
-:root[data-theme="luzzy"] .entry-transition-brand::before {
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.86),
-        0 24px 58px -42px rgb(var(--tw-primary-600) / 0.6) !important;
-}
-
-/* —— LUZZY/RP 字标：RP 段从蓝渐变换为珊瑚→陶土→深赭（去掉非品牌 teal） —— */
-:root[data-theme="luzzy"] .entry-logo-hub {
-    color: rgb(var(--tw-primary-600)) !important;
-    background: linear-gradient(135deg, rgb(var(--tw-primary-600)) 0%, rgb(var(--tw-primary-500)) 58%, rgb(var(--tw-primary-700)) 100%) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-}
-
-/* —— 下划线进度条 —— */
-:root[data-theme="luzzy"] .entry-transition-logo i::before {
-    background: linear-gradient(90deg, rgb(var(--tw-primary-600)), rgb(var(--tw-primary-500)), rgb(var(--tw-primary-700))) !important;
-}
+/* [LuzzyRP patch 027 v3] 原 v1.2.1 上游开屏(.entry-transition 家族)收编规则已随 patch 027 v3 移除（目标 DOM 不复存在） */
 
 /* —— 嵌入页加载 spinner —— */
 :root[data-theme="luzzy"] .embedded-loading-spinner {
@@ -701,242 +670,26 @@
     scroll-behavior: smooth;
 }
 
+/* —— 关于页置顶按钮（patch 024/028 v4）：fixed 定位 + 零动画零过渡。
+   本机 WebView（分数 DPR 3.25）下，带过渡/变换/sticky 的悬浮元素存在
+   合成层失效与绘制错位，故显隐为瞬时 opacity 切换、无任何动效——
+   正确性优先于装饰性动效（open-design：工程维度兜底）。 */
+.lsp-fab-row {
+    display: flex; justify-content: flex-end;
+    padding: 0 20px 20px;
+    pointer-events: none;
+}
+
+.lsp-fab-row .about-top-fab { pointer-events: auto; }
+
 .about-top-fab {
-    opacity: 0;
-    transform: translateY(10px) scale(0.96);
-    pointer-events: none;
-    transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.about-top-fab.is-visible {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-    transition-duration: 200ms;
-}
-
-.about-top-fab:active {
-    transform: scale(0.94);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    :root[data-theme="luzzy"] .about-view {
-        scroll-behavior: auto;
-    }
-
-    .about-top-fab,
-    .about-top-fab.is-visible {
-        transition: opacity 140ms ease-out;
-        transform: none;
-    }
-}
-
-/* —— LuzzyRP 开屏「开卷 Open the Journal」（patch 027，v1.2.3，需求 1）—— */
-/* 方向板 B 落地（用户选定，2026-09-04）：docs/design/splash-v1/board-b.html。
-   色值全部为 DESIGN.md token（亮/暗经 data-mode 切换，patch 018 head 链首帧生效）；
-   动画只触碰 transform/opacity；全片唯一缓动 cubic-bezier(0.23,1,0.32,1)；
-   基础态=最终帧（reduced-motion 直出终帧 + 200ms 快速退场）；
-   ≈2.3s 序列定格后 2.55s 起整体 450ms 淡出交还主界面。 */
-.luzzy-splash {
-    --lsp-ease: cubic-bezier(0.23, 1, 0.32, 1);
-    --lsp-paper: #FAF9F5; --lsp-cover: #F5F0E8; --lsp-card: #EFE9DE;
-    --lsp-ink: #141413; --lsp-muted: #6C6A64;
-    --lsp-coral: #CC785C; --lsp-amber: #F5D9A8;
-    --lsp-rule: rgba(61, 58, 54, .2);
-    --lsp-cover-rule: rgba(61, 58, 54, .26);
-    --lsp-grain: rgba(61, 58, 54, .045);
-    --lsp-glow-o: .55;
-    position: fixed; inset: 0; z-index: 200;
-    background: var(--lsp-paper);
-    pointer-events: none;
-    animation: luzzySplashExit .45s var(--lsp-ease) 2.55s forwards;
-}
-
-:root[data-mode="dark"] .luzzy-splash {
-    --lsp-paper: #171614; --lsp-cover: #2B2824; --lsp-card: #2B2824;
-    --lsp-ink: #FAF9F5; --lsp-muted: rgba(250, 249, 245, .62);
-    --lsp-coral: #D97757;
-    --lsp-rule: rgba(250, 249, 245, .18);
-    --lsp-cover-rule: rgba(250, 249, 245, .22);
-    --lsp-grain: rgba(250, 249, 245, .035);
-    --lsp-glow-o: .34;
-}
-
-@keyframes luzzySplashExit {
-    to { opacity: 0; visibility: hidden; }
-}
-
-.luzzy-splash::before {
-    content: ''; position: absolute; inset: 0; z-index: 10; pointer-events: none;
-    background:
-        repeating-linear-gradient(112deg, var(--lsp-grain) 0 1px, transparent 1px 4px),
-        repeating-linear-gradient(23deg, var(--lsp-grain) 0 1px, transparent 1px 5px);
-}
-
-.luzzy-splash-page {
-    position: absolute; inset: 0; z-index: 1;
-    background: var(--lsp-paper);
-    animation: lspPaperSettle .55s var(--lsp-ease) .25s both;
-}
-
-.luzzy-splash-stack {
-    position: absolute; inset: 0; z-index: 3;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding-bottom: 13vh;
-}
-
-.luzzy-splash-center {
-    position: relative; z-index: 0;
-    display: flex; flex-direction: column; align-items: center;
-}
-
-.luzzy-splash-glow {
-    position: absolute; left: 50%; top: 42px; transform: translate(-50%, -50%);
-    width: 340px; height: 340px; z-index: -1;
-    opacity: var(--lsp-glow-o);
-}
-
-.luzzy-splash-glow i {
-    position: absolute; inset: 0; border-radius: 50%;
-    background: radial-gradient(closest-side, rgba(245, 217, 168, .85), rgba(245, 217, 168, 0));
-    animation: lspFadeIn .8s var(--lsp-ease) 1.2s both;
-}
-
-.luzzy-splash-seal {
-    width: 84px; height: 84px; border-radius: 50%;
-    overflow: hidden; border: 1px solid var(--lsp-rule); background: var(--lsp-card);
-    animation: lspStampIn .52s var(--lsp-ease) .82s both;
-}
-
-.luzzy-splash-seal img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.luzzy-splash-wordmark {
-    margin-top: 22px;
-    font-family: 'Lora', Georgia, 'Songti SC', 'Noto Serif CJK SC', serif;
-    font-weight: 400; font-size: 40px; line-height: 1.1; letter-spacing: .01em;
-    color: var(--lsp-ink);
-    animation: lspRiseIn .52s var(--lsp-ease) 1.02s both;
-}
-
-.luzzy-splash-hlwrap { position: relative; z-index: 0; }
-
-.luzzy-splash-hl {
-    position: absolute; left: -2px; right: -12px; bottom: 2px; height: 9px;
-    background: var(--lsp-amber); opacity: .85; border-radius: 2px;
-    transform: scaleX(1) rotate(-1.4deg); transform-origin: left center;
-    z-index: -1;
-    animation: lspHlDraw .38s var(--lsp-ease) 1.4s both;
-}
-
-.luzzy-splash-slogan {
-    margin-top: 14px;
-    font-family: 'Lora', Georgia, 'Songti SC', 'Noto Serif CJK SC', serif;
-    font-size: 13px; letter-spacing: .06em;
-    color: var(--lsp-muted);
-    animation: lspRiseIn .48s var(--lsp-ease) 1.22s both;
-}
-
-.luzzy-splash-inkdot {
-    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-    background: var(--lsp-coral); margin-left: 7px;
-    animation: lspDotIn .4s var(--lsp-ease) 1.48s both;
-}
-
-.luzzy-splash-rule {
-    position: absolute; top: 30px; left: 26px; right: 26px; height: 1px;
-    background: var(--lsp-rule); transform-origin: left center; z-index: 4;
-    animation: lspRuleDraw .6s var(--lsp-ease) .95s both;
-}
-
-.luzzy-splash-pagenum {
-    position: absolute; left: 0; right: 0; bottom: 38px; z-index: 4;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    animation: lspRiseIn .46s var(--lsp-ease) 1.5s both;
-}
-
-.luzzy-splash-pagenum span { width: 30px; height: 1px; background: var(--lsp-rule); }
-
-.luzzy-splash-pagenum em {
-    font-family: 'Lora', Georgia, serif;
-    font-size: 12px; letter-spacing: .35em; padding-left: .35em;
-    color: var(--lsp-muted); font-style: italic;
-}
-
-.luzzy-splash-cover {
-    position: absolute; inset: 0; z-index: 9;
-    background: var(--lsp-cover);
-    border-bottom: 1px solid var(--lsp-cover-rule);
-    transform-origin: 50% 0%;
-    opacity: 0;
     display: flex; align-items: center; justify-content: center;
-    animation: lspCoverLift .85s var(--lsp-ease) .28s both;
+    width: 44px; height: 44px;
+    opacity: 0;
 }
 
-.luzzy-splash-cover-frame {
-    position: absolute; inset: 26px; border: 1px solid var(--lsp-cover-rule);
-}
+.about-top-fab.is-visible { opacity: 1; }
 
-.luzzy-splash-cover-tick {
-    width: 18px; height: 3px; border-radius: 2px;
-    background: var(--lsp-coral); transform: rotate(-6deg);
-}
-
-@keyframes lspPaperSettle {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes lspCoverLift {
-    0% { opacity: 1; transform: perspective(1200px) rotateX(0deg) translateY(0); }
-    30% { opacity: 1; transform: perspective(1200px) rotateX(-18deg) translateY(-8%); }
-    60% { opacity: 1; transform: perspective(1200px) rotateX(-34deg) translateY(-46%); }
-    100% { opacity: 0; transform: perspective(1200px) rotateX(-46deg) translateY(-104%); }
-}
-
-@keyframes lspRuleDraw {
-    from { transform: scaleX(0); }
-    to { transform: scaleX(1); }
-}
-
-@keyframes lspHlDraw {
-    from { transform: scaleX(0) rotate(-1.4deg); }
-    to { transform: scaleX(1) rotate(-1.4deg); }
-}
-
-@keyframes lspStampIn {
-    from { opacity: 0; transform: scale(.96) rotate(-3deg); }
-    to { opacity: 1; transform: scale(1) rotate(0deg); }
-}
-
-@keyframes lspRiseIn {
-    from { opacity: 0; transform: translateY(7px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes lspDotIn {
-    from { opacity: 0; transform: scale(.96); }
-    to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes lspFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .luzzy-splash {
-        animation-delay: .4s;
-        animation-duration: .2s;
-        animation-timing-function: ease-out;
-    }
-
-    .luzzy-splash *,
-    .luzzy-splash *::before,
-    .luzzy-splash *::after {
-        animation: none !important;
-        transition: none !important;
-    }
-}
 /* —— LuzzyRP 开屏「开卷 · 门扉」（patch 027 v3，v1.2.3，需求 1）—— */
 /* v3 门扉交互（用户决策 2026-09-05）：构图淡入 → 进度条自左向右 → 「沉溺」按钮浮现
    并等待点击 → 点击触发 眩晕+泡泡+中心放大 转场进主界面。原掀封叙事移除。
@@ -1006,7 +759,7 @@
 .luzzy-splash-seal {
     width: 84px; height: 84px; border-radius: 50%;
     overflow: hidden; border: 1px solid var(--lsp-rule); background: var(--lsp-card);
-    animation: lspRiseIn .5s var(--lsp-ease) .15s both;
+    animation: lspStampIn .52s var(--lsp-ease) .15s both;
 }
 
 .luzzy-splash-seal img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1077,7 +830,7 @@
 
 @keyframes lspProgressFill { to { transform: scaleX(1); } }
 
-/* 「沉溺」按钮：进度走满后浮现，等待点击（呼吸提示生命感） */
+/* 「沉溺」按钮：进度走满后浮现，等待点击 */
 .lsp-dive-btn {
     margin-top: 28px;
     font-family: 'Lora', Georgia, 'Songti SC', serif;
@@ -1086,17 +839,12 @@
     border: 1px solid rgba(250, 249, 245, .22); border-radius: 999px;
     box-shadow: 0 6px 18px rgba(20, 20, 19, .16);
     opacity: 0; transform: translateY(10px) scale(.96);
-    animation: lspBtnIn .4s var(--lsp-ease) 2.25s forwards,
-        lspBtnBreath 2.6s ease-in-out 2.8s infinite alternate;
+    animation: lspBtnIn .4s var(--lsp-ease) 2.25s forwards;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
 }
 
 @keyframes lspBtnIn { to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes lspBtnBreath {
-    from { transform: translateY(0) scale(1); }
-    to { transform: translateY(-2px) scale(1.02); }
-}
 
 .lsp-dive-btn:active { transform: scale(.96); }
 
@@ -1171,6 +919,11 @@
 @keyframes lspFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+@keyframes lspStampIn {
+    from { opacity: 0; transform: scale(.96) rotate(-3deg); }
+    to { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
 @keyframes lspDiveCalm { to { opacity: 0; } }

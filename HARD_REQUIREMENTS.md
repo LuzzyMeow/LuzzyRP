@@ -39,6 +39,10 @@ RP-Hub 上游文件（`index.html`、`assets/js/*.js`、`assets/css/styles.css`�
 
 新版本内容必须同步更新 `CHANGELOG.md` 与 `README.md`。CHANGELOG 沿用既有格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode；**每条记录注明上游基线版本**。
 
+
+> **v1.2.3 增补**：应用内更新日志（ext/luzzy-changelog.js）已自动化——构建期 genChangelog
+> 任务自动重生成 + verify-markers R3-changelog-sync 门禁拦截过期（--check 模式）；
+> 「忘记重新生成」由机制兜底，人工仅需维护仓库根 CHANGELOG.md。
 ### 规定 6 · 上游同步纪律
 
 上游发版后按 `AGENTS.md` §4 SOP 同步（fetch → 覆盖 → patch 重放 → 回归实测）；同步后必须实测：数据兼容（localStorage 结构）、核心功能回归（对话 / 角色卡导入导出 / 世界书 / 正则 / 记忆 / 生图）、断网可用性、扩展层功能回归。

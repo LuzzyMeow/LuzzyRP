@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index f73b1ddd..8c2931f9 100644
+index f73b1ddd..ba1f4ac0 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -225,6 +225,13 @@ const app = createApp({
@@ -111,7 +111,7 @@ index f73b1ddd..8c2931f9 100644
 +                }
 +            } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
 +            if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.1';
-+            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.8.9';
++            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.9.0'; // [LuzzyRP patch 028] 上游基线 1.9.0 同步更新
 +        };
 +        const openGitHubRepo = () => {
 +            const url = 'https://github.com/LuzzyMeow/LuzzyRP';

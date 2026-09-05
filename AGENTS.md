@@ -64,7 +64,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `luzzy-bridge.js` | 桥接封装（存在性检测 + 降级） | 新增桥接方法必须同步此文件 |
 | `luzzy-theme.css` | 主题变量 + 字体栈（DESIGN.md token 落地） | classic/亮/暗三套 `--tw-*` 变量为 **RGB 三元组**；暗色组件覆盖在此；token 改动须同步 DESIGN.md |
 | `luzzy-ext.js` | 桥接自检 + 关于页品牌注入 | 主题/字体切换逻辑在 patch 010/011（上游 app.js 内），不在此文件 |
-| `luzzy-changelog.js` | 关于页 CHANGELOG 数据（patch 014 挂载） | **生成文件勿手改**——由 `tools/gen-changelog.mjs` 从仓库根 CHANGELOG.md 生成，发版更新 CHANGELOG 后必须重跑 |
+| `luzzy-changelog.js` | 关于页 CHANGELOG 数据（patch 014 挂载） | **生成文件勿手改**——构建期 genChangelog 任务自动重生成（v1.2.3），verify-markers R3 门禁拦截过期 |
 | `luzzy-logo.png` | 关于页品牌图标 | 从 mipmap 启动图标复制的持久产物 |
 
 ### 1.5 工具与文档
@@ -207,7 +207,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 5. adaptive 方案约定：全图前景 68% 居中 + 同色纯背景（不透明图标下不再使用
    透明贴纸方案）；mipmap-anydpi-v26/*.xml 结构不变；
 
-6. EXTRACT_VERSION +1（ext/luzzy-logo.png 变更必须 bump，见 §7 坑表）；
+6. 资产变更由 assetSignature 自动触发重解压（v1.2.3 起，无需手动 bump；见 §7 坑表）；
 
 7. 文档同步（硬性规定 5）：AGENTS §1.2 图标条目（替换日期/源图路径/背景色）、
    CHANGELOG（当前开发版本加「全新品牌图标」条目）、README（头图自动跟随；
@@ -377,7 +377,7 @@ Luzzy.copyToClipboard = function (text) {
 | 删除上游 LICENSE | 二创署名义务，禁止删除/改写 |
 | **Tailwind CDN 不接受 var() 颜色值** | ~~已证伪~~：JIT 接受纯 var()，但见下一行真正的坑 |
 | **主题色板必须用 RGB 三元组 + `<alpha-value>`** | 纯 `var()` 色值下基本工具类正常，但带透明度修饰符的类（`bg-gray-50/60` 等）会**静默回退纯白**（暗色白块根因，不报错难排查）。正确写法：config 用 `rgb(var(--tw-gray-50) / <alpha-value>)` + 变量存三元组如 `250 249 245`（2026-09-01 jsdom+CDP 双实证，见 §9） |
-| **改 assets 不 bump EXTRACT_VERSION = 白改** | filesDir 已解压且标记匹配时跳过解压；改 `rphub/`/`ext/` 资产后必须卸载重装或 `AssetExtractor.EXTRACT_VERSION` +1（IndexedDB 用户数据不受重新解压影响） |
+| **~~改 assets 不 bump EXTRACT_VERSION = 白改~~（v1.2.3 已根治）** | 构建期 assetSignature（文件数+大小+mtime）注入 BuildConfig.ASSET_SIGNATURE，AssetExtractor 启动比对签名自动重解压——改资产零手动操作；若签名粒度漏检（同 mtime/size 改写）仍可手动 bump 兜底 |
 
 ---
 
@@ -417,7 +417,7 @@ Luzzy.copyToClipboard = function (text) {
 
 ### 高频坑速查（会话 14/15 实踩，勿再踩）
 
-- **改 assets 不 bump EXTRACT_VERSION = 白改**（现值 21；改前先确认当前值）；
+- **~~改 assets 不 bump EXTRACT_VERSION~~（v1.2.3 起资产签名自动比对，零手动）；会话 20 曾三踩此坑（EXTRACT 25 消费后连续改 assets 未 bump），促成了根治方案落地；**
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
   git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
   要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；

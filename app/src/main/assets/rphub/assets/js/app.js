@@ -712,7 +712,7 @@ const app = createApp({
                 }
             } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
             if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.1';
-            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.8.9';
+            if (!upstreamVersionLabel.value) upstreamVersionLabel.value = '1.9.0'; // [LuzzyRP patch 028] 上游基线 1.9.0 同步更新
         };
         const openGitHubRepo = () => {
             const url = 'https://github.com/LuzzyMeow/LuzzyRP';

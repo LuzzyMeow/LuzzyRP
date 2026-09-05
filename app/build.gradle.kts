@@ -9,6 +9,25 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+// [LuzzyRP v1.2.3] 资产签名自动解压（根治「改 assets 忘 bump EXTRACT_VERSION」）：
+// 构建时对 rphub/ext 资产树计算（文件数+总大小+最新 mtime）签名并注入
+// BuildConfig.ASSET_SIGNATURE；AssetExtractor 启动时与设备侧标记比对，
+// 资产有任何变更即自动重新解压——无需任何手动版本操作。
+fun assetSignature(): String {
+    var count = 0L
+    var total = 0L
+    var latest = 0L
+    listOf(file("src/main/assets/rphub"), file("src/main/assets/ext")).forEach { root ->
+        root.walkTopDown().filter { it.isFile }.forEach { f ->
+            count++
+            total += f.length()
+            latest = maxOf(latest, f.lastModified())
+        }
+    }
+    return "n$count-s$total-m$latest"
+}
+val assetSignature = assetSignature()
+
 val keystoreProps: Properties? = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
     Properties().apply { file.inputStream().use { stream -> load(stream) } }
 }
@@ -21,6 +40,9 @@ android {
         applicationId = "com.luzzymeow.luzzyrp"
         minSdk = 26
         targetSdk = 37
+
+        // 资产签名（见 assetSignature）：资产变更即触发设备侧重新解压
+        buildConfigField("String", "ASSET_SIGNATURE", """"$assetSignature"""")
         versionCode = 9
         versionName = "1.2.2"
 
@@ -90,3 +112,35 @@ dependencies {
     // 测试
     testImplementation(libs.junit)
 }
+
+// [LuzzyRP v1.2.3] 应用内 CHANGELOG 自动同步（硬性规定 5 辅助机制）：
+// 每次构建前由 tools/gen-changelog.mjs 从仓库根 CHANGELOG.md 重新生成
+// src/main/assets/ext/luzzy-changelog.js（关于页更新日志数据源），
+// 杜绝「忘记重新生成」导致应用内日志过期；同步状态另受
+// tools/verify-markers.ps1 的 R3-changelog-sync 门禁拦截（双保险）。
+// node 不可用时降级为告警并保留现有数据文件（不阻塞构建）。
+val genChangelog = tasks.register("genChangelog") {
+    val changelogSrc = rootProject.file("CHANGELOG.md")
+    val genScript = rootProject.file("tools/gen-changelog.mjs")
+    val projectDir = rootProject.projectDir
+    val outFile = layout.projectDirectory.file("src/main/assets/ext/luzzy-changelog.js")
+    inputs.file(changelogSrc)
+    inputs.file(genScript)
+    outputs.file(outFile)
+    doLast {
+        try {
+            val process = ProcessBuilder("node", genScript.absolutePath)
+                .directory(projectDir)
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().readText()
+            val code = process.waitFor()
+            System.out.println(output.trim())
+            if (code != 0) throw GradleException("genChangelog 失败（exit $code）")
+        } catch (e: java.io.IOException) {
+            System.err.println("[genChangelog] node 不可用，跳过自动同步（保留现有 luzzy-changelog.js）: " + e.message)
+        }
+    }
+}
+
+tasks.named("preBuild") { dependsOn(genChangelog) }

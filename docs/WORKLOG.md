@@ -1458,3 +1458,31 @@ classic 老数据强制迁移 luzzy（本机 settings.theme 经历 classic→luz
 
 **收尾状态**：verify-markers 60 PASS / 0 FAIL；全部门禁与真机验证通过；
 EXTRACT 27 debug 包=日常包（数据保留）。
+
+### 会话 20 补充 6 · CHANGELOG 自动同步 + 资产签名根治 + FAB 错位全案告破（2026-09-05）
+
+**① 关于页 CHANGELOG 自动同步（用户指令「万一忘记更新怎么办」）**：
+- genChangelog Gradle 任务（preBuild 挂钩，inputs/outputs 增量，CC 兼容）——构建即从
+  仓库根 CHANGELOG.md 重生成应用内数据；node 不可用时降级告警不阻塞构建；
+- gen-changelog.mjs 新增 --check（同步=0 / 过期=3）；verify-markers 新增 R3-changelog-sync
+  门禁——本轮实测：CHANGELOG 变更未 gen 时 R3 FAIL 拦截 ✓、gen 后 61 PASS ✓；
+- 文档：HARD_REQUIREMENTS 规定 5 增补注记（已按规矩在 CHANGELOG 声明）。
+
+**② 资产签名自动解压（根治三踩的 EXTRACT 坑）**：
+- build.gradle.kts assetSignature()（文件数+总大小+最新 mtime）→ BuildConfig.ASSET_SIGNATURE；
+- AssetExtractor 改签名比对（.extracted_sig），EXTRACT_VERSION 手动机制退役；
+- 实测：CSS/index 改动后仅 install+launch 即自动重解压 ✓（run-as 双 grep 验证）。
+
+**③ 关于页置顶按钮错位全案告破（用户报告：按钮错位/箭头偏移）**：
+- **根因**：luzzy-ext.js 品牌注入泛匹配选择器 `[class*="about"]` 取末位——patch 024 的
+  置顶按钮（about-top-fab 类）成为末位匹配 → 72px 灰底品牌卡被 append 进 44px 按钮内部
+  → flex 双 item 挤偏箭头（CDP arrowOffset -36px）+ 品牌卡溢出成「幽灵窄条」；
+- **修复**：注入锚点改显式 `.about-view` + 已注入实例迁移逻辑；FAB 定位 v4 = fixed +
+  零动画零过渡（本机 WebView 分数 DPR 3.25 合成层失效规避）；品牌基线串 1.8.9→1.9.0
+  （LuzzyBridge.UPSTREAM_VERSION + app.js 回退标签，同步期遗漏）；
+- **真机终验**：CDP arrowOffset [0,0]、按钮钉右下角标准位（311,691）、幽灵卡消失
+  （verify-v123-fab-final.png）；
+- **过程代价（诚实记录）**：CSS 文件被多轮正则补丁搞成 v1/v3 双段弗兰肯斯坦（孤儿
+  keyframes 片段吃掉后续规则、旧 transform 残留），最终整体重写 FAB+splash 区段并
+  按行手术清除 v1 残段；期间多次构建失败（it.logger/Function2/standardOutput 编译错）
+  后带病安装旧 APK 造成验证假象——**构建守卫必须先于安装判定**已入流程。

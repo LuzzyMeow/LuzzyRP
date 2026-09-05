@@ -7,7 +7,7 @@
  *
  * 转义：JS 字符串内反引号 `、反斜杠 \、${（模板字面量插值）。
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -31,5 +31,17 @@ const footer = `\` };
 })();
 `;
 
-writeFileSync(dst, banner + md + footer, 'utf8');
+const final = banner + md + footer;
+
+if (process.argv.includes('--check')) {
+    const current = existsSync(dst) ? readFileSync(dst, 'utf8') : '';
+    if (current === final) {
+        console.log('[gen-changelog] --check 通过：应用内 CHANGELOG 数据与仓库根 CHANGELOG.md 一致');
+        process.exit(0);
+    }
+    console.error('[gen-changelog] 应用内 CHANGELOG 数据过期——运行 node tools/gen-changelog.mjs 同步');
+    process.exit(3);
+}
+
+writeFileSync(dst, final, 'utf8');
 console.log(`[gen-changelog] wrote ${dst} (${md.length} chars of markdown)`);

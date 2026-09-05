@@ -96,7 +96,8 @@ $Manifest = @(
     @{ Id = '028-theme-single';       File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 028]';                   Min = 1 },
     @{ Id = '028-theme-app';          File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 028]';                   Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
-    @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' }
+    @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
+    @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }
 )
 
 $failCount = 0
@@ -116,6 +117,15 @@ foreach ($item in $Manifest) {
         $count = ([regex]::Matches(([System.IO.File]::ReadAllText($path)), [regex]::Escape($item.Needle))).Count
         $ok = $count -eq 0
         $detail = if ($ok) { '未发现（正确）' } else { "发现 $count 处残留" }
+    } elseif ($item.Mode -eq 'changelog-sync') {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $nodeOut = & node (Join-Path $RepoRoot 'tools\gen-changelog.mjs') --check 2>&1
+        $ErrorActionPreference = $prevEap
+        $nodeText = (($nodeOut | Out-String).Trim())
+        if ($LASTEXITCODE -eq 0) { $ok = $true; $detail = '应用内数据与 CHANGELOG.md 一致' }
+        elseif ($LASTEXITCODE -eq 3) { $ok = $false; $detail = '应用内 CHANGELOG 数据过期：运行 node tools/gen-changelog.mjs 同步' }
+        else { $ok = $false; $detail = 'changelog-sync 执行失败: ' + $nodeText.Substring(0, [Math]::Min(120, $nodeText.Length)) }
     } elseif ($item.Mode -eq 'hash-upstream') {
         $relKey = $item.File.ToLower()
         $current = Get-FileSha256 $path

@@ -2175,14 +2175,17 @@
                     </div>
                 </div>
             </div>
-                    <!-- [LuzzyRP patch 024] 右下角置顶按钮（滚动超过阈值出现，v1.2.3） -->
-                    <button type="button" @click="scrollAboutToTop" aria-label="回到顶部"
-                        class="about-top-fab fixed bottom-5 right-5 z-30 w-11 h-11 rounded-full items-center justify-center bg-white border border-gray-100 shadow-md text-gray-500 hover:text-primary-600 hover:border-primary-100"
-                        :class="{ 'is-visible': aboutFabVisible }">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-                        </svg>
-                    </button>
+                    <!-- [LuzzyRP patch 024/028] 置顶按钮 v3：sticky 行容器钉底 + 按钮 opacity 淡入淡出
+     （不用 fixed/transform 动画，规避 WebView 合成层失效导致的绘制错位，v1.2.3） -->
+<div class="lsp-fab-row">
+    <button type="button" @click="scrollAboutToTop" aria-label="回到顶部"
+        class="about-top-fab fixed bottom-5 right-5 z-30 w-11 h-11 rounded-full bg-white border border-gray-100 shadow-md text-gray-500 hover:text-primary-600 hover:border-primary-100"
+        :class="{ 'is-visible': aboutFabVisible }">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+        </svg>
+    </button>
+</div>
             <!-- Presets View -->
             <div v-if="currentView === 'presets'" class="management-view">
                 <settings-page-header title="预设管理" @menu="toggleMobileMenu">

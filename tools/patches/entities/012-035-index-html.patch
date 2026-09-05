@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index b353e870..75a366f6 100644
+index b353e870..8fe28d1d 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,23 @@
@@ -614,10 +614,10 @@ index b353e870..75a366f6 100644
                                  </button>
                              </div>
  
-@@ -2686,6 +2881,141 @@
+@@ -2567,6 +2762,140 @@
                      </div>
                  </div>
-             </div>
+ 
 +                    <!-- [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
 +                         ⚠ v-if="true" 为显式断链：本卡紧邻上方 classic 卡的 v-else-if，production 编译
 +                         丢弃中间注释后两元素直接相邻，会被 Vue 并入条件链（enabled=false 时整卡消失） -->
@@ -752,10 +752,17 @@ index b353e870..75a366f6 100644
 +                            </template>
 +                        </div>
 +                    </div>
-+
+             </div>
  
+             <!-- World Info View -->
+@@ -2687,6 +3016,7 @@
+                 </div>
+             </div>
+ 
++
          </div>
  
+         <!-- Modals -->
 @@ -2710,11 +3040,329 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"

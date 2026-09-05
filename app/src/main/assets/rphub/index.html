@@ -2762,125 +2762,6 @@
                     </div>
                 </div>
 
-            </div>
-
-            <!-- World Info View -->
-            <div v-if="currentView === 'worldinfo'" class="management-view">
-                <settings-page-header title="世界书" @menu="toggleMobileMenu">
-                    <template #icon>
-                        <svg class="w-6 h-6 md:w-7 md:h-7 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                    </template>
-                    <button @click="openExportModal('worldinfo')" class="settings-icon-button" title="导出">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor"><use href="#icon-export"></use></svg>
-                    </button>
-                    <label class="settings-icon-button cursor-pointer" title="导入">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-import"></use></svg>
-                        <input type="file" accept=".json" @change="importWorldInfo" class="hidden">
-                    </label>
-                    <button @click="createWorldInfo" class="settings-create-button" title="新建条目">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                        </svg>
-                    </button>
-                </settings-page-header>
-                <!-- Activation Settings -->
-                <div
-                    class="bg-white/70 backdrop-blur-sm p-1 rounded-2xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
-                    <button @click="showWorldInfoSettings = !showWorldInfoSettings"
-                        :class="['w-full flex justify-between items-center px-4 py-3 rounded-xl transition-all font-bold',
-                                     showWorldInfoSettings ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50']">
-                        <span class="flex items-center">
-                            <div
-                                :class="['p-1.5 rounded-lg mr-3 transition-colors', showWorldInfoSettings ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500']">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
-                                    </path>
-                                </svg>
-                            </div>
-                            全局世界信息/知识书激活设置
-                        </span>
-                        <svg :class="{'transform rotate-180': showWorldInfoSettings}"
-                            class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
-                            </path>
-                        </svg>
-                    </button>
-                    <div v-show="showWorldInfoSettings" class="mt-4 pt-4 border-t border-gray-100 animate-fade-in">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 text-sm">
-                            <!-- Scan Depth -->
-                            <div>
-                                <div class="flex justify-between items-center mb-1">
-                                    <label class="font-medium text-gray-600">扫描深度</label>
-                                    <span class="text-primary-600 font-mono bg-primary-50 px-2 py-0.5 rounded">{{
-                                        worldInfoSettings.scanDepth }}</span>
-                                </div>
-                                <input type="range" v-model.number="worldInfoSettings.scanDepth" min="0" max="20"
-                                    class="compact-range w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600">
-                            </div>
-                            <!-- Max Scan Depth -->
-                            <div>
-                                <div class="flex justify-between items-center mb-1">
-                                    <label class="font-medium text-gray-600">最大扫描深度</label>
-                                    <span class="text-primary-600 font-mono bg-primary-50 px-2 py-0.5 rounded">{{
-                                        worldInfoSettings.maxDepth }}</span>
-                                </div>
-                                <input type="range" v-model.number="worldInfoSettings.maxDepth" min="0" max="50"
-                                    class="compact-range w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="worldinfo-list" class="space-y-4">
-                    <div v-for="(entry, index) in worldInfo" :key="(entry.comment || '') + '_' + index"
-                        class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex justify-between items-center">
-                        <div class="flex-1 min-w-0 mr-4 flex items-center">
-                            <div class="cursor-move text-gray-400 mr-3 hover:text-gray-600" title="拖动排序">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 8h16M4 16h16"></path>
-                                </svg>
-                            </div>
-                            <div class="min-w-0">
-                                <div class="flex items-center">
-                                    <h3 class="font-bold text-gray-800 truncate">{{ entry.comment || '未命名条目' }}</h3>
-                                    <span class="hidden md:inline-flex ml-2 text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0"
-                                        :class="entry.scope === 'global' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'">
-                                        {{ entry.scope === 'global' ? '全局' : '绑定' }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-4 flex-shrink-0">
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" :checked="entry.enabled"
-                                    @change="setWorldInfoEnabled(entry, $event.target.checked, $event)" class="settings-toggle-input sr-only">
-                                <div class="settings-toggle"></div>
-                            </label>
-                            <div class="flex space-x-1 border-l border-gray-200 pl-4">
-                                <button @click="editWorldInfo(index)"
-                                    class="item-action-button item-action-button--edit"
-                                    title="编辑">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"><use href="#icon-edit"></use></svg>
-                                </button>
-                                <button @click="deleteWorldInfo(index)"
-                                    class="item-action-button item-action-button--delete"
-                                    title="删除">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                                        </path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
                     <!-- [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
                          ⚠ v-if="true" 为显式断链：本卡紧邻上方 classic 卡的 v-else-if，production 编译
                          丢弃中间注释后两元素直接相邻，会被 Vue 并入条件链（enabled=false 时整卡消失） -->
@@ -3015,6 +2896,125 @@
                             </template>
                         </div>
                     </div>
+            </div>
+
+            <!-- World Info View -->
+            <div v-if="currentView === 'worldinfo'" class="management-view">
+                <settings-page-header title="世界书" @menu="toggleMobileMenu">
+                    <template #icon>
+                        <svg class="w-6 h-6 md:w-7 md:h-7 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                    </template>
+                    <button @click="openExportModal('worldinfo')" class="settings-icon-button" title="导出">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor"><use href="#icon-export"></use></svg>
+                    </button>
+                    <label class="settings-icon-button cursor-pointer" title="导入">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-import"></use></svg>
+                        <input type="file" accept=".json" @change="importWorldInfo" class="hidden">
+                    </label>
+                    <button @click="createWorldInfo" class="settings-create-button" title="新建条目">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                    </button>
+                </settings-page-header>
+                <!-- Activation Settings -->
+                <div
+                    class="bg-white/70 backdrop-blur-sm p-1 rounded-2xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
+                    <button @click="showWorldInfoSettings = !showWorldInfoSettings"
+                        :class="['w-full flex justify-between items-center px-4 py-3 rounded-xl transition-all font-bold',
+                                     showWorldInfoSettings ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50']">
+                        <span class="flex items-center">
+                            <div
+                                :class="['p-1.5 rounded-lg mr-3 transition-colors', showWorldInfoSettings ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500']">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                                    </path>
+                                </svg>
+                            </div>
+                            全局世界信息/知识书激活设置
+                        </span>
+                        <svg :class="{'transform rotate-180': showWorldInfoSettings}"
+                            class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+                    <div v-show="showWorldInfoSettings" class="mt-4 pt-4 border-t border-gray-100 animate-fade-in">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 text-sm">
+                            <!-- Scan Depth -->
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="font-medium text-gray-600">扫描深度</label>
+                                    <span class="text-primary-600 font-mono bg-primary-50 px-2 py-0.5 rounded">{{
+                                        worldInfoSettings.scanDepth }}</span>
+                                </div>
+                                <input type="range" v-model.number="worldInfoSettings.scanDepth" min="0" max="20"
+                                    class="compact-range w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600">
+                            </div>
+                            <!-- Max Scan Depth -->
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="font-medium text-gray-600">最大扫描深度</label>
+                                    <span class="text-primary-600 font-mono bg-primary-50 px-2 py-0.5 rounded">{{
+                                        worldInfoSettings.maxDepth }}</span>
+                                </div>
+                                <input type="range" v-model.number="worldInfoSettings.maxDepth" min="0" max="50"
+                                    class="compact-range w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="worldinfo-list" class="space-y-4">
+                    <div v-for="(entry, index) in worldInfo" :key="(entry.comment || '') + '_' + index"
+                        class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex justify-between items-center">
+                        <div class="flex-1 min-w-0 mr-4 flex items-center">
+                            <div class="cursor-move text-gray-400 mr-3 hover:text-gray-600" title="拖动排序">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 8h16M4 16h16"></path>
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center">
+                                    <h3 class="font-bold text-gray-800 truncate">{{ entry.comment || '未命名条目' }}</h3>
+                                    <span class="hidden md:inline-flex ml-2 text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0"
+                                        :class="entry.scope === 'global' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'">
+                                        {{ entry.scope === 'global' ? '全局' : '绑定' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 flex-shrink-0">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" :checked="entry.enabled"
+                                    @change="setWorldInfoEnabled(entry, $event.target.checked, $event)" class="settings-toggle-input sr-only">
+                                <div class="settings-toggle"></div>
+                            </label>
+                            <div class="flex space-x-1 border-l border-gray-200 pl-4">
+                                <button @click="editWorldInfo(index)"
+                                    class="item-action-button item-action-button--edit"
+                                    title="编辑">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"><use href="#icon-edit"></use></svg>
+                                </button>
+                                <button @click="deleteWorldInfo(index)"
+                                    class="item-action-button item-action-button--delete"
+                                    title="删除">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
 
         </div>

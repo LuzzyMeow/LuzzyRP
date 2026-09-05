@@ -403,7 +403,7 @@ Luzzy.copyToClipboard = function (text) {
 
 ### 版本状态（2026-09-05 · 会话 21）
 
-- **v1.3.0 开发中**（v1.2.3 已于 2026-09-05 正式发布，versionCode 10，Release 附三件套 APK）：
+- **v1.3.0 正式版已发布**（2026-09-06，versionCode 11，Release 附三件套 APK；v1.2.3 为 versionCode 10）：
   ① patch 032 流式渲染降载（间隔 60→120ms + 流式 LRU 旁路）；② patch 034 性能治理
   （D1 高频面退实底：气泡/typing/输入岛/侧栏 blur 归零；glass-stabilize/scroll-reveal
   will-change 瘦身；开屏 lspDiveZoom 去 filter:blur）；③ patch 033 输入区过渡定向化

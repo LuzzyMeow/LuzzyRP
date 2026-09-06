@@ -1793,3 +1793,17 @@ AGENTS §4.2 表 +036 行；patches/README +036 条目；CHANGELOG 修复条目 
 **遗留 / 下一步**：debug 包（versionCode 11 / versionName 1.3.0）重打交付桌面 → 用户
 真机验证（重点：补录后管理器实时更新、1.9.1 各项、035 图标）→ 用户确认后执行
 release（GitHub Release 附三件套 APK）。
+
+### 会话 21 补充 9 · v1.3.0 正式发布（2026-09-06）
+
+**发布执行**：①CHANGELOG 状态 → 正式版已发布 + gen 重跑（R3 全绿，75 PASS / 0 FAIL）；
+②assembleRelease + assembleDebug（versionCode 11 / versionName 1.3.0，aapt 三件套实测
+确认）；③**GitHub Release v1.3.0 已发布**（附三件套 APK：arm64-v8a / universal /
+x86_64，notes 按 v1.2.3 排版，源文件 docs/release-notes-v1.3.0.md）；
+https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.3.0 ；④debug 包交付桌面。
+
+**发布内容**：上游 1.9.1 同步 + patch 029-036（供应商图标/记忆召回节点/管理器实时联动/
+流式降载/性能治理/热区根除/内置精简迁移/关于页固化）+ 007 存量缺陷修复 + 035 真机反馈
+四项。真机回归：用户自行完成（debug 包覆盖日常包验证）。
+
+**遗留**：无阻塞项。后续候选见 README 规划表 v1.4.0 行。

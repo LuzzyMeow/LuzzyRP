@@ -164,7 +164,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 ```
 1. 更新 build.gradle.kts versionCode/versionName
 2. 更新 CHANGELOG.md（格式见 §1.1）
-3. 更新 README.md（版本规划表 + 如有重大变更）
+3. 运行 `node tools/gen-changelog.mjs`（自动同步 README Status 徽章与「当前版本」行；版本说明一律写 CHANGELOG，README 不维护逐版表格）
 4. ./gradlew assembleRelease（签名 + ABI 拆分）
 5. 真机回归（核心功能 + 本次变更点）
 6. git push

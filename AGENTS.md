@@ -18,7 +18,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
-| `README.md` | 项目门面（含二创署名声明） | 版本更新时同步（硬性规定 5） |
+| `README.md` | 项目门面（含二创署名声明） | Status 徽章与「当前版本」行由 gen-changelog 自动同步；版本说明收敛 CHANGELOG（硬性规定 5） |
 | `CHANGELOG.md` | 更新日志 | 格式：`### vX.Y.Z — 标题` + 「新增/优化/修复/注意事项」分类 + 构建结果与 versionCode；每条注明上游基线版本 |
 | `HARD_REQUIREMENTS.md` | 10 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
 | `AGENTS.md` | 本文件 | 与 HARD_REQUIREMENTS 同步演进 |
@@ -75,7 +75,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-020 实体 patch（`patches/entities/`，指纹基线判定） |
 | `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
-| `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行） |
+| `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行）；**同时自动同步 README Status 徽章与「当前版本」行**（README 版本说明已收敛至 CHANGELOG，逐版表格移除） |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.2.1.md` | 最近版本（v1.2.1）实施计划 | 最新版本主文档；历史 PLAN（v1.0.0~v1.2.0）并存备查 |
 | `docs/design/` | 设计存档（spec-v2 合同 / boards-v2 三方向板 / direction-approved-v2 / 验证截图） | 设计演进按硬性规定 9 流程 |

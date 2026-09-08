@@ -2593,3 +2593,16 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - **P3 剩余**：proot 沙盒（rootfs 已验证可下载 3.8MB；proot 静态二进制来源待定 + 冒烟）。
 - **P4 剩余**：stdio MCP（依赖沙盒）、`web_search` 多引擎、子代理/上下文压缩增强。
 - 真机验收仍缺（无连接设备）。
+
+**追加（会话 34）· P3 proot 沙盒可行性调查（需用户拍板）**：
+
+| 项 | 实测结果 |
+|----|---------|
+| Alpine minirootfs | `alpine-minirootfs-3.20.3-aarch64.tar.gz` **可下载**，3,947,906 B（≈3.8MB） |
+| proot 二进制（Termux 包 `proot_5.1.107.92_aarch64.deb`） | 可下载并解包；`bin/proot` 244,088 B + `libexec/proot/loader{,32}` |
+| **依赖** | `PT_INTERP=/system/bin/linker64`（Android 系统链接器）+ `DT_NEEDED: libtalloc.so.2, libandroid-shmem.so, libc.so` → **非自包含**，还需 Termux 的 `libtalloc` / `libandroid-shmem` 两个 .so |
+| Alpine 官方源 | v3.19/3.20/3.21 的 main/community/testing 均**无 proot 包**（无法取用 musl 静态版） |
+| 许可 | proot 上游为 **GPL-2.0-or-later**（Termux 包 control 未列 License 字段）——随包分发需履行 GPL 源码提供义务 |
+
+**结论**：沙盒落地需要「proot 二进制 + 2 个 .so + rootfs」随包内置，涉及
+**新增第三方二进制依赖 + GPL 合规 + APK 体积**，按交接规范 §8 属「必须停下来问」的情形。

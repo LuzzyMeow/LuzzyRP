@@ -991,7 +991,7 @@
 
     const AddCharacterModal = {
         props: { show: Boolean },
-        emits: ['close', 'create', 'import-character'],
+        emits: ['close', 'create', 'generate', 'import-character'],
         template: `
             <modal-shell v-if="show" close-on-backdrop @close="$emit('close')"
                 overlay-class="z-[60] bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
@@ -1012,7 +1012,18 @@
                                 </div>
                                 <div class="text-left">
                                     <div class="font-bold">新建角色卡</div>
-                                    <div class="text-xs text-gray-500">从零开始创建一个新角色</div>
+                                    <div class="text-xs text-gray-500">从零开始创建一个角色卡</div>
+                                </div>
+                            </button>
+                            <button @click="$emit('generate')" class="choice-card group">
+                                <div class="choice-card__icon">
+                                    <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 8a3 3 0 11-6 0 3 3 0 016 0zm-3 5c-4 0-7 2-7 5v1h8m5-6v6m-3-3h6"></path>
+                                    </svg>
+                                </div>
+                                <div class="text-left">
+                                    <div class="font-bold">生成角色卡</div>
+                                    <div class="text-xs text-gray-500">使用AI一键生成角色卡</div>
                                 </div>
                             </button>
                             <label class="choice-card group">
@@ -1035,7 +1046,7 @@
                                 </div>
                                 <div class="text-left flex-1">
                                     <div class="font-bold">导入聊天记录</div>
-                                    <div class="text-xs text-gray-500">支持全部分支与旧版 .jsonl 聊天数据</div>
+                                    <div class="text-xs text-gray-500">支持全部分支与聊天数据</div>
                                 </div>
                                 <input type="file" accept=".jsonl" @change="$emit('import-character', $event)" class="hidden">
                             </label>

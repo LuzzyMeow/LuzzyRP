@@ -30,8 +30,8 @@
   + Room 10 表数据模型 + U/P0-P4 阶段路线与验收标准 + R1-R13 风险清单。**本文只定义信息架构，
   不含视觉设计**。
 
-**同步（上游 1.9.3，待合并）**
-- **上游新版本：RP-Hub 1.9.3**（公告 id \`10207\`，更新时间 09/08 15:30；基线 \`d2f2625\` → \`4aef0bb\`，
+**同步（上游 1.9.3 · 已完成）**
+- **上游新版本 RP-Hub 1.9.3 已合并**（公告 id \`10207\`，更新时间 09/08 15:30；基线 \`d2f2625\` → \`4aef0bb\`，
   4 个提交 / 5 文件 **+297 −351**）。上游自报新功能：角色卡工坊与万相广场**一键导入** ·
   工坊**抗截断模式** · **Diff 匹配与智能修改成功率大幅优化** · **角色卡管理页全面焕新** ·
   开屏动画优化 · 剧情 UI 面板出现时机优化 · 修复沉浸模式宽度异常。
@@ -40,16 +40,37 @@
   （**万相广场一键导入**消息桥 \`RPH_FORUM_*\` + \`selectCharacter\`/\`importCharacterData\` 签名改选项对象）；
   \`character/index.html\` +170/−285（**工坊页 Diff 机制重构**：文本块解析 → 原生 \`edit_character_card\`
   工具调用）；\`built-in-content.js\` +40/−39（预设文案调整 + 公告换 1.9.3）。
-- **安全面预检（已实测）**：\`nsfw\` 块逐字节**完全一致**（offset 23907 / 599 字节）；
-  \`vendor/\`、\`assets/fonts/\`、\`novel/index.html\` 零改动；**无新增 CDN 引用**、**无新增/删除文件**。
-- **实体重放实测（仓库外干净目录 + 上游 1.9.3）**：**7/9 可直接重放**（含工坊页 007 —— 大改版后
-  \`uiHTML\` 行未被动）；**2 枚冲突**：\`012-035-index-html\`（\`index.html:2761\`）与
-  \`012-036-app-js\`（\`app.js:771\`）——**根因已定位到字节**：这两枚实体是在**二创工作树**上生成的
-  （前像缺少 \`</model-selector-modal>\` 与 \`<add-character-modal>\` 之间的空行 / 缺少上游新增的
-  广场导入分支），换基线后前像失配。**修正规程**：以「上游纯净基线 + 三方合并结果」为对重新生成
-  全部 9 枚实体（详见计划 §18.6）。
-- **顺带发现的工具缺陷**：\`tools/apply-patches.ps1\` 第 84/90 行**硬编码基线 \`d2f2625\`**，同步后
-  兜底判定失效 → 改为从指纹表头解析（计划 §18.5 U7）。
+- **合并方式（三方合并，非覆盖重放）**：以 1.9.3 纯净文件为底、1.9.2 纯净文件为公共祖先、
+  二创工作树为另一方做 \`git merge-file\`——\`index.html\` / \`ui-components.js\` / \`character/index.html\`
+  **零冲突**；\`app.js\` **1 处冲突**（上游新增 \`squareImportPending\` + \`getSquareFrame()\` 与二创
+  注释行重叠）取上游侧解决。**交叉验证**：可重放的 7 枚实体重放结果与三方合并结果 **LF 归一逐字节一致**
+  （character/index.html、ui-components.js 实测相等），证明合并无信息丢失。
+- **顺带修复的存量缺陷**：1.9.2 合并（会话 25）时误删 \`let workshopImportPending = false;\`
+  （退化为隐式全局），本次合并随冲突解决恢复该声明。
+- **签名变更核对（U5，运行期才炸的隐患）**：上游 \`importCharacterData(raw, avatar, {askImageGeneration, activate})\`
+  与 \`selectCharacter(index, isNewImport, {silent})\` 改选项对象——全局核对 6 处调用点，
+  无一处传旧式布尔第三参，**无需改动**。
+- **实体 9 枚按修正规程全部重生成**（计划 §18.6）：以「上游 1.9.3 纯净基线 + 合并结果」为对、
+  LF 归一生成 → **逆向 9/9**（纯净基线逐枚 \`git apply\` → 与工作树 LF 归一逐字节一致）+
+  **端到端 9/9**（纯净基线全量 → \`apply-patches.ps1\` 实跑 → 9 枚全 \`[OK]\` 且结果与工作树一致）。
+- **工具缺陷修复**：\`apply-patches.ps1\` 的基线 commit **参数化**（\`-BaselineCommit\` > 指纹表头
+  \`(commit <sha>)\` > \`FETCH_HEAD\`，替代硬编码 \`d2f2625\`），并改用 cmd 重定向取原始字节以避免
+  尾部空行导致的哈希偏差；\`sync-upstream.ps1\` 指纹表头改为携带 \`(commit <sha>)\` 与上游版本号，
+  文件清单补 \`character/\`、\`novel/\`。
+- **硬编码基线点更新**：\`LuzzyBridge.UPSTREAM_VERSION\` 1.9.0 → **1.9.3**；README 二创声明基线
+  与 Upstream 徽章 → 1.9.3；\`tools/upstream-fingerprints.txt\` 全表 13 项以 \`4aef0bb\` 重算。
+- **行尾一致性修正**：\`styles.css\` / \`novel/index.html\` 工作树由混合行尾归一为 CRLF，与
+  \`core.autocrlf=true\` 检出态一致（git 视角零差异），使 R1/R2 指纹在 clone / checkout 后仍然成立。
+- **验证结果**：\`node --check\` 全 JS PASS（rphub 9 + ext 4）；\`verify-markers.ps1\`
+  **82 PASS / 0 FAIL**；未 patch 的 4 文件（\`built-in-content.js\` / \`styles.css\` / \`presence.js\` /
+  \`update-check.js\`）与上游 1.9.3 **LF 归一同构**，\`nsfw_rules\` 块（1588 字节）**逐字节一致**；
+  桌面冒烟（headless Chrome + CDP）**零 JS 异常**，工坊页正常挂载并含 \`edit_character_card\` 工具；
+  \`assembleDebug\` 构建通过。
+- **回归专项（计划 §18.8 十项）**：①工坊页 JS 执行 ✓ ②Diff 工具调用（静态核验通过，需带 tool 的
+  模型实测）③抗截断（同上）④广场一键导入（iframe 与 \`RPH_FORUM_*\` 桥就位，需联网实测）
+  ⑤「生成角色卡」入口 ✓（实测点击跳转生成器视图）⑥角色卡管理页焕新 ✓ ⑦开屏 ✓ / 面板时机与
+  沉浸宽度需真机目测 ⑧既有二创回归 ✓（冒烟全过）⑨数据兼容 ✓（1.9.3 未触碰 localStorage /
+  IndexedDB 结构，零 \`setItem\`/\`removeItem\` 改动）⑩断网 ✓（无新增 CDN 引用）。
 - **执行计划**：\`docs/PLAN-v1.5.0-assistant.md\` §18（U1-U12 清单 + 回归专项十项 + 排期约束）。
   按用户指示：**先同步、再做助手，最后一次性发版**（不拆版）。
 

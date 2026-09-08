@@ -3400,6 +3400,7 @@
 
         <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
             @create="createNewCharacter(); showAddCharacterMenu = false"
+            @generate="showAddCharacterMenu = false; currentView = 'generator'"
             @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
 
         <character-editor-modal :show="showCharacterEditor" :character="editingCharacter.data"

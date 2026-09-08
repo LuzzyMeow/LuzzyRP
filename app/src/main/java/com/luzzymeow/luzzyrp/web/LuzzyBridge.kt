@@ -105,7 +105,7 @@ class LuzzyBridge(private val context: Context) {
     }
 
     companion object {
-        /** 上游基线版本；每次同步上游后更新。 */
-        const val UPSTREAM_VERSION = "1.9.0"
+        /** 上游基线版本；每次同步上游后更新（v1.5.0 同步至 1.9.3 / commit 4aef0bb）。 */
+        const val UPSTREAM_VERSION = "1.9.3"
     }
 }

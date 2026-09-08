@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index 1cd2d5a3..0c1aaa4d 100644
+index 52135b4..0994787 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,20 @@
@@ -1104,8 +1104,8 @@ index 1cd2d5a3..0c1aaa4d 100644
 +
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
-             @import-character="importCharacter($event); showAddCharacterMenu = false"></add-character-modal>
-@@ -2803,6 +3435,26 @@
+             @generate="showAddCharacterMenu = false; currentView = 'generator'"
+@@ -2804,6 +3436,26 @@
              @update:result-count="editingActiveTool.data.resultCount = $event"
              @update:tavily-api-key="editingActiveTool.data.tavilyApiKey = $event"></active-tool-editor-modal>
  
@@ -1132,7 +1132,7 @@ index 1cd2d5a3..0c1aaa4d 100644
          <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
          <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"
              @close="showExportModal = false" @select-all="selectAllExportItems"
-@@ -2848,6 +3500,14 @@
+@@ -2849,6 +3501,14 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

@@ -13,7 +13,7 @@
 > [!IMPORTANT]
 > ## 📖 二创声明（Attribution）
 >
-> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.2**。
+> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.3**。
 >
 > - **遵循上游开源协议**：沿用上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）**；上游 LICENSE 原样保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布；
 > - **保持同步上游更新**：持续跟随上游发版节奏（覆盖式同步 + 登记 patch 重放，见 [AGENTS.md](AGENTS.md) §4 SOP），上游的修复与新能力会陆续并入；
@@ -24,7 +24,7 @@
 ![Status](https://img.shields.io/badge/Status-v1.5.0--开发中·未发布-D4A017)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
-![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.2-4FC08D?logo=vue.js&logoColor=white)
+![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.3-4FC08D?logo=vue.js&logoColor=white)
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-F5A623)
 
 > [!NOTE]

@@ -1,5 +1,5 @@
 diff --git a/assets/js/api-utils.js b/assets/js/api-utils.js
-index dc5a47cc..56c0e15e 100644
+index dc5a47c..56c0e15 100644
 --- a/assets/js/api-utils.js
 +++ b/assets/js/api-utils.js
 @@ -8,6 +8,40 @@

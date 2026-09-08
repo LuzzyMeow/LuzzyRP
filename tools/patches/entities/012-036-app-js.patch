@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 444fbac8..1ee20ca6 100644
+index 79267c0..ac445ba 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -478,17 +478,7 @@ index 444fbac8..1ee20ca6 100644
                      };
                      iframe.contentWindow.postMessage(syncData, '*');
                  } catch (e) {
-@@ -771,8 +1111,7 @@ const app = createApp({
-             }
-         };
- 
--        let workshopImportPending = false;
--        // Only the workshop frame can request settings sync or character import.
-+        // Listen for workshop ready message to trigger sync
-         window.addEventListener('message', async (event) => {
-             if (event.data && event.data.type === 'WORKSHOP_READY') {
-                 if (event.source !== document.querySelector('iframe[src*="character/index.html"]')?.contentWindow) return;
-@@ -801,6 +1140,7 @@ const app = createApp({
+@@ -844,6 +1184,7 @@ const app = createApp({
                  return;
              }
  
@@ -496,7 +486,7 @@ index 444fbac8..1ee20ca6 100644
              if (event.data?.type === 'REQUEST_RPHUB_API_SETTINGS') {
                  const iframe = document.querySelector('iframe[src*="novel/index.html"]');
                  if (event.source !== iframe?.contentWindow) return;
-@@ -814,14 +1154,27 @@ const app = createApp({
+@@ -857,14 +1198,27 @@ const app = createApp({
                          icon: ''
                      }))
                  ];
@@ -527,7 +517,7 @@ index 444fbac8..1ee20ca6 100644
                          customApiUrl2: settings.customApiUrl2
                      },
                      providers
-@@ -1351,7 +1704,6 @@ const app = createApp({
+@@ -1394,7 +1748,6 @@ const app = createApp({
              const packed = quantizeEmbeddingForStorage(embedding);
              return packed ? { ...cleanMemory, ...packed } : cleanMemory;
          };
@@ -535,7 +525,7 @@ index 444fbac8..1ee20ca6 100644
          const yieldMemoryStorageWork = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const compactMemoriesForStorageAsync = async (items) => {
-@@ -1364,6 +1716,7 @@ const app = createApp({
+@@ -1407,6 +1760,7 @@ const app = createApp({
              return result;
          };
  
@@ -543,7 +533,7 @@ index 444fbac8..1ee20ca6 100644
          const estimatedGenerationTime = computed(() => {
              if (recentGenerationTimes.value.length === 0) return null;
              const total = recentGenerationTimes.value.reduce((sum, item) => {
-@@ -1432,15 +1785,13 @@ const app = createApp({
+@@ -1475,15 +1829,13 @@ const app = createApp({
              getUncachedInputTokens,
              recordApiUsage,
              saveTokenUsageHistoryNow,
@@ -561,7 +551,7 @@ index 444fbac8..1ee20ca6 100644
              latestMainTokenUsage
          } = useTokenUsage({
              pageSize: LIST_PAGE_SIZE,
-@@ -1456,11 +1807,14 @@ const app = createApp({
+@@ -1499,11 +1851,14 @@ const app = createApp({
              saveStoredValue: setStoredValue,
              toast: (...args) => showToast(...args)
          });
@@ -579,7 +569,7 @@ index 444fbac8..1ee20ca6 100644
              }) });
          };
          const {
-@@ -1488,6 +1842,173 @@ const app = createApp({
+@@ -1531,6 +1886,173 @@ const app = createApp({
              scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
              toast: (...args) => showToast(...args)
          });
@@ -753,7 +743,7 @@ index 444fbac8..1ee20ca6 100644
          // Export Modal State
          const showExportModal = ref(false);
          const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
-@@ -1816,6 +2337,11 @@ const app = createApp({
+@@ -1860,6 +2382,11 @@ const app = createApp({
                              settings[key] = savedSettings[key];
                          }
                      });
@@ -765,7 +755,7 @@ index 444fbac8..1ee20ca6 100644
                      if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
                          const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                          settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
-@@ -2030,6 +2556,88 @@ const app = createApp({
+@@ -2074,6 +2601,88 @@ const app = createApp({
              return payload;
          };
  
@@ -854,7 +844,7 @@ index 444fbac8..1ee20ca6 100644
          const renderGeneratedImageJob = (card, task, job) => {
              if (!card?.isConnected) return task.cards.delete(card);
              task.job = job;
-@@ -2047,15 +2655,21 @@ const app = createApp({
+@@ -2091,15 +2700,21 @@ const app = createApp({
                  return;
              }
              if (job.status === 'running') {
@@ -882,7 +872,7 @@ index 444fbac8..1ee20ca6 100644
              if (!imageUrl) {
                  card.classList.remove('is-generating');
                  card.classList.add('is-generation-error');
-@@ -2136,7 +2750,10 @@ const app = createApp({
+@@ -2180,7 +2795,10 @@ const app = createApp({
              card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
              const label = card.querySelector('.generated-image-progress-label');
              const bar = card.querySelector('.generated-image-progress-bar');
@@ -894,7 +884,7 @@ index 444fbac8..1ee20ca6 100644
              if (!task.job) {
              if (label) label.textContent = '等待生成';
                  if (bar) bar.style.width = '0%';
-@@ -2146,7 +2763,9 @@ const app = createApp({
+@@ -2190,7 +2808,9 @@ const app = createApp({
              card.dataset.imageJobState = 'loading';
              card.classList.add('is-generating');
              card.classList.remove('is-generation-error');
@@ -905,7 +895,7 @@ index 444fbac8..1ee20ca6 100644
              card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
              if (task.job) renderGeneratedImageJob(card, task, task.job);
              return task.promise;
-@@ -2206,9 +2825,22 @@ const app = createApp({
+@@ -2250,9 +2870,22 @@ const app = createApp({
                  + sourceText.slice(imageMatch.index + imageMatch[0].length);
              const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
              if (!sourceUrl) return;
@@ -931,7 +921,7 @@ index 444fbac8..1ee20ca6 100644
  
              const originalContent = message.content;
              const finishLoading = () => {
-@@ -2218,7 +2850,7 @@ const app = createApp({
+@@ -2262,7 +2895,7 @@ const app = createApp({
              card.classList.add('is-rerolling');
              button.disabled = true;
  
@@ -940,7 +930,7 @@ index 444fbac8..1ee20ca6 100644
              if (job.status === 'done') {
                  if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                      finishLoading();
-@@ -2320,6 +2952,16 @@ const app = createApp({
+@@ -2364,6 +2997,16 @@ const app = createApp({
              }
          }, { flush: 'sync' });
  
@@ -957,7 +947,7 @@ index 444fbac8..1ee20ca6 100644
          watch(() => settings.imageSize, () => {
              const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
              if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
-@@ -3133,7 +3775,7 @@ const app = createApp({
+@@ -3177,7 +3820,7 @@ const app = createApp({
              const tags = new Set();
  
              availableModels.value.forEach(m => {
@@ -966,7 +956,7 @@ index 444fbac8..1ee20ca6 100644
                  let found = false;
                  for (const family of popularModelFamilies) {
                      if (id.includes(family)) {
-@@ -3159,18 +3801,21 @@ const app = createApp({
+@@ -3203,18 +3846,21 @@ const app = createApp({
              if (activeModelTag.value && activeModelTag.value !== 'all') {
                  if (activeModelTag.value === 'other') {
                      result = result.filter(m => {
@@ -991,7 +981,7 @@ index 444fbac8..1ee20ca6 100644
              }
  
              return result.sort((a, b) => a.id.localeCompare(b.id));
-@@ -3345,6 +3990,138 @@ const app = createApp({
+@@ -3389,6 +4035,138 @@ const app = createApp({
              clearMessageRenderCaches();
          }, { deep: true });
  
@@ -1130,7 +1120,7 @@ index 444fbac8..1ee20ca6 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3401,21 +4178,100 @@ const app = createApp({
+@@ -3445,21 +4223,100 @@ const app = createApp({
          };
  
          // API & Models
@@ -1243,7 +1233,7 @@ index 444fbac8..1ee20ca6 100644
              }
          };
  
-@@ -3427,9 +4283,521 @@ const app = createApp({
+@@ -3471,9 +4328,521 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1765,7 +1755,7 @@ index 444fbac8..1ee20ca6 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3497,8 +4865,26 @@ const app = createApp({
+@@ -3541,8 +4910,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1793,7 +1783,7 @@ index 444fbac8..1ee20ca6 100644
              ), () => true);
          };
  
-@@ -3611,9 +4997,17 @@ const app = createApp({
+@@ -3655,9 +5042,17 @@ const app = createApp({
              reader.readAsDataURL(file);
          });
          const recognizeChatImage = async (image) => {
@@ -1812,7 +1802,7 @@ index 444fbac8..1ee20ca6 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3648,7 +5042,8 @@ const app = createApp({
+@@ -3692,7 +5087,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -1822,7 +1812,7 @@ index 444fbac8..1ee20ca6 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3772,43 +5167,7 @@ const app = createApp({
+@@ -3816,43 +5212,7 @@ const app = createApp({
              });
          };
  
@@ -1867,7 +1857,7 @@ index 444fbac8..1ee20ca6 100644
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -3978,7 +5337,9 @@ const app = createApp({
+@@ -4022,7 +5382,9 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -1878,7 +1868,7 @@ index 444fbac8..1ee20ca6 100644
              if (!fallbackModel) {
                  markUiTemplateStatus('skipped', '未选模型');
                  return false;
-@@ -4014,7 +5375,14 @@ const app = createApp({
+@@ -4058,7 +5420,14 @@ const app = createApp({
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
                          const result = await requestTrackedChatCompletion({
@@ -1893,7 +1883,7 @@ index 444fbac8..1ee20ca6 100644
                              messages: [
                                  {
                                      role: 'system',
-@@ -4399,7 +5767,7 @@ const app = createApp({
+@@ -4443,7 +5812,7 @@ const app = createApp({
                  maxRounds: ACTIVE_TOOL_MAX_AUTO_CONTINUE
              });
          };
@@ -1902,7 +1892,7 @@ index 444fbac8..1ee20ca6 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              parts.push(parseCot(message?.content || '').rawCot);
-@@ -4435,8 +5803,11 @@ const app = createApp({
+@@ -4479,8 +5848,11 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -1916,7 +1906,7 @@ index 444fbac8..1ee20ca6 100644
  
              if (!currentCharacter.value) {
                  showToast('请先选择一个角色', 'error');
-@@ -4941,6 +6312,36 @@ const app = createApp({
+@@ -4985,6 +6357,36 @@ const app = createApp({
                  isReasoningAutoCollapsed: false
              });
  
@@ -1953,7 +1943,7 @@ index 444fbac8..1ee20ca6 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4952,6 +6353,9 @@ const app = createApp({
+@@ -4996,6 +6398,9 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -1963,7 +1953,7 @@ index 444fbac8..1ee20ca6 100644
                  chatHistory.value.push(assistantMessage);
                  isReceiving.value = true;
                  return assistantMessage;
-@@ -4959,7 +6363,14 @@ const app = createApp({
+@@ -5003,7 +6408,14 @@ const app = createApp({
  
              try {
                  const responseResult = await requestTrackedChatCompletion({
@@ -1978,7 +1968,7 @@ index 444fbac8..1ee20ca6 100644
                      messages: apiMessages,
                      replyInTool: isTruncationEnabled.value,
                      tools: buildActiveToolDefinitions(requestTools),
-@@ -5286,12 +6697,20 @@ const app = createApp({
+@@ -5330,12 +6742,20 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -2002,7 +1992,7 @@ index 444fbac8..1ee20ca6 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5672,29 +7091,78 @@ const app = createApp({
+@@ -5716,29 +7136,78 @@ const app = createApp({
  
              return fragments;
          };
@@ -2099,7 +2089,7 @@ index 444fbac8..1ee20ca6 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5705,6 +7173,18 @@ const app = createApp({
+@@ -5749,6 +7218,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2118,7 +2108,7 @@ index 444fbac8..1ee20ca6 100644
              return vectors;
          };
  
-@@ -5736,7 +7216,8 @@ const app = createApp({
+@@ -5780,7 +7261,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -2128,7 +2118,7 @@ index 444fbac8..1ee20ca6 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6000,10 +7481,6 @@ const app = createApp({
+@@ -6044,10 +7526,6 @@ const app = createApp({
              return retainedTurns;
          };
  
@@ -2139,7 +2129,7 @@ index 444fbac8..1ee20ca6 100644
          const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6039,6 +7516,30 @@ const app = createApp({
+@@ -6083,6 +7561,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -2170,7 +2160,7 @@ index 444fbac8..1ee20ca6 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6058,9 +7559,30 @@ const app = createApp({
+@@ -6102,9 +7604,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -2204,7 +2194,7 @@ index 444fbac8..1ee20ca6 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6089,16 +7611,15 @@ const app = createApp({
+@@ -6133,16 +7656,15 @@ const app = createApp({
                  return;
              }
  
@@ -2227,7 +2217,7 @@ index 444fbac8..1ee20ca6 100644
                  return;
              }
  
-@@ -6115,21 +7636,43 @@ const app = createApp({
+@@ -6159,21 +7681,43 @@ const app = createApp({
              );
  
              try {
@@ -2279,7 +2269,7 @@ index 444fbac8..1ee20ca6 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6175,6 +7718,278 @@ const app = createApp({
+@@ -6219,6 +7763,278 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2558,7 +2548,7 @@ index 444fbac8..1ee20ca6 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -6225,7 +8040,7 @@ const app = createApp({
+@@ -6269,7 +8085,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -2567,7 +2557,7 @@ index 444fbac8..1ee20ca6 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -6629,6 +8444,18 @@ const app = createApp({
+@@ -6673,6 +8489,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2586,7 +2576,7 @@ index 444fbac8..1ee20ca6 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -7418,7 +9245,10 @@ const app = createApp({
+@@ -7462,7 +9290,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2598,7 +2588,7 @@ index 444fbac8..1ee20ca6 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -8519,8 +10349,7 @@ const app = createApp({
+@@ -8567,8 +10398,7 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2608,7 +2598,7 @@ index 444fbac8..1ee20ca6 100644
  
              await loadData();
              fetchQuota(); // Fetch quota after saved settings are loaded
-@@ -8730,7 +10559,11 @@ const app = createApp({
+@@ -8778,7 +10608,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2621,7 +2611,7 @@ index 444fbac8..1ee20ca6 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -8751,9 +10584,7 @@ const app = createApp({
+@@ -8799,9 +10633,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -2632,7 +2622,7 @@ index 444fbac8..1ee20ca6 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -8767,8 +10598,7 @@ const app = createApp({
+@@ -8815,8 +10647,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2642,7 +2632,7 @@ index 444fbac8..1ee20ca6 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -8988,6 +10818,7 @@ const app = createApp({
+@@ -9036,6 +10867,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2650,7 +2640,7 @@ index 444fbac8..1ee20ca6 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9000,22 +10831,24 @@ const app = createApp({
+@@ -9048,22 +10880,24 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -2681,7 +2671,7 @@ index 444fbac8..1ee20ca6 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9032,6 +10865,14 @@ const app = createApp({
+@@ -9080,6 +10914,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2696,7 +2686,7 @@ index 444fbac8..1ee20ca6 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9073,7 +10914,7 @@ const app = createApp({
+@@ -9121,7 +10963,7 @@ const app = createApp({
                  });
              },
              toggleMobileMenu, closeMobileMenu,

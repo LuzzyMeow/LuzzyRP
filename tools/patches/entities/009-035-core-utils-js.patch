@@ -1,5 +1,5 @@
 diff --git a/assets/js/core-utils.js b/assets/js/core-utils.js
-index 4f1c2c85..1e73b92e 100644
+index 4f1c2c8..1e73b92 100644
 --- a/assets/js/core-utils.js
 +++ b/assets/js/core-utils.js
 @@ -951,9 +951,13 @@ window.RPHubUtils = {

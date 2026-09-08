@@ -317,6 +317,26 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 5. 同步时 patch 重放失败 → 手工合并 → 更新文件与重放块/实体 → 复跑 verify-markers.ps1 全绿 → WORKLOG 登记；
 6. **NSFW 相关点位（built-in-content.js 内 nsfw_rules）永远不在 patch 范围内**。
 
+**实体生成规程（v1.5.0 修正版 · 会话 26 定稿，勿再以二创工作树为对）**：
+
+> 根因：旧规程把「二创工作树」当作 diff 的一端，换基线后前像必然失配——1.9.3 同步时
+> `012-035-index-html` / `012-036-app-js` 两枚 FAIL 即此因（详见 `docs/PLAN-v1.5.0-assistant.md`
+> §18.4.1/§18.6）。正确做法是**以「上游纯净基线 + 三方合并结果」为对**：
+
+```
+① 落盘上游纯净基线：git -C rp-hub-reference show <baseline>:<file>  → LF 归一
+② 落盘合并后工作树：app/src/main/assets/rphub/<file>                → LF 归一
+③ 生成：git diff --no-index --ignore-cr-at-eol base.bin work.bin
+   → 头路径改写为 a/<relpath> … b/<relpath>（去掉临时文件名）
+④ 双验证（仓库外干净目录；git apply 一律在仓库根执行，勿在嵌套目录）：
+   a. 逆向：纯净基线 → 逐枚 git apply --ignore-whitespace
+      --directory=app/src/main/assets/rphub → 与工作树 LF 归一逐字节比对（须空 diff）
+   b. 端到端：纯净基线全量 → apply-patches.ps1 实跑 → 9 枚全 [OK] 且结果与工作树一致
+⑤ 前像 blob id 必须等于「上游纯净基线」的 LF 归一 blob id
+```
+
+详细登记（各实体前像 blob id / 当前基线 commit）见 `tools/patches/README.md` 末节。
+
 ### 4.3 冲突处理
 
 | 情况 | 处理 |
@@ -430,12 +450,49 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-08 会话 25 快照 · v1.4.0 已发布 · 上游基线 1.9.2）
+## 9. 当前状态与已知问题（2026-09-09 会话 26 快照 · v1.5.0 开发中 · 上游基线 1.9.3）
 
-> 完整过程见 `docs/WORKLOG.md` 会话 24-25。上游基线 RP-Hub **1.9.2**（commit `d2f2625`，
-> 2026-09-08 同步）。参考克隆锚定 `d2f2625`（**合并全程只引用该工作树**，勿用 HEAD~N）。
+> 完整过程见 `docs/WORKLOG.md` 会话 26 及追记。上游基线 RP-Hub **1.9.3**（commit `4aef0bb`，
+> 2026-09-09 同步完成）。参考克隆锚定 `4aef0bb`（**合并全程只引用该工作树**，勿用 HEAD~N）。
+> v1.5.0 三条工作流：**W0 文档与纪律 ✅** · **W1 上游同步 ✅** · **W2 助手原生 Agent ⏳**。
 
-### 版本状态（2026-09-08 · 会话 25）
+### 版本状态（2026-09-09 · 会话 26）
+
+- **v1.5.0 开发中（未发布）**，最新可下载版本仍为 **v1.4.0**。本版含「上游同步 1.9.3」+
+  「助手原生 Agent」两条主线，按用户指示**先同步、再做助手，最后一次性发版**（不拆版）。
+- **W1 上游同步 1.9.3 已完成**（2026-09-09）：三方合并（1.9.3 纯净底 + 1.9.2 纯净祖先 +
+  二创工作树）——index.html / ui-components.js / character/index.html 零冲突，app.js 1 处冲突
+  取上游侧；**顺带修复 1.9.2 合并时误删 `let workshopImportPending = false;` 的存量缺陷**；
+  U5 签名变更 6 处调用点核对无需改动；实体 9 枚按 §18.6 修正规程重生成；`apply-patches.ps1`
+  基线参数化 + `sync-upstream.ps1` 指纹表头带 commit；`LuzzyBridge.UPSTREAM_VERSION` → 1.9.3；
+  README 基线/徽章 → 1.9.3；指纹表 13 项以 `4aef0bb` 重算；styles.css / novel/index.html
+  工作树行尾归一为 CRLF（与检出态一致，git 零差异）。详见 `CHANGELOG.md` v1.5.0「同步」段。
+- **门禁现状**：verify-markers **82 PASS / 0 FAIL**（实体 9 枚以 `4aef0bb` 基线再生成，
+  仓库外**逆向 9/9 PASS** + 纯净基线**端到端 9/9 PASS**；全 JS `node --check` 13/13；
+  `assembleDebug` 构建通过；桌面冒烟零 JS 异常）。
+- **合规实证**：未 patch 的 4 文件（`built-in-content.js` / `styles.css` / `presence.js` /
+  `update-check.js`）与上游 1.9.3 **LF 归一同构**；`nsfw_rules` 块（1588 字节）**逐字节一致**
+  （规定 1）；无新增 CDN 引用、无新增/删除文件。
+- **W1 遗留（需真机 / 联网）**：工坊 Diff 工具调用与抗截断需带 tool 的模型实测；万相广场
+  一键导入需联网实测（iframe 与 `RPH_FORUM_*` 桥已就位）；开屏动画 / 剧情面板时机 / 沉浸模式
+  宽度需真机目测。
+- **W2 待办**：按 `docs/PLAN-v1.5.0-assistant.md` §16 执行 P0→P4；**进入界面实现前必须走
+  硬性规定 9 设计门**（读 4 项设计 SKILL → 三方向硬门 → 用户选定 → 写入 `DESIGN.md`）；
+  侧栏入口 patch 040 **必须在 W1 之后生成**（前置条件已满足）。
+- **发布纪律（长期，见 §3.4）**：**只构建/发布一个 APK**（`app-release.apk`，ABI 拆分保持
+  关闭、禁止恢复）；**每次发布必须保持同一应用签名**（`keystore/luzzy-release.keystore`，
+  发布前 `apksigner verify --print-certs` 核对指纹与上一版一致，`keystore.properties` 缺失
+  会回退 debug 签名 → 不得发布）。
+- **包名与数据边界（release note 必写）**：debug 包 `com.luzzymeow.luzzyrp.debug` 与
+  release 包 `com.luzzymeow.luzzyrp` 是**两个独立应用 ID**，数据互不可见——用户首次从
+  debug 切到 release 需重填用户信息与供应商 API 配置（角色卡/世界书/预设可经应用内导入
+  导出搬移；聊天记录与记忆不随包迁移）。**发布说明中必须主动告知并致歉**，同时说明同包名
+  覆盖安装（升级）数据保留、后续版本沿用同一包名不会再发生。
+- **明确不做（本版）**：剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制（先 classic
+  样式交付，真机体验后按硬性规定 9 走设计流程）、styles.css 低频硬编码蓝收编、向量阈值
+  滑杆、「荧光笔落笔」动效、深链、自建更新检查。
+
+### 版本状态（2026-09-08 · 会话 25 · 历史快照 · v1.4.0 已发布 · 上游基线 1.9.2）
 
 - **v1.4.0 正式版已发布**（2026-09-08，versionCode 12，**Release 附单个 APK**
   `app-release.apk`，签名 CN=LuzzyRP）：同步上游 1.9.2（UI 实时生成剧情面板 `story_panels`

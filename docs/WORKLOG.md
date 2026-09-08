@@ -2267,3 +2267,78 @@ CHANGELOG v1.5.0「同步」段改为 1.9.3 实测版。
 **已决**：用户指示 **先同步 → 再做助手 → 最后一次性发版（不拆版）**（§18.10 U-C）。
 
 **遗留 / 下一步**：等用户确认后按 §18.7 U1-U12 执行；执行前不再需要额外调查。
+
+---
+
+### 会话 27 · W1 上游同步 1.9.3 执行（2026-09-09）
+
+**范围**：`docs/PLAN-v1.5.0-assistant.md` §18.7 U1-U12 全部执行完毕（W2 助手原生 Agent 另起）。
+
+**开工确认（接手前必读清单已逐项完成）**：HARD_REQUIREMENTS 十条 · AGENTS 全文 ·
+PLAN-v1.5.0-assistant（§18 + §1-§17）· RESEARCH · DESIGN · WORKLOG 会话 26 ·
+CHANGELOG 顶部。基线自检：参考克隆 `4aef0bb` ✓、`verify-markers` 82/0 ✓、
+`rp-hub-reference` 无本地改动 ✓。
+
+**执行方式（与计划的差异，须记录）**：计划 U2-U4 写的是「覆盖 → 字符串块重放 → 实体重放」。
+实际改用**三方合并**（`git merge-file`：current=1.9.3 纯净 / base=1.9.2 纯净 / other=二创工作树），
+理由：① 计划 §18.4.1/§18.4.2 本身即要求以三方合并结果为准；② 覆盖式重放会丢失两枚冲突实体的
+二创改动。**等价性已交叉验证**：对可重放的 7 枚实体做「1.9.3 纯净 + 实体」重放，
+与三方合并结果 LF 归一逐字节一致（character/index.html / ui-components.js 实测相等）。
+
+**完成项**：
+1. **U1/U2**：5 个上游变更文件落位（index.html / app.js / ui-components.js / character/index.html
+   经三方合并；built-in-content.js 逐字节拷贝上游）。
+2. **U3/U4**：合并结果——index.html / ui-components.js / character/index.html **零冲突**；
+   app.js **1 处冲突**（上游新增 `squareImportPending` + `getSquareFrame()` 与二创注释行重叠），
+   取上游侧解决。字符串块 001-011 在合并态下全部 SKIP（已含）。
+3. **U5**：`importCharacterData` / `selectCharacter` 签名改选项对象——全局核对 6 处调用点
+   （app.js 4 处 + Vue 模板 2 处），无一处传旧式布尔第三参 → **无需改动**（运行期隐患已排除）。
+4. **U6**：`node --check` 全 JS PASS（rphub 9 + ext 4）。
+5. **U7**：`LuzzyBridge.UPSTREAM_VERSION` 1.9.0→1.9.3；README 基线/Upstream 徽章→1.9.3；
+   `apply-patches.ps1` 基线**参数化**（-BaselineCommit > 指纹表头 `(commit …)` > FETCH_HEAD）
+   并改用 cmd 重定向取原始字节（修尾部空行哈希偏差）；`sync-upstream.ps1` 指纹表头带 commit +
+   版本号，文件清单补 character/novel。
+6. **U8**：指纹表 13 项以 `4aef0bb` 全表重算；R1/R2 PASS。
+7. **U9**：9 枚实体按 §18.6 修正规程重生成（纯净基线 + 合并结果、LF 归一）→ **逆向 9/9** +
+   **端到端 9/9**，两者结果与工作树 LF 归一逐字节一致。
+8. **U10**：`verify-markers.ps1` **82 PASS / 0 FAIL**。
+9. **U11**：回归专项十项（详见下）；`assembleDebug` 构建通过。
+10. **U12**：CHANGELOG「同步」段改为已完成 + AGENTS §9 快照 + README + 本 WORKLOG +
+    `tools/patches/README.md` 实体规程登记。
+
+**决策记录**：
+- **D1（合并方式）**：三方合并取代覆盖重放（见上，等价性已证）。
+- **D2（行尾约定）**：工作树统一 CRLF（与 `core.autocrlf=true` 检出态一致）。实证：本仓库
+  blob 为 LF、clone/checkout 产出 CRLF，而 `styles.css` / `novel/index.html` 工作树此前是
+  混合行尾（来自上游原始拷贝）→ 会把 R1/R2 指纹变成「只在当前工作树成立」。已归一，
+  git 视角零差异，指纹在 clone 后仍成立。
+- **D3（指纹语义）**：指纹表 = 工作树字节哈希（用于门禁自洽）；**真正的合规判定**是
+  「与上游 LF 归一同构」——已对 4 个未 patch 文件实测通过。
+
+**回归专项（§18.8）证据**：
+- ① 工坊页 JS 执行 ✓：headless Chrome + CDP 加载 `character/index.html`，Vue 挂载
+  （`#app` 非 v-cloak、10 个子节点）、零 JS 异常、页面含 `edit_character_card`。
+- ②③ Diff 工具调用 / 抗截断：代码路径就位（`characterDiffTool` / `requireTool: true` /
+  `processDiffToolCalls` / `applyConfirmedDiffs`），**需带 tool 的模型实测**（遗留）。
+- ④ 广场一键导入：`RPH_FORUM_*` 桥与 `iframe[src="${squareUrl.value}"]` 选择器就位，
+  实测 iframe 已加载 `rphforum.zeabur.app`；**导入动作需联网 + 真实角色卡实测**（遗留）。
+- ⑤「生成角色卡」入口 ✓：实测弹窗含「生成角色卡 / 新建角色卡 / 导入聊天记录 / 导入角色卡」
+  四入口，点击「生成角色卡」→ 跳转生成器视图。
+- ⑥ 角色卡管理页焕新 ✓：侧栏「角色卡管理」→ 视图渲染（空态文案 + 「前往角色卡工坊」）。
+- ⑦ 开屏 ✓（「沉 溺」+ 进度条渲染）；剧情面板时机 / 沉浸宽度 **需真机目测**（遗留）。
+- ⑧ 既有二创回归 ✓：`desktop-smoke.cjs` 全过（品牌卡 / 供应商管理器 / patch 035 编辑器 /
+  零异常）。
+- ⑨ 数据兼容 ✓：1.9.3 未触碰 localStorage / IndexedDB 结构（diff 内零 `setItem`/`removeItem`），
+  数据相关 patch 标记 016/017/026/031/036 全在。
+- ⑩ 断网 ✓：无新增 CDN 引用（上游 1.9.3 diff 扫描 0 处）。
+
+**顺带修复**：
+- 1.9.2 合并（会话 25）误删 `let workshopImportPending = false;`（隐式全局）→ 本次随冲突
+  解决恢复。
+- `apply-patches.ps1` 基线硬编码 d2f2625（计划 §18.4.3 预判）→ 参数化落地。
+
+**遗留 / 下一步**：
+- 真机（小米 df97f3c4）回归：工坊 Diff 工具调用 / 抗截断（需 API Key + 支持 tool 的模型）、
+  广场一键导入（联网）、开屏与沉浸宽度目测。
+- **W2「助手」原生 Agent**：先走硬性规定 9 设计门（读 4 项 SKILL → 三方向硬门 → 用户选定 →
+  写 DESIGN.md），再按 §16 P0→P4 执行；侧栏入口 patch 040 的前置条件（W1 完成）已满足。

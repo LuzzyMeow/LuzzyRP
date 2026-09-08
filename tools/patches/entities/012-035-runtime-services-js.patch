@@ -1,5 +1,5 @@
 diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
-index d2e47294..c5a60449 100644
+index d2e4729..c5a6044 100644
 --- a/assets/js/runtime-services.js
 +++ b/assets/js/runtime-services.js
 @@ -96,10 +96,13 @@

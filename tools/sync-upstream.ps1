@@ -122,20 +122,33 @@ Write-Host "`n[4/5] 更新指纹基线 ..."
 $fingerprintFiles = @(
     'index.html',
     'assets/css/styles.css',
-    'assets/js/app.js',
     'assets/js/api-utils.js',
+    'assets/js/app.js',
     'assets/js/built-in-content.js',
     'assets/js/core-utils.js',
     'assets/js/data-services.js',
     'assets/js/presence.js',
     'assets/js/runtime-services.js',
     'assets/js/ui-components.js',
-    'assets/js/update-check.js'
+    'assets/js/update-check.js',
+    'character/index.html',
+    'novel/index.html'
 )
+# v1.5.0：表头必须带「(commit <sha>)」——apply-patches.ps1 从该处解析实体前像兜底判定基线，
+# 旧版表头只有「同步来源: rp-hub-reference (upstream)」，换基线后兜底判定无从取值。
+$prevEapFp = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$baselineSha = (& git -C $RefDir rev-parse HEAD 2>$null | Select-Object -First 1)
+$ErrorActionPreference = $prevEapFp
+if ($LASTEXITCODE -ne 0 -or -not $baselineSha) { $baselineSha = 'UNKNOWN' } else { $baselineSha = $baselineSha.Trim() }
+$upstreamVersionLine = (& git -C $RefDir show "HEAD:assets/js/built-in-content.js" 2>$null | Select-String -Pattern '^### RP-Hub ([0-9.]+)' | Select-Object -First 1)
+$upstreamVersion = if ($upstreamVersionLine) { $Matches[1] } else { 'UNKNOWN' }
 $lines = @(
     "# LuzzyRP 上游文件指纹基线",
-    "# 生成: $(Get-Date -Format 'yyyy.MM.dd HH:mm') · 同步来源: rp-hub-reference (upstream)",
-    "# 用途: 同步验证（硬性规定 1/6）——同步后与 assets/rphub/ 比对",
+    "# 生成: $(Get-Date -Format 'yyyy.MM.dd HH:mm') · 上游基线: RP-Hub $upstreamVersion (commit $baselineSha)",
+    "# 用途: 同步验证（硬性规定 1/6）——同步后与 assets/rphub/ 比对；",
+    "#       头部「(commit <sha>)」由 tools/apply-patches.ps1 解析为实体前像兜底判定的基线版本，勿删。",
+    "# 说明: 哈希为工作树字节（主仓库检出态，core.autocrlf=true）。",
     ""
 )
 foreach ($f in $fingerprintFiles) {

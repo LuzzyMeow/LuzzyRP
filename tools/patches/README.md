@@ -413,17 +413,42 @@
 #   - 对应：用户需求 3（搜索命中内容高亮显示关键词）
 #   - 预期冲突点：上游改 CHANGELOG 渲染管线（renderChangelogView/parseChangelogSections）时需重打
 #
-## 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
+## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释
 #    （2026-09-02 补全审计：001-012 结构性点位 + core-utils/ui-components 补齐；
 #    013-017 实施时自带）。verify-markers.ps1 按本登记表逐项校验。
-# 2. 实体重放：tools/patches/entities/*.patch 为「上游 1.8.9 基线 → 当前态」
-#    的逐文件完整 diff（由 rp-hub-reference 克隆生成，含全部标记），覆盖
-#    007/009/012-035/015-032（1.9.1 同步后共 9 枚，含新增 015-032-api-utils）；apply-patches.ps1 末段按「指纹基线一致才自动 apply」执行。
-#    同步新版上游重放失败时：手工合并 → 用 rp-hub-reference 检出对应新版基线
-#    重新生成实体 → 复跑 verify-markers.ps1 全绿。
+# 2. 实体重放：tools/patches/entities/*.patch 为「上游纯净基线 → 当前工作树」
+#    的逐文件完整 diff（含全部标记），覆盖 007/009/012-035/015-032（共 9 枚）。
+#    apply-patches.ps1 末段按「前像 blob id 一致才自动 apply」执行。
+#
+#    ★ 生成规程（v1.5.0 修正版，会话 26 定稿——旧规程以「二创工作树」为对生成，
+#      导致 2 枚实体换基线后前像失配，见 docs/PLAN-v1.5.0-assistant.md §18.4.1/§18.6）：
+#      ① 落盘「上游纯净基线」：git -C rp-hub-reference show <baseline>:<file>，LF 归一；
+#      ② 落盘「合并后工作树」：app/src/main/assets/rphub/<file>，LF 归一；
+#      ③ 生成：git diff --no-index --ignore-cr-at-eol base.bin work.bin
+#         → 头路径改写为 a/<relpath> … b/<relpath>（去掉临时文件名）；
+#      ④ 双验证（仓库外干净目录，git apply 须在仓库根执行，勿在嵌套目录）：
+#         a. 逆向：纯净基线 → 逐枚 git apply --ignore-whitespace
+#            --directory=app/src/main/assets/rphub → 与工作树 LF 归一逐字节比对（须空 diff）；
+#         b. 端到端：纯净基线全量 → apply-patches.ps1 实跑 → 9 枚全 [OK] 且结果与工作树一致；
+#      ⑤ 前像 blob id 必须等于「上游纯净基线」的 LF 归一 blob id（脚本按此判定）。
+#    同步新版上游重放失败时：三方合并该文件 → 按上述规程重新生成实体 →
+#    复跑 verify-markers.ps1 全绿。
+#
+#    当前基线 RP-Hub 1.9.3（commit 4aef0bb）· 实体前像 blob id（LF 归一）：
+#      007-character-html        character/index.html      c3153f84
+#      007-029-novel-html        novel/index.html          7e8034a1
+#      009-035-core-utils-js     assets/js/core-utils.js   4f1c2c85
+#      012-035-index-html        index.html                52135b42
+#      012-036-app-js            assets/js/app.js          79267c03
+#      012-035-ui-components-js  assets/js/ui-components.js e9a992bc
+#      012-035-runtime-services-js assets/js/runtime-services.js d2e47294
+#      015-032-api-utils-js      assets/js/api-utils.js    dc5a47cc
+#      016-035-data-services-js  assets/js/data-services.js 7858d9fc
 # 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节
 #    一致（verify-markers.ps1 的 R1/R2 项）。
+# 4. 基线参数化（v1.5.0）：apply-patches.ps1 的「纯净基线兜底判定」不再硬编码 commit，
+#    按 -BaselineCommit 参数 > upstream-fingerprints.txt 头部「(commit <sha>)」> FETCH_HEAD 解析。
 # ------------------------------------------------------------
 

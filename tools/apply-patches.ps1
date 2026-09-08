@@ -1,13 +1,20 @@
 # ============================================================
 # apply-patches.ps1 —— 上游同步后的二创 patch 重放脚本
 # ============================================================
-# 用法:  .\tools\apply-patches.ps1
+# 用法:  .\tools\apply-patches.ps1 [-BaselineCommit <sha>]
 # 前置:  sync-upstream.ps1 已覆盖上游文件（app/src/main/assets/rphub/）
 # 行为:  两段重放（顺序关键，会话 25 修正）：
 #        ① 实体段（patches/entities/）——实体前像 = 上游纯净基线，必须先于字符串块落盘；
 #        ② 字符串块段（001-011）——实体已覆盖同名改动，此段在覆盖态下多为 SKIP。
 #        失败时逐条报告（AGENTS.md §4.3 冲突处理）。
+# 基线:  「全新上游覆盖态」兜底判定所需的上游 commit——v1.5.0 起**不再硬编码**
+#        （会话 26 发现旧版写死 d2f2625，同步到 1.9.3 后兜底判定必然失效）。
+#        优先级：-BaselineCommit 参数 > tools/upstream-fingerprints.txt 头部
+#        「(commit <sha>)」> 参考克隆 FETCH_HEAD。取不到时仅跳过兜底分支（前像判定仍生效）。
 # ============================================================
+param(
+    [string]$BaselineCommit = ''
+)
 
 $ErrorActionPreference = "Stop"
 $RphubDir = Join-Path $PSScriptRoot "..\app\src\main\assets\rphub"
@@ -38,6 +45,28 @@ if (Test-Path $fingerprintPath) {
         }
     }
 }
+
+# ---- 上游基线 commit 解析（v1.5.0 参数化，替代旧版硬编码 d2f2625）----
+# 解析顺序：-BaselineCommit 参数 > 指纹表头部「(commit <sha>)」> 参考克隆 FETCH_HEAD。
+$refDirForBaseline = Join-Path $repoRoot "rp-hub-reference"
+if (-not $BaselineCommit -and (Test-Path $fingerprintPath)) {
+    foreach ($line in (Get-Content $fingerprintPath)) {
+        if ($line -match '\(commit\s+([0-9a-fA-F]{7,40})') { $BaselineCommit = $Matches[1]; break }
+    }
+}
+if (-not $BaselineCommit -and (Test-Path (Join-Path $refDirForBaseline '.git'))) {
+    $prevEapB = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $head = (& git -C $refDirForBaseline rev-parse FETCH_HEAD 2>$null)
+    $ErrorActionPreference = $prevEapB
+    if ($LASTEXITCODE -eq 0 -and $head) { $BaselineCommit = ($head | Select-Object -First 1).Trim() }
+}
+if ($BaselineCommit) {
+    Write-Host "上游基线 commit: $BaselineCommit"
+} else {
+    Write-Host "[WARN] 无法确定上游基线 commit（指纹表头无 (commit …) 且参考克隆不可用）——仅跳过兜底判定分支"
+}
+
 function Get-FileGitBlobIdLfNormalized([string]$Path) {
     # 计算「LF 归一内容」的 git blob 对象 id（与 git hash-object 同构）：
     # 实体 patch 头 index <pre>..<post> 的 pre 即该文件的期望前像 blob id，
@@ -81,19 +110,28 @@ function Get-FileSha256LfNormalized([string]$Path) {
     try { return (($sha.ComputeHash($bytes)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $sha.Dispose() }
 }
 function Get-BaselineSha256LfNormalized([string]$RelativePath) {
-    # 从上游参考克隆取基线文件内容（d2f2625 工作树），LF 归一后哈希，作为「全新上游覆盖态」判定基准。
-    # 指纹表存的是主仓库工作树 CRLF 字节的哈希，两者仅行尾不同，故统一归一后比对。
-    $refDir = Join-Path $repoRoot "rp-hub-reference"
-    if (-not (Test-Path $refDir)) { return $null }
+    # 从上游参考克隆取基线文件内容（$BaselineCommit），LF 归一后哈希，作为「全新上游覆盖态」判定基准。
+    # 指纹表存的是主仓库工作树字节的哈希，两者仅行尾不同，故统一归一后比对。
+    # v1.5.0：基线 commit 不再硬编码（旧版写死 d2f2625），改由 -BaselineCommit / 指纹表头解析。
+    if (-not $BaselineCommit -or -not (Test-Path $refDirForBaseline)) { return $null }
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "luzzy-baseline-$PID.bin"
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $content = & git -C $refDir show "d2f2625:$RelativePath" 2>$null
+    # 用 cmd 重定向取「原始字节」：PowerShell 管道会把原生命令输出文本化（丢尾部空行/补行尾），
+    # 对 novel/index.html 这类以多个空行结尾的基线会造成哈希偏差。
+    $cmdLine = 'git -C "{0}" show {1}:{2} > "{3}" 2>nul' -f $refDirForBaseline, $BaselineCommit, $RelativePath, $tmp
+    $null = & cmd /c $cmdLine
+    $exit = $LASTEXITCODE
     $ErrorActionPreference = $prevEap
-    if ($LASTEXITCODE -ne 0 -or -not $content) { return $null }
-    $text = (($content | Out-String) -replace "`r`n", "`n") -replace "`r", "`n"
-    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
+    if (-not (Test-Path $tmp)) { return $null }
+    $raw = [System.IO.File]::ReadAllBytes($tmp)
+    Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    if ($exit -ne 0 -or $raw.Length -eq 0) { return $null }
+    $text = [System.Text.Encoding]::UTF8.GetString($raw)
+    $text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+    $norm = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
     $sha = [System.Security.Cryptography.SHA256]::Create()
-    try { return (($sha.ComputeHash($bytes)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $sha.Dispose() }
+    try { return (($sha.ComputeHash($norm)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $sha.Dispose() }
 }
 $entityItems = @(
     @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },

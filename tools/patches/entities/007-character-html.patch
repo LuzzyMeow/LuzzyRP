@@ -1,5 +1,5 @@
 diff --git a/character/index.html b/character/index.html
-index fe56b1eb..93cdacbc 100644
+index c3153f8..63384fb 100644
 --- a/character/index.html
 +++ b/character/index.html
 @@ -6,13 +6,12 @@
@@ -22,7 +22,7 @@ index fe56b1eb..93cdacbc 100644
      <script src="../assets/js/built-in-content.js"></script>
      <script src="../assets/js/core-utils.js"></script>
      <script src="../assets/js/api-utils.js"></script>
-@@ -2340,7 +2339,7 @@
+@@ -2370,7 +2369,7 @@
                          textContent = fullText.replace(htmlMatch[0], '').trim();
                      } else {
                          // 如果没有检测到 HTML 块，则提供一个基础的 HTML 结构，以便注入样式和脚本并显示正文

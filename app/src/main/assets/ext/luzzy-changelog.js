@@ -106,7 +106,17 @@
     明确标注「宿主（App 权限）」，**不伪装沙盒**。- **「助手」设置页（完成）**：提示词与模型（模型列表来自 Web 端只读镜像，无配置时退化为手填
   \`providerId::模型名\`）/ 参数（temperature / top_p / max_tokens + 记忆模式三选）/ 请求体扩展
   JSON（保存前校验，非法拒绝）/ **预览最终请求**（密钥脱敏）。至此技能 / MCP / 工作区 / 终端 /
-  设置五页全部接入真实实现，占位组件已删除。
+  设置五页全部接入真实实现，占位组件已删除。- **「助手」P4 增强（进行中）**：
+  - **三协议齐备**：新增 **Anthropic Messages**（\`system\` 顶层 / \`tool_use\` 与 \`tool_result\` block /
+    \`thinking_delta\` / \`x-api-key\` + \`anthropic-version\`）与 **Gemini \`streamGenerateContent\`**
+    （\`systemInstruction\` / \`functionCall\` 与 \`functionResponse\` / \`usageMetadata\` / \`x-goog-api-key\`
+    头，密钥不入 URL）；\`RoutingTransport\` 按供应商协议分派，未知协议回退 OpenAI 兼容。
+  - **日历工具**：\`calendar_read\` / \`calendar_write\`（T2 档：默认关闭 + 逐调用审批）——
+    \`CalendarContract\` 查询/插入/更新/删除 + 提醒；时间支持 ISO-8601 / 日期 / 空格分隔，
+    **解析失败明确报错不猜测**；权限未授予时提示「请去系统设置授权」。
+  - **工具审计**：\`AuditSink\` 端口 + \`tool_audit\` 落库 + 设置页审计面板（最近 50 条 + 清空）；
+    **参数只记键名与长度**（不回显值，防隐私/密钥泄漏），结果预览截断 400 字。
+  - **验证**：全仓 **278 项单测 / 0 失败**（新增 39：Anthropic 13 + Gemini 11 + 日历 10 + 审计 5）。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id \`10207\`，更新时间 09/08 15:30；基线 \`d2f2625\` → \`4aef0bb\`，

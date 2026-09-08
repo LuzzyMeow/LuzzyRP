@@ -2560,3 +2560,36 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 实测可下载（HTTP 200 / 3,947,906 字节 ≈ 3.8MB），与计划 D3「随包内置最小 Alpine」体积预期一致。
 **proot 静态 aarch64 二进制来源待定**（候选：Termux 包 / proot-me 发布物），下一轮先做
 「rootfs + proot 释放 → 启动 alpine sh → echo」冒烟（计划 R3 风险验证），再决定是否随包内置。
+
+---
+
+### 会话 34 · W2 P4：三协议 + 日历工具 + 审计面板（2026-09-09）
+
+**完成项**：
+1. **Anthropic Messages**：`AnthropicWire`（system 顶层 / max_tokens 缺省 4096 / 工具转
+   `input_schema` / tool_use 与 tool_result block / thinking_delta）+ `parseAnthropicFrame`
+   + `AnthropicTransport`（x-api-key + anthropic-version，复用 SseClient 与重试语义）。
+2. **Gemini**：`GeminiWire`（`/v1beta/models/{model}:streamGenerateContent?alt=sse` /
+   systemInstruction / generationConfig / functionDeclarations / user-model 角色）
+   + `parseGeminiFrame`（thought part → reasoning；functionCall 无 id → 合成 `call_<n>_<name>`）
+   + `GeminiTransport`（**x-goog-api-key 头，密钥不入 URL**）。
+3. **路由**：`RoutingTransport` 按 `request.protocol` 分派，未知协议回退 OpenAI 兼容并记日志；
+   `AssistantRuntime` 改用三协议路由，`AgentLoop` 零改动。
+4. **日历工具**：`CalendarPort` + `CalendarReadTool` / `CalendarWriteTool`（T2 默认关 + 审批）
+   + `AndroidCalendarPort`（CalendarContract + Reminders）+ 清单权限。
+5. **工具审计**：`AuditSink` 端口 + `ToolRegistry` 落审计 + `RoomAuditSink` + 设置页审计卡。
+
+**决策记录**：
+- **D16 审计脱敏**：参数**只记键名与长度**，不回显值——审计面板是给人看的，原文无必要且可能
+  含隐私/密钥；结果预览截断 400 字。
+- **D17 Gemini 鉴权**：用 `x-goog-api-key` 头而非 `?key=` 查询串——避免密钥出现在 URL
+  （URL 会进异常消息/日志的截断范围）。
+- **D18 协议回退**：未知协议回退 OpenAI 兼容并记一条日志（不含密钥），不直接报错——
+  大量第三方网关兼容 OpenAI 协议。
+
+**验证**：全仓 278 tests / 0 failed；`assembleDebug` 通过。
+
+**遗留 / 下一步**：
+- **P3 剩余**：proot 沙盒（rootfs 已验证可下载 3.8MB；proot 静态二进制来源待定 + 冒烟）。
+- **P4 剩余**：stdio MCP（依赖沙盒）、`web_search` 多引擎、子代理/上下文压缩增强。
+- 真机验收仍缺（无连接设备）。

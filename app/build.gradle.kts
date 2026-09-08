@@ -2,7 +2,10 @@ import java.util.Properties
 
 // :app —— LuzzyRP WebView 壳工程（v1.0.0 重建）
 //
-// [HARD-REQ-8] 发布流程：稳定版 versionCode 递增，release 构建走 luzzy 签名 + ABI 拆分。
+// [HARD-REQ-8] 发布流程：稳定版 versionCode 递增，release 构建走 luzzy 签名 + 单包产出。
+// 2026-09-08（v1.4.0 用户指示）：**单 APK 发布**——本应用为纯 WebView 壳，无 native 库，
+// ABI 拆分产出的 arm64-v8a / x86_64 / universal 三个包字节完全相同（历史各版实证），
+// 拆分为零收益；release 只产出一个 APK（app-release.apk），GitHub Release 只附这一个。
 // AGP 9 内置 Kotlin 支持（无需 org.jetbrains.kotlin.android 插件，见 AGP 9 迁移说明）。
 // 签名配置：从根目录 keystore.properties 读取（该文件不入库，见 .gitignore）。
 plugins {
@@ -49,15 +52,18 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // abiSplits：按 ABI 拆分 APK，控制分发体积（沿用旧工程配置）
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "x86_64")
-            isUniversalApk = true
-        }
-    }
+    // APK 拆分：**关闭**（2026-09-08 v1.4.0 用户指示「以后 release 只给一个 APK 包」）。
+    // 纯 WebView 壳无 native 库，abi 拆分三包字节相同（v1.2.2~v1.4.0 release 资产实证），
+    // 拆分零收益；关闭后 release 产出单个 app-release.apk，Release 只附该包。
+    // 如需重新启用：恢复下方 splits.abi 块即可（历史配置见 git 历史 v1.4.0 之前）。
+    // splits {
+    //     abi {
+    //         isEnable = true
+    //         reset()
+    //         include("arm64-v8a", "x86_64")
+    //         isUniversalApk = true
+    //     }
+    // }
 
     // 签名：keystore.properties 存在时创建 luzzy 签名；否则 release 回退 debug 签名保证可编译
     signingConfigs {

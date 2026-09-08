@@ -38,7 +38,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | `app/src/main/java/com/luzzymeow/luzzyrp/web/DownloadHandler.kt` | 文件导出 | `DownloadListener` + SAF 保存 |
 | `app/src/main/java/com/luzzymeow/luzzyrp/util/AssetExtractor.kt` | assets 解压到 filesDir | 首次启动幂等执行；版本升级时按版本号增量更新 |
 | `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`。**2026-09-04 用户以 AI 生图新 LOGO 全面替换**（纯 1:1 满幅不透明，源图 `docs/design/brand-logo-v2-source.png`；adaptive=全图前景 68% 居中 + 同色纯背景 #EDD7BD；原透明贴纸方案与「禁止重新生成」约束由本次替换终止）——**后续更换图标一律按 §3.5 SOP 执行** |
-| `app/build.gradle.kts` | 壳构建配置 | 签名 / ABI 拆分 / versionCode 管理 |
+| `app/build.gradle.kts` | 壳构建配置 | 签名 / **单 APK 产出（ABI 拆分已关闭，2026-09-08 用户指示）** / versionCode 管理 |
 
 ### 1.3 上游文件（app/src/main/assets/rphub/）
 
@@ -165,7 +165,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 1. 更新 build.gradle.kts versionCode/versionName
 2. 更新 CHANGELOG.md（格式见 §1.1）
 3. 运行 `node tools/gen-changelog.mjs`（自动同步 README Status 徽章与「当前版本」行；版本说明一律写 CHANGELOG，README 不维护逐版表格）
-4. ./gradlew assembleRelease（签名 + ABI 拆分）
+4. ./gradlew assembleRelease（签名 + **单 APK**：`app-release.apk`；ABI 拆分已关闭）
 5. 真机回归（核心功能 + 本次变更点）
 6. git push
 7. GitHub Release（按旧版排版；仅稳定版附 APK）
@@ -410,14 +410,24 @@ Luzzy.copyToClipboard = function (text) {
 
 ### 版本状态（2026-09-08 · 会话 25）
 
-- **v1.4.0 正式版已发布**（2026-09-08，versionCode 12，Release 附三件套 APK，签名
-  CN=LuzzyRP）：同步上游 1.9.2（UI 实时生成剧情面板 `story_panels` / 沉浸模式
-  `immersiveMode` / CharacterDeck / 主动工具调用改原生 toolCalls / 快捷面板密度 /
+- **v1.4.0 正式版已发布**（2026-09-08，versionCode 12，**Release 附单个 APK**
+  `app-release.apk`，签名 CN=LuzzyRP）：同步上游 1.9.2（UI 实时生成剧情面板 `story_panels`
+  / 沉浸模式 `immersiveMode` / CharacterDeck / 主动工具调用改原生 toolCalls / 快捷面板密度 /
   抗截断改 `output_reply` 工具协议）+ 用户三项需求（patch 037 用量页时间筛选去冲突 /
   038 更新公告品牌化与同步注释 / 039 关于页检索关键词高亮）——决策 D1-A 全屏继续下线、
   D2-A 抗截断采纳上游协议、D3-A 保留「开卷」开屏、D4-A 新功能默认值原样。
   发布记录：commit `ac0d5957` → push origin main → GitHub Release v1.4.0（tag 已推送、
   `releases/latest` 指向 v1.4.0）；真机（小米 df97f3c4）人工验证通过。
+- **发布打包约定（2026-09-08 用户指示，后续版本一律遵循）**：**release 只发一个 APK**
+  （`app/build/outputs/apk/release/app-release.apk`，GitHub Release 只附这一个）。
+  原因：纯 WebView 壳无 native 库，ABI 拆分产出的三件套字节完全相同（v1.2.2~v1.4.0
+  资产 SHA256 实测一致），拆分为零收益；`app/build.gradle.kts` 的 `splits.abi` 块已注释
+  关闭（恢复方式：取消注释）。debug 包构建同样只产出单包（旧产物需手动清理）。
+- **包名与数据边界（release note 必写）**：debug 包 `com.luzzymeow.luzzyrp.debug` 与
+  release 包 `com.luzzymeow.luzzyrp` 是**两个独立应用 ID**，数据互不可见——用户首次从
+  debug 切到 release 需重填用户信息与供应商 API 配置（角色卡/世界书/预设可经应用内导入
+  导出搬移；聊天记录与记忆不随包迁移）。**发布说明中必须主动告知并致歉**，同时说明同包名
+  覆盖安装（升级）数据保留、后续版本沿用同一包名不会再发生。
 - **门禁现状**：verify-markers **82 PASS / 0 FAIL**（实体 9 枚以 d2f2625 基线再生成，
   仓库外逆向 9/9 PASS + 纯净基线端到端重放 9/9 PASS；全 JS `node --check` 13/13）。
 - **会话 25 修复**：index.html 开屏区混合体恢复完整「开卷」块 + 补回 001/004/006 标记 +
@@ -426,8 +436,6 @@ Luzzy.copyToClipboard = function (text) {
   blob id；git stderr 隔离 + 落盘校验）。
 - **待办**：无阻塞项。后续候选见 README 规划表 v1.5.0 行（styles.css 低频硬编码蓝收编、
   向量阈值滑杆、剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制等）。
-- **已知现象（非阻塞）**：ABI 拆分三件套 APK 字节相同（无 native 库，纯 WebView 壳），
-  历史各版 release 资产同样如此——沿用既有打包约定；如需瘦身可另立版本改单 universal。
 - **明确不做（本版）**：剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制（先 classic
   样式交付，真机体验后按硬性规定 9 走设计流程）、styles.css 低频硬编码蓝收编、向量阈值
   滑杆、「荧光笔落笔」动效、深链、自建更新检查。

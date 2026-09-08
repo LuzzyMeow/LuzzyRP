@@ -2060,3 +2060,33 @@ universal 资产。
 
 **遗留 / 下一步**：无阻塞项。后续候选见 README 规划表 v1.5.0 行（styles.css 低频硬编码蓝
 收编、向量阈值滑杆、剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制等）。
+
+---
+
+### 会话 25 追记 3 · 单包发布 + 数据边界致歉（2026-09-08，用户指示）
+
+**用户指示**：①「以后 release 只给一个 APK 包」；②更新现有 release 并在 release note 与
+AGENTS.md 等文档标注；③release note 中为「debug 包 → 正式包数据不同步、需重填用户信息与
+API 配置」致歉说明。
+
+**执行**：
+1. **构建配置**：`app/build.gradle.kts` 的 `splits.abi` 块整体注释关闭（保留原文与恢复说明
+   在注释内），文件头注释更新为「单包产出」；`./gradlew assembleRelease` 现只产出
+   `app/build/outputs/apk/release/app-release.apk`（17.33 MB，签名 CN=LuzzyRP）。
+   debug 构建同样只产单包（旧的 arm64/universal/x86_64 debug 产物已手动清理）。
+2. **GitHub Release v1.4.0 更新**：删除三件套资产（`gh release delete-asset`）→ 上传单个
+   `app-release.apk`（sha256 2db55b19…）→ `gh release edit --notes-file` 刷新说明。
+3. **release note（`docs/release-notes-v1.4.0.md`）**：新增「下载」单包说明 + 显著章节
+   「⚠️ 从测试包（debug）换到正式包：数据不互通，需重新填写一次」——先致歉，说明根因
+   （debug `com.luzzymeow.luzzyrp.debug` 与 release `com.luzzymeow.luzzyrp` 是**两个独立
+   应用 ID**，系统层面各自独立存储；同包名覆盖安装数据照旧保留），给出两条路径（继续用
+   debug 包保数据 / 装正式包后重填用户信息与 API 配置，角色卡/世界书/预设可经应用内导入
+   导出搬移，聊天记录与记忆不随包迁移），并说明后续版本沿用同一包名不会再发生。
+4. **文档同步**：AGENTS §1.2（build.gradle.kts 条目）+ §3.4 发布流程（单 APK）+ §9 新增
+   「发布打包约定」与「包名与数据边界（release note 必写）」两条；README「产物」行改为
+   单 APK；CHANGELOG v1.4.0 状态行改「release 单 APK」+ 注意事项新增打包变更与数据边界
+   两条；`node tools/gen-changelog.mjs` 重跑（应用内 CHANGELOG 同步，verify-markers 82 PASS）。
+5. APK 因 CHANGELOG/应用内更新日志变更而**重构建**，release 资产与本地产物一致。
+
+**遗留 / 下一步**：无阻塞项。**后续发布纪律**：release 只附一个 APK；发布说明必须主动
+说明包名与数据边界（debug/release 不互通），如涉及跨包切换需致歉并给迁移路径。

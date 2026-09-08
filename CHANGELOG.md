@@ -79,7 +79,19 @@
   - **重启恢复**：会话页从 Room 恢复历史（P1 验收项「会话重启后完整恢复」达成）；
     用户消息先落库再跑循环，助手消息收尾落库（含思考内容 / 状态 / token 用量）。
   - **真实数据接线**：会话列表（`AssistantListViewModel`：日期分组 + 相对时间）与记忆页
-    （`MemoryViewModel`：类型/时间/相似度 + 模式条取自助手设置）均改为读 Room，不再用示例数据。
+    （`MemoryViewModel`：类型/时间/相似度 + 模式条取自助手设置）均改为读 Room，不再用示例数据。- **「助手」P2b 技能与 MCP（已完成）**：
+  - **技能**：`SkillLoader` 解析 YAML 子集 front-matter（name / description / tools，未知键
+    向前兼容、CRLF 安全，解析失败**拒绝导入并明示原因**）；内置 3 个技能（周报生成 / 资料整理 /
+    代码审查）首启幂等导入；`SkillRepository` 支持文件导入（同名「用户导入 > 内置」合并）、
+    全局启用 + 助手绑定启用，装配 `SkillDocument` 注入系统提示词；技能页双开关 UI。
+  - **MCP**：`McpConfigParser` 自动识别 `mcpServers` 映射 / 单对象 / 数组三种 JSON 形态并推断
+    传输（type > url 含 `/sse` > command），提取 `${ENV_VAR}` 占位符；`McpClient` 走 JSON-RPC 2.0
+    over **Streamable HTTP / 旧式 SSE**（initialize → tools/list → tools/call，响应兼容纯 JSON /
+    SSE 帧 / 批，错误消息不含请求头）；`McpToolAdapter` 命名空间 `mcp__<serverId>__<toolName>`、
+    分级 **T2**（默认关闭 + 逐调用审批）、`inputSchema` 原样透传；`McpRepository` 负责导入落库、
+    可达性预览、连接并注册工具（幂等注销）、连接状态入库，stdio 明确提示「需沙盒（§9.3）」；
+    MCP 页支持粘贴 JSON 导入 / 全局开关（开启即连接）/ 重连 / 删除。
+  - **验证**：全仓 **239 项单测 / 0 失败**（新增 26：技能解析 11 + MCP 15）。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id `10207`，更新时间 09/08 15:30；基线 `d2f2625` → `4aef0bb`，

@@ -447,6 +447,9 @@ Luzzy.copyToClipboard = function (text) {
 | **`git apply` 在仓库内按「仓库根」解析 patch 路径**（会话 25 实证） | 从嵌套目录执行时路径不匹配会**静默跳过**（返回 0 且不改文件）——「返回 0 但行未插入」的假象来源。验证/重放脚本一律在**仓库外**目录执行，或从仓库根配 `--directory=<仓库相对路径>` |
 | **PowerShell `$ErrorActionPreference='Stop'` 下原生命令 stderr 会中断脚本**（会话 25 实证） | `git apply` 的 trailing-whitespace 告警写 stderr 即触发终止错误（表现为脚本跑到第 N 条莫名中断）。调用原生工具前临时置 `'Continue'` 并把 stderr 落盘，仅在退出码非 0 时读取 |
 | **实体前像 = 上游纯净基线**（会话 25 修正） | 实体段必须先于字符串块重放（否则前像失配）；前像判定用实体头 `index <pre>` 的 LF 归一 blob id，勿用指纹表（CRLF 工作树哈希）比对覆盖态 |
+| **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
+| **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |
+| **Android 无 `Process.toHandle()/ProcessHandle`**（会话 29 实证） | 无法枚举孙进程；`sh -c "sleep 30"` 只杀 shell 时，若用阻塞 `readText()` 排空会一直等到孙进程结束（超时形同失效）。改用**非阻塞 `available()` 轮询 + 有界排空** |
 
 ---
 

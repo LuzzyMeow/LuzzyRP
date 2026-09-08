@@ -2478,3 +2478,34 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - 真机验收仍未做（无连接设备）：重启恢复、流式渲染、审批弹窗需实机确认。
 - 记忆页目前只读（新增/编辑/删除入口在 P2 后续补）；技能导入、MCP HTTP/SSE、会话导出 UI 未接。
 - 会话列表尚无「置顶 / 搜索框接真实检索」；搜索框当前只过滤已加载列表。
+
+---
+
+### 会话 31 · W2 P2b：技能与 MCP（2026-09-09）
+
+**完成项**：
+1. **技能（PLAN §8）**：`SkillLoader`（front-matter 解析 + 校验拒绝）、3 个内置技能
+   （`assets/assistant/skills/`）、`SkillRepository`（内置/文件导入、同名合并、全局 + 助手绑定）、
+   `SkillDocument` 注入 `AgentRunConfig.skills`、技能页双开关 UI。
+2. **MCP（PLAN §9）**：`McpConfigParser`（三种 JSON 形态 + 传输推断 + 占位符提取）、
+   `McpClient`（JSON-RPC over Streamable HTTP / SSE，三种响应形态兼容）、`McpToolAdapter`
+   （命名空间 + T2 + schema 透传）、`McpRepository`（导入/预览/连接/注册/状态）、MCP 页 UI。
+
+**决策记录**：
+- **D10 技能权限**：`tools:` 声明**只进提示词**，不改变工具开关——技能不得绕过权限（§8.3）。
+- **D11 MCP 分级**：MCP 工具一律 **T2**（默认关闭 + 逐调用审批），不因服务器可信而降级。
+- **D12 stdio 诚实降级**：stdio 服务器可导入但连接时明确提示「需沙盒运行时（§9.3）」，
+  不假装支持。
+
+**踩坑记录（新增到 AGENTS 坑表候选）**：
+- Kotlin 块注释**可嵌套**：KDoc 里写 `skills/*.md` 会因 `/*` 开启嵌套注释导致「Unclosed comment」；
+  写路径时避免裸 `/*`。
+- heredoc 写大文件会被长度截断：>200 行的文件应分块写或改用 Python 追加。
+
+**验证**：239 tests / 0 failed；`assembleDebug` 通过。
+
+**遗留 / 下一步**：
+- 会话导出 UI 未接（仓库层 `exportConversation` 已就绪）；记忆页写入口（新增/编辑/删除）未接。
+- 技能「URL 导入」未做（`source=url` 字段已留）。
+- P3：工作区管理 UI + proot 沙盒 + 双模式终端；P4：Anthropic/Gemini + stdio MCP + 日历工具。
+- 真机验收仍缺（无连接设备）。

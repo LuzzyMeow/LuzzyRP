@@ -2090,3 +2090,180 @@ API 配置」致歉说明。
 
 **遗留 / 下一步**：无阻塞项。**后续发布纪律**：release 只附一个 APK；发布说明必须主动
 说明包名与数据边界（debug/release 不互通），如涉及跨包切换需致歉并给迁移路径。
+
+---
+
+## 会话 26 · 前置任务：文档定位澄清 + 发布纪律固化 + 「助手」原生页调研（2026-09-09）
+
+**开始**：用户要求「完整阅读工作区，然后完成三个前置任务」——①更新 README 说明本项目基于
+RP-Hub 二次开发、遵循上游开源协议并保持同步上游更新，但有自己的功能、会修改前端或后端代码；
+②更新 AGENTS 说明以后只构建/发布一个 APK（自上版本起，即 LuzzyRP 最新 Release 起），
+每次发布保持同一应用签名；③适度用 anysearch 调研「菜单栏新增『助手』原生 Kotlin 页 +
+手机端 Agent 功能」的可行性（参考 rikkahub）。
+
+**完成**：
+
+1. ✅ **工作区通读**：README / AGENTS / HARD_REQUIREMENTS / DESIGN / CHANGELOG / WORKLOG
+   （会话 24-25 与 v2.0.0 终止归档段）/ build.gradle.kts / libs.versions.toml /
+   AndroidManifest / MainActivity / LuzzyBridge / luzzy-bridge.js / luzzy-ext.js /
+   ui-components.js 侧栏段 / index.html 视图段 / data-services.js 存储层 / tools 与 patches 清单。
+2. ✅ **README 二创声明重写**（任务 1）：顶部声明改为三段立场——遵循上游协议（CC BY-NC 4.0 +
+   LICENSE 保留）→ 保持同步上游更新（覆盖 + 登记 patch 重放）→ **但本项目有自己的功能路线，
+   会修改前端或后端 / 原生侧代码**；同步移除「仅优化前端、后端完全未动」的旧表述；
+   「来自上游」表标题改「能力基座，本项目按需改造」并注明「原样保留」仅指 `nsfw_rules`；
+   架构分层表新增「后端 / 服务端」行；「与上游的关系」补「同步是长期承诺，不是唯一动作」；
+   合规表新增「修改声明 / 变更可追溯」两行；副标题、设计理念、开发者须知（PLAN 指向 v1.4.0）、
+   规划表（补「助手」原生页调研文档链接）、Upstream 徽章 1.9.1 → 1.9.2。
+3. ✅ **AGENTS 发布纪律固化**（任务 2）：§0 项目一句话重写（自有路线 + 可改前后端 / 原生侧）；
+   §1.1 keystore.properties 条目补签名一致性红线；§1.2 build.gradle.kts 条目补「单 APK 为长期纪律」；
+   §1.5 补 `docs/PLAN-v1.4.0.md` / 调研文档 / `docs/RELEASE-KEY.md` 条目；§2 硬性规定 8 一句话补
+   「只出一个 APK + 同一签名」；**§3.4 发布流程重写为 8 步**（单包构建 → `apksigner verify
+   --print-certs` 签名指纹自检硬门 → 只附一个文件）+ 新增「签名纪律（为什么不能换签名）」段；
+   §6.3 发版前必测新增单包与签名项；§7 坑表新增三条（换签名 = 老用户装不上 / 多包产出 /
+   混用 debug-release 包）；§9 新增「签名一致性纪律」并把打包约定升级为长期纪律；
+   §8 交接清单新增发版单包 + 签名核对项。
+4. ✅ **「助手」原生页可行性调研**（任务 3，落档 `docs/RESEARCH-assistant-native-agent.md`）：
+   anysearch 联网调研（rikkahub / rikkahub-agent / ADK for Android / Koog / AGP9 内置 Kotlin /
+   无障碍 / WorkManager 长任务）+ **本机代码实证**（侧栏渲染位置 `ui-components.js` 295-461 +
+   `index.html` 230-236 + `app.js:282` currentView；配置落在 IndexedDB `RPHubDB`；
+   原生层现有能力与依赖清单）+ **本机 Gradle 缓存实测**（Compose BOM 2026.08.00 / material3 1.4.0 /
+   Room 2.8.4 / OkHttp 5.3.2 / kotlinx-serialization 1.11.0 / navigation3 1.1.2 / Koin / KSP /
+   Compose 编译器插件 2.4.0 全部已缓存 → 离线可编译）。
+   **结论：可行**。推荐「同 Activity 原生覆盖层（Web 状态保留）+ 侧栏入口先 DOM 注入做原型、
+   落地走登记 patch + 桥接复用 Web 端供应商配置」；给出四阶段路线（P0 链路 / P1 最小 Agent /
+   P2 三协议 + 应用内集成 / P3 重能力默认关）、工具三级分级、风险清单 R1-R9、决策点 D1-D6。
+   **关键合规结论**：rikkahub 系 **AGPL-3.0**，与本项目 CC BY-NC 4.0 不兼容——**只借鉴架构思路，
+   绝不复制代码**；依赖只用 Apache-2.0/MIT。
+5. ✅ **CHANGELOG v1.5.0「开发中」章节**（文档与纪律变更按硬性规定 5 必须登记）+
+   `node tools/gen-changelog.mjs` 重跑（应用内 CHANGELOG + README 徽章/当前版本行同步 v1.5.0）。
+
+**决策记录**：
+- 二创定位以 README 顶部声明为唯一权威表述（自有功能路线 + 可改前后端 / 原生侧），
+  但 `nsfw_rules` 与上游 LICENSE 保留义务不变（硬性规定 1 + 合规红线）；
+- 发布两条长期纪律：**单 APK** + **签名一致**（与既有「单包」约定合并为纪律，新增签名自检硬门）；
+- 「助手」方案倾向 D1-B 覆盖层 / D2 先甲后乙 / D4 高危工具 P3 再说 / D5 暂不做后台定时 /
+  D6 手写 DI 不引 Koin——**均为建议，待用户拍板后才进入实施**。
+
+**遗留 / 下一步**：
+- 用户拍板 D1-D6 后，先做 P0（侧栏入口 → 原生层出现 → 返回恢复）与「空 Compose 页面编译通过」
+  验证（AGP 9.2.1 内置 Kotlin + Compose 编译器插件接入写法，风险 R2）；
+- 进入界面设计阶段前**必须先按硬性规定 9 完整阅读 4 项设计 SKILL 并走三方向硬门**（调研文档
+  已声明本轮不含 UI 视觉设计）；
+- v1.5.0 尚未发布，最新可下载版本仍为 v1.4.0（README 已加醒目提示，避免徽章误导）。
+
+**坑（本会话）**：`tools/gen-changelog.mjs` 原先把 CHANGELOG 顶部版本**无条件**写成
+「正式版·可游玩」绿色徽章 + `releases/latest` 链接——**开发中版本也会被标成已发布**。
+本轮已修（脚本新增徽章状态分支：顶部章节「状态：开发中」→ 琥珀色 `开发中·未发布`），
+README 版本规划区另加醒目提示；CHANGELOG 状态行注明「最新可下载版本仍为 v1.4.0」。
+
+---
+
+### 会话 26 追记 · 「助手」Agent 实施级计划起草（2026-09-09）
+
+**用户澄清回复**（三项拍板 + 一项追加）：
+- 计划深度 = **A 实施级详细计划**（含模块/表结构/目录/契约/验收）；
+- 终端 = **A 沙盒 proot 真 Linux + 全局宿主文件系统**；
+- 另三项认可推荐：MCP 先 JSON 导入 + HTTP/SSE（stdio 待沙盒有 Node 后支持）、记忆嵌入走
+  OpenAI 兼容 `/embeddings` + 本地向量检索（不引端上模型）、与 Web 端只读复用供应商配置
+  且助手数据独立存储（不自动同步 RP 会话）；
+- **追加工具需求**：澄清提问工具、获取系统时间工具、程序编译工具（JS/Python）、查询与编辑
+  日历工具、以及记忆系统等前文提及功能的工具。
+
+**产出**：`docs/PLAN-v1.5.0-assistant.md`（实施级计划，约 790 行）。**版本归属经用户指正：
+并入当前开发中的 v1.5.0**（不另起 v1.6.0，避免跳号）。要点：
+- 架构：单 Activity 覆盖层 + Compose + 包隔离（`com.luzzymeow.luzzyrp.assistant.*`，
+  `domain` 纯 Kotlin 可单测）；
+- 数据：Room 10 张表（assistant/conversation/message/memory/skill/skill_binding/mcp_server/
+  mcp_binding/tool_audit + FTS 镜像）+ DataStore + 每助手工作区目录；
+- 九项需求逐条设计：多助手、会话历史（日期分组 + FTS 关键词 + 高级筛选）、记忆三模式
+  （full/embed/hybrid + 失败降级）、Skill（front-matter + 全局/助手级启用）、MCP（JSON 导入 +
+  HTTP/SSE + 命名空间 + 逐调用确认）、独立工作区（路径越界防护 + 配额）、双模式终端
+  （proot Alpine / 宿主 shell + HARDLINE 黑名单）、提示词与模型设置（变量/参数/请求体扩展/
+  请求预览）、渲染（markdown 流式节流 100ms / 思考卡 / 工具卡 / 步骤组折叠）；
+- 工具目录含用户追加的 6 类（`ask_user`/`get_time`/`run_code`/`calendar_read`/`calendar_write`/
+  `memory_*`）并按 T0-T3 分级；
+- P0-P4 五阶段路线 + 每阶段验收标准 + R1-R10 风险 + D1-D8 待决清单。
+
+**调研补充（本轮新查）**：proot 有官方静态 aarch64 二进制 + Alpine rootfs 可预置；
+sqlite-vec 有 Android 预编译 loadable 库（Room 加载扩展较绕 → 第一版用纯 Kotlin 余弦）；
+日历需 `READ/WRITE_CALENDAR` 运行时权限；markdown 渲染有 KMP 库可选。
+
+**追记 · 版本号修正 + 上游同步并入（2026-09-09，用户两次指正）**：
+
+1. **版本号**：初稿写 `PLAN-v1.6.0-assistant.md`，用户指正「不应该是 v1.5.0 吗」——核实
+   CHANGELOG 顶部正是 `v1.5.0 — 开发中`（未发布），**已改名 `docs/PLAN-v1.5.0-assistant.md`**
+   并同步 README / WORKLOG / CHANGELOG 引用；§1.3 版本归属改为「已定：并入 v1.5.0」，
+   §15 D1 标记为已定（不跳号）。
+2. **上游同步并入**：用户指示「把调研合并上游更新也纳入计划，上游也更新了，本版本也要实现」。
+   核实：**上游在基线 `d2f2625`（1.9.2）之后确有 4 个新提交**，最新 `4aef0bb`
+   （2026-09-08 07:34Z，GitHub API 实测）。本机直连 GitHub fetch 被重置，改用
+   **gh-proxy 镜像** `git fetch https://gh-proxy.com/https://github.com/STA1N156/RP-Hub.git main`
+   成功；参考克隆已 checkout 锚定 `4aef0bb`。
+   - **改动面**（`d2f2625..4aef0bb`，5 文件 +297/−351）：`app.js` 角色卡生成逻辑（+84/−18）·
+     `character/index.html` **工坊页大改版**（+170/−285）· `ui-components.js` + `index.html`
+     新增「生成角色卡」入口（`AddCharacterModal` 加 `generate` emit → `currentView='generator'`）·
+     `built-in-content.js` 预设内容调整（+40/−39，**未触碰 nsfw 块**，关键词扫描零命中）。
+   - **碰撞面初判**：index.html 仅 1 行新增（低）· ui-components.js 仅 AddCharacterModal 区（低）·
+     app.js 角色卡生成区（中）· character/index.html 大改版（**高**，007 CDN 本地化锚点需重定位，
+     且工坊页 JS 执行是历史回归盲区）。
+   - **计划更新**：新增 **§18 Track U · 上游同步**（含实测改动表、碰撞面、U1-U9 SOP、与助手工作流的
+     排期约束「U 先于 patch 040」、U-A/U-B/U-C 待确认）；§16 路线新增 **U 阶段（先做，2-4 天）**；
+     §17 新增 R11-R13；§1.3 改为三条工作流（W0 文档/纪律 ✅ · W1 上游同步 ⏳ · W2 助手 ⏳）；
+     CHANGELOG v1.5.0 增补「同步」段。
+
+**遗留 / 下一步**：等待用户审阅计划（U 阶段是否立即执行、D2-D8 各项、以及「先发同步版再发助手版」
+是否拆版）；确认后 **U 阶段先行**（同步 → verify-markers 全绿 → 回归），再做 P0（先验证
+AGP 9.2.1 内置 Kotlin + Compose 编译器插件接入），进入界面实现前按硬性规定 9 走设计门
+（读 4 项 SKILL → 三方向硬门 → 写入 DESIGN.md）。
+
+---
+
+### 会话 26 追记 2 · 上游同步完整调研（2026-09-09，用户指示「先同步、再做助手，最后一次性发版」+「要完整调研确定整个工作计划，而不是交给执行 Agent」）
+
+**结论先说**：上游新版本 = **RP-Hub 1.9.3**（公告 id `10207`，更新时间 09/08 15:30，
+commit `4aef0bb`）。已完成**逐文件、逐 hunk、逐实体**的合并调查，并把 U1-U12 执行清单
+写进 `docs/PLAN-v1.5.0-assistant.md` §18（不再留给执行者临场判断）。
+
+**调查方法与产出**：
+1. **上游拉取**：直连 `git fetch` 被重置 → 改用 **gh-proxy 镜像**
+   （`git fetch https://gh-proxy.com/https://github.com/STA1N156/RP-Hub.git main`）成功；
+   参考克隆已 checkout 锚定 `4aef0bb`。
+2. **版本确认**：GitHub API 列提交（4 个新提交）+ raw 抓 `built-in-content.js` 公告区
+   → 版本号、公告 id、新功能清单全部落地。
+3. **安全面**：`nsfw` 块（`<nsfw_rules>` 起 599 字节）**逐字节一致**（`-ceq` True）；
+   无新增 CDN 引用；无新增/删除文件；vendor/fonts/novel 零改动。
+4. **实体重放实测**（仓库外 `C:\Temp\luzzy-dryrun5` 干净仓库 + 上游 1.9.3 文件 + 与
+   apply-patches.ps1 同参数 `--ignore-whitespace --directory=...`）：**7/9 OK，2 枚 FAIL**：
+   - `012-035-index-html` FAIL @ `index.html:2761`；
+   - `012-036-app-js` FAIL @ `assets/js/app.js:771`。
+5. **冲突根因定位到字节**（用 `git apply --verbose` 抓 preimage 上下文 + 逐行长度/空白比对）：
+   - index.html：hunk `@@ -2761,11 +3075,329 @@` 的 preimage **缺少 `</model-selector-modal>` 与
+     `<add-character-modal>` 之间的空行**（1.9.3 第 2768 行是「仅含 `\r` 的行」，CRLF 混行）；
+   - app.js：hunk 期望 `let workshopImportPending = false;` 后直接跟旧注释，但上游新增了
+     `squareImportPending` + `getSquareFrame()` + 整个 `RPH_FORUM_*` 分支（约 44 行）。
+   - **共同根因**：这 2 枚实体是在**二创工作树**上生成的（不是上游纯净基线）——会话 25 的
+     「端到端 9/9 PASS」是在已被改写的树上验证的，故未暴露。
+6. **三方合并验证**：`git merge-file --diff3`（base=d2f2625 / ours=4aef0bb / theirs=HEAD）
+   两文件均 **0 冲突块** → 说明上游新增与二创改动**不重叠**，手工合并是「保留双方新增」，
+   不是语义取舍。
+7. **顺带发现工具缺陷**：`tools/apply-patches.ps1` 第 84/90 行**硬编码基线 `d2f2625`**
+   （`git show "d2f2625:$RelativePath"`）→ 同步后兜底判定失效，须参数化（建议从指纹表头解析）。
+8. **上游签名变更隐患**：`app.js` 的 `importCharacterData(raw, avatar, { askImageGeneration, activate })`
+   与 `selectCharacter(index, isNewImport, { silent })` 改选项对象 → 调用点不核对会**运行期才炸**
+   （已列为 U5 + 风险 R15）。
+
+**上游 1.9.3 改动清单（5 文件 +297/−351）**：`index.html` +1（`@generate` 跳生成器）·
+`ui-components.js` +20/−9（AddCharacterModal 新增「生成角色卡」入口）· `app.js` +84/−18
+（万相广场一键导入消息桥 + 两个函数签名变更）· `character/index.html` +170/−285（**工坊页
+Diff 机制重构**：文本块解析 → 原生 `edit_character_card` 工具调用）· `built-in-content.js`
++40/−39（预设文案 + 公告 1.9.3）。
+
+**计划更新**：§18 重写为完整调查结论（版本事实 / 逐文件清单 / 安全预检 / 实体实测表 /
+两处冲突的字节级定位与合并方式 / 工具缺陷 / 硬编码点清单 / 实体重生成修正规程 U1-U12 /
+回归专项十项 / 排期约束）；§16 U 阶段改为「上游 1.9.3 + 2 枚冲突手工合并 + 9 枚重生成」；
+§17 新增 R14（实体生成规程缺陷）、R15（签名变更隐患）；§1.3 三工作流状态同步；
+CHANGELOG v1.5.0「同步」段改为 1.9.3 实测版。
+
+**已决**：用户指示 **先同步 → 再做助手 → 最后一次性发版（不拆版）**（§18.10 U-C）。
+
+**遗留 / 下一步**：等用户确认后按 §18.7 U1-U12 执行；执行前不再需要额外调查。

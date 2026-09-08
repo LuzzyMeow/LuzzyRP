@@ -56,6 +56,27 @@
     + \`WorkspaceManager\`（每助手独立工作区、路径越界/符号链接穿越拒绝、配额 2GB/64MB）。
   - **构建接入**：AGP 9.2.1 内置 Kotlin + Compose 编译器插件 + KSP/Room + kotlinx-serialization
     全部打通（计划 R2 风险解除），\`assembleDebug\` 通过。
+- **「助手」P1 最小可用 Agent（已闭环）**：
+  - **领域核心**：\`AgentLoop\`（严格 §5.2 事件顺序：TurnStarted → 流式推理/正文/用量 →
+    工具逐个审批执行 → 结果回灌 → 下一轮；工具异常统一转 Error 不中断；\`ask_user\` 暂停本轮；
+    取消/超预算给出明确 reason）+ \`BudgetGuard\`（轮次 24 / 工具超时 120s / 总时长 30min /
+    token 预算）+ \`ContextBuilder\`（六变量替换 + 技能注入 + 记忆块 + 工具约定 + 超限压缩）
+    + \`OpenAiTransport\`（SSE 分帧、delta 解析、重试 2 次指数退避、\`extraBody\` 禁覆盖
+    messages/tools/stream/model、密钥只进 Authorization 头且错误体不回显）。
+  - **内置工具 18 个**：\`ask_user\` / \`get_time\` / \`get_device_info\` / \`clipboard_read·write\` /
+    \`workspace_list·read·write·patch·delete·move·mkdir\` / \`memory_write·search·update·delete·list\` /
+    \`web_fetch\` / \`terminal_run\` / \`run_code\`。
+  - **记忆引擎**：\`VectorMath\`（float32 小端 + 余弦）、\`Retriever\`（full/embed/hybrid，
+    TopK 8 / 阈值 0.35 / 最近 5 去重，失败自动降级全文）、\`EmbeddingClient\`（OpenAI 兼容
+    \`/embeddings\`，批 ≤32、重试 1 次、密钥不落日志）、\`RoomMemoryStore\`（含后台补嵌与 LIKE 兜底）。
+  - **运行时**：\`AssistantRuntime\` 装配（工具注册 + 配置解析 + 工作区适配）、Android 端口
+    （设备信息 / 剪贴板 / 时钟）、\`GlobalShellRunner\`（宿主 sh、双层 HARDLINE、200KB 输出上限
+    + 溢出落盘、**非阻塞排空修正超时失效**）。
+  - **UI 闭环**：会话页状态机（AgentEvent → 思考卡/工具卡/步骤组；**审批弹窗**「允许一次 /
+    本会话始终允许 / 拒绝」；**澄清提问卡**；停止键协作式取消；错误条）——UI ↔ ViewModel ↔
+    AgentLoop ↔ 传输/工具全线打通。
+  - **验证**：全仓 **213 项单测 / 0 失败**（领域 95 + 安全契约 71 + 数据 42 + 运行时 5），
+    \`assembleDebug\` 通过。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id \`10207\`，更新时间 09/08 15:30；基线 \`d2f2625\` → \`4aef0bb\`，

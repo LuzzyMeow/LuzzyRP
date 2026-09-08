@@ -2404,3 +2404,47 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
   记忆引擎仍在实施（子代理进行中）；技能 / MCP / 工作区 / 终端 / 设置为「规划中」占位。
 - APK 体积增加约 21MB（字体全量）；若用户后续改主意，`python tools/assistant-fonts.py`
   （不带 `--all`）可退回默认集。
+
+---
+
+### 会话 29 · W2 P1 最小可用 Agent 闭环（2026-09-09）
+
+**范围**：`PLAN-v1.5.0-assistant.md` §16 的 P1 阶段（AgentLoop + OpenAI 流式 + 工具 + 审批 +
+会话状态机 + UI 闭环）。P0 骨架已在上一条会话完成。
+
+**完成项**：
+1. **领域核心（子代理交付 + 我统一类型）**：AgentLoop / BudgetGuard / ContextBuilder /
+   ToolRegistry / OpenAiTransport / SseClient / SseFrames，95 项领域单测。
+2. **内置工具 18 个（我实现）**：ask_user / get_time / get_device_info / clipboard_* /
+   workspace_* / memory_* / web_fetch / terminal_run / run_code——全部经端口注入 Android 能力，
+   纯 Kotlin 可单测。
+3. **记忆引擎（我实现）**：VectorMath / Retriever（三模式）/ EmbeddingClient / RoomMemoryStore。
+4. **运行时（我实现）**：AssistantRuntime 装配、Android 端口、GlobalShellRunner。
+5. **UI 闭环（我实现）**：AssistantChatViewModel（事件 → 思考卡/工具卡/步骤组）+ 审批弹窗 +
+   澄清提问卡 + 停止键 + 错误条；ChatScreen/AssistantHost 接线。
+
+**决策记录**：
+- **D5 审批语义**：领域层默认**拒绝**（硬性要求 11）。**保持**该语义——UI 注入真实审批端口
+  （弹窗 + CompletableDeferred），不恢复计划 §5.2 伪代码的「发事件即执行」。理由：写类工具
+  必须逐调用审批，T2/T3 默认关闭。
+- **D6 记忆类型统一**：删除 `domain/memory` 内的 `MemoryMode` 字符串常量对象，统一用
+  `domain/prompt/MemoryMode` 枚举；Retriever 改用枚举并提供 `withTopK()` 派生。
+- **D7 超时实现**：Android 的 `java.lang.Process` 无 `toHandle()/ProcessHandle`（Java 9 API
+  未下沉），无法枚举孙进程——改为「强杀 shell + **非阻塞排空 + 有界等待**」，
+  单测锁定「800ms 超时命令 30s 进程」的返回时延（原先 `readText()` 会阻塞到孙进程结束，
+  超时形同失效，已修）。
+
+**验证证据**：
+- 全仓 `./gradlew :app:testDebugUnitTest` → **213 tests / 0 failures**；
+- `./gradlew :app:assembleDebug` → BUILD SUCCESSFUL（APK 73MB）；
+- `verify-markers.ps1` → **86 PASS / 0 FAIL**；
+- 密钥审计：`grep -rn apiKey assistant/domain` 仅契约字段与 Authorization 头取值处，
+  无日志/异常携带；单测断言错误消息脱敏为 `***`。
+
+**遗留 / 风险**：
+- **真机未验收**（adb 无连接设备）：覆盖层显隐、审批弹窗、流式渲染、停止键、断网提示均需
+  真机走查；建议装 debug 包（`com.luzzymeow.luzzyrp.debug`）走一遍多轮工具调用。
+- 会话/消息**尚未落 Room**：ViewModel 目前只持有内存历史（重启丢失）。P2 接线 DAO
+  （`MessageDao.insertIndexed` 等）即可持久化——领域与数据层接口已就绪。
+- 技能 / MCP / 工作区 / 终端 / 设置五页仍为「规划中」占位（P2/P3）。
+- Anthropic / Gemini 协议、stdio MCP、日历工具未做（P4）。

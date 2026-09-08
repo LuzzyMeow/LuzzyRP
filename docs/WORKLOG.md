@@ -2533,3 +2533,25 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - 设置页（提示词/模型/参数/请求体/预览）仍为占位——P3 收尾项。
 - P4：Anthropic/Gemini 协议、stdio MCP（依赖沙盒）、日历工具、审计面板。
 - 真机验收仍缺（无连接设备）。
+
+---
+
+### 会话 33 · W2 P3：设置页（2026-09-09）
+
+**完成项**：`SettingsViewModel` + `SettingsScreen`——提示词与模型（模型列表来自 Web 端只读镜像，
+无配置时退化为手填 `providerId::模型名`）/ 参数（temperature / top_p / max_tokens + 记忆模式
+三选）/ 请求体扩展 JSON（保存前校验，非法拒绝）/ 预览最终请求（密钥脱敏 `abc***yz`）。
+
+**收尾**：五页（技能 / MCP / 工作区 / 终端 / 设置）全部接入真实实现，`PlaceholderScreen`
+占位组件删除（硬性规定 7：不留冗余）。
+
+**决策记录**：
+- **D15 预览脱敏**：预览面板只显示 `apiKey` 前 3 + 后 2 字符，且 `tools` 显示为占位说明
+  （由注册表注入）——避免把密钥或超大 schema 写进 UI 状态/日志。
+
+**验证**：239 tests / 0 failed；`assembleDebug` 通过。
+
+**遗留 / 下一步**：
+- **P3 剩余**：proot 沙盒（Alpine rootfs 体积/来源需用户拍板）。
+- **P4**：Anthropic / Gemini 协议、stdio MCP（依赖沙盒）、日历工具、审计面板。
+- 真机验收仍缺（无连接设备）。

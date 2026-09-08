@@ -2555,3 +2555,8 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - **P3 剩余**：proot 沙盒（Alpine rootfs 体积/来源需用户拍板）。
 - **P4**：Anthropic / Gemini 协议、stdio MCP（依赖沙盒）、日历工具、审计面板。
 - 真机验收仍缺（无连接设备）。
+
+**追加（会话 33 收尾）· P3 沙盒可行性预检**：`https://dl-cdn.alpinelinux.org/.../alpine-minirootfs-3.20.3-aarch64.tar.gz`
+实测可下载（HTTP 200 / 3,947,906 字节 ≈ 3.8MB），与计划 D3「随包内置最小 Alpine」体积预期一致。
+**proot 静态 aarch64 二进制来源待定**（候选：Termux 包 / proot-me 发布物），下一轮先做
+「rootfs + proot 释放 → 启动 alpine sh → echo」冒烟（计划 R3 风险验证），再决定是否随包内置。

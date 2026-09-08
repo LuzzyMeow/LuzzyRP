@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.luzzymeow.luzzyrp.assistant.runtime.AssistantRuntimeProvider
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantChatViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantListViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.memory.MemoryViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.component.SideDrawerContent
 import com.luzzymeow.luzzyrp.assistant.ui.model.SampleData
 import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
@@ -157,14 +158,23 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     onBack = { route = AssistantRoute.ChatList },
                 )
 
-                AssistantRoute.Memory -> MemoryScreen(
-                    memories = SampleData.memories,
-                    modeLabel = SampleData.MEMORY_MODE_LABEL,
-                    topK = SampleData.MEMORY_TOPK,
-                    threshold = SampleData.MEMORY_THRESHOLD,
-                    recent = SampleData.MEMORY_RECENT,
-                    onBack = { route = AssistantRoute.ChatList },
-                )
+                AssistantRoute.Memory -> {
+                    val memoryVm: MemoryViewModel = viewModel(
+                        key = "memory-${selectedAssistant?.id}",
+                        factory = viewModelFactory {
+                            initializer { MemoryViewModel(runtime, selectedAssistant?.id.orEmpty()) }
+                        },
+                    )
+                    val memoryState by memoryVm.state.collectAsStateWithLifecycle()
+                    MemoryScreen(
+                        memories = memoryState.memories,
+                        modeLabel = memoryState.modeLabel,
+                        topK = memoryState.topK,
+                        threshold = memoryState.threshold,
+                        recent = memoryState.recent,
+                        onBack = { route = AssistantRoute.ChatList },
+                    )
+                }
 
                 AssistantRoute.Skills -> PlaceholderScreen(
                     title = "技能",

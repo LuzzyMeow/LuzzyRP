@@ -350,9 +350,10 @@
                 <div class="h-16 flex items-center border-b border-gray-100/80 bg-white/70 backdrop-blur-xl transition-all duration-300"
                     :class="collapsed ? 'justify-center px-0' : 'justify-between px-6'">
                     <div v-show="!collapsed" class="app-logo relative inline-flex items-baseline gap-1.5 pr-1 min-w-0">
-                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.08em] leading-none">RP</span>
-                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.18em] leading-none">HUB</span>
-                        <span class="absolute -bottom-1 left-0 h-[2px] w-11 rounded-full bg-primary-500/60"></span>
+                        <!-- [LuzzyRP patch 019] 侧栏品牌字样：RP HUB → LuzzyRP（Luzzy 主字 + RP 品牌色，与开屏字标同构） -->
+                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.02em] leading-none">Luzzy</span>
+                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.08em] leading-none">RP</span>
+                        <span class="absolute -bottom-1 left-0 h-[2px] w-14 rounded-full bg-primary-500/60"></span>
                     </div>
                     <button @click="$emit('update:collapsed', !collapsed)"
                         :class="['hidden md:flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200/80 rounded-xl text-gray-500 hover:text-primary-600 transition-all shadow-sm active:scale-95', collapsed ? 'w-12 h-12 p-0' : 'p-2']"
@@ -439,10 +440,24 @@
                         </div>
                     </div>
 
+                    <!-- [LuzzyRP patch 014] 侧栏底部簇：外观/关于改为独立视图（selectView 带激活态）；
+                         [LuzzyRP patch 019] 顺序调整：外观 → 设置 → 关于（关于置底） -->
+                    <button @click="selectView('appearance')" title="外观"
+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('appearance'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
+                    </button>
+
                     <button @click="selectView('settings')" title="设置"
                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
+                    </button>
+
+                    <button @click="selectView('about')" title="关于"
+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
                     </button>
                 </div>
 
@@ -854,6 +869,28 @@
                 this.draftSlotModels[this.activeSlot] = this.draftSlotModels[this.activeSlot] === modelId ? '' : modelId;
                 this.draftSlotModels = [...this.draftSlotModels];
                 this.$emit('select-slots', [...this.draftSlotModels]);
+            },
+            // [LuzzyRP patch 015] 手动模型 meta 摘要：`1M · 文本+图像` / `128K · 嵌入`
+            // [LuzzyRP patch 012] 手动模型元信息摘要（1M · 文本+图像 chip）
+            modelMetaSummary(model) {
+                if (!model || model.manual !== true) return '';
+                const parts = [];
+                const formatLen = (value) => {
+                    const num = Number(value);
+                    if (!Number.isFinite(num) || num <= 0) return '';
+                    if (num % (1024 * 1024) === 0) return `${num / (1024 * 1024)}M`;
+                    if (num % 1024 === 0) return `${num / 1024}K`;
+                    return String(num);
+                };
+                if (model.contextLength) parts.push(formatLen(model.contextLength));
+                if (model.type === 'embedding') parts.push('嵌入');
+                else {
+                    const mods = Array.isArray(model.inputModalities) ? model.inputModalities : ['text'];
+                    const modLabel = { text: '文本', image: '图像', video: '视频' };
+                    parts.push(mods.map(m => modLabel[m] || m).join('+'));
+                }
+                if (model.maxOutput) parts.push(`输出${formatLen(model.maxOutput)}`);
+                return parts.join(' · ');
             }
         },
         template: `
@@ -904,7 +941,12 @@
                             <div class="space-y-1">
                                 <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
                                     class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-colors flex justify-between items-center group border border-transparent hover:border-gray-100 active:bg-gray-100">
-                                    <span class="text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.id }}</span>
+                                    <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                        <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
+                                        <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
+                                        <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
+                                        <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
+                                    </span>
                                     <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -1968,13 +2010,38 @@
             formatCount: { type: Function, required: true },
             formatTime: { type: Function, required: true },
             getTypeLabel: { type: Function, required: true },
-            getUncachedInput: { type: Function, required: true }
+            getUncachedInput: { type: Function, required: true },
+            formatModelLabel: { type: Function, default: null },
+            chartData: { type: Object, default: () => ({ buckets: [], series: [], peak: 1, count: 0 }) },
+            chartRange: { type: String, default: 'day' },
+            chartRangeOptions: { type: Array, default: () => [] },
+            chartProvider: { type: String, default: 'all' },
+            chartProviderOptions: { type: Array, default: () => [] },
+            chartModelOptions: { type: Array, default: () => [] },
+            chartSelectedModels: { type: Array, default: () => [] }
         },
         emits: [
             'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
-            'update:page', 'update:help-topic'
+            'update:page', 'update:help-topic', 'update:chart-range', 'update:chart-provider', 'toggle-chart-model'
         ],
-        setup() {
+        setup(props) {
+            // [LuzzyRP patch 025] 用量折线图几何辅助（v1.2.3）
+            const chartPlot = Object.freeze({ left: 44, right: 316, top: 12, bottom: 118 });
+            const usageChartX = (index, count) => {
+                if (!count || count < 2) return (chartPlot.left + chartPlot.right) / 2;
+                return chartPlot.left + (chartPlot.right - chartPlot.left) * index / (count - 1);
+            };
+            const usageChartY = value => chartPlot.bottom - (chartPlot.bottom - chartPlot.top) * Math.max(0, Math.min(1, value / (props.chartData.peak || 1)));
+            const usageChartPoints = series => series.totals.map((value, index) => usageChartX(index, series.totals.length).toFixed(1) + ',' + usageChartY(value).toFixed(1)).join(' ');
+            const usageChartGridValue = step => (props.chartData.peak || 1) * step;
+            const usageChartLabelBuckets = computed(() => {
+                const buckets = props.chartData.buckets || [];
+                if (!buckets.length) return [];
+                if (buckets.length <= 4) return buckets.map((bucket, index) => ({ bucket, index }));
+                const indices = [0, Math.floor((buckets.length - 1) / 2), buckets.length - 1];
+                return indices.map(index => ({ bucket: buckets[index], index }));
+            });
+            const usageChartSeriesColor = key => (props.chartData.series || []).find(series => series.key === key)?.color || 'rgb(var(--tw-gray-300))';
             const formatDuration = (value) => {
                 if (!Number.isFinite(value)) return '--';
                 if (value < 1000) return `${Math.round(value)}ms`;
@@ -1987,6 +2054,7 @@
                 return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
             };
             return {
+                usageChartX, usageChartY, usageChartPoints, usageChartGridValue, usageChartLabelBuckets, usageChartSeriesColor,
                 formatDuration,
                 formatOutputSpeed,
                 formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
@@ -2059,6 +2127,47 @@
                     <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                 </div>
 
+                <!-- [LuzzyRP patch 025] 用量趋势折线图（v1.2.3，需求 4）：日（小时）/周（天）/月（周）+ 供应商/模型筛选 -->
+                <div class="relative mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" title="日=近24小时（按小时）· 周=近7天（按天）· 月=近28天（按周）">
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-bold text-gray-700">用量趋势</h3>
+                        <div class="flex rounded-lg bg-gray-100 p-0.5">
+                            <button v-for="option in chartRangeOptions" :key="option.value" type="button"
+                                @click="$emit('update:chart-range', option.value)"
+                                class="rounded-md px-3 py-1 text-xs font-bold transition-colors"
+                                :class="chartRange === option.value ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'">{{ option.label }}</button>
+                        </div>
+                    </div>
+                    <div class="mb-3 flex flex-wrap gap-1.5">
+                        <button v-for="option in chartProviderOptions" :key="option.value || '__none__'" type="button"
+                            @click="$emit('update:chart-provider', option.value)"
+                            class="rounded-full border px-2.5 py-1 text-xs font-bold transition-colors"
+                            :class="chartProvider === option.value ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'">{{ option.label }}</button>
+                    </div>
+                    <div v-if="chartModelOptions.length" class="mb-3 flex flex-wrap gap-1.5">
+                        <button v-for="option in chartModelOptions" :key="option.key" type="button"
+                            @click="$emit('toggle-chart-model', option.key)" :title="option.label"
+                            class="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
+                            :class="!chartSelectedModels.length || chartSelectedModels.includes(option.key) ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-gray-100 bg-white text-gray-400'">
+                            <span class="h-2 w-2 flex-none rounded-full" :style="{ background: usageChartSeriesColor(option.key) }"></span>
+                            <span class="truncate">{{ option.label }}</span>
+                        </button>
+                    </div>
+                    <div v-if="!chartData.series.length" class="flex h-36 items-center justify-center rounded-xl border border-dashed border-gray-200 text-xs text-gray-400">该时间窗内暂无用量记录</div>
+                    <svg v-else viewBox="0 0 320 140" class="block w-full" role="img" aria-label="模型用量折线图">
+                        <g v-for="step in [0, 0.25, 0.5, 0.75, 1]" :key="'g' + step">
+                            <line :x1="44" :x2="316" :y1="usageChartY(usageChartGridValue(step))" :y2="usageChartY(usageChartGridValue(step))"
+                                stroke="currentColor" stroke-width="0.5" stroke-dasharray="2 3" class="text-gray-200"></line>
+                            <text :x="40" :y="usageChartY(usageChartGridValue(step)) + 3" text-anchor="end" class="fill-current text-gray-400" font-size="8">{{ formatAggregate(usageChartGridValue(step), 1) }}</text>
+                        </g>
+                        <g v-for="series in chartData.series" :key="series.key">
+                            <polyline :points="usageChartPoints(series)" fill="none" :stroke="series.color" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                            <circle v-for="(value, index) in series.totals" :key="index" :cx="usageChartX(index, series.totals.length)" :cy="usageChartY(value)" r="2" :fill="series.color"></circle>
+                        </g>
+                        <text v-for="item in usageChartLabelBuckets" :key="'x' + item.index" :x="usageChartX(item.index, chartData.buckets.length)" y="132" text-anchor="middle" class="fill-current text-gray-400" font-size="8">{{ item.bucket.label }}</text>
+                    </svg>
+                </div>
+
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                     <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
@@ -2068,7 +2177,7 @@
                         class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                         <div class="mb-3 min-w-0">
                             <div class="flex min-w-0 items-center justify-between gap-3">
-                                <span class="min-w-0 flex-1 truncate text-sm text-gray-600" :title="record.model">{{ record.model || '未知模型' }}</span>
+                                <span class="min-w-0 flex-1 truncate text-sm text-gray-600" :title="record.model">{{ (formatModelLabel && formatModelLabel(record)) || record.model || '未知模型' }}</span>
                                  <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                             </div>
                             <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">

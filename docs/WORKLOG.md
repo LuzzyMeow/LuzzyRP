@@ -2034,3 +2034,29 @@ ui-components / runtime-services）→ 仓库外逆向 **9/9 PASS** + 纯净基�
 **坑（本追记）**：①`mark` 元素不在本项目 DOMPurify `cleanConfig.ADD_TAGS` 白名单内，
 高亮必须在 `renderMarkdown` **之后**做（不经二次 sanitize），否则会被剥掉；②高亮必须走
 文本节点遍历（`createTreeWalker`），字符串替换会破坏标签结构。
+
+---
+
+### 会话 25 追记 2 · v1.4.0 正式发布（2026-09-08，用户放行）
+
+**发布执行**（AGENTS §3.4 全流程）：
+1. CHANGELOG v1.4.0 状态「开发中」→「**正式版已发布（2026-09-08）**」+ 构建结果
+   （versionCode 12 · release 三件套 · 签名 CN=LuzzyRP）；`docs/release-notes-v1.4.0.md`
+   入库（按 v1.3.0 排版：同步上游 1.9.2 / 新增 / 优化 / 修复 / 注意事项）。
+2. `node tools/gen-changelog.mjs` 重跑（应用内 CHANGELOG + README 当前版本行/Status 徽章
+   同步 v1.4.0）；verify-markers **82 PASS / 0 FAIL**。
+3. `./gradlew assembleRelease assembleDebug`（**含最终 CHANGELOG 重构建**）：release 三件套
+   17.33 MB（arm64-v8a / universal / x86_64），`apksigner` 校验签名
+   `CN=LuzzyRP, OU=LuzzyMeow, O=LuzzyMeow, C=CN`（SHA-256 ed78235d…）。
+4. commit `ac0d5957` → **push origin main 成功**（SSH 通道；278e66c3..ac0d5957）。
+5. **GitHub Release v1.4.0 已发布**（`gh release create --target main`，附三件套 APK）：
+   https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.4.0 —— tag v1.4.0 已推送、
+   `releases/latest` 指向 v1.4.0。
+
+**备注（非阻塞）**：ABI 拆分产出的三个 APK **字节相同**（无 native 库，纯 WebView 壳）——
+历史各版（v1.2.2/v1.2.3/v1.3.0）release 资产同样如此（v1.3.0 三件套 SHA256 完全相同），
+属沿用既有打包约定的历史现象，本次按旧版排版照常附三件套；如需瘦身可另立版本改为单
+universal 资产。
+
+**遗留 / 下一步**：无阻塞项。后续候选见 README 规划表 v1.5.0 行（styles.css 低频硬编码蓝
+收编、向量阈值滑杆、剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制等）。

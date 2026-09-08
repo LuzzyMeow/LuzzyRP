@@ -403,29 +403,31 @@ Luzzy.copyToClipboard = function (text) {
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-08 会话 25 快照 · v1.4.0 开发中 · 上游基线 1.9.2）
+## 9. 当前状态与已知问题（2026-09-08 会话 25 快照 · v1.4.0 已发布 · 上游基线 1.9.2）
 
 > 完整过程见 `docs/WORKLOG.md` 会话 24-25。上游基线 RP-Hub **1.9.2**（commit `d2f2625`，
 > 2026-09-08 同步）。参考克隆锚定 `d2f2625`（**合并全程只引用该工作树**，勿用 HEAD~N）。
 
 ### 版本状态（2026-09-08 · 会话 25）
 
-- **v1.4.0 开发中**（versionCode 12 / versionName 1.4.0，上游基线 1.9.2）：同步上游 1.9.2
-  （UI 实时生成剧情面板 `story_panels` / 沉浸模式 `immersiveMode` / CharacterDeck / 主动工具
-  调用改原生 toolCalls / 快捷面板密度 / 抗截断改 `output_reply` 工具协议）——决策 D1-A 全屏
-  继续下线、D2-A 抗截断采纳上游协议、D3-A 保留「开卷」开屏、D4-A 新功能默认值原样。
-  debug 包已装真机（小米 df97f3c4，versionCode 12 / 1.4.0-debug，install -r 数据保留）；
-  **release 待用户真机验证通过后发布**。
-- **门禁现状**：verify-markers **75 PASS / 0 FAIL**（实体 9 枚以 d2f2625 基线再生成，
-  仓库外逆向 9/9 PASS + 纯净基线端到端重放 9/9 PASS；全 JS `node --check` 17/17）。
+- **v1.4.0 正式版已发布**（2026-09-08，versionCode 12，Release 附三件套 APK，签名
+  CN=LuzzyRP）：同步上游 1.9.2（UI 实时生成剧情面板 `story_panels` / 沉浸模式
+  `immersiveMode` / CharacterDeck / 主动工具调用改原生 toolCalls / 快捷面板密度 /
+  抗截断改 `output_reply` 工具协议）+ 用户三项需求（patch 037 用量页时间筛选去冲突 /
+  038 更新公告品牌化与同步注释 / 039 关于页检索关键词高亮）——决策 D1-A 全屏继续下线、
+  D2-A 抗截断采纳上游协议、D3-A 保留「开卷」开屏、D4-A 新功能默认值原样。
+  发布记录：commit `ac0d5957` → push origin main → GitHub Release v1.4.0（tag 已推送、
+  `releases/latest` 指向 v1.4.0）；真机（小米 df97f3c4）人工验证通过。
+- **门禁现状**：verify-markers **82 PASS / 0 FAIL**（实体 9 枚以 d2f2625 基线再生成，
+  仓库外逆向 9/9 PASS + 纯净基线端到端重放 9/9 PASS；全 JS `node --check` 13/13）。
 - **会话 25 修复**：index.html 开屏区混合体恢复完整「开卷」块 + 补回 001/004/006 标记 +
-  删除 Google Fonts preconnect（003/004/006/027 五项转 PASS）；指纹表全表更新至 d2f2625
-  （R1/R2 转 PASS）；**实体重放通道三层根因修复**（脚本顺序：实体段先于字符串块；前像判定：
-  实体头 `index pre` 的 LF 归一 blob id；git stderr 隔离 + 落盘校验）。
-- **待办**：用户真机人工验证（§6.2 全量 + 新功能专项：剧情面板/沉浸模式/CharacterDeck/
-  快捷面板/抗截断 + 开屏「开卷」+ 工坊页首屏）→ 用户确认后 `assembleRelease` + push +
-  GitHub Release（notes 源文件 `docs/release-notes-v1.4.0.md` 待写）→ AGENTS 本节快照
-  更新为「正式版已发布」。
+  删除 Google Fonts preconnect；指纹表全表更新至 d2f2625（R1/R2 转 PASS）；**实体重放通道
+  三层根因修复**（脚本顺序：实体段先于字符串块；前像判定：实体头 `index pre` 的 LF 归一
+  blob id；git stderr 隔离 + 落盘校验）。
+- **待办**：无阻塞项。后续候选见 README 规划表 v1.5.0 行（styles.css 低频硬编码蓝收编、
+  向量阈值滑杆、剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制等）。
+- **已知现象（非阻塞）**：ABI 拆分三件套 APK 字节相同（无 native 库，纯 WebView 壳），
+  历史各版 release 资产同样如此——沿用既有打包约定；如需瘦身可另立版本改单 universal。
 - **明确不做（本版）**：剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制（先 classic
   样式交付，真机体验后按硬性规定 9 走设计流程）、styles.css 低频硬编码蓝收编、向量阈值
   滑杆、「荧光笔落笔」动效、深链、自建更新检查。

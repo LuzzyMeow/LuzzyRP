@@ -2509,3 +2509,27 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - 技能「URL 导入」未做（`source=url` 字段已留）。
 - P3：工作区管理 UI + proot 沙盒 + 双模式终端；P4：Anthropic/Gemini + stdio MCP + 日历工具。
 - 真机验收仍缺（无连接设备）。
+
+---
+
+### 会话 32 · W2 P3：工作区与终端 UI（2026-09-09）
+
+**完成项**：
+1. **工作区页**：`WorkspaceViewModel` + `WorkspaceScreen`——列 `files/` 子树、面包屑回上级、
+   文件预览（截断 8KB）、删除、配额用量；越界异常转可读提示。
+2. **终端页**：`TerminalViewModel` + `TerminalScreen`——宿主模式交互（等宽输出、单行输入、
+   清屏、退出码），命令双层 HARDLINE 拦截；`AssistantRuntime.shellRunnerFor(assistantId)`
+   按助手注入工作目录。
+
+**决策记录**：
+- **D13 沙盒诚实降级**：proot 沙盒需内置 Alpine rootfs（约 3-5MB 压缩 / 解压 60-120MB），
+  涉及体积与来源决策；**未接入前终端页标注「宿主（App 权限）」**，不伪装沙盒能力。
+- **D14 终端输出上限**：单次 200KB（PLAN §10.3），溢出写工作区 `exports/` 并回传文件名。
+
+**验证**：239 tests / 0 failed；`assembleDebug` 通过。
+
+**遗留 / 下一步**：
+- proot 沙盒 + rootfs（P3 剩余，需用户就体积/来源拍板）。
+- 设置页（提示词/模型/参数/请求体/预览）仍为占位——P3 收尾项。
+- P4：Anthropic/Gemini 协议、stdio MCP（依赖沙盒）、日历工具、审计面板。
+- 真机验收仍缺（无连接设备）。

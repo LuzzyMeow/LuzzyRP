@@ -89,6 +89,10 @@ class AssistantRuntime(
     /** 数据仓库（P2 持久化：会话/消息/检索/导出）。 */
     val repository: AssistantRepository = AssistantRepository(database)
 
+    /** 技能仓库（P2：内置导入 / 文件导入 / 全局与助手级启用）。 */
+    val skillRepository: SkillRepository = SkillRepository(context, database)
+
+
     val workspaceManager: WorkspaceManager = WorkspaceManager(context)
 
     val memoryStore: RoomMemoryStore = RoomMemoryStore(
@@ -98,6 +102,9 @@ class AssistantRuntime(
     )
 
     val registry: ToolRegistry = ToolRegistry(approval = approvalGate)
+
+    /** MCP 仓库（P2：JSON 导入 / HTTP·SSE 连接 / 工具注册为 T2 外部工具）。 */
+    val mcpRepository: McpRepository = McpRepository(database, registry)
 
     val transport: OpenAiTransport = OpenAiTransport(log = { msg -> log(msg) })
 

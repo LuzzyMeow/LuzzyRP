@@ -175,6 +175,7 @@ class AssistantChatViewModel(
             return
         }
         val assistant = runtime.assistantEntity(assistantId)
+        val skills = runCatching { runtime.skillRepository.documentsFor(assistantId) }.getOrDefault(emptyList())
         val config = AgentRunConfig(
             request = request,
             assistantId = assistantId,
@@ -183,6 +184,7 @@ class AssistantChatViewModel(
             systemPrompt = systemPrompt,
             workspacePath = workspacePath,
             workspace = runtime.workspaceAccessFor(assistantId),
+            skills = skills,
             memoryMode = MemoryMode.fromId(assistant?.memoryMode),
             memoryLimit = assistant?.memoryTopK ?: 8,
             cancelled = { cancelled },

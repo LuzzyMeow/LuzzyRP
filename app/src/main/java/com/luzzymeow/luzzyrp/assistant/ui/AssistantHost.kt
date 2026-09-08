@@ -29,7 +29,11 @@ import androidx.compose.ui.platform.LocalContext
 import com.luzzymeow.luzzyrp.assistant.runtime.AssistantRuntimeProvider
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantChatViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantListViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.mcp.McpViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.memory.MemoryViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.screen.McpScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.SkillsScreen
+import com.luzzymeow.luzzyrp.assistant.ui.skill.SkillsViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.component.SideDrawerContent
 import com.luzzymeow.luzzyrp.assistant.ui.model.SampleData
 import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
@@ -176,17 +180,41 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     )
                 }
 
-                AssistantRoute.Skills -> PlaceholderScreen(
-                    title = "技能",
-                    note = "Markdown + front-matter（name / description / tools）；全局启用 + 助手绑定。",
-                    onBack = { route = AssistantRoute.ChatList },
-                )
+                AssistantRoute.Skills -> {
+                    val skillsVm: SkillsViewModel = viewModel(
+                        key = "skills-${selectedAssistant?.id}",
+                        factory = viewModelFactory {
+                            initializer { SkillsViewModel(runtime, selectedAssistant?.id.orEmpty()) }
+                        },
+                    )
+                    val skillsState by skillsVm.state.collectAsStateWithLifecycle()
+                    SkillsScreen(
+                        skills = skillsState.skills,
+                        message = skillsState.message,
+                        onToggleGlobal = skillsVm::toggleGlobal,
+                        onToggleBinding = skillsVm::toggleBinding,
+                        onDelete = skillsVm::delete,
+                        onDismissMessage = skillsVm::dismissMessage,
+                        onBack = { route = AssistantRoute.ChatList },
+                    )
+                }
 
-                AssistantRoute.Mcp -> PlaceholderScreen(
-                    title = "MCP",
-                    note = "HTTP(Streamable) / SSE 传输；JSON 导入 + 逐条预览 + 可达性检测。",
-                    onBack = { route = AssistantRoute.ChatList },
-                )
+                AssistantRoute.Mcp -> {
+                    val mcpVm: McpViewModel = viewModel(
+                        factory = viewModelFactory { initializer { McpViewModel(runtime) } },
+                    )
+                    val mcpState by mcpVm.state.collectAsStateWithLifecycle()
+                    McpScreen(
+                        servers = mcpState.servers,
+                        message = mcpState.message,
+                        onImport = mcpVm::importJson,
+                        onToggle = mcpVm::setEnabled,
+                        onConnect = mcpVm::connect,
+                        onDelete = mcpVm::delete,
+                        onDismissMessage = mcpVm::dismissMessage,
+                        onBack = { route = AssistantRoute.ChatList },
+                    )
+                }
 
                 AssistantRoute.Workspace -> PlaceholderScreen(
                     title = "工作区",

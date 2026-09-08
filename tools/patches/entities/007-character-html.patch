@@ -1,8 +1,8 @@
 diff --git a/character/index.html b/character/index.html
-index 22a55314..47f5d8e5 100644
+index fe56b1eb..93cdacbc 100644
 --- a/character/index.html
 +++ b/character/index.html
-@@ -6,13 +6,13 @@
+@@ -6,13 +6,12 @@
      <meta name="viewport"
          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
      <title>角色卡工坊</title>
@@ -13,7 +13,6 @@ index 22a55314..47f5d8e5 100644
 -    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.7.2/dist/full.min.css" rel="stylesheet" type="text/css" />
 -    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 -    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-+
 +    <link rel="stylesheet" href="../assets/css/local-fonts.css">
 +<!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
 +    <script src="../vendor/tailwind.js"></script>
@@ -23,7 +22,7 @@ index 22a55314..47f5d8e5 100644
      <script src="../assets/js/built-in-content.js"></script>
      <script src="../assets/js/core-utils.js"></script>
      <script src="../assets/js/api-utils.js"></script>
-@@ -2279,7 +2279,7 @@
+@@ -2340,7 +2339,7 @@
                          textContent = fullText.replace(htmlMatch[0], '').trim();
                      } else {
                          // 如果没有检测到 HTML 块，则提供一个基础的 HTML 结构，以便注入样式和脚本并显示正文

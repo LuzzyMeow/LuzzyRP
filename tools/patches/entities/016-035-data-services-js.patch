@@ -1,8 +1,8 @@
 diff --git a/assets/js/data-services.js b/assets/js/data-services.js
-index c3dfb3ba..dc0a0ecc 100644
+index 7858d9fc..2ab1a71c 100644
 --- a/assets/js/data-services.js
 +++ b/assets/js/data-services.js
-@@ -1024,6 +1024,9 @@
+@@ -1027,6 +1027,9 @@
              }).join('\n\n');
              finalMessages.splice(findDepthIndex(Number(vectorDepth) || 4), 0, {
                  role: 'user',

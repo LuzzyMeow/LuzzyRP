@@ -1,8 +1,8 @@
 diff --git a/assets/js/core-utils.js b/assets/js/core-utils.js
-index 27d8d9dd..29965eac 100644
+index 4f1c2c85..1e73b92e 100644
 --- a/assets/js/core-utils.js
 +++ b/assets/js/core-utils.js
-@@ -955,9 +955,13 @@ window.RPHubUtils = {
+@@ -951,9 +951,13 @@ window.RPHubUtils = {
          systemRegexNames: Object.freeze(['NAI画图正则']),
          systemWorldInfoNames: Object.freeze(['自动生图']),
          imageGenBaseUrl: 'https://nai.sta1n.cn',
@@ -18,7 +18,7 @@ index 27d8d9dd..29965eac 100644
              apiKey: '',
              model: '',
              qualityModel: '',
-@@ -965,29 +969,12 @@ window.RPHubUtils = {
+@@ -961,29 +965,12 @@ window.RPHubUtils = {
              fastModel: ''
          }),
          apiProviderOptions: Object.freeze([
@@ -50,7 +50,7 @@ index 27d8d9dd..29965eac 100644
              })
          ]),
          activeTools: window.RPHubBuiltinContent.activeTools,
-@@ -1000,9 +987,11 @@ window.RPHubUtils = {
+@@ -996,9 +983,11 @@ window.RPHubUtils = {
              ]),
              presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
              fontFamilies: Object.freeze([

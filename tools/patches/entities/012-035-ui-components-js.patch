@@ -1,5 +1,5 @@
 diff --git a/assets/js/ui-components.js b/assets/js/ui-components.js
-index 4bcb59cd..30bd1f35 100644
+index 4d1d643c..535bb460 100644
 --- a/assets/js/ui-components.js
 +++ b/assets/js/ui-components.js
 @@ -350,9 +350,10 @@
@@ -42,17 +42,7 @@ index 4bcb59cd..30bd1f35 100644
                  </div>
  
                  <div class="p-3 border-t border-gray-100/80 bg-white/70 backdrop-blur-xl">
-@@ -828,7 +843,8 @@
-             tags: { type: Array, default: () => [] },
-             models: { type: Array, default: () => [] },
-             currentModel: { type: String, default: '' },
--            slotModels: { type: Array, default: () => [] }
-+            slotModels: { type: Array, default: () => [] },
-+            formatModelText: { type: Function, default: null }
-         },
-         emits: ['close', 'select', 'select-slots', 'update:search-query', 'update:active-tag'],
-         data() {
-@@ -854,6 +870,27 @@
+@@ -854,6 +869,28 @@
                  this.draftSlotModels[this.activeSlot] = this.draftSlotModels[this.activeSlot] === modelId ? '' : modelId;
                  this.draftSlotModels = [...this.draftSlotModels];
                  this.$emit('select-slots', [...this.draftSlotModels]);
@@ -76,19 +66,11 @@ index 4bcb59cd..30bd1f35 100644
 +                    const modLabel = { text: '文本', image: '图像', video: '视频' };
 +                    parts.push(mods.map(m => modLabel[m] || m).join('+'));
 +                }
++                if (model.maxOutput) parts.push(`输出${formatLen(model.maxOutput)}`);
 +                return parts.join(' · ');
              }
          },
          template: `
-@@ -873,7 +910,7 @@
-                                 @click="activeSlot = index"
-                                 :class="['min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors', activeSlot === index ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50']">
-                                 <span class="block text-xs font-bold mb-1">槽位 {{ index + 1 }}</span>
--                                <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] || '未选择' }}</span>
-+                                <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] ? (formatModelText ? formatModelText(draftSlotModels[index]) : draftSlotModels[index]) : '未选择' }}</span>
-                             </button>
-                         </div>
-                         <div class="p-4 border-b border-gray-100 flex flex-col gap-3">
 @@ -904,7 +941,12 @@
                              <div class="space-y-1">
                                  <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
@@ -103,12 +85,12 @@ index 4bcb59cd..30bd1f35 100644
                                      <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-@@ -1967,13 +2009,38 @@
+@@ -1968,13 +2010,38 @@
              formatCount: { type: Function, required: true },
              formatTime: { type: Function, required: true },
              getTypeLabel: { type: Function, required: true },
 -            getUncachedInput: { type: Function, required: true }
-+                        getUncachedInput: { type: Function, required: true },
++            getUncachedInput: { type: Function, required: true },
 +            formatModelLabel: { type: Function, default: null },
 +            chartData: { type: Object, default: () => ({ buckets: [], series: [], peak: 1, count: 0 }) },
 +            chartRange: { type: String, default: 'day' },
@@ -119,9 +101,8 @@ index 4bcb59cd..30bd1f35 100644
 +            chartSelectedModels: { type: Array, default: () => [] }
          },
          emits: [
--            'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
+             'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
 -            'update:page', 'update:help-topic'
-+                        'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
 +            'update:page', 'update:help-topic', 'update:chart-range', 'update:chart-provider', 'toggle-chart-model'
          ],
 -        setup() {
@@ -146,7 +127,7 @@ index 4bcb59cd..30bd1f35 100644
              const formatDuration = (value) => {
                  if (!Number.isFinite(value)) return '--';
                  if (value < 1000) return `${Math.round(value)}ms`;
-@@ -1986,6 +2053,7 @@
+@@ -1987,6 +2054,7 @@
                  return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
              };
              return {
@@ -154,12 +135,11 @@ index 4bcb59cd..30bd1f35 100644
                  formatDuration,
                  formatOutputSpeed,
                  formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
-@@ -2058,7 +2126,47 @@
+@@ -2059,6 +2127,47 @@
                      <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                  </div>
  
--                <div class="flex items-center justify-between mb-3">
-+                                <!-- [LuzzyRP patch 025] 用量趋势折线图（v1.2.3，需求 4）：日（小时）/周（天）/月（周）+ 供应商/模型筛选 -->
++                <!-- [LuzzyRP patch 025] 用量趋势折线图（v1.2.3，需求 4）：日（小时）/周（天）/月（周）+ 供应商/模型筛选 -->
 +                <div class="relative mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" title="日=近24小时（按小时）· 周=近7天（按天）· 月=近28天（按周）">
 +                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
 +                        <h3 class="text-sm font-bold text-gray-700">用量趋势</h3>
@@ -199,11 +179,11 @@ index 4bcb59cd..30bd1f35 100644
 +                        <text v-for="item in usageChartLabelBuckets" :key="'x' + item.index" :x="usageChartX(item.index, chartData.buckets.length)" y="132" text-anchor="middle" class="fill-current text-gray-400" font-size="8">{{ item.bucket.label }}</text>
 +                    </svg>
 +                </div>
-+<div class="flex items-center justify-between mb-3">
++
+                 <div class="flex items-center justify-between mb-3">
                      <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                      <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
-                 </div>
-@@ -2067,7 +2175,7 @@
+@@ -2068,7 +2177,7 @@
                          class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                          <div class="mb-3 min-w-0">
                              <div class="flex min-w-0 items-center justify-between gap-3">
@@ -212,22 +192,3 @@ index 4bcb59cd..30bd1f35 100644
                                   <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                              </div>
                              <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">
-@@ -2126,7 +2234,8 @@
-             settings: { type: Object, required: true },
-             updateStatus: { type: Object, required: true },
-             helpTopic: String,
--            analysisDepth: Number
-+            analysisDepth: Number,
-+            formatModelText: { type: Function, default: null }
-         },
-         emits: [
-             'menu', 'export', 'import', 'create', 'update:show-settings', 'update:help-topic',
-@@ -2245,7 +2354,7 @@
-                                         <div class="flex gap-2">
-                                             <button @click="$emit('select-model')" class="settings-model-button truncate"
-                                                 :title="settings.uiTemplateModel || '未选择模型'">
--                                                <span :class="settings.uiTemplateModel ? 'text-gray-700' : 'text-gray-400'">{{ settings.uiTemplateModel || '未选择模型' }}</span>
-+                                                <span :class="settings.uiTemplateModel ? 'text-gray-700' : 'text-gray-400'">{{ settings.uiTemplateModel ? (formatModelText ? formatModelText(settings.uiTemplateModel) : settings.uiTemplateModel) : '未选择模型' }}</span>
-                                             </button>
-                                         </div>
-                                     </div>

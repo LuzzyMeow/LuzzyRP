@@ -1840,3 +1840,93 @@ fetchModels 恢复无条件调用（012 懒拉取重放）、TokenUsageView 无�
 AppSidebar 重写（014/019 重放）。
 
 **执行中**：阶段 0 完成 → 阶段 1 覆盖 + 字符串块重放。
+
+---
+
+### 会话 24 追记 · v1.4.0 同步执行中断——进度与交接（2026-09-08）
+
+**执行进度**（PLAN-v1.4.0 六阶段）：
+- ✅ 阶段 0 准备：参考克隆锚定 d2f2625（gh-proxy 镜像 fetch），WORKLOG 开始记录。
+- ✅ 阶段 1（commit 757d4e6c）：覆盖 9 文件至 1.9.2（排除 vendor/fonts/novel/runtime-services）+
+  字符串块 001-006/009/010/011b 重放（apply-patches 全 OK）+ 004 CDN→vendor 手工替换（node 脚本）+ PLAN-v1.4.0 入库。
+- ✅ 阶段 2.1（bc9c94bd）：api-utils.js 手工合并——上游 requestChatCompletionOnce（原生 toolCalls +
+  replyTool/output_reply 抗截断）保留，我方 015 三协议分派/适配器/maxTokens/extraBody 注入移植，
+  032 流式 120ms 重锚（STREAM_RENDER_INTERVAL），025 withUsageMetrics 移植。node --check PASS。
+- ✅ 阶段 2.2（4ef82d8e + aa6d101e）：core-utils.js——029 精简仅留 DeepSeek 重放；009 字符串块已
+  重放但未带标记 → 补标记注释。
+- ✅ 阶段 2.3（42d94f6d）：data-services.js——016 召回块 _preventContextMerge 重放（锚点区结构一致）。
+- ✅ 阶段 2.4（dc34f6c5）：ui-components.js——019 品牌字样 / 014+019 侧栏底部簇 / 012+015 模型选择器
+  徽标（modelMetaSummary 方法 + providerName/bareId/meta chip，上游 1.9.2 模板已简化需重放）/ 025
+  折线图（props+emits+setup 几何辅助+模板段+formatModelLabel）。8 标记，node --check PASS。
+- ✅ 阶段 2.5（2f1551db）：app.js 三方合并（base=7b39385，ours=1.9.2+字符串块，theirs=v1.3.0）——
+  26 冲突块脚本化解决（.tmp-resolve-app.js 思路已并入本记录，脚本已清理）。关键决策：
+  ①多商路由×上游原生 toolCalls 融合（主聊天/识图/UI模板/总结 4 请求点 = 015 路由 + 上游
+  replyInTool/tools/requireTool 参数）；②C20 双轨混合=记忆系统取 v1.3.0（012 分桶/020 toast/026
+  死区/017 管理器/036 watch）+ 工具系统取 1.9.2 原生（resetActiveToolResultContext→cleanActiveToolCallReason
+  5 函数），v1.3.0 文本工具链（promoteActiveToolCallsFromAssistant/findActiveToolCallsInText 等 24 函数）
+  全部废弃清零；③C4 hybrid=theirs 的 yieldMemoryStorageWork+compactMemoriesForStorageAsync 定义前插
+  （ours 侧丢失）；④031 召回节点重排进新 getTimelineSteps/ensureAssistantMessage；⑤022 全屏下线重放
+  （toggleChatFullscreen/isChatFullscreen/fullscreenchange 全部移除，D1-A）；⑥012 懒拉取重放；
+  ⑦029 迁移/override；⑧028 单轨化/030 固化/035 图标状态机/021 自动统计/024/025/026 全部保全。
+  11192 行 / 81 标记 / node --check PASS。
+- ✅ 阶段 2.6（74a44e80）：index.html 三方合并 12 冲突块。**⚠ 遗留缺陷见下**。35 标记。
+- ✅ 阶段 2.7（521fe2c6）：character/index.html——恢复 1.9.2 上游版 + 重放 007 两处改动
+  （CDN→vendor 7 行 + uiHTML 行）；novel 未动（007/029 标记完好）。
+
+**🔴 遗留缺陷（下会话必须先修，均为 index.html C1/C3 冲突块取 ours 侧所致）**：
+1. **C3 开屏区错乱（高优先）**：index.html 159-184 行开屏区是「上游 1.9.2 entry-transition 书本动画」
+   与「我方 luzzy-splash 残骸（lsp-progress/沉溺按钮/rule/pagenum/bubbles）」的混合体——
+   luzzy-splash-page/stack/center/glow/seal/wordmark/slogan 七个结构节点全部丢失、027 标记注释丢失。
+   修复：用 v1.3.0（2056a2c6）的 163-185 行完整 splash 块（含 027 注释 4 行）替换当前
+   `<div class="entry-transition" ...>` 至 `</div>`（id="app" 之前）整块。
+2. **标记注释丢失**：001（title 上方）、004（vendor 引用上方）、006（local-fonts 行上方）标记注释丢失
+   → verify-markers 003/004/006 三项 FAIL。修复：按 v1.3.0 行 10/15/17 注释原样补插
+   （001 注释在 <title> 行后；004+006 注释按 v1.3.0 顺序插入 vendor 块上方；
+   fonts.googleapis preconnect 两行删除 → 006-no-gfonts FAIL 修复）。
+3. **027-splash-index FAIL**：修完缺陷 1 后 027 标记恢复即 PASS。
+
+**verify-markers 现状：67 PASS / 8 FAIL**：
+- 003/004/006-local-fonts/006-no-gfonts/027（5 项）→ 修上述缺陷即消；
+- R1-built-in-content / R2-styles-css（2 项）→ 内容逐字节一致已实证（会话 24 调查），
+  仅指纹表仍为 7b39385 基线 → 需重算 d2f2625 基线哈希更新 tools/upstream-fingerprints.txt
+  （built-in-content/styles.css/index.html/core-utils/data-services/runtime-services/ui-components/
+  api-utils/app.js/character/novel/update-check/presence 全表更新；注意上游 1.9.2 中
+  built-in-content 与 styles.css 内容已变，哈希为新值，R1/R2 校验语义=与上游一致仍成立）；
+- R3-changelog-sync（1 项）→ 发版阶段跑 `node tools/gen-changelog.mjs` 自动解决（v1.4.0 章节写入后）。
+
+**🔴 实体重放通道遗留（apply-patches 实体段失效根因已定位）**：
+- 9 枚实体已以 d2f2625 基线重新生成（git diff --no-index --ignore-cr-at-eol + 头路径转换
+  a/rp-hub-reference→a/、b/app/src/main/assets/rphub→b/），**未提交**（git status 中 7 个 M）。
+- **逆向验证失败根因已实证**：`git apply --ignore-whitespace` 在 CRLF 文件上应用时对
+  「+3 行插入 hunk」实际未插入（016 实体 APPLY OK 返回但 3 行缺失）——CRLF/ignore-whitespace
+  交互问题，9 枚实体全部同险（apply-patches.ps1 实体段 --ignore-whitespace 参数）。
+  修复方向（下会话验证）：①实体重生成时统一行尾（把参考克隆 checkout 工作树与主仓库 rphub
+  行尾先归一为 LF 再 diff，或 diff 时加 --strip-trailing-cr 等价物）；或 ②apply 时去掉
+  --ignore-whitespace 改用 --whitespace=nowarn；或 ③实体改由「LF 归一化文件对」生成，
+  应用目标同样 LF 归一（AGENTS §9 高频坑：entities 生成须 --ignore-cr-at-eol、应用须 --ignore-whitespace
+  ——1.9.1 时代可行，1.9.2 CRLF 混行文件上失效，需重新校准）。
+- 实体重放语义验证脚本（可复刻）：上游纯净文件 git show d2f2625:<f> → git apply 实体 →
+  diff --strip-trailing-cr 与工作树文件比对，全部为空 diff 才算逆向 PASS。
+
+**其余遗留（阶段 3-6 未开始）**：
+- apply-patches.ps1 manifest/实体段校准（apply-patches 当前全 SKIP 为已应用态=正确）；
+- verify-markers.ps1 计数校准（022 全屏下线后 022 项仍 PASS 3/3 未变；C5 快捷面板新面板
+  无 033 标记，033-input-index 要求 2 → 当前命中 2 PASS；028 多 1 处无害）；
+- 指纹表更新（上述）；实体逆向 9/9 PASS；node --check 全 JS；
+- 桌面冒烟全量（挂载/品牌卡/管理器/编辑器/035 验收/上游新功能可见性：
+  剧情面板/沉浸模式/CharacterDeck/快捷面板/output_reply 抗截断/开卷开屏）；
+- CHANGELOG v1.4.0「开发中」章节 + gen-changelog 重跑（R3 绿）+ AGENTS §9 快照 + WORKLOG 收尾；
+- versionCode 11→12 / versionName 1.3.0→1.4.0（build.gradle.kts）→ debug 包真机交付
+  （小米 df97f3c4，install -r debug 覆盖日常包）→ 用户验证 → release 发布。
+
+**决策记录（用户已拍板，勿再问）**：D1-A 全屏继续下线（重放 022）；D2-A 抗截断采纳上游
+output_reply 协议（gemini/anthropic 适配器只做协议分派，防截断仅 OpenAI 路径生效——上游实现即如此）；
+D3-A 保留「开卷」开屏；D4-A 新功能默认值原样。
+
+**坑（本会话新踩）**：①Node 内联 -e 脚本中反引号/模板串会被 bash 吞——复杂字符串操作一律写
+.tmp-*.js 脚本文件执行；②String.replace 的字符串替换会把 replacement 里 `$` 当特殊模式
+（JS 代码必含 `${}`）——必须 `replace(x, () => replacement)` 函数式替换；③git apply
+--ignore-whitespace 对 CRLF 文件 +3 行插入 hunk 静默失败（返回 0 但未应用）；
+④三方合并冲突块 `git merge-file -p ours base theirs` 标记语义：第一个侧=ours（1.9.2+字符串块）、
+第二个侧=theirs（v1.3.0）；⑤v1.3.0 旧版提取必须用 2056a2c6（v1.3.0 发布提交），不能用 HEAD~N
+（HEAD 已含覆盖提交）。

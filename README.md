@@ -182,7 +182,8 @@ keyAlias=luzzy
 keyPassword=***
 ```
 
-**产物**：ABI 拆分三件套（arm64-v8a / x86_64 / universal）。
+**产物**：单个 APK —— `app/build/outputs/apk/release/app-release.apk`（v1.4.0 起只发单包：
+本应用为纯 WebView 壳、不含 native 库，历史 ABI 拆分三件套字节完全相同，故关闭拆分）。
 
 > [!NOTE]
 > 应用为**侧载分发**，不上架应用商店。安装前需在系统设置中允许「安装未知来源应用」。

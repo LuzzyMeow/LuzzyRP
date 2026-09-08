@@ -163,6 +163,9 @@ class AssistantRuntime(
         )
     }
 
+    /** 某助手工作区内的宿主 shell（终端页直接使用；工作目录 = 该助手 files/）。 */
+    suspend fun shellRunnerFor(assistantId: String): ShellRunner = shellRunnerFactory(workspaceManager.filesDir(assistantId))
+
     /** 为某助手装配终端/代码执行工具（依赖其工作区目录）。 */
     suspend fun registerExecToolsFor(assistantId: String) {
         val filesDir = workspaceManager.filesDir(assistantId)

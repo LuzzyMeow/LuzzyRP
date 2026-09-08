@@ -36,6 +36,10 @@ import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantListViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.mcp.McpViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.memory.MemoryViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.screen.McpScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.TerminalScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.WorkspaceScreen
+import com.luzzymeow.luzzyrp.assistant.ui.terminal.TerminalViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.workspace.WorkspaceViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.screen.SkillsScreen
 import com.luzzymeow.luzzyrp.assistant.ui.skill.SkillsViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.component.SideDrawerContent
@@ -234,17 +238,49 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     )
                 }
 
-                AssistantRoute.Workspace -> PlaceholderScreen(
-                    title = "工作区",
-                    note = "每助手独立 files / attachments / exports；配额 2GB、单文件 64MB；路径越界拒绝。",
-                    onBack = { route = AssistantRoute.ChatList },
-                )
+                AssistantRoute.Workspace -> {
+                    val wsVm: WorkspaceViewModel = viewModel(
+                        key = "ws-${selectedAssistant?.id}",
+                        factory = viewModelFactory {
+                            initializer { WorkspaceViewModel(runtime, selectedAssistant?.id.orEmpty()) }
+                        },
+                    )
+                    val wsState by wsVm.state.collectAsStateWithLifecycle()
+                    WorkspaceScreen(
+                        currentPath = wsState.currentPath,
+                        entries = wsState.entries,
+                        usageLabel = wsState.usageLabel,
+                        preview = wsState.preview,
+                        message = wsState.message,
+                        onEnter = wsVm::enter,
+                        onUp = wsVm::up,
+                        onPreview = wsVm::preview,
+                        onDelete = wsVm::delete,
+                        onClosePreview = wsVm::closePreview,
+                        onDismissMessage = wsVm::dismissMessage,
+                        onBack = { route = AssistantRoute.ChatList },
+                    )
+                }
 
-                AssistantRoute.Terminal -> PlaceholderScreen(
-                    title = "终端",
-                    note = "沙盒（proot 真 Linux）/ 全局（宿主）双模式；危险命令 HARDLINE 无条件拦截。",
-                    onBack = { route = AssistantRoute.ChatList },
-                )
+                AssistantRoute.Terminal -> {
+                    val termVm: TerminalViewModel = viewModel(
+                        key = "term-${selectedAssistant?.id}",
+                        factory = viewModelFactory {
+                            initializer { TerminalViewModel(runtime, selectedAssistant?.id.orEmpty()) }
+                        },
+                    )
+                    val termState by termVm.state.collectAsStateWithLifecycle()
+                    TerminalScreen(
+                        lines = termState.lines,
+                        running = termState.running,
+                        modeLabel = termState.modeLabel,
+                        banner = termState.banner,
+                        lastExitCode = termState.lastExitCode,
+                        onRun = termVm::run,
+                        onClear = termVm::clear,
+                        onBack = { route = AssistantRoute.ChatList },
+                    )
+                }
 
                 AssistantRoute.Settings -> PlaceholderScreen(
                     title = "设置",

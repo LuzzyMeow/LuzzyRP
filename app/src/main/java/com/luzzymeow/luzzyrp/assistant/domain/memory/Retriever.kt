@@ -41,10 +41,14 @@ data class RecalledMemory(
 
 /** 纯 Kotlin 检索器（无 Android 依赖，可单测）。 */
 class Retriever(
-    private val topK: Int = DEFAULT_TOP_K,
-    private val threshold: Float = DEFAULT_THRESHOLD,
-    private val recentCount: Int = DEFAULT_RECENT,
+    val topK: Int = DEFAULT_TOP_K,
+    val threshold: Float = DEFAULT_THRESHOLD,
+    val recentCount: Int = DEFAULT_RECENT,
 ) {
+
+    /** 以新的 topK 派生一个检索器（其余参数保持）。 */
+    fun withTopK(topK: Int): Retriever =
+        if (topK == this.topK) this else Retriever(topK, threshold, recentCount)
 
     /**
      * @param queryEmbedding 用户输入的嵌入；为 null 表示无法向量检索（退化为全文）

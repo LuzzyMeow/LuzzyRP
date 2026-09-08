@@ -1,26 +1,17 @@
 package com.luzzymeow.luzzyrp.assistant.domain.memory
 
+import com.luzzymeow.luzzyrp.assistant.domain.prompt.MemoryMode
+
 /**
  * 记忆召回（PLAN §7.1/§7.2）。
  *
- * 三种模式：
+ * 三种模式（`full` / `embed` / `hybrid`）与阈值/TopK 语义见 [com.luzzymeow.luzzyrp.assistant.domain.prompt.MemoryMode]：
  * - `full`：无嵌入模型 → 记忆全文注入（按 token 预算裁剪，最近优先）；
  * - `embed`：有嵌入模型 → 向量召回 Top-K（默认 8）+ 阈值（默认 0.35）；
  * - `hybrid`：向量召回 Top-K + 最近 N 条事实（默认 5，去重）。
  *
  * **自动降级**：`embed`/`hybrid` 调用嵌入失败 → 本轮退化为 `full` 并记日志 + UI 提示。
  */
-object MemoryMode {
-    const val FULL = "full"
-    const val EMBED = "embed"
-    const val HYBRID = "hybrid"
-
-    fun normalize(mode: String?): String = when (mode) {
-        EMBED -> EMBED
-        HYBRID -> HYBRID
-        else -> FULL
-    }
-}
 
 /** 待召回的候选（由数据层映射而来）。 */
 data class MemoryCandidate(
@@ -54,10 +45,10 @@ class Retriever(
      * @param queryEmbedding 用户输入的嵌入；为 null 表示无法向量检索（退化为全文）
      */
     fun recall(
-        mode: String,
+        mode: MemoryMode,
         queryEmbedding: FloatArray?,
         candidates: List<MemoryCandidate>,
-    ): List<RecalledMemory> = when (MemoryMode.normalize(mode)) {
+    ): List<RecalledMemory> = when (mode) {
         MemoryMode.EMBED ->
             if (queryEmbedding == null) full(candidates) else vector(queryEmbedding, candidates)
 

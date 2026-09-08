@@ -249,6 +249,17 @@ class OpenAiWireTest {
         assertNull(delta.usage)
     }
 
+    @Test
+    fun `忽略 stream 的网关返回整包 message 也能解析`() {
+        val delta = OpenAiWire.parseFrame(
+            """{"choices":[{"message":{"content":"整包回答","tool_calls":[{"id":"c1","function":{"name":"get_time","arguments":"{}"}}]},"finish_reason":"stop"}]}"""
+        )!!
+        assertEquals("整包回答", delta.content)
+        assertEquals("stop", delta.finishReason)
+        assertEquals("get_time", delta.toolCalls.single().name)
+        assertEquals(0, delta.toolCalls.single().index)
+    }
+
     // ---------- URL ----------
 
     @Test

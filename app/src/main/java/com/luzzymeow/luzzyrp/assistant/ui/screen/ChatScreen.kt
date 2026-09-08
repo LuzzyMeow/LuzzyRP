@@ -1,6 +1,7 @@
 package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,11 +30,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.luzzymeow.luzzyrp.assistant.ui.chat.PendingApproval
+import com.luzzymeow.luzzyrp.assistant.ui.chat.PendingQuestion
+import com.luzzymeow.luzzyrp.assistant.ui.component.ApprovalDialogContent
 import com.luzzymeow.luzzyrp.assistant.ui.component.InputIsland
 import com.luzzymeow.luzzyrp.assistant.ui.component.MessageItem
 import com.luzzymeow.luzzyrp.assistant.ui.model.AssistantUi
 import com.luzzymeow.luzzyrp.assistant.ui.model.ConversationUi
 import com.luzzymeow.luzzyrp.assistant.ui.model.MessageUi
+import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyShapes
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 
 /**
@@ -46,9 +51,18 @@ fun ChatScreen(
     assistant: AssistantUi?,
     conversation: ConversationUi?,
     messages: List<MessageUi>,
+    streaming: Boolean = false,
+    pendingApproval: PendingApproval? = null,
+    pendingQuestion: PendingQuestion? = null,
+    error: String? = null,
     onBack: () -> Unit,
     onOpenDrawer: () -> Unit,
     onSend: (String) -> Unit,
+    onStop: () -> Unit = {},
+    onApprove: (Boolean) -> Unit = {},
+    onDeny: () -> Unit = {},
+    onAnswer: (String) -> Unit = {},
+    onDismissError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -95,6 +109,18 @@ fun ChatScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (streaming) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(colors.surfaceSoft)
+                        .clickable(onClick = onStop),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("■", style = MaterialTheme.typography.labelMedium, color = colors.error)
+                }
+            }
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -115,10 +141,76 @@ fun ChatScreen(
             items(messages, key = { it.id }) { message -> MessageItem(message) }
         }
 
+        // 错误条（可关闭）
+        if (error != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .clip(LuzzyShapes.card)
+                    .background(colors.error.copy(alpha = 0.08f))
+                    .clickable(onClick = onDismissError)
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.error,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("关闭", style = MaterialTheme.typography.labelMedium, color = colors.muted)
+            }
+            Spacer(Modifier.size(8.dp))
+        }
+
+        // ask_user 澄清卡（暂停循环，等用户选择）
+        if (pendingQuestion != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .clip(LuzzyShapes.card)
+                    .background(colors.surfaceCard)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(pendingQuestion.question, style = MaterialTheme.typography.bodyLarge, color = colors.ink)
+                pendingQuestion.options.forEach { option ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(LuzzyShapes.button)
+                            .background(colors.surfaceSoft)
+                            .clickable { onAnswer(option) }
+                            .padding(12.dp),
+                    ) {
+                        Text(option, style = MaterialTheme.typography.bodyMedium, color = colors.body)
+                    }
+                }
+            }
+            Spacer(Modifier.size(8.dp))
+        }
+
+        // 审批弹窗（写类工具逐调用审批）
+        if (pendingApproval != null) {
+            Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                ApprovalDialogContent(
+                    toolName = pendingApproval.toolName,
+                    argsJson = pendingApproval.argsJson,
+                    onAllowOnce = { onApprove(false) },
+                    onAllowSession = { onApprove(true) },
+                    onDeny = onDeny,
+                )
+            }
+            Spacer(Modifier.size(8.dp))
+        }
+
         Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             InputIsland(
                 value = input,
                 onValueChange = { input = it },
+                enabled = !streaming,
                 onSend = {
                     val text = input.trim()
                     if (text.isNotEmpty()) {

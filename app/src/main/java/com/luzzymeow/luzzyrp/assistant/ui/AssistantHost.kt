@@ -18,9 +18,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import com.luzzymeow.luzzyrp.assistant.runtime.AssistantRuntimeProvider
+import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantChatViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.component.SideDrawerContent
 import com.luzzymeow.luzzyrp.assistant.ui.model.SampleData
 import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
@@ -102,14 +109,43 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     onNewConversation = { route = AssistantRoute.Chat("new") },
                 )
 
-                is AssistantRoute.Chat -> ChatScreen(
-                    assistant = selectedAssistant,
-                    conversation = conversations.firstOrNull { it.id == current.conversationId },
-                    messages = SampleData.messages,
-                    onBack = { route = AssistantRoute.ChatList },
-                    onOpenDrawer = { drawerOpen = true },
-                    onSend = { /* P1：接入 AgentLoop */ },
-                )
+                is AssistantRoute.Chat -> {
+                    val context = LocalContext.current
+                    val runtime = remember(context) { AssistantRuntimeProvider.get(context) }
+                    val chatVm: AssistantChatViewModel = viewModel(
+                        key = "chat-${current.conversationId}",
+                        factory = viewModelFactory {
+                            initializer {
+                                AssistantChatViewModel(
+                                    runtime = runtime,
+                                    assistantId = selectedAssistant.id,
+                                    conversationId = current.conversationId,
+                                    assistantName = selectedAssistant.name,
+                                    systemPrompt = "",
+                                    workspacePath = "files/",
+                                )
+                            }
+                        },
+                    )
+                    val chatState by chatVm.state.collectAsStateWithLifecycle()
+                    ChatScreen(
+                        assistant = selectedAssistant,
+                        conversation = conversations.firstOrNull { it.id == current.conversationId },
+                        messages = chatState.messages,
+                        streaming = chatState.streaming,
+                        pendingApproval = chatState.pendingApproval,
+                        pendingQuestion = chatState.pendingQuestion,
+                        error = chatState.error,
+                        onBack = { route = AssistantRoute.ChatList },
+                        onOpenDrawer = { drawerOpen = true },
+                        onSend = chatVm::send,
+                        onStop = chatVm::stop,
+                        onApprove = chatVm::approve,
+                        onDeny = chatVm::deny,
+                        onAnswer = chatVm::answer,
+                        onDismissError = chatVm::dismissError,
+                    )
+                }
 
                 AssistantRoute.AssistantManager -> AssistantManagerScreen(
                     assistants = assistants,

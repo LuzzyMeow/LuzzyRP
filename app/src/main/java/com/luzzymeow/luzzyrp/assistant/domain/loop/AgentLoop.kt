@@ -150,7 +150,7 @@ class AgentLoop(
             }
             budget.check(completedTurns)?.let { stop ->
                 config.log("预算超限（$stop），结束本轮")
-                send(AgentEvent.TurnFinished(BudgetGuard.REASON_MAX_ROUNDS))
+                send(AgentEvent.TurnFinished(budget.reasonId(stop)))
                 return@channelFlow
             }
 
@@ -240,7 +240,7 @@ class AgentLoop(
             completedTurns++
             budget.check(completedTurns)?.let { stop ->
                 config.log("预算超限（$stop），结束本轮")
-                send(AgentEvent.TurnFinished(BudgetGuard.REASON_MAX_ROUNDS))
+                send(AgentEvent.TurnFinished(budget.reasonId(stop)))
                 return@channelFlow
             }
         }

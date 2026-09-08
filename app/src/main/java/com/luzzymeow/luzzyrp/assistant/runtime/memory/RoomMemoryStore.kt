@@ -5,7 +5,7 @@ import com.luzzymeow.luzzyrp.assistant.data.db.entity.MemoryEntity
 import com.luzzymeow.luzzyrp.assistant.domain.memory.EmbeddingClient
 import com.luzzymeow.luzzyrp.assistant.domain.memory.EmbeddingException
 import com.luzzymeow.luzzyrp.assistant.domain.memory.MemoryCandidate
-import com.luzzymeow.luzzyrp.assistant.domain.memory.MemoryMode
+import com.luzzymeow.luzzyrp.assistant.domain.prompt.MemoryMode
 import com.luzzymeow.luzzyrp.assistant.domain.memory.Retriever
 import com.luzzymeow.luzzyrp.assistant.domain.memory.VectorMath
 import com.luzzymeow.luzzyrp.assistant.domain.tool.MemoryHit

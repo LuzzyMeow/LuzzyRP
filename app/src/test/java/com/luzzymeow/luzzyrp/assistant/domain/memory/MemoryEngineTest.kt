@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.assistant.domain.memory
 
+import com.luzzymeow.luzzyrp.assistant.domain.prompt.MemoryMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -104,9 +105,9 @@ class MemoryEngineTest {
 
     @Test
     fun `未知模式归一为 full`() {
-        assertEquals(MemoryMode.FULL, MemoryMode.normalize(null))
-        assertEquals(MemoryMode.FULL, MemoryMode.normalize("nonsense"))
-        assertEquals(MemoryMode.EMBED, MemoryMode.normalize("embed"))
-        assertEquals(MemoryMode.HYBRID, MemoryMode.normalize("hybrid"))
+        assertEquals(MemoryMode.FULL, MemoryMode.fromId(null))
+        assertEquals(MemoryMode.FULL, MemoryMode.fromId("nonsense"))
+        assertEquals(MemoryMode.EMBED, MemoryMode.fromId("embed"))
+        assertEquals(MemoryMode.HYBRID, MemoryMode.fromId("hybrid"))
     }
 }

@@ -6,11 +6,12 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>LuzzyRP</title>
+<!-- [LuzzyRP patch 001] 品牌标题（上游: <title>RP Hub</title>） -->
     <!-- GitHub Pages rebuild marker for CSS-only animation update. -->
     <!-- <link rel="icon" href="logo.jpg" type="image/jpeg"> -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- [LuzzyRP patch 006] Lora 本地字体（上游: Google Fonts CDN 引用） -->
     <link rel="stylesheet" href="assets/css/local-fonts.css">
+<!-- [LuzzyRP patch 004] CDN 本地化 → vendor/（上游: Tailwind/Vue/marked 等 CDN script 引用） -->
     <script src="vendor/tailwind.js"></script>
     <script src="vendor/vue.global.prod.js"></script>
     <script src="vendor/marked.min.js"></script>
@@ -157,22 +158,19 @@
             </path>
         </symbol>
     </svg>
-    <div class="entry-transition" aria-hidden="true">
-        <div class="entry-transition-brand">
-            <div class="entry-transition-book">
-                <svg viewBox="0 0 64 48" fill="none" aria-hidden="true">
-                    <path d="M4 8q14-6 28 0 14-6 28 0v34q-14-6-28 0-14-6-28 0Z" fill="#f6f9fe" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-                    <path d="M32 8v34" stroke="currentColor" stroke-width="1.5" />
-                    <path d="M10 16q8-3 16 0m-16 7q8-3 16 0m-16 7q8-3 12-1m16-13q8-3 16 0m-16 7q8-3 16 0m-16 7q8-3 12-1" stroke="currentColor" stroke-opacity=".3" stroke-linecap="round" />
-                </svg>
-                <svg class="entry-book-page" viewBox="0 0 28 48" fill="none" aria-hidden="true">
-                    <path d="M0 8q14-6 28 0v34q-14-6-28 0Z" fill="#f6f9fe" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-                    <path d="M6 16q8-3 16 0m-16 7q8-3 16 0m-16 7q8-3 12-1" stroke="currentColor" stroke-opacity=".3" stroke-linecap="round" />
-                </svg>
-            </div>
-            <div class="entry-transition-logo">
-                <span class="entry-logo-rp">RP</span>
-                <span class="entry-logo-hub">HUB</span>
+    <!-- [LuzzyRP patch 027] LuzzyRP 自创开屏「开卷 · 门扉」（v1.2.3，需求 1 v3 修订，用户决策）：
+         v3 改为门扉交互——构图淡入 → 加载进度条自左向右 → 「沉溺」按钮浮现并等待点击 →
+         点击触发 眩晕+泡泡+中心放大 转场进入主界面；原掀封叙事移除（2026-09-05 用户决策）。
+         样式见 ext/luzzy-theme.css（splash v3 段）+ 行为见 ext/luzzy-splash.js（patch 005 挂载）；
+         品牌色全部 DESIGN.md token。[LuzzyRP patch 003] 入口字标由本开屏承载，003 已退役 -->
+    <div class="luzzy-splash" aria-hidden="true">
+        <div class="luzzy-splash-page"></div>
+        <div class="luzzy-splash-stack">
+            <div class="luzzy-splash-center">
+                <div class="luzzy-splash-glow"><i></i></div>
+                <div class="luzzy-splash-seal"><img src="../ext/luzzy-logo.png" alt="" onerror="this.style.display='none'"></div>
+                <div class="luzzy-splash-wordmark">Luzzy<span class="luzzy-splash-hlwrap">RP<i class="luzzy-splash-hl"></i></span></div>
+                <div class="luzzy-splash-slogan">每次对话，都像一本有你的小说<i class="luzzy-splash-inkdot"></i></div>
             </div>
             <div class="lsp-progress" role="progressbar" aria-label="加载中"><i></i></div>
             <button type="button" class="lsp-dive-btn">沉&ensp;溺</button>

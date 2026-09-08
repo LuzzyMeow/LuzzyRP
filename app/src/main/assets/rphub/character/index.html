@@ -6,13 +6,13 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>角色卡工坊</title>
-
-    <link rel="stylesheet" href="../assets/css/local-fonts.css">
-<!-- [LuzzyRP patch 007] CDN 本地化 → vendor/ -->
-    <script src="../vendor/tailwind.js"></script>
-    <link href="../vendor/daisyui-full.min.css" rel="stylesheet" type="text/css" />
-    <script src="../vendor/vue.global.prod.js"></script>
-    <script src="../vendor/localforage.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.7.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <script src="../assets/js/built-in-content.js"></script>
     <script src="../assets/js/core-utils.js"></script>
     <script src="../assets/js/api-utils.js"></script>
@@ -194,6 +194,37 @@
             -webkit-backdrop-filter: blur(4px) !important;
         }
 
+        @media (min-width: 768px) {
+            .workshop-layout {
+                grid-template-columns: 0 minmax(0, 1fr);
+                transition: grid-template-columns 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+            }
+            .workshop-layout.is-sidebar-open { grid-template-columns: 20rem minmax(0, 1fr); }
+            .workshop-layout > .drawer-content { min-width: 0; }
+            .workshop-layout > .drawer-side {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                min-width: 0;
+                min-height: 0;
+                visibility: visible;
+                overflow: hidden;
+            }
+            .workshop-layout > .drawer-side > .drawer-overlay { display: none; }
+            .workshop-layout > .drawer-side > .workshop-sidebar {
+                height: 100%;
+                min-height: 0;
+                border-radius: 0;
+                box-shadow: none;
+                transform: none;
+                transition: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .workshop-layout { transition: none; }
+        }
+
         @supports (-webkit-touch-callout: none) {
             @media (hover: none) and (pointer: coarse) {
                 html,
@@ -323,35 +354,24 @@
         <!-- Header -->
         <header
             class="navbar bg-base-100/80 backdrop-blur-md shadow-sm z-20 px-3 md:px-4 shrink-0 min-h-14 h-14 md:h-16 border-b border-base-200 sticky top-0">
-            <div class="flex-none md:hidden">
-                <label for="my-drawer" class="btn btn-square btn-ghost btn-md h-11 w-11">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                        class="inline-block w-6 h-6 stroke-current">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </label>
-            </div>
-            <div class="flex-1 flex items-center justify-center md:justify-start md:pl-0">
-                <!-- PC端 Logo (占据侧边栏宽度以对齐) -->
+            <div class="flex-1 min-w-0 flex items-center md:pl-0">
                 <div
-                    class="hidden md:flex w-[18.5rem] shrink-0 items-center gap-3 px-1 border-r border-base-200/50 mr-6">
-                    <a class="btn btn-ghost text-xl gap-3 px-2 hover:bg-transparent min-h-0 h-11">
-                        <div
-                            class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold shadow-md">
-                            AI
-                        </div>
-                        <span class="font-bold text-base-content tracking-tight">角色卡工坊</span>
-                    </a>
-                </div>
-
-                <div
-                    class="flex items-center gap-2 md:gap-4 shrink-0 transition-all scale-95 md:scale-100 origin-center md:origin-left">
+                    class="flex flex-1 min-w-0 max-w-[28rem] items-center gap-2 md:gap-3">
+                    <button type="button" @click="isSidebarOpen = !isSidebarOpen"
+                        class="btn btn-square btn-ghost btn-md h-11 w-11 shrink-0"
+                        :aria-expanded="isSidebarOpen" aria-controls="workshop-sidebar"
+                        :aria-label="isSidebarOpen ? '折叠角色列表' : '展开角色列表'"
+                        :title="isSidebarOpen ? '折叠角色列表' : '展开角色列表'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="w-6 h-6 stroke-current" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
                     <!-- 模型切换下拉栏 -->
-                    <!-- 模型切换下拉栏 -->
-                    <details class="dropdown dropdown-end md:dropdown-start">
+                    <details class="dropdown dropdown-end md:dropdown-start flex-1 min-w-0">
                         <summary
-                            class="relative bg-base-200/50 hover:bg-base-200 py-1 px-4 rounded-xl flex items-center justify-between w-64 md:w-[24rem] h-[2.35rem] border border-base-200/60 backdrop-blur-md shadow-inner transition-colors list-none cursor-pointer focus:outline-none">
+                            class="relative bg-base-200/50 hover:bg-base-200 py-1 px-4 rounded-xl flex items-center justify-between w-full h-[2.35rem] border border-base-200/60 backdrop-blur-md shadow-inner transition-colors list-none cursor-pointer focus:outline-none">
                             <span
                                 class="text-xs md:text-sm font-mono font-semibold truncate text-base-content w-full text-left">{{
                                 options.customModels[activeModelType] || '未设置模型' }}</span>
@@ -471,6 +491,45 @@
             </div>
             <form method="dialog" class="modal-backdrop">
                 <button @click="confirmModal.show = false">关闭</button>
+            </form>
+        </dialog>
+
+        <!-- Character Export Modal -->
+        <dialog class="modal modal-bottom sm:modal-middle" :class="{ 'modal-open': showCardExport }"
+            aria-labelledby="card-export-title" @keydown.esc="showCardExport = false">
+            <div class="modal-box bg-base-100 max-w-none sm:max-w-md">
+                <h3 id="card-export-title" class="font-bold text-lg">导出角色卡</h3>
+                <p class="text-sm text-base-content/50 mt-2">选择导出格式，两种格式都包含角色卡数据。</p>
+                <div class="grid grid-cols-2 gap-3 mt-6">
+                    <button type="button" @click="exportCharacterCard('json')"
+                        class="btn btn-outline border-base-300 h-auto py-5 flex-col gap-2 hover:border-primary hover:bg-primary/10 hover:text-base-content">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                            <path d="M14 2v6h6" />
+                        </svg>
+                        <span class="text-base">JSON</span>
+                        <span class="text-xs font-normal opacity-60">角色数据文件</span>
+                    </button>
+                    <button type="button" @click="exportCharacterCard('png')" :disabled="!currentCharacter.avatar"
+                        class="btn btn-outline border-base-300 h-auto py-5 flex-col gap-2 hover:border-primary hover:bg-primary/10 hover:text-base-content">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect width="18" height="18" x="3" y="3" rx="2" />
+                            <circle cx="9" cy="9" r="2" />
+                            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                        <span class="text-base">PNG</span>
+                        <span class="text-xs font-normal opacity-60">封面图片 + 角色数据</span>
+                    </button>
+                </div>
+                <p v-if="!currentCharacter.avatar" class="text-xs text-base-content/50 mt-3">导出 PNG 前，请先上传或生成头像。</p>
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost" @click="showCardExport = false">取消</button>
+                </div>
+            </div>
+            <form method="dialog" class="modal-backdrop">
+                <button @click="showCardExport = false">关闭</button>
             </form>
         </dialog>
 
@@ -773,8 +832,8 @@
             </form>
         </dialog>
 
-        <div class="drawer md:drawer-open workshop-layout flex-1 overflow-hidden">
-            <input id="my-drawer" type="checkbox" class="drawer-toggle" />
+        <div class="drawer workshop-layout flex-1 overflow-hidden" :class="{ 'is-sidebar-open': isSidebarOpen }">
+            <input id="my-drawer" type="checkbox" class="drawer-toggle" v-model="isSidebarOpen" />
 
             <div class="drawer-content workshop-content flex flex-col h-full overflow-hidden relative bg-base-100">
                 <!-- Main Content Area -->
@@ -873,32 +932,24 @@
                                             <h2
                                                 class="card-title text-xl md:text-2xl xl:text-3xl font-bold text-base-content/90 break-words text-center w-full justify-center lg:py-2">
                                                 {{ currentCharacter.name || '未命名角色' }}</h2>
-                                            <div class="flex gap-2 w-full flex-wrap xl:flex-nowrap">
-                                                <button @click="exportJSON"
-                                                    class="btn btn-sm xl:btn-md btn-outline flex-1 border-base-300 hover:border-base-content hover:bg-base-content hover:text-base-100 xl:text-base min-w-[80px]">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                        class="xl:w-5 xl:h-5">
-                                                        <path
-                                                            d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                                                        <polyline points="14 2 14 8 20 8" />
-                                                    </svg>
-                                                    JSON
-                                                </button>
-                                                <button @click="exportPNG"
-                                                    class="btn btn-sm xl:btn-md btn-primary flex-1 text-white shadow-primary/30 shadow-lg xl:text-base min-w-[80px]">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                        class="xl:w-5 xl:h-5">
-                                                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                                                        <circle cx="9" cy="9" r="2" />
-                                                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                                                    </svg>
-                                                    PNG
-                                                </button>
-                                            </div>
+                                            <button type="button" @click="showCardExport = true"
+                                                class="btn btn-outline w-full h-12 min-h-12 border-base-content/20 hover:border-base-content hover:bg-base-content hover:text-base-100">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M12 3v12 m-5-5 5 5 5-5" />
+                                                </svg>
+                                                导出角色卡
+                                            </button>
+                                            <button v-if="isEmbedded" type="button" @click="importAndPlay"
+                                                :disabled="isImporting || isGenerating || isAvatarLoading || !currentCharacter.name.trim()"
+                                                class="btn btn-primary w-full h-12 min-h-12 text-white shadow-lg shadow-primary/20 mt-2"
+                                                :aria-busy="isImporting">
+                                                <span v-if="isImporting" class="loading loading-spinner loading-sm"></span>
+                                                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="m9 5 11 7-11 7V5Z M4 5v14" />
+                                                </svg>
+                                                {{ isImporting ? '正在导入并进入对话…' : '一键导入并游玩' }}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1283,7 +1334,7 @@
 
                 <!-- Bottom Input Panel -->
                 <div
-                    class="workshop-input-panel bg-base-100/95 backdrop-blur-lg border-t border-base-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-24 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-30 shrink-0">
+                    class="workshop-input-panel bg-base-100/95 backdrop-blur-lg border-t border-base-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-30 shrink-0">
                     <div class="max-w-7xl mx-auto">
                         <!-- Progress Bar -->
                         <transition name="fade">
@@ -1356,10 +1407,10 @@
             </div>
 
             <!-- Sidebar (Drawer) -->
-            <div class="drawer-side z-50">
+            <div id="workshop-sidebar" class="drawer-side z-50" :inert="!isSidebarOpen" :aria-hidden="!isSidebarOpen">
                 <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
                 <div
-                    class="menu p-4 w-80 max-w-[20rem] h-[100dvh] min-h-full bg-base-100/80 backdrop-blur-xl text-base-content border-r border-white/10 rounded-r-3xl flex flex-col shadow-2xl overflow-hidden shrink-0">
+                    class="workshop-sidebar menu p-4 w-80 max-w-[20rem] h-[100dvh] min-h-full bg-base-100/80 backdrop-blur-xl text-base-content border-r border-base-200 rounded-r-3xl flex flex-col shadow-2xl overflow-hidden shrink-0">
                     <div class="flex items-center justify-between mb-6 px-4 pt-2 shrink-0 gap-2">
                         <div class="font-bold text-xl flex items-center gap-2 min-w-0 flex-1">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
@@ -1443,7 +1494,7 @@
 
 
                     <div class="divider my-2 opacity-50"></div>
-                    <div class="px-4 pb-2 lg:pb-24 mt-auto">
+                    <div class="px-4 pb-2 mt-auto">
                         <button @click="requestDeleteAllCharacters"
                             class="btn btn-ghost text-error/70 hover:text-error hover:bg-error/10 btn-sm w-full gap-2 group transition-all">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -1585,6 +1636,8 @@
 
                 // State
                 const showSettings = ref(false);
+                const isSidebarOpen = ref(false);
+                const showCardExport = ref(false);
                 const showPreview = ref(false);
                 const showDiffConfirmation = ref(false);
                 const showDiffInputModal = ref(false);
@@ -1602,6 +1655,8 @@
                 const mobilePreviewMode = ref('modified');
                 const activeTab = ref('basic');
                 const isGenerating = ref(false);
+                const isEmbedded = window.parent !== window;
+                const isImporting = ref(false);
                 const prompt = ref('');
                 const promptInput = ref(null);
                 const abortController = ref(null);
@@ -1713,6 +1768,12 @@
                 // Main Settings Sync Listener
                 const setupSyncListener = () => {
                     window.addEventListener('message', (event) => {
+                        if (event.source !== window.parent || !event.data) return;
+                        if (event.data.type === 'WORKSHOP_IMPORT_RESULT') {
+                            isImporting.value = false;
+                            if (event.data.error) showToast(event.data.error, 'error');
+                            return;
+                        }
                         const { type, settings: mainSettings } = event.data;
                         if (type === 'SYNC_SETTINGS' && mainSettings) {
                             applyFontFamily(mainSettings.fontFamily);
@@ -1790,7 +1851,7 @@
                     model: '',
                     stream: true
                 });
-                const requestWorkshopCompletion = async (messages, { stream, temperature, onContent }) => {
+                const requestWorkshopCompletion = async (messages, { stream, temperature, onContent, replyInTool = false }) => {
                     if (!String(api.url || '').trim()) throw new Error('请先填写当前 API 预设的地址');
                     if (!String(api.key || '').trim()) throw new Error('请先填写当前 API 预设的 Key');
                     if (!String(api.model || '').trim()) throw new Error('请先在主界面选择模型');
@@ -1803,7 +1864,7 @@
                     };
                     const result = await window.RPHubApiClient.requestChatCompletion({
                         url: window.RPHubApiUtils.buildApiEndpoint(api.url, 'chat/completions'),
-                        apiKey: api.key, model: api.model, messages, stream, temperature,
+                        apiKey: api.key, model: api.model, messages, stream, temperature, replyInTool,
                         signal: abortController.value.signal, onDelta: display
                     });
                     if (!result.isStream) display(result);
@@ -2041,7 +2102,7 @@
                     characters.value.push(importedCharacter);
                     currentCharacterIndex.value = characters.value.length - 1;
                     activeTab.value = 'basic';
-                    document.getElementById('my-drawer').checked = false;
+                    isSidebarOpen.value = false;
                     showToast(`已导入角色卡：${importedCharacter.name || '未命名角色'}`, 'success');
                 };
 
@@ -2279,7 +2340,7 @@
                         textContent = fullText.replace(htmlMatch[0], '').trim();
                     } else {
                         // 如果没有检测到 HTML 块，则提供一个基础的 HTML 结构，以便注入样式和脚本并显示正文
-                        uiHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><script src="../vendor/tailwind.js"></` + `script></head><body class="bg-base-100 p-4"></body></html>`;
+                        uiHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><script src="https://cdn.tailwindcss.com"></` + `script></head><body class="bg-base-100 p-4"></body></html>`;
                         textContent = fullText;
                     }
 
@@ -2385,14 +2446,12 @@
                 const createNewCharacter = () => {
                     characters.value.push(createEmptyCharacter());
                     currentCharacterIndex.value = characters.value.length - 1;
-                    // Close drawer on mobile
-                    document.getElementById('my-drawer').checked = false;
+                    isSidebarOpen.value = false;
                 };
 
                 const switchCharacter = (index) => {
                     currentCharacterIndex.value = index;
-                    // Close drawer on mobile
-                    document.getElementById('my-drawer').checked = false;
+                    isSidebarOpen.value = false;
                 };
 
                 const requestDeleteCharacter = (index) => {
@@ -3538,24 +3597,24 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
 
                     const systemPrompt = singlePlayerSystemPrompt;
 
-                    const originalStream = api.stream;
-
                     const performGeneration = async (isRetry = false) => {
                         let fullContent = '';
 
                         if (isRetry) {
                             generatedSections.clear();
                             generationProgress.value = 0;
-                            generationStatus.value = '非流式输出重试中(请耐心等待)...';
+                            generationStatus.value = '兼容模式重试中，请耐心等待…';
                         }
 
                         try {
                             if (!isRetry) generationStatus.value = '正在等待API响应...';
                             await requestWorkshopCompletion([
-                                { role: 'system', content: systemPrompt },
+                                { role: 'system', content: systemPrompt + (isRetry
+                                    ? `\n\n${window.RPHubBuiltinContent.prompts.replyToolInstruction}\n将完整角色卡放入工具的 content 字段，保留上述所有章节标题和 JSON 格式。`
+                                    : '') },
                                 { role: 'user', content: `### 用户的描述\n${prompt.value}\n\n请开始生成。` }
                             ], {
-                                stream: api.stream, temperature: 1,
+                                stream: api.stream, temperature: 1, replyInTool: isRetry,
                                 onContent: content => { fullContent = content; parseBuffer(content); }
                             });
 
@@ -3572,13 +3631,7 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
 
                             if ((!hasAvatarPrompt || !hasValidRegex) && !isRetry) {
                                 console.warn(`检测到内容截断: Avatar=${hasAvatarPrompt}, ValidRegex=${hasValidRegex}, Extra=${options.generateExtra}`);
-                                showToast('检测到内容截断，自动切换非流式重试...', 'warning');
-                                api.stream = false;
-
-                                // Small delay
-                                await new Promise(resolve => setTimeout(resolve, 500));
-
-                                // Retry
+                                showToast('检测到内容截断，正在进行兼容模式重试…', 'warning');
                                 await performGeneration(true);
                                 return;
                             }
@@ -3611,9 +3664,6 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                             generationStatus.value = '生成失败';
                         }
                     } finally {
-                        // Restore original stream setting
-                        api.stream = originalStream;
-
                         // Delay hiding the progress bar slightly to show 100%
                         setTimeout(() => {
                             isGenerating.value = false;
@@ -3848,6 +3898,25 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     });
                 };
 
+                const importAndPlay = () => {
+                    if (!isEmbedded || isImporting.value || isGenerating.value || isAvatarLoading.value) return;
+                    if (!currentCharacter.value.name.trim()) {
+                        showToast('请先填写角色卡名称', 'error');
+                        return;
+                    }
+                    try {
+                        isImporting.value = true;
+                        window.parent.postMessage({
+                            type: 'WORKSHOP_IMPORT_AND_PLAY',
+                            card: JSON.parse(JSON.stringify(getCardData())),
+                            avatar: currentCharacter.value.avatar || null
+                        }, '*');
+                    } catch (error) {
+                        isImporting.value = false;
+                        showToast('无法发送角色卡：' + error.message, 'error');
+                    }
+                };
+
                 // 文件名净化函数
 
                 const sanitizeFilename = (name, defaultName = 'character') => {
@@ -3893,6 +3962,15 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     const blob = new Blob([newPng], { type: 'image/png' });
                     const filename = sanitizeFilename(currentCharacter.value.name) + '.png';
                     downloadFile(blob, filename);
+                };
+
+                const exportCharacterCard = async (format) => {
+                    try {
+                        await (format === 'png' ? exportPNG() : exportJSON());
+                        showCardExport.value = false;
+                    } catch (error) {
+                        showToast('导出失败：' + error.message, 'error');
+                    }
                 };
 
                 const getSelectiveExportConfig = (type) => {
@@ -3967,6 +4045,8 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
 
                 return {
                     showSettings,
+                    isSidebarOpen,
+                    showCardExport,
                     showPreview,
                     previewHTML,
                     originalPreviewHTML,
@@ -3974,6 +4054,9 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     hasPreviewContent,
                     activeTab,
                     isGenerating,
+                    isEmbedded,
+                    isImporting,
+                    importAndPlay,
                     prompt,
                     api,
                     options,
@@ -4006,8 +4089,7 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     generateDiff,
                     confirmGenerateDiff,
                     stopGeneration,
-                    exportJSON,
-                    exportPNG,
+                    exportCharacterCard,
                     exportPicker,
                     exportSelectedCount,
                     openSelectiveExport,

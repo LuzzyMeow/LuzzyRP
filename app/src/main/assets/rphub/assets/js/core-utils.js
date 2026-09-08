@@ -68,12 +68,8 @@ const parseCot = (text) => {
     return result;
 };
 
-// 后一个 image### 不能作为前一个标签的结尾；抗截断时必须显式闭合。
-const getImageTagRegex = (requireClosing = false) => new RegExp(
-    'image###((?:(?!image###|###)' + (requireClosing ? '[\\s\\S]' : '[^\\r\\n]') + ')*?)'
-        + (requireClosing ? '###' : '(?:###|(?=\\r?\\n)|$)'),
-    'gi'
-);
+// 后一个 image### 不能作为前一个标签的结尾。
+const getImageTagRegex = () => /image###((?:(?!image###|###)[^\r\n])*?)(?:###|(?=\r?\n)|$)/gi;
 
 const compressImage = (source, maxWidth = 300, quality = 0.7) => new Promise((resolve) => {
     const image = new Image();
@@ -955,13 +951,9 @@ window.RPHubUtils = {
         systemRegexNames: Object.freeze(['NAI画图正则']),
         systemWorldInfoNames: Object.freeze(['自动生图']),
         imageGenBaseUrl: 'https://nai.sta1n.cn',
-        // [LuzzyRP patch 029] 内置供应商精简（v1.3.0 需求 2，用户拍板 D3）：仅保留 DeepSeek 且开放编辑
-        // （editable）。原 sta1n/openrouter/siliconflow 由 app.js migrateRemovedBuiltinProviders 启动时
-        // 无损迁移为等价用户自定义商（URL/Key/模型槽位引用保留）；默认商随列表切换为 deepseek。
-        // 注：patch 023 的 STA1N favicon 修复随条目移除退位（novel 兜底副本同步精简）。
-        defaultApiProviderId: 'deepseek',
+        defaultApiProviderId: 'sta1n',
         defaultApiConfig: Object.freeze({
-            apiUrl: 'https://api.deepseek.com/v1',
+            apiUrl: 'https://cdn.sta1n.cn/v1',
             apiKey: '',
             model: '',
             qualityModel: '',
@@ -970,11 +962,28 @@ window.RPHubUtils = {
         }),
         apiProviderOptions: Object.freeze([
             Object.freeze({
+                id: 'sta1n',
+                name: 'STA1N API',
+                apiUrl: 'https://cdn.sta1n.cn/v1',
+                icon: 'https://picui.ogmua.cn/s1/2026/08/21/6a87a751bf871.webp'
+            }),
+            Object.freeze({
                 id: 'deepseek',
                 name: 'DeepSeek',
                 apiUrl: 'https://api.deepseek.com/v1',
-                icon: 'https://www.deepseek.com/favicon.ico',
-                editable: true
+                icon: 'https://www.deepseek.com/favicon.ico'
+            }),
+            Object.freeze({
+                id: 'openrouter',
+                name: 'OpenRouter',
+                apiUrl: 'https://openrouter.ai/api/v1',
+                icon: 'https://openrouter.ai/favicon.ico'
+            }),
+            Object.freeze({
+                id: 'siliconflow',
+                name: 'SiliconFlow',
+                apiUrl: 'https://api.siliconflow.cn/v1',
+                icon: 'https://siliconflow.cn/favicon.ico'
             })
         ]),
         activeTools: window.RPHubBuiltinContent.activeTools,
@@ -987,7 +996,6 @@ window.RPHubUtils = {
             ]),
             presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
             fontFamilies: Object.freeze([
-            // [LuzzyRP patch 009] 字体选项：内置改「经典」系 + 新增 luzzy 默认（上游: modern/serif/system）
                 { value: 'luzzy', label: 'Luzzy 默认' },
                 { value: 'modern', label: '经典（原版）' },
                 { value: 'serif', label: '经典衬线（Lora）' },

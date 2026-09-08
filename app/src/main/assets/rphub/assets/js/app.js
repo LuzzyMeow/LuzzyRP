@@ -12,6 +12,7 @@ const {
     CharacterExportModal,
     CharacterEditorModal,
     CharacterCard,
+    CharacterDeck,
     ContextViewerModal,
     EmbeddedViewContent,
     GenerationTimer,
@@ -38,8 +39,6 @@ const {
 const {
     compressImage,
     defaultAvatar,
-    // [LuzzyRP patch 026/015] extractApiErrorMessage 为向量检索/嵌入错误链依赖（上游 1.9.1 移出解构，需保留）
-    extractApiErrorMessage,
     generateUUID,
     getApiUsagePayload,
     getImageTagRegex,
@@ -78,7 +77,6 @@ const {
     buildContextViewerState,
     buildConversationTurnSnapshot: createConversationTurnSnapshot,
     escapeXmlAttribute,
-    escapeXmlText,
     getConversationTurnAtIndexFromSnapshot,
     getPostprocessedChatMessages: postprocessChatHistory,
     indentXmlText,
@@ -187,6 +185,7 @@ const app = createApp({
         CharacterExportModal,
         CharacterEditorModal,
         CharacterCard,
+        CharacterDeck,
         CustomSelect: window.RPHubCustomSelect,
         ContextViewerModal,
         EmbeddedViewContent,
@@ -225,13 +224,6 @@ const app = createApp({
             uiTemplatePlacements: uiTemplatePlacementOptions,
             worldInfoPositions: worldInfoPositionOptions
         } = uiOptions;
-        // [LuzzyRP patch 011] 模式选项常量（上游无此块）
-        // [LuzzyRP patch 028] 主题单轨化：themeOptions（classic/luzzy 选择）随主题切换功能移除，
-        // settings.theme 恒为 'luzzy'（见加载迁移块）
-        const themeModeOptions = Object.freeze([
-            { value: 'light', label: '亮色' },
-            { value: 'dark', label: '暗色' }
-        ]);
         const ACTIVE_TOOL_KEYWORD_TYPE = activeToolConfig.types.keyword;
         const ACTIVE_TOOL_WEB_TYPE = activeToolConfig.types.web;
         const ACTIVE_TOOL_MIN_RESULT_COUNT = activeToolConfig.resultCount.min;
@@ -314,8 +306,8 @@ const app = createApp({
         const showActiveToolEditor = ref(false);
         const showUserSetupModal = ref(false);
         const showAutoImageGenModal = ref(false);
-        const pendingActiveToolContext = ref('');
-        const activeToolResultContexts = ref([]);
+        // 仅保存本轮原生 assistant/tool 消息，不写入用户消息或长期记忆。
+        const activeToolMessages = [];
         const tempUserSetup = reactive({ name: '', description: '', person: 'second' });
         const characterDisplayLimit = ref(8);
         const hasOpenedCharacterManager = ref(false);
@@ -389,7 +381,7 @@ const app = createApp({
         const toasts = ref([]);
         let toastIdSeed = 0;
         const chatContainer = ref(null);
-        // [LuzzyRP patch 022] 全屏状态 ref 已移除（聊天页全屏功能整体下线，v1.2.3）
+        const isChatFullscreen = ref(false);
         const isMobileKeyboardOpen = ref(false);
         const inputBox = ref(null);
         const messageElements = ref([]);
@@ -614,8 +606,6 @@ const app = createApp({
             apiProviderKeys: {},
             customApiUrl: '',
             customApiUrl2: '',
-            apiProviders: [],
-            apiProvidersMigrated: false,
             model: DEFAULT_API_CONFIG.qualityModel,
             contextSize: MAX_CONTEXT_SIZE,
             temperature: 1.0,
@@ -628,7 +618,6 @@ const app = createApp({
             immersiveMode: false,
             showLatestUsageBar: false,
             preventTruncation: false,
-            truncationMaxAttempts: 5,
             styleFilterEnabled: true,
             uiTemplateEnabled: false,
             uiTemplateModel: '',
@@ -637,7 +626,6 @@ const app = createApp({
             uiTemplateMainModelAnalysis: true,
             theme: 'luzzy',
             themeMode: 'light',
-        // [LuzzyRP patch 010/011] 默认字体 luzzy + theme/themeMode 默认值（上游: fontFamily modern，无 theme 字段）
             fontFamily: 'luzzy',
             fontFamilyVersion: 4,
             fontSize: window.innerWidth > 768 ? 16 : 14,
@@ -645,8 +633,6 @@ const app = createApp({
             imageStyle: 'vertical',
             customImageArtists: '',
             imageModel: 'nai-diffusion-4-5-full',
-            imageModelSource: 'sta1n',   // [LuzzyRP patch 015] 'sta1n'（官方 NAI 代理）| 'custom'（供应商 image 模型，存于 customImageModelRef）
-            customImageModelRef: '',     // 复合引用 providerId::bareId
             imageSize: '竖图',
             imageGenCount: 2,
             qualityModel: DEFAULT_API_CONFIG.qualityModel,
@@ -660,21 +646,6 @@ const app = createApp({
             : imageStyleOptions);
         const getImageModelName = (value) => (imageModelOptions.find(option => option.value === value)?.label
             || imageModelOptions[0].label).replace(/（[^）]*）$/, '');
-        // [LuzzyRP patch 015] 自定义生图候选：全部供应商中 type==='image' 的模型（openai 协议限定）
-        const customImageModelOptions = computed(() => {
-            const options = [];
-            allApiProviders.value.forEach(provider => {
-                if (normalizeProviderProtocol(provider.protocol) !== 'openai') return;
-                (provider.models || []).filter(m => m.type === 'image' && m.id).forEach(m => {
-                    options.push({
-                        value: `${provider.id}::${m.id}`,
-                        label: `[${provider.name}] ${m.label || m.id}`
-                    });
-                });
-            });
-            return options;
-        });
-        // [LuzzyRP patch 010] 字体白名单含 luzzy（上游: modern/serif/system）
         const normalizeFontFamily = (value) => ['luzzy', 'modern', 'serif', 'system'].includes(value) ? value : 'modern';
         const normalizeFontSize = (value) => {
             const size = Number(value);
@@ -684,7 +655,6 @@ const app = createApp({
             document.documentElement.dataset.appFont = normalizeFontFamily(value);
         };
         watch(() => settings.fontFamily, applyFontFamily, { immediate: true });
-        // [LuzzyRP patch 011] 主题应用与系统栏联动（上游无此块）
         const applyTheme = (value) => {
             document.documentElement.dataset.theme = value === 'classic' ? 'classic' : 'luzzy';
         };
@@ -696,34 +666,6 @@ const app = createApp({
         };
         watch(() => settings.theme, applyTheme, { immediate: true });
         watch(() => settings.themeMode, applyThemeMode, { immediate: true });
-
-        // [LuzzyRP patch 013] 外观面板 ref 已随 v1.2.0 patch 014 改为独立视图（showAppearancePanel 移除）
-
-        // [LuzzyRP patch 014] 关于页数据：版本标签 + 应用内 CHANGELOG 渲染
-        // [LuzzyRP patch 030] upstreamVersionLabel 整链移除（v1.3.0 需求 3）：关于页固定写
-        // 「基于 RP-Hub 二次开发」，不随上游版本漂移——杜绝同步期忘记改基线串的隐患。
-        const appVersionLabel = ref('');
-        const changelogHtml = ref('');
-        const readBridgeVersion = async () => {
-            try {
-                const bridge = window.Luzzy;
-                if (bridge && typeof bridge.getVersion === 'function') {
-                    const info = await bridge.getVersion();
-                    appVersionLabel.value = info && info.versionName ? `v${info.versionName}` : '';
-                }
-            } catch (e) { /* 桥不可用时静默（降级为空标签） */ }
-            if (!appVersionLabel.value) appVersionLabel.value = 'v1.2.1';
-        };
-        const openGitHubRepo = () => {
-            const url = 'https://github.com/LuzzyMeow/LuzzyRP';
-            try {
-                if (window.Luzzy && typeof window.Luzzy.openUrl === 'function') {
-                    window.Luzzy.openUrl(url);
-                } else {
-                    window.open(url, '_blank');  // 桥不可用时的兜底（WebView 内可能无动作）
-                }
-            } catch (e) { /* 忽略 */ }
-        };
 
         const showApiProviderSelector = ref(false);
         const selectedApiProviderId = ref(DEFAULT_API_PROVIDER_ID);
@@ -743,168 +685,10 @@ const app = createApp({
         const isCustomApiProviderId = (id) => customApiProviderOptions.some(provider => provider.id === id);
         const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
         const normalizeApiProviderUrl = (url) => String(url || '').replace(/\/+$/, '').toLowerCase();
-        // [LuzzyRP patch 012] 多模型商混用：用户自定义供应商（任意数量）+ 统一注册表 + 模型引用解析层
-        // [LuzzyRP patch 015] 供应商条目扩展：protocol（openai|anthropic|gemini）+ models（手动模型条目）+ extraBody（供应商级请求体）
-        let customProviderIdSeed = 0;
-        const createUserApiProviderId = () => `p_${Date.now().toString(36)}${(customProviderIdSeed++).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
-        const API_PROVIDER_PROTOCOLS = ['openai', 'anthropic', 'gemini'];
-        const normalizeProviderProtocol = (value) => API_PROVIDER_PROTOCOLS.includes(value) ? value : 'openai';
-        // 模型条目归一：{id 请求id, label 显示id, contextLength, maxOutput, inputModalities[], type, extraBody}
-        const normalizeProviderModelEntry = (entry) => {
-            const modalities = Array.isArray(entry?.inputModalities)
-                ? entry.inputModalities.map(m => String(m)).filter(m => ['text', 'image', 'video'].includes(m)) : [];
-            if (!modalities.includes('text')) modalities.unshift('text');
-            const type = ['text', 'image', 'embedding'].includes(entry?.type) ? entry.type : 'text';
-            const extraBody = (entry?.extraBody && typeof entry.extraBody === 'object' && !Array.isArray(entry.extraBody))
-                ? Object.fromEntries(Object.entries(entry.extraBody).map(([k, v]) => [String(k), v])) : {};
-            return {
-                id: String(entry?.id || '').trim(),
-                label: String(entry?.label || '').trim(),
-                contextLength: Number.isFinite(Number(entry?.contextLength)) && Number(entry?.contextLength) > 0 ? Number(entry.contextLength) : null,
-                maxOutput: Number.isFinite(Number(entry?.maxOutput)) && Number(entry?.maxOutput) > 0 ? Number(entry.maxOutput) : null,
-                inputModalities: modalities,
-                type,
-                extraBody
-            };
-        };
-        const normalizeUserApiProviders = (list) => {
-            if (!Array.isArray(list)) return [];
-            const seen = new Set();
-            return list.map(item => {
-                // ⚠ 字段保全：新字段 protocol/models/extraBody 必须在此映射，否则保存后丢失
-                const normalized = {
-                    id: String(item?.id || '').trim(),
-                    name: String(item?.name || '').trim() || '未命名供应商',
-                    apiUrl: String(item?.apiUrl || '').trim(),
-                    // [LuzzyRP patch 035] 图标（URL 或 dataURL）须保全，否则保存后丢失
-                    icon: String(item?.icon || '').trim(),
-                    protocol: normalizeProviderProtocol(item?.protocol),
-                    models: Array.isArray(item?.models) ? item.models.map(normalizeProviderModelEntry).filter(m => m.id) : [],
-                    extraBody: (item?.extraBody && typeof item.extraBody === 'object' && !Array.isArray(item.extraBody))
-                        ? Object.fromEntries(Object.entries(item.extraBody).map(([k, v]) => [String(k), v])) : {}
-                };
-                return normalized;
-            }).filter(item => {
-                if (!item.id || !item.apiUrl || seen.has(item.id) || isCustomApiProviderId(item.id)) return false;
-                seen.add(item.id);
-                return true;
-            });
-        };
-        const userApiProviders = computed(() => {
-            // 返回 settings.apiProviders 的原始响应式条目（管理弹窗 v-model 需要直接写回）
-            const list = Array.isArray(settings.apiProviders) ? settings.apiProviders : [];
-            const seen = new Set();
-            return list.filter(item => {
-                const id = String(item?.id || '').trim();
-                if (!id || seen.has(id) || isCustomApiProviderId(id)) return false;
-                seen.add(id);
-                return true;
-            });
-        });
-        // [LuzzyRP patch 029] 可编辑内置商：override 合并（编辑器保存 / 设置页 URL 直编写入
-        // settings.apiProviderOverrides，不触碰冻结内置条目；id 恒为内置 id，key 槽与引用体系不受影响）
-        const builtinProviderOverrides = computed(() => {
-            const raw = settings.apiProviderOverrides;
-            return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-        });
-        const allApiProviders = computed(() => [
-            ...apiProviderOptions.map(provider => {
-                const override = builtinProviderOverrides.value[provider.id];
-                return override ? { ...provider, ...override, id: provider.id } : provider;
-            }),
-            ...userApiProviders.value
-        ]);
-        const getApiProviderById = (id) => allApiProviders.value.find(provider => provider.id === id);
+        const getApiProviderById = (id) => apiProviderOptions.find(provider => provider.id === id);
         const getApiProviderByUrl = (url) => {
             const currentUrl = normalizeApiProviderUrl(url);
-            return allApiProviders.value.find(provider => normalizeApiProviderUrl(provider.apiUrl) === currentUrl);
-        };
-        const isProviderConfigured = (provider) => !!provider && !!String(provider.apiUrl || '').trim()
-            && !!String((settings.apiProviderKeys || {})[provider.id] || '').trim();
-        // 模型引用：存储格式 `providerId::bareId`（首个 `::` 分隔；裸 id = 跟随当前激活商，向后兼容）
-        const parseModelRef = (modelRef) => {
-            const raw = String(modelRef || '').trim();
-            const index = raw.indexOf('::');
-            if (index > 0) {
-                const providerId = raw.slice(0, index);
-                if (getApiProviderById(providerId)) {
-                    return { providerId, bareId: raw.slice(index + 2) };
-                }
-            }
-            return { providerId: null, bareId: raw };
-        };
-        const formatModelRef = (modelRef) => {
-            const { providerId, bareId } = parseModelRef(modelRef);
-            if (!providerId) return { providerLabel: '', bareId };
-            const provider = getApiProviderById(providerId);
-            return { providerLabel: provider?.name || '未知', bareId };
-        };
-        const formatModelRefText = (modelRef) => {
-            const { providerLabel, bareId } = formatModelRef(modelRef);
-            return providerLabel ? `[${providerLabel}] ${bareId}` : bareId;
-        };
-        const formatUsageModelLabel = (record) => {
-            if (!record) return '';
-            const providerId = String(record.provider || '');
-            if (!providerId) return '';
-            const provider = getApiProviderById(providerId);
-            const label = provider?.name || '未知';
-            return `[${label}] ${record.model || ''}`;
-        };
-        // [LuzzyRP patch 015] 长度字段解析：`1024000` / `100K` / `1M` / `100k` / `1m` → 数字（K=1024, M=1024²）
-        const parseLengthToken = (value) => {
-            const raw = String(value ?? '').trim().toUpperCase();
-            if (!raw) return null;
-            const match = raw.match(/^(\d+(?:\.\d+)?)\s*(K|M)?$/);
-            if (!match) return null;
-            const num = Number(match[1]);
-            if (!Number.isFinite(num) || num <= 0) return null;
-            if (match[2] === 'K') return Math.round(num * 1024);
-            if (match[2] === 'M') return Math.round(num * 1024 * 1024);
-            return Math.round(num);
-        };
-        const formatLengthToken = (value) => {
-            const num = Number(value);
-            if (!Number.isFinite(num) || num <= 0) return '';
-            if (num % (1024 * 1024) === 0) return `${num / (1024 * 1024)}M`;
-            if (num % 1024 === 0) return `${num / 1024}K`;
-            return String(num);
-        };
-        // 查找模型的元数据（手动模型条目优先，返回归一后的条目）
-        const getProviderModelMeta = (providerId, bareId) => {
-            if (!providerId) return null;
-            const provider = getApiProviderById(providerId);
-            if (!provider || !Array.isArray(provider.models)) return null;
-            const needle = String(bareId || '').trim().toLowerCase();
-            return provider.models.find(m => String(m.id || '').trim().toLowerCase() === needle) || null;
-        };
-        // 合并请求体附加字段：模型级 > 供应商级（模型级覆盖同名键）
-        const mergeModelExtraBody = (modelMeta, provider) => {
-            const merged = {};
-            if (provider && provider.extraBody && typeof provider.extraBody === 'object') Object.assign(merged, provider.extraBody);
-            if (modelMeta && modelMeta.extraBody && typeof modelMeta.extraBody === 'object') Object.assign(merged, modelMeta.extraBody);
-            return merged;
-        };
-        const resolveModelRequest = (modelRef) => {
-            const { providerId, bareId } = parseModelRef(modelRef);
-            if (providerId) {
-                const provider = getApiProviderById(providerId);
-                const apiKey = String((settings.apiProviderKeys || {})[providerId] || '').trim();
-                if (provider?.apiUrl && apiKey) {
-                    const modelMeta = getProviderModelMeta(providerId, bareId);
-                    return {
-                        url: provider.apiUrl, apiKey, model: bareId, providerId,
-                        protocol: normalizeProviderProtocol(provider.protocol),
-                        modelMeta,
-                        extraBody: mergeModelExtraBody(modelMeta, provider)
-                    };
-                }
-            }
-            return {
-                url: settings.apiUrl, apiKey: settings.apiKey, model: bareId, providerId: null,
-                // [LuzzyRP patch 026] 裸引用回退跟随激活商协议（原硬编码 'openai'，Gemini 嵌入分片回退必 404，v1.2.3）
-                protocol: normalizeProviderProtocol(getApiProviderById(settings.apiProviderId)?.protocol), modelMeta: null, extraBody: {}
-            };
+            return apiProviderOptions.find(provider => normalizeApiProviderUrl(provider.apiUrl) === currentUrl);
         };
         const syncCurrentApiKeyToProvider = () => {
             const providerId = settings.apiProviderId || selectedApiProvider.value.id || DEFAULT_API_PROVIDER_ID;
@@ -916,92 +700,15 @@ const app = createApp({
                 settings[getCustomApiUrlKey(providerId)] = settings.apiUrl || '';
             }
         };
-        const migrateLegacyCustomProviders = () => {
-            // 老用户 custom/custom2 槽位（非空 URL）一次性导入为用户商；原字段保留（小说工坊协议仍读取）
-            if (settings.apiProvidersMigrated) return;
-            const imported = [];
-            customApiProviderOptions.forEach(slot => {
-                const url = String(settings[getCustomApiUrlKey(slot.id)] || '').trim();
-                if (!url) return;
-                const provider = {
-                    id: createUserApiProviderId(),
-                    name: slot.name,
-                    apiUrl: url
-                };
-                const legacyKey = String((settings.apiProviderKeys || {})[slot.id] || '').trim();
-                if (legacyKey) settings.apiProviderKeys[provider.id] = legacyKey;
-                if (settings.apiProviderId === slot.id) settings.apiProviderId = provider.id;
-                imported.push(provider);
-            });
-            if (imported.length > 0) {
-                settings.apiProviders = [...normalizeUserApiProviders(settings.apiProviders), ...imported];
-            }
-            settings.apiProvidersMigrated = true;
-        };
-        // [LuzzyRP patch 029] 内置供应商精简迁移（v1.3.0 需求 2，用户拍板 D3）：退出内置的
-        // sta1n/openrouter/siliconflow 无损转为等价用户自定义商——URL/Key 保留、激活商切换、
-        // 模型槽位引用前缀改写。⚠ 本函数在 normalizeApiProviderSettings()（:980 调用）时执行，
-        // 不得引用 MODEL_REF_FIELD_LABELS（:4120，届时未初始化）与 memorySettings（:1386，同 TDZ）——
-        // 记忆嵌入/总结引用不在此改写，指向已退出内置商时由 patch 026 显式报错兜底（重选即可）。
-        const REMOVED_BUILTIN_PROVIDERS = Object.freeze([
-            Object.freeze({ id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1' }),
-            Object.freeze({ id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1' }),
-            Object.freeze({ id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1' })
-        ]);
-        const MODEL_REF_FIELDS = ['model', 'qualityModel', 'balancedModel', 'fastModel', 'visionModel', 'uiTemplateModel'];
-        const migrateRemovedBuiltinProviders = () => {
-            if (settings.apiProvidersBuiltinMigrated) return;
-            const keys = settings.apiProviderKeys || {};
-            const hasLegacyRef = (id) => Boolean(String(keys[id] || '').trim())
-                || settings.apiProviderId === id
-                || MODEL_REF_FIELDS.some(field => typeof settings[field] === 'string' && settings[field].startsWith(`${id}::`));
-            const idMap = {};
-            REMOVED_BUILTIN_PROVIDERS.forEach((legacy) => {
-                if (!hasLegacyRef(legacy.id)) return;
-                const provider = {
-                    id: createUserApiProviderId(),
-                    name: legacy.name,
-                    apiUrl: legacy.apiUrl,
-                    protocol: 'openai',
-                    models: [],
-                    extraBody: {}
-                };
-                const legacyKey = String(keys[legacy.id] || '').trim();
-                if (legacyKey) keys[provider.id] = legacyKey;
-                idMap[legacy.id] = provider.id;
-                if (settings.apiProviderId === legacy.id) settings.apiProviderId = provider.id;
-                settings.apiProviders = [...normalizeUserApiProviders(settings.apiProviders), provider];
-            });
-            if (Object.keys(idMap).length > 0) {
-                const remapRef = (ref) => {
-                    if (typeof ref !== 'string') return ref;
-                    const sep = ref.indexOf('::');
-                    if (sep <= 0) return ref;
-                    const legacyId = ref.slice(0, sep);
-                    return idMap[legacyId] ? `${idMap[legacyId]}${ref.slice(sep)}` : ref;
-                };
-                MODEL_REF_FIELDS.forEach((field) => {
-                    if (typeof settings[field] === 'string') settings[field] = remapRef(settings[field]);
-                });
-            }
-            settings.apiProvidersBuiltinMigrated = true;
-        };
         const normalizeApiProviderSettings = () => {
             if (!settings.apiProviderKeys || typeof settings.apiProviderKeys !== 'object' || Array.isArray(settings.apiProviderKeys)) {
                 settings.apiProviderKeys = {};
             }
-            // [LuzzyRP patch 029] 可编辑内置商 override 容器
-            if (!settings.apiProviderOverrides || typeof settings.apiProviderOverrides !== 'object' || Array.isArray(settings.apiProviderOverrides)) {
-                settings.apiProviderOverrides = {};
-            }
-            settings.apiProviders = normalizeUserApiProviders(settings.apiProviders);
             [...apiProviderOptions, ...customApiProviderOptions].forEach(provider => {
                 if (typeof settings.apiProviderKeys[provider.id] !== 'string') {
                     settings.apiProviderKeys[provider.id] = '';
                 }
             });
-            migrateLegacyCustomProviders();
-            migrateRemovedBuiltinProviders();
 
             let provider = getApiProviderById(settings.apiProviderId);
             if (!provider && !isCustomApiProviderId(settings.apiProviderId)) {
@@ -1025,22 +732,22 @@ const app = createApp({
             settings.apiKey = settings.apiProviderKeys[settings.apiProviderId] || '';
         };
         const selectedApiProvider = computed(() => {
-            const matched = allApiProviders.value.find(provider => (
+            const customProvider = customApiProviderOptions.find(provider => (
                 provider.id === settings.apiProviderId || provider.id === selectedApiProviderId.value
             ));
-            if (matched) return matched;
+            if (customProvider) return customProvider;
+            const selectedProvider = getApiProviderById(settings.apiProviderId) || getApiProviderById(selectedApiProviderId.value);
+            if (selectedProvider) return selectedProvider;
             return getApiProviderByUrl(settings.apiUrl) || customApiProviderOption;
         });
         const isCustomApiProvider = computed(() => isCustomApiProviderId(selectedApiProvider.value.id));
-        const isUserApiProvider = computed(() => userApiProviders.value.some(provider => provider.id === selectedApiProvider.value.id));
         const selectApiProvider = (provider) => {
             syncCurrentApiKeyToProvider();
             selectedApiProviderId.value = provider.id;
             settings.apiProviderId = provider.id;
-            const known = getApiProviderById(provider.id);
             settings.apiUrl = isCustomApiProviderId(provider.id)
                 ? settings[getCustomApiUrlKey(provider.id)] || ''
-                : (known?.apiUrl || '');
+                : provider.apiUrl;
             settings.apiKey = settings.apiProviderKeys[provider.id] || '';
             showApiProviderSelector.value = false;
         };
@@ -1059,34 +766,6 @@ const app = createApp({
         watch(() => settings.apiUrl, (newUrl) => {
             if (isCustomApiProviderId(settings.apiProviderId)) {
                 settings[getCustomApiUrlKey(settings.apiProviderId)] = newUrl || '';
-                return;
-            }
-            // 用户自定义商：URL 在设置页直接编辑时回写注册表
-            const provider = userApiProviders.value.find(item => item.id === settings.apiProviderId);
-            if (provider && provider.apiUrl !== (newUrl || '').trim()) {
-                const entry = settings.apiProviders.find(item => item.id === provider.id);
-                if (entry) entry.apiUrl = String(newUrl || '').trim();
-            }
-            // [LuzzyRP patch 029] 可编辑内置商：设置页 URL 直编写入 override（空值不落盘）
-            const builtinEditable = apiProviderOptions.find(item => item.id === settings.apiProviderId && item.editable);
-            if (builtinEditable) {
-                const nextUrl = String(newUrl || '').trim();
-                if (nextUrl) {
-                    const overrides = { ...(settings.apiProviderOverrides || {}) };
-                    const current = overrides[builtinEditable.id] || {};
-                    if (current.apiUrl !== nextUrl) {
-                        overrides[builtinEditable.id] = { ...current, apiUrl: nextUrl };
-                        settings.apiProviderOverrides = overrides;
-                    }
-                }
-            }
-        });
-
-        // 用户自定义商：注册表中 URL 被编辑（管理弹窗）时同步激活商的 apiUrl
-        watch(() => userApiProviders.value.map(provider => `${provider.id}\u0000${provider.apiUrl}`).join('|'), () => {
-            const active = userApiProviders.value.find(item => item.id === settings.apiProviderId);
-            if (active && active.apiUrl && settings.apiUrl !== active.apiUrl) {
-                settings.apiUrl = active.apiUrl;
             }
         });
 
@@ -1094,16 +773,9 @@ const app = createApp({
             const iframe = document.querySelector('iframe[src*="character"]');
             if (iframe && iframe.contentWindow) {
                 try {
-                    // [LuzzyRP patch 012] 生成器语境只认裸模型 id，剥离商前缀
-                    const generatorSettings = JSON.parse(JSON.stringify(settings));
-                    ['model', 'qualityModel', 'balancedModel', 'fastModel', 'visionModel', 'uiTemplateModel'].forEach(key => {
-                        if (typeof generatorSettings[key] === 'string') {
-                            generatorSettings[key] = parseModelRef(generatorSettings[key]).bareId;
-                        }
-                    });
                     const syncData = {
                         type: 'SYNC_SETTINGS',
-                        settings: generatorSettings
+                        settings: JSON.parse(JSON.stringify(settings))
                     };
                     iframe.contentWindow.postMessage(syncData, '*');
                 } catch (e) {
@@ -1112,10 +784,34 @@ const app = createApp({
             }
         };
 
-        // Listen for workshop ready message to trigger sync
-        window.addEventListener('message', (event) => {
+        let workshopImportPending = false;
+        // Only the workshop frame can request settings sync or character import.
+        window.addEventListener('message', async (event) => {
             if (event.data && event.data.type === 'WORKSHOP_READY') {
+                if (event.source !== document.querySelector('iframe[src*="character/index.html"]')?.contentWindow) return;
                 syncSettingsToGenerator();
+            }
+
+            if (event.data?.type === 'WORKSHOP_IMPORT_AND_PLAY') {
+                const iframe = document.querySelector('iframe[src*="character/index.html"]');
+                if (!iframe || event.source !== iframe.contentWindow || workshopImportPending) return;
+                workshopImportPending = true;
+                try {
+                    if (!event.data.card?.data || typeof event.data.card.data.name !== 'string' || !event.data.card.data.name.trim()) {
+                        throw new Error('角色卡缺少名称，请先完善角色卡');
+                    }
+                    const char = await importCharacterData(event.data.card, event.data.avatar, false);
+                    if (currentCharacter.value?.uuid !== char.uuid || currentView.value !== 'chat') {
+                        throw new Error('角色卡已导入，暂时未能进入对话，请从角色卡管理中打开');
+                    }
+                } catch (error) {
+                    console.error('Workshop import failed:', error);
+                    event.source.postMessage({ type: 'WORKSHOP_IMPORT_RESULT', error: error.message || '导入失败，请重试' }, '*');
+                    showToast(error.message || '导入失败，请重试', 'error');
+                } finally {
+                    workshopImportPending = false;
+                }
+                return;
             }
 
             if (event.data?.type === 'REQUEST_RPHUB_API_SETTINGS') {
@@ -1131,27 +827,14 @@ const app = createApp({
                         icon: ''
                     }))
                 ];
-                // [LuzzyRP patch 012] 工坊不感知用户自定义商：激活商为用户商时映射为 custom 槽位传递
-                // [LuzzyRP patch 015] 工坊只讲 OpenAI 方言：非 openai 协议的激活商不 remap（工坊回落 custom 槽原值）
-                const workshopKeys = JSON.parse(JSON.stringify(settings.apiProviderKeys || {}));
-                let workshopProviderId = settings.apiProviderId;
-                let workshopCustomUrl = settings.customApiUrl;
-                if (!isCustomApiProviderId(settings.apiProviderId) && !apiProviderOptions.some(p => p.id === settings.apiProviderId)) {
-                    const activeUserProvider = userApiProviders.value.find(p => p.id === settings.apiProviderId);
-                    if (activeUserProvider && normalizeProviderProtocol(activeUserProvider.protocol) === 'openai') {
-                        workshopProviderId = 'custom';
-                        workshopCustomUrl = activeUserProvider.apiUrl;
-                        workshopKeys.custom = settings.apiKey || '';
-                    }
-                }
                 event.source.postMessage({
                     type: 'RPHUB_API_SETTINGS',
                     requestId: event.data.requestId,
                     settings: {
-                        apiProviderId: workshopProviderId,
-                        apiProviderKeys: workshopKeys,
+                        apiProviderId: settings.apiProviderId,
+                        apiProviderKeys: JSON.parse(JSON.stringify(settings.apiProviderKeys || {})),
                         apiKey: settings.apiKey,
-                        customApiUrl: workshopCustomUrl,
+                        customApiUrl: settings.customApiUrl,
                         customApiUrl2: settings.customApiUrl2
                     },
                     providers
@@ -1205,10 +888,10 @@ const app = createApp({
         });
         const reasoningEffortOptions = [
             { value: 'none', label: '关闭' },
-            { value: 'low', label: '低（low）' },
-            { value: 'medium', label: '中（medium）' },
-            { value: 'high', label: '高（high）' },
-            { value: 'max', label: '最高（max）' },
+            { value: 'low', label: '低（Low）' },
+            { value: 'medium', label: '中（Medium）' },
+            { value: 'high', label: '高（High）' },
+            { value: 'max', label: '最高（Max）' },
             { value: '', label: '默认' }
         ];
         const reasoningEffortSlider = computed({
@@ -1259,6 +942,11 @@ const app = createApp({
         const isConversationBusy = computed(() => isGenerating.value || isRemoteGenerating.value || hasActiveToolInlineWork.value);
 
         const presets = ref([]);
+        // 抗截断只临时停用 COT，不改写用户保存的开关状态。
+        const isPresetEnabled = preset => preset.enabled !== false
+            && (preset.name !== 'COT' || !isTruncationEnabled.value);
+        const isStoryPanelsEnabled = computed(() => presets.value.some(preset => preset.name === BUILTIN_PRESETS.storyPanels.name
+            && preset.enabled !== false && String(preset.content || '').trim()));
         const normalizePresetRole = (role) => (
             ['system', 'user', 'assistant'].includes(role) ? role : 'system'
         );
@@ -1713,6 +1401,9 @@ const app = createApp({
         const editingCharacter = reactive({ id: undefined, data: {} });
         const editorTab = ref('basic'); // 'basic', 'description', 'personality', 'first_mes'
         const isBatchDeleteMode = ref(false);
+        const characterGridView = ref(false);
+        const characterDeck = ref(null);
+        const useCharacterDeck = computed(() => !isBatchDeleteMode.value && !characterGridView.value);
         const selectedCharacterIndices = ref(new Set());
         const editingPreset = reactive({ id: undefined, data: {} });
         const editingUiTemplate = reactive({ id: undefined, data: {}, tab: 'history' });
@@ -1778,14 +1469,11 @@ const app = createApp({
             saveStoredValue: setStoredValue,
             toast: (...args) => showToast(...args)
         });
-        // [LuzzyRP patch 012/025] 记录与请求元数据跟随实际请求（多商路由）：调用方可传
-        // url/apiKey/provider/protocol 覆盖全局默认；provider/protocol 进入用量记录供趋势图筛选
         const requestTrackedChatCompletion = (options, type) => {
-            const request = { url: buildApiEndpoint(settings.apiUrl, 'chat/completions'), apiKey: settings.apiKey, ...options };
+            const apiUrl = settings.apiUrl;
+            const request = { url: buildApiEndpoint(apiUrl, 'chat/completions'), apiKey: settings.apiKey, ...options };
             return requestChatCompletion({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
-                type, model: request.model, apiUrl: request.url, apiKey: request.apiKey,
-                provider: options.provider ?? settings.apiProviderId ?? '',
-                protocol: options.protocol ?? '', ...metrics
+                type, model: request.model, apiUrl, apiKey: request.apiKey, ...metrics
             }) });
         };
         const {
@@ -1813,173 +1501,6 @@ const app = createApp({
             scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
             toast: (...args) => showToast(...args)
         });
-        // [LuzzyRP patch 021] 空间管理自动统计：进入设置页时自动测量（每会话首次；清理完成后上游逻辑会自动复测）
-        watch(() => currentView.value, (view) => {
-            if (view === 'settings' && !storageStats.hasMeasured && !storageStats.loading) {
-                refreshStorageStats();
-            }
-        });
-
-        // [LuzzyRP patch 025] 用量折线图：日（小时）/周（天）/月（周）三粒度 + 供应商/模型筛选（v1.2.3，需求 4）
-        const usageChartRange = ref('day');
-        const usageChartRangeOptions = Object.freeze([
-            { value: 'day', label: '日' },
-            { value: 'week', label: '周' },
-            { value: 'month', label: '月' }
-        ]);
-        const usageChartRangeMs = Object.freeze({
-            day: 24 * 60 * 60 * 1000,
-            week: 7 * 24 * 60 * 60 * 1000,
-            month: 28 * 24 * 60 * 60 * 1000
-        });
-        const usageChartProvider = ref('all');
-        const usageChartSelectedModels = ref([]);
-        const resolveUsageChartProviderId = (record) => {
-            const direct = String(record.provider || '');
-            if (direct) return direct;
-            const url = String(record.apiUrl || '').replace(/\/+$/, '').toLowerCase();
-            if (!url) return '';
-            const match = allApiProviders.value.find(provider => String(provider.apiUrl || '').replace(/\/+$/, '').toLowerCase() === url);
-            return match ? match.id : '';
-        };
-        const isUsageChartCategory = (record) => {
-            const category = ['summary', 'embedding'].includes(record.type) ? 'memory'
-                : (record.type === 'ui_template' ? 'variables' : 'chat');
-            return tokenUsageFilter.value === 'all' || category === tokenUsageFilter.value;
-        };
-        const buildUsageChartBuckets = (rangeKey, now) => {
-            const buckets = [];
-            if (rangeKey === 'day') {
-                const hourStart = new Date(now);
-                hourStart.setMinutes(0, 0, 0);
-                for (let index = 23; index >= 0; index--) {
-                    const bucketStart = hourStart.getTime() - index * 3600000;
-                    buckets.push({ start: bucketStart, end: bucketStart + 3600000, label: index === 0 ? '现在' : new Date(bucketStart).getHours() + '时' });
-                }
-            } else if (rangeKey === 'week') {
-                const dayStart = new Date(now);
-                dayStart.setHours(0, 0, 0, 0);
-                for (let index = 6; index >= 0; index--) {
-                    const bucketStart = dayStart.getTime() - index * 86400000;
-                    const day = new Date(bucketStart);
-                    buckets.push({ start: bucketStart, end: bucketStart + 86400000, label: index === 0 ? '今天' : (day.getMonth() + 1) + '/' + day.getDate() });
-                }
-            } else {
-                const dayStart = new Date(now);
-                dayStart.setHours(0, 0, 0, 0);
-                for (let index = 3; index >= 0; index--) {
-                    const bucketStart = dayStart.getTime() - (index * 7 + 6) * 86400000;
-                    const bucketEnd = dayStart.getTime() - index * 7 * 86400000 + 86400000;
-                    const day = new Date(bucketStart);
-                    buckets.push({ start: bucketStart, end: bucketEnd, label: (day.getMonth() + 1) + '/' + day.getDate() });
-                }
-            }
-            return buckets;
-        };
-        const usageChartSeriesLabel = (providerId, model) => {
-            const bare = String(model || '').trim() || '未知模型';
-            if (!providerId) return bare;
-            const provider = getApiProviderById(providerId);
-            return (provider?.name || '未知供应商') + ' · ' + bare;
-        };
-        const usageChartBaseRecords = computed(() => {
-            const windowMs = usageChartRangeMs[usageChartRange.value] || usageChartRangeMs.day;
-            const cutoff = Date.now() - windowMs;
-            return tokenUsageHistory.value.filter(record => {
-                const ts = Number(record.timestamp);
-                return Number.isFinite(ts) && ts >= cutoff && isUsageChartCategory(record);
-            });
-        });
-        const usageChartProviderOptions = computed(() => {
-            const counts = new Map();
-            usageChartBaseRecords.value.forEach(record => {
-                const providerId = resolveUsageChartProviderId(record);
-                counts.set(providerId, (counts.get(providerId) || 0) + 1);
-            });
-            const named = [...counts.keys()].filter(id => id).map(id => {
-                const provider = getApiProviderById(id);
-                return { value: id, label: provider?.name || id };
-            }).sort((x, y) => x.label.localeCompare(y.label, 'zh-CN'));
-            const options = [{ value: 'all', label: '全部供应商' }, ...named];
-            if (counts.has('')) options.push({ value: '', label: '未归属' });
-            return options;
-        });
-        const usageChartModelOptions = computed(() => {
-            const providerFilter = usageChartProvider.value;
-            const totals = new Map();
-            usageChartBaseRecords.value.forEach(record => {
-                const providerId = resolveUsageChartProviderId(record);
-                if (providerFilter !== 'all' && providerId !== providerFilter) return;
-                const key = providerId + '::' + String(record.model || '');
-                const total = (Number(record.inputTokens) || 0) + (Number(record.outputTokens) || 0) + (Number(record.cacheReadTokens) || 0);
-                totals.set(key, (totals.get(key) || 0) + total);
-            });
-            return [...totals.entries()]
-                .map(([key, total]) => {
-                    const separator = key.indexOf('::');
-                    return {
-                        key,
-                        label: usageChartSeriesLabel(key.slice(0, separator), key.slice(separator + 2)),
-                        total
-                    };
-                })
-                .sort((x, y) => y.total - x.total);
-        });
-        const usageChartData = computed(() => {
-            const buckets = buildUsageChartBuckets(usageChartRange.value, Date.now());
-            const windowMs = usageChartRangeMs[usageChartRange.value] || usageChartRangeMs.day;
-            const cutoff = Date.now() - windowMs;
-            const providerFilter = usageChartProvider.value;
-            const selected = usageChartSelectedModels.value;
-            const seriesMap = new Map();
-            tokenUsageHistory.value.forEach(record => {
-                const ts = Number(record.timestamp);
-                if (!Number.isFinite(ts) || ts < cutoff) return;
-                if (!isUsageChartCategory(record)) return;
-                const providerId = resolveUsageChartProviderId(record);
-                if (providerFilter !== 'all' && providerId !== providerFilter) return;
-                const key = providerId + '::' + String(record.model || '');
-                if (selected.length && !selected.includes(key)) return;
-                const total = (Number(record.inputTokens) || 0) + (Number(record.outputTokens) || 0) + (Number(record.cacheReadTokens) || 0);
-                if (!(total > 0)) return;
-                let series = seriesMap.get(key);
-                if (!series) {
-                    const separator = key.indexOf('::');
-                    series = { key, color: '', totals: buckets.map(() => 0), label: usageChartSeriesLabel(key.slice(0, separator), key.slice(separator + 2)) };
-                    seriesMap.set(key, series);
-                }
-                for (let index = 0; index < buckets.length; index++) {
-                    if (ts >= buckets[index].start && ts < buckets[index].end) {
-                        series.totals[index] += total;
-                        break;
-                    }
-                }
-            });
-            const sumTotals = list => list.reduce((total, value) => total + value, 0);
-            const sorted = [...seriesMap.values()].sort((x, y) => sumTotals(y.totals) - sumTotals(x.totals));
-            const palette = Object.freeze([
-                'rgb(var(--tw-primary-500))', '#D4A017', 'rgb(var(--tw-primary-600))', '#5DB872',
-                'rgb(var(--tw-primary-700))', '#C64545', 'rgb(var(--tw-primary-400))', 'rgb(var(--tw-gray-500))'
-            ]);
-            const kept = sorted.slice(0, 8).map((series, index) => ({ ...series, color: palette[index] }));
-            const overflow = sorted.slice(8);
-            if (overflow.length) {
-                const merged = buckets.map(() => 0);
-                overflow.forEach(series => series.totals.forEach((value, index) => { merged[index] += value; }));
-                kept.push({ key: '__other__', label: '其他模型（' + overflow.length + '）', color: 'rgb(var(--tw-gray-400))', totals: merged });
-            }
-            const peak = kept.reduce((max, series) => Math.max(max, ...series.totals), 0);
-            return { buckets, series: kept, peak: Math.max(peak, 1), count: kept.length };
-        });
-        watch(usageChartProvider, () => {
-            usageChartSelectedModels.value = usageChartModelOptions.value.map(option => option.key);
-        });
-        const toggleUsageChartModel = (key) => {
-            const current = usageChartSelectedModels.value;
-            usageChartSelectedModels.value = current.includes(key)
-                ? current.filter(item => item !== key)
-                : [...current, key];
-        };
         // Export Modal State
         const showExportModal = ref(false);
         const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
@@ -2059,6 +1580,9 @@ const app = createApp({
         watch(currentView, (newView) => {
             settingsHelpTopic.value = '';
             if (newView === 'characters') {
+                characterGridView.value = false;
+                isBatchDeleteMode.value = false;
+                selectedCharacterIndices.value.clear();
                 hasOpenedCharacterManager.value = true;
             } else if (newView === 'generator') {
                 isGeneratorLoading.value = true;
@@ -2305,12 +1829,13 @@ const app = createApp({
                             settings[key] = savedSettings[key];
                         }
                     });
-                    // [LuzzyRP patch 028] 主题单轨化：老用户 classic 无条件迁至 luzzy（v1.2.3）
-                    settings.theme = 'luzzy';
+                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'theme')) {
+                        settings.theme = 'classic'; // 老用户保留经典主题
+                    }
                     if (!Object.prototype.hasOwnProperty.call(savedSettings, 'themeMode')) {
                         settings.themeMode = 'light';
                     }
-                    if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
+ {
                         const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                         settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
                         if (!legacyProvider && savedSettings.apiUrl) settings.customApiUrl = savedSettings.apiUrl;
@@ -2524,88 +2049,6 @@ const app = createApp({
             return payload;
         };
 
-        // [LuzzyRP patch 015] 自定义生图模型（OpenAI images/generations 通道）：
-        // data-image-request 存 `luzzy-image://<ref>?prompt=<encoded>` 伪 URL，hydrate 时分流到这里。
-        const CUSTOM_IMAGE_SCHEME = 'luzzy-image://';
-        const isCustomImageRequest = (requestUrl) => String(requestUrl || '').startsWith(CUSTOM_IMAGE_SCHEME);
-        const parseCustomImageRequest = (requestUrl) => {
-            const raw = String(requestUrl || '').slice(CUSTOM_IMAGE_SCHEME.length);
-            const queryIndex = raw.indexOf('?');
-            const ref = queryIndex >= 0 ? decodeURIComponent(raw.slice(0, queryIndex)) : raw;
-            if (queryIndex < 0) return { ref, prompt: '', size: '' };
-            // prompt 原样携带（$1 由正则替换为原始 tag 串，可能含裸 &/%，不能用 URLSearchParams）
-            const query = raw.slice(queryIndex + 1);
-            const promptIdx = query.indexOf('prompt=');
-            const sizeIdx = query.indexOf('&size=');
-            const promptRaw = promptIdx >= 0 ? query.slice(promptIdx + 7, sizeIdx >= 0 ? sizeIdx : undefined) : '';
-            let prompt = promptRaw;
-            try { prompt = decodeURIComponent(promptRaw); } catch (e) { /* 裸 % 等非法序列保留原文 */ }
-            let size = '';
-            if (sizeIdx >= 0) {
-                const sizeRaw = query.slice(sizeIdx + 6);
-                try { size = decodeURIComponent(sizeRaw); } catch (e) { size = sizeRaw; }
-            }
-            return { ref, prompt, size };
-        };
-        // prompt 不做 encodeURIComponent：正则替换的 $1 必须原样出现在替换串里才能捕获 tag
-        const buildCustomImageRequestUrl = (modelRef, prompt, size) =>
-            `${CUSTOM_IMAGE_SCHEME}${encodeURIComponent(modelRef)}?prompt=${prompt}${size ? `&size=${encodeURIComponent(size)}` : ''}`;
-        const sizeToOpenAISize = (sizeLabel) => {
-            if (sizeLabel === '横图') return '1792x1024';
-            if (sizeLabel === '方图') return '1024x1024';
-            return '1024x1792';
-        };
-        const startCustomImageTask = (requestUrl, fresh = false) => {
-            const { ref, prompt, size } = parseCustomImageRequest(requestUrl);
-            const cacheKey = `${requestUrl}${fresh ? `#${Date.now()}-${Math.random()}` : ''}`;
-            if (generatedImageTasks.has(cacheKey)) return generatedImageTasks.get(cacheKey);
-            const task = { key: cacheKey, requestUrl, cards: new Set(), job: null, custom: true };
-            const publish = (job) => {
-                task.job = job;
-                [...task.cards].forEach(card => renderGeneratedImageJob(card, task, job));
-            };
-            task.promise = (async () => {
-                const resolved = resolveModelRequest(ref);
-                if (!resolved.url || !resolved.apiKey) throw new Error('该生图供应商未配置 API 地址或 Key');
-                if (resolved.protocol !== 'openai') throw new Error('自定义生图当前仅支持 OpenAI 协议模型');
-                publish({ id: '', status: 'running', generationProgress: { percent: 15 } });
-                const response = await fetch(buildApiEndpoint(resolved.url, 'images/generations'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${resolved.apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: resolved.model,
-                        prompt,
-                        n: 1,
-                        ...(size ? { size: sizeToOpenAISize(size) } : {}),
-                        response_format: 'b64_json',
-                        ...(resolved.extraBody || {})
-                    })
-                });
-                const text = await response.text();
-                let payload = {};
-                try { payload = text ? JSON.parse(text) : {}; } catch { /* 下方统一报错 */ }
-                if (!response.ok) {
-                    const apiError = extractApiErrorMessage(payload, response.status);
-                    throw new Error(apiError || `HTTP ${response.status}`);
-                }
-                const item = payload.data?.[0] || {};
-                const b64 = item.b64_json || '';
-                const imageUrl = b64 ? `data:image/png;base64,${b64}` : (item.url || '');
-                if (!imageUrl) throw new Error('生图接口没有返回图片数据');
-                publish({ id: 'custom', status: 'done', imageUrl, generationProgress: { percent: 100 } });
-                return { status: 'done', imageUrl };
-            })().catch((error) => {
-                const job = { status: 'failed', error: error.message || '生成失败' };
-                publish(job);
-                return job;
-            });
-            generatedImageTasks.set(cacheKey, task);
-            return task;
-        };
-
         const renderGeneratedImageJob = (card, task, job) => {
             if (!card?.isConnected) return task.cards.delete(card);
             task.job = job;
@@ -2623,21 +2066,15 @@ const app = createApp({
                 return;
             }
             if (job.status === 'running') {
-                if (label) label.textContent = task.custom
-                    ? `生成中 ${Math.round(progress)}%`
-                    : `生成中 ${Math.round(progress)}%`;
-                if (task.custom && !bar) { /* custom 无百分比进度，保持 indeterminate */ }
+                if (label) label.textContent = `生成中 ${Math.round(progress)}%`;
                 return;
             }
 
-            // [LuzzyRP patch 015] 自定义生图：imageUrl 由 startCustomImageTask 直接给出（b64 dataURL 或远程 url）
-            const imageUrl = task.custom
-                ? (job.imageUrl || '')
-                : (job.imageUrl
-                    ? new URL(job.imageUrl, task.baseUrl).href
-                    : job.id
-                        ? `${task.baseUrl}/api/jobs/${encodeURIComponent(job.id)}/content?token=${encodeURIComponent(task.token)}`
-                        : '');
+            const imageUrl = job.imageUrl
+                ? new URL(job.imageUrl, task.baseUrl).href
+                : job.id
+                    ? `${task.baseUrl}/api/jobs/${encodeURIComponent(job.id)}/content?token=${encodeURIComponent(task.token)}`
+                    : '';
             if (!imageUrl) {
                 card.classList.remove('is-generating');
                 card.classList.add('is-generation-error');
@@ -2718,10 +2155,7 @@ const app = createApp({
             card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
             const label = card.querySelector('.generated-image-progress-label');
             const bar = card.querySelector('.generated-image-progress-bar');
-            // [LuzzyRP patch 015] 伪 URL（luzzy-image://）分流到自定义生图任务
-            const task = isCustomImageRequest(requestUrl)
-                ? startCustomImageTask(requestUrl, options.fresh === true)
-                : startGeneratedImageTask(requestUrl, options.fresh === true);
+            const task = startGeneratedImageTask(requestUrl, options.fresh === true);
             if (!task.job) {
             if (label) label.textContent = '等待生成';
                 if (bar) bar.style.width = '0%';
@@ -2731,9 +2165,7 @@ const app = createApp({
             card.dataset.imageJobState = 'loading';
             card.classList.add('is-generating');
             card.classList.remove('is-generation-error');
-            const size = isCustomImageRequest(requestUrl)
-                ? parseCustomImageRequest(requestUrl).size
-                : new URL(requestUrl, window.location.href).searchParams.get('size');
+            const size = new URL(requestUrl, window.location.href).searchParams.get('size');
             card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
             if (task.job) renderGeneratedImageJob(card, task, task.job);
             return task.promise;
@@ -2775,7 +2207,7 @@ const app = createApp({
             const imageIndex = cards.indexOf(card);
             const message = chatHistory.value[messageIndex];
             const sourceText = String(message?.content || '');
-            const imageMatches = cardUtils.findUnprotectedMatches(sourceText, getImageTagRegex(isTruncationEnabled.value));
+            const imageMatches = cardUtils.findUnprotectedMatches(sourceText, getImageTagRegex());
             const imageMatch = imageMatches[imageIndex];
             if (!message || imageIndex < 0 || !imageMatch) return;
             if (card.classList.contains('is-rerolling')) return;
@@ -2793,22 +2225,9 @@ const app = createApp({
                 + sourceText.slice(imageMatch.index + imageMatch[0].length);
             const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
             if (!sourceUrl) return;
-            // [LuzzyRP patch 015] 自定义生图 reroll：保留伪 URL 结构，仅更新 prompt 随机参数
-            let nextImageUrl;
-            if (isCustomImageRequest(sourceUrl)) {
-                const parsed = parseCustomImageRequest(sourceUrl);
-                const shuffled = parsed.prompt.split(',').map(t => t.trim()).filter(Boolean);
-                if (shuffled.length >= 2) {
-                    const swapIndex = Math.floor(Math.random() * (shuffled.length - 1));
-                    [shuffled[swapIndex], shuffled[swapIndex + 1]] = [shuffled[swapIndex + 1], shuffled[swapIndex]];
-                }
-                nextImageUrl = buildCustomImageRequestUrl(parsed.ref, shuffled.join(', '), parsed.size);
-            } else {
-                nextImageUrl = new URL(sourceUrl, window.location.href);
-                nextImageUrl.searchParams.set('tag', tags.join(', '));
-                nextImageUrl.searchParams.set('nocache', '1');
-                nextImageUrl = nextImageUrl.href;
-            }
+            const nextImageUrl = new URL(sourceUrl, window.location.href);
+            nextImageUrl.searchParams.set('tag', tags.join(', '));
+            nextImageUrl.searchParams.set('nocache', '1');
 
             const originalContent = message.content;
             const finishLoading = () => {
@@ -2818,7 +2237,7 @@ const app = createApp({
             card.classList.add('is-rerolling');
             button.disabled = true;
 
-            const job = await loadGeneratedImageCard(card, nextImageUrl, { fresh: true });
+            const job = await loadGeneratedImageCard(card, nextImageUrl.href, { fresh: true });
             if (job.status === 'done') {
                 if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                     finishLoading();
@@ -2917,16 +2336,6 @@ const app = createApp({
             const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
             if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
                 showToast(`生图版本已切换：${getImageModelName(imageModel)}`, 'success');
-            }
-        }, { flush: 'sync' });
-
-        watch(() => [settings.imageModelSource, settings.customImageModelRef], () => {
-            // [LuzzyRP patch 015] 自定义生图模型切换 → 重写正则替换 URL，用户切换时同步切换模型
-            const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
-            if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
-                showToast(settings.imageModelSource === 'custom'
-                    ? '已切换为自定义生图模型'
-                    : '已切换为 STA1N 官方生图', 'success');
             }
         }, { flush: 'sync' });
 
@@ -3743,7 +3152,7 @@ const app = createApp({
             const tags = new Set();
 
             availableModels.value.forEach(m => {
-                const id = String(m.bareId || m.id).toLowerCase();
+                const id = m.id.toLowerCase();
                 let found = false;
                 for (const family of popularModelFamilies) {
                     if (id.includes(family)) {
@@ -3769,21 +3178,18 @@ const app = createApp({
             if (activeModelTag.value && activeModelTag.value !== 'all') {
                 if (activeModelTag.value === 'other') {
                     result = result.filter(m => {
-                        const id = String(m.bareId || m.id).toLowerCase();
+                        const id = m.id.toLowerCase();
                         return !popularModelFamilies.some(family => id.includes(family));
                     });
                 } else {
-                    result = result.filter(m => String(m.bareId || m.id).toLowerCase().includes(activeModelTag.value));
+                    result = result.filter(m => m.id.toLowerCase().includes(activeModelTag.value));
                 }
             }
 
             const searchQuery = modelSelectionTarget.value === 'memoryEmbeddingModel' ? 'embedding' : modelSearchQuery.value;
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
-                result = result.filter(m => (
-                    String(m.bareId || m.id).toLowerCase().includes(query)
-                    || String(m.providerName || '').toLowerCase().includes(query)
-                ));
+                result = result.filter(m => m.id.toLowerCase().includes(query));
             }
 
             return result.sort((a, b) => a.id.localeCompare(b.id));
@@ -3860,7 +3266,7 @@ const app = createApp({
             if (isAutoImageGenEnabled.value) return text; // 生图开启时保留
             return String(text)
                 .replace(/<image\b[^>]*>[\s\S]*?<\/image>/gi, '')
-                .replace(getImageTagRegex(isTruncationEnabled.value), '')
+                .replace(getImageTagRegex(), '')
                 .replace(/[ \t]+\n/g, '\n')
                 .replace(/\n{3,}/g, '\n\n')
                 .trim();
@@ -3920,24 +3326,22 @@ const app = createApp({
 
                     ({ pattern: regexPattern, flags } = cardUtils.normalizeRegexModifiers(regexPattern, flags));
                     const re = isImageGenScript
-                        ? getImageTagRegex(isTruncationEnabled.value)
+                        ? getImageTagRegex()
                         : new RegExp(regexPattern, flags);
 
-                    // --- Protection Logic Start ---
-                    // 只有当正则不包含 < 或 > 且不包含 markdown 代码块标记 (```) 时，才启用 HTML/代码块保护
-                    // 如果正则本身就在匹配代码块（如用户提供的 ```json ...```），则不应进行保护
-                    // 增强保护：防止普通正则（通常带g）破坏 iframe 渲染内容（HTML文档、Script/Style块）
+                    // 普通正则保护 HTML/代码；明确匹配标签或代码围栏的规则仍直接执行。
                     if (!/[<>]/.test(regexPattern) && !regexPattern.includes('```')) {
-                        // 匹配完整的 HTML、脚本、代码块、标签以及 thinking/COT 块
-                        result = cardUtils.transformUnprotectedText(
-                            result,
-                            part => part.replace(re, replacement)
-                        );
+                        const wholeMatch = re.exec(result);
+                        re.lastIndex = 0;
+                        const wrapped = wholeMatch?.[0] === result ? result.replace(re, replacement) : null;
+                        re.lastIndex = 0;
+                        // 完整保留原文的整条包裹只执行一次，避免给面板内每段文字重复套壳。
+                        result = wrapped !== null && wrapped.includes(result)
+                            ? wrapped
+                            : cardUtils.transformUnprotectedText(result, part => part.replace(re, replacement));
                     } else {
-                        // 如果正则明确包含 <, > 或 ```，说明用户意图直接操作 HTML 或 Markdown 代码块，因此跳过保护直接替换
                         result = result.replace(re, replacement);
                     }
-                    // --- Protection Logic End ---
 
                 } catch (e) {
                     console.error(`Regex error in script "${script.name || 'Unnamed'}":`, e.message);
@@ -3956,96 +3360,9 @@ const app = createApp({
             marked,
             DOMPurify
         });
-        watch(() => [settings.disableImages, settings.styleFilterEnabled, isTruncationEnabled.value, regexScripts.value, user.name], () => {
+        watch(() => [settings.disableImages, settings.styleFilterEnabled, regexScripts.value, user.name], () => {
             clearMessageRenderCaches();
         }, { deep: true });
-
-        // [LuzzyRP patch 024] 关于页 CHANGELOG 版本分类 + 关键词检索 + 置顶（v1.2.3，需求 3）
-        const changelogSections = ref([]);
-        const changelogVersionOptions = ref([{ value: 'all', label: '全部版本' }]);
-        const changelogSelectedVersion = ref('all');
-        const changelogKeyword = ref('');
-        const changelogResultCount = ref(0);
-        const aboutViewEl = ref(null);
-        const aboutFabVisible = ref(false);
-        let changelogPreambleMd = '';
-        const parseChangelogSections = (md) => {
-            const sections = [];
-            const preamble = [];
-            let current = null;
-            (md || '').split(/\r?\n/).forEach((line) => {
-                const match = /^###\s+(v[0-9][0-9A-Za-z.-]*)/.exec(line);
-                if (match) {
-                    current = { version: match[1], lines: [line] };
-                    sections.push(current);
-                } else if (current) {
-                    current.lines.push(line);
-                } else {
-                    preamble.push(line);
-                }
-            });
-            return {
-                preamble: preamble.join('\n').trim(),
-                sections: sections.map(section => ({ version: section.version, md: section.lines.join('\n').trim() }))
-            };
-        };
-        const renderChangelogView = () => {
-            const keyword = changelogKeyword.value.trim().toLowerCase();
-            const matched = changelogSections.value.filter(section =>
-                (changelogSelectedVersion.value === 'all' || section.version === changelogSelectedVersion.value) &&
-                (!keyword || section.md.toLowerCase().includes(keyword)));
-            changelogResultCount.value = matched.length;
-            const parts = [];
-            if (changelogSelectedVersion.value === 'all' && !keyword && changelogPreambleMd) {
-                parts.push(changelogPreambleMd);
-            }
-            parts.push(...matched.map(section => section.md));
-            try {
-                changelogHtml.value = parts.length ? renderMarkdown(parts.join('\n\n'), 'assistant', true) : '';
-            } catch (e) { changelogHtml.value = ''; }
-        };
-        let changelogSearchTimer = 0;
-        watch(changelogKeyword, () => {
-            clearTimeout(changelogSearchTimer);
-            changelogSearchTimer = setTimeout(renderChangelogView, 150);
-        });
-        watch(changelogSelectedVersion, () => renderChangelogView());
-        const onAboutScroll = (event) => {
-            aboutFabVisible.value = ((event && event.target ? event.target.scrollTop : 0) || 0) > 240;
-        };
-        const scrollAboutToTop = () => {
-            const el = aboutViewEl.value;
-            if (!el) return;
-            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
-        };
-        // [LuzzyRP patch 014] 关于页 CHANGELOG：renderMarkdown 在此才可用，进入 about 视图时惰性渲染
-        // [LuzzyRP patch 024] 惰性加载后解析版本章节，渲染走分类/检索管线（v1.2.3）
-        watch(currentView, (view) => {
-            if (view === 'about' && !changelogSections.value.length) {
-                readBridgeVersion();
-                try {
-                    const md = window.LuzzyChangelog && typeof window.LuzzyChangelog.md === 'string'
-                        ? window.LuzzyChangelog.md : '';
-                    const parsed = parseChangelogSections(md);
-                    changelogPreambleMd = parsed.preamble;
-                    changelogSections.value = parsed.sections;
-                    const seenVersions = new Set(['all']);
-                    changelogVersionOptions.value = [{ value: 'all', label: '全部版本' }]
-                        .concat(parsed.sections
-                            .filter(section => !seenVersions.has(section.version) && seenVersions.add(section.version))
-                            .map(section => ({ value: section.version, label: section.version })));
-
-                } catch (e) { changelogSections.value = []; }
-                renderChangelogView();
-            }
-            if (view === 'about') {
-                nextTick(() => {
-                    const el = aboutViewEl.value;
-                    if (el) el.scrollTop = 0;
-                });
-            }
-        });
 
         const messageUsesHtmlFrame = (msg) => {
             if (!msg || !msg.content) return false;
@@ -4090,10 +3407,9 @@ const app = createApp({
 
         const appendAssistantResponseError = (message, errorMessage) => {
             if (!message) return;
-            const safeErrorMessage = escapeXmlText(errorMessage || '生成失败');
-            message.content = [
-                String(message.content || '').trimEnd(),
-                `<div class="response-error-text">-- ${safeErrorMessage} --</div>`
+            message.responseError = [
+                message.responseError,
+                String(errorMessage || '生成失败')
             ].filter(Boolean).join('\n\n');
             message.shouldAnimate = false;
             collapseNativeReasoning(message);
@@ -4104,100 +3420,21 @@ const app = createApp({
         };
 
         // API & Models
-        // [LuzzyRP patch 012] 按商拉取模型 + 跨商合并视图；availableModels 条目含 bareId/providerId/providerName
-        const providerModels = ref({});
-        const rebuildMergedAvailableModels = () => {
-            const merged = [];
-            allApiProviders.value.forEach(provider => {
-                const list = providerModels.value[provider.id];
-                if (!Array.isArray(list)) return;
-                list.forEach(model => {
-                    const bareId = String(model?.id || '').trim();
-                    if (!bareId) return;
-                    merged.push({
-                        ...model,
-                        id: `${provider.id}::${bareId}`,
-                        bareId,
-                        providerId: provider.id,
-                        providerName: provider.name
-                    });
-                });
-            });
-            availableModels.value = merged;
-        };
-        // [LuzzyRP patch 035] 供应商模型计数（拉取缓存 + 手动，管理器卡片徽标用）
-        const providerModelCount = (id) => {
-            const cached = providerModels.value[id];
-            if (Array.isArray(cached)) return cached.length;
-            const provider = getApiProviderById(id);
-            return Array.isArray(provider?.models) ? provider.models.length : 0;
-        };
-        const fetchModelsForProvider = async (provider) => {
-            const apiKey = String((settings.apiProviderKeys || {})[provider.id] || '').trim();
-            if (!provider?.apiUrl || !apiKey) throw new Error('未配置 API 地址或 Key');
-            // [LuzzyRP patch 015] 按协议分型拉取模型列表（含手动模型合并）
-            const protocol = normalizeProviderProtocol(provider.protocol);
-            const base = String(provider.apiUrl || '').replace(/\/+$/, '');
-            let models = [];
-            if (protocol === 'gemini') {
-                const response = await fetch(`${base}/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=200`);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                models = (Array.isArray(data?.models) ? data.models : []).map(entry => ({
-                    id: String(entry?.name || '').replace(/^models\//, ''),
-                    geminiMethods: Array.isArray(entry?.supportedGenerationMethods) ? entry.supportedGenerationMethods : []
-                }));
-            } else if (protocol === 'anthropic') {
-                const response = await fetch(`${base}/v1/models?limit=200`, {
-                    headers: {
-                        'x-api-key': apiKey,
-                        'anthropic-version': '2023-06-01',
-                        'anthropic-dangerous-direct-browser-access': 'true'
-                    }
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                models = (Array.isArray(data?.data) ? data.data : []).map(entry => ({ id: String(entry?.id || '') }));
-            } else {
-                const response = await fetch(buildApiEndpoint(provider.apiUrl, 'models'), {
-                    headers: { 'Authorization': `Bearer ${apiKey}` }
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                models = Array.isArray(data?.data) ? data.data : [];
-            }
-            const manual = (Array.isArray(provider.models) ? provider.models : []).map(m => ({ ...m, manual: true }));
-            const manualOnly = manual.filter(m => !models.some(existing => existing.id === m.id));
-            const merged = [...manualOnly, ...models];
-            providerModels.value = { ...providerModels.value, [provider.id]: merged };
-            rebuildMergedAvailableModels();
-            return merged.length;
-        };
-        const ensureProviderModelsLoaded = () => {
-            allApiProviders.value.filter(isProviderConfigured).forEach(provider => {
-                if (!Array.isArray(providerModels.value[provider.id])) {
-                    fetchModelsForProvider(provider).catch(() => { });
-                }
-            });
-        };
         const fetchModels = async (isManual = false) => {
-            const targets = allApiProviders.value.filter(isProviderConfigured);
-            if (targets.length === 0) {
-                if (isManual) showToast('请先为至少一个供应商配置 API 地址与 Key', 'info');
+            const apiKey = String(settings.apiKey || '').trim();
+            if (!apiKey) {
+                if (isManual) showToast('请先填写当前 API 预设的 Key', 'info');
                 return;
             }
-            if (isManual) showToast('正在获取全部供应商的模型列表...', 'info');
-            const results = await Promise.allSettled(targets.map(provider => fetchModelsForProvider(provider)));
-            if (!isManual) return;
-            const okCount = results.filter(result => result.status === 'fulfilled').length;
-            const totalModels = results.reduce((sum, result) => sum + (result.status === 'fulfilled' ? result.value : 0), 0);
-            const failedCount = results.length - okCount;
-            if (okCount === 0) {
-                showToast('获取模型失败，请检查网络与 Key', 'error');
-            } else if (failedCount > 0) {
-                showToast(`成功 ${okCount} 个供应商共 ${totalModels} 个模型，${failedCount} 个供应商获取失败`, 'warning');
-            } else {
-                showToast(`成功获取 ${okCount} 个供应商共 ${totalModels} 个模型`, 'success');
+            try {
+                if (isManual) showToast('正在获取模型列表...', 'info');
+                const url = buildApiEndpoint(settings.apiUrl, 'models');
+                const data = await requestJson({ url, apiKey });
+                availableModels.value = data.data || [];
+                if (isManual) showToast(`成功获取 ${availableModels.value.length} 个模型`, 'success');
+            } catch (error) {
+                console.error(error);
+                showToast('获取模型失败: ' + error.message, 'error');
             }
         };
 
@@ -4209,519 +3446,7 @@ const app = createApp({
             } else if (modelSearchQuery.value === 'embedding') {
                 modelSearchQuery.value = '';
             }
-            ensureProviderModelsLoaded();
             showModelSelector.value = true;
-        };
-
-        // [LuzzyRP patch 012] 供应商管理器
-        const showProviderManager = ref(false);
-        const providerTestStatus = ref({});
-        const MODEL_REF_FIELD_LABELS = Object.freeze({
-            model: '聊天模型',
-            qualityModel: '高质量槽位',
-            balancedModel: '均衡槽位',
-            fastModel: '快速槽位',
-            visionModel: '识图模型',
-            uiTemplateModel: 'UI 模板模型'
-        });
-        const collectModelRefsByProvider = (providerId) => {
-            const labels = [];
-            Object.keys(MODEL_REF_FIELD_LABELS).forEach(field => {
-                if (parseModelRef(settings[field]).providerId === providerId) labels.push(MODEL_REF_FIELD_LABELS[field]);
-            });
-            if (parseModelRef(memorySettings.embeddingModel).providerId === providerId) labels.push('向量嵌入模型');
-            if (parseModelRef(memorySettings.classicModel).providerId === providerId) labels.push('总结副模型');
-            return labels;
-        };
-        const resetModelRefsForProvider = (providerId) => {
-            Object.keys(MODEL_REF_FIELD_LABELS).forEach(field => {
-                const parsed = parseModelRef(settings[field]);
-                if (parsed.providerId === providerId) settings[field] = parsed.bareId;
-            });
-            const embeddingParsed = parseModelRef(memorySettings.embeddingModel);
-            if (embeddingParsed.providerId === providerId) memorySettings.embeddingModel = embeddingParsed.bareId;
-            const classicParsed = parseModelRef(memorySettings.classicModel);
-            if (classicParsed.providerId === providerId) memorySettings.classicModel = classicParsed.bareId;
-        };
-        const openProviderManager = () => {
-            showApiProviderSelector.value = false;
-            showProviderManager.value = true;
-        };
-        const addUserApiProvider = () => {
-            // [LuzzyRP patch 015] 新增即进编辑器：先 push 占位条目（响应式），保存时在原对象上写字段；
-            // 用户在编辑器中点「取消」则移除占位条目
-            const placeholder = reactive({
-                id: createUserApiProviderId(),
-                name: '新供应商',
-                apiUrl: '',
-                protocol: 'openai',
-                models: [],
-                extraBody: {}
-            });
-            settings.apiProviders.push(placeholder);
-            openProviderEditor(placeholder, true);
-        };
-        const updateProviderKey = (providerId, value) => {
-            settings.apiProviderKeys[providerId] = value || '';
-            if (settings.apiProviderId === providerId) {
-                settings.apiKey = value || '';
-            }
-        };
-
-        // [LuzzyRP patch 015] 供应商编辑器（二级弹窗）：draft 编辑 → 保存写回 + 热更新模型列表
-        const showProviderEditor = ref(false);
-        const providerEditorDraft = ref(null);
-        const providerEditorIsNew = ref(false);
-        const providerEditorPresetNotice = ref('');
-        const providerEditorPresetModel = ref(null);   // 撤销目标：最近一次触发预设填充的模型行
-        // [LuzzyRP patch 035] 供应商图标：相册选取 + 1:1 裁剪（拖动选块/角点缩放），输出 128×128 dataURL
-        const providerIconInputEl = ref(null);
-        const providerIconCrop = ref(null);   // { src, dispW, dispH, x, y, size, scale }（显示坐标；scale=自然宽/显示宽）
-        const providerIconDrag = ref(null);   // { mode: 'move'|'resize', startX, startY, box0 }
-        const providerEditorIconPreview = computed(() => {
-            const draft = providerEditorDraft.value;
-            if (!draft) return '';
-            if (draft.__iconCleared) return '';
-            if (draft.__iconDataUrl !== undefined) return draft.__iconDataUrl;
-            return draft.icon || '';
-        });
-        const providerIconPick = () => {
-            if (providerIconInputEl.value) {
-                providerIconInputEl.value.value = '';
-                providerIconInputEl.value.click();
-            }
-        };
-        const providerIconClear = () => {
-            if (!providerEditorDraft.value) return;
-            providerEditorDraft.value.__iconDataUrl = '';
-            providerEditorDraft.value.__iconCleared = true;
-        };
-        const providerIconFileChosen = (event) => {
-            const file = event?.target?.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-                const src = String(reader.result || '');
-                const img = new Image();
-                img.onload = () => {
-                    const maxW = Math.min(window.innerWidth - 32, 380);
-                    const maxH = Math.max(window.innerHeight - 240, 240);
-                    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
-                    const dispW = Math.max(1, Math.round(img.naturalWidth * scale));
-                    const dispH = Math.max(1, Math.round(img.naturalHeight * scale));
-                    const size = Math.floor(Math.min(dispW, dispH) * 0.8);
-                    providerIconCrop.value = {
-                        src,
-                        image: img,
-                        dispW,
-                        dispH,
-                        x: Math.floor((dispW - size) / 2),
-                        y: Math.floor((dispH - size) / 2),
-                        size,
-                        scale: img.naturalWidth / dispW
-                    };
-                };
-                img.src = src;
-            };
-            reader.readAsDataURL(file);
-        };
-        const providerIconBoxDown = (event, mode) => {
-            event.preventDefault();
-            providerIconDrag.value = {
-                mode,
-                startX: event.clientX,
-                startY: event.clientY,
-                box0: { ...(providerIconCrop.value || {}) }
-            };
-            const onMove = (moveEvent) => {
-                const crop = providerIconCrop.value;
-                const drag = providerIconDrag.value;
-                if (!crop || !drag) return;
-                const dx = moveEvent.clientX - drag.startX;
-                const dy = moveEvent.clientY - drag.startY;
-                if (drag.mode === 'move') {
-                    crop.x = Math.min(Math.max(drag.box0.x + dx, 0), crop.dispW - crop.size);
-                    crop.y = Math.min(Math.max(drag.box0.y + dy, 0), crop.dispH - crop.size);
-                } else {
-                    const next = Math.min(Math.max(drag.box0.size + Math.max(dx, dy), 48),
-                        Math.min(crop.dispW - crop.x, crop.dispH - crop.y));
-                    crop.size = next;
-                }
-            };
-            const onUp = () => {
-                providerIconDrag.value = null;
-                window.removeEventListener('pointermove', onMove);
-                window.removeEventListener('pointerup', onUp);
-            };
-            window.addEventListener('pointermove', onMove);
-            window.addEventListener('pointerup', onUp);
-        };
-        const providerIconCropCancel = () => { providerIconCrop.value = null; };
-        const providerIconCropConfirm = () => {
-            const crop = providerIconCrop.value;
-            if (!crop || !providerEditorDraft.value) { providerIconCrop.value = null; return; }
-            const side = Math.max(1, Math.round(crop.size * crop.scale));
-            const canvas = document.createElement('canvas');
-            canvas.width = 128;
-            canvas.height = 128;
-            const context = canvas.getContext('2d');
-            if (context) {
-                context.imageSmoothingQuality = 'high';
-                context.drawImage(crop.image, Math.round(crop.x * crop.scale), Math.round(crop.y * crop.scale), side, side, 0, 0, 128, 128);
-                providerEditorDraft.value.__iconDataUrl = canvas.toDataURL('image/png');
-                providerEditorDraft.value.__iconCleared = false;
-            }
-            providerIconCrop.value = null;
-        };
-        // 五组模型 id 热检测预设（大小写不敏感，长词优先；只填空字段不覆盖已编辑值）
-        const MODEL_ID_PRESETS = [
-            {
-                match: 'deepseek-v4-flash-vision-exp',
-                fill: { label: 'DeepSeek-V4-Flash-Vision-Exp', contextLength: 1024 * 1024, maxOutput: 384 * 1024, inputModalities: ['text', 'image'], type: 'text', extraBody: { reasoning_effort: 'max' } }
-            },
-            {
-                match: 'deepseek-v4-flash',
-                fill: { label: 'DeepSeek-V4-Flash', contextLength: 1024 * 1024, maxOutput: 384 * 1024, inputModalities: ['text'], type: 'text', extraBody: { reasoning_effort: 'max' } }
-            },
-            {
-                match: 'deepseek-v4-pro',
-                fill: { label: 'DeepSeek-V4-Pro', contextLength: 1024 * 1024, maxOutput: 384 * 1024, inputModalities: ['text'], type: 'text', extraBody: { reasoning_effort: 'max' } }
-            },
-            {
-                match: 'glm-5.3-flash',
-                fill: { label: 'GLM-5.3-Flash', contextLength: 1024 * 1024, maxOutput: 128 * 1024, inputModalities: ['text', 'image'], type: 'text', extraBody: { reasoning_effort: 'max' } }
-            },
-            {
-                match: 'glm-5.3',
-                fill: { label: 'GLM-5.3', contextLength: 1024 * 1024, maxOutput: 128 * 1024, inputModalities: ['text'], type: 'text', extraBody: { reasoning_effort: 'max' } }
-            }
-        ];
-        const matchModelIdPreset = (modelId) => {
-            const needle = String(modelId || '').trim().toLowerCase();
-            if (!needle) return null;
-            return MODEL_ID_PRESETS.find(p => needle.includes(p.match)) || null;
-        };
-        const applyModelIdPreset = (model, preset, autoLabel = '') => {
-            const applied = [];
-            const f = preset.fill;
-            // 渐进输入场景：label 若为上一次预设自动填充值，视为可覆盖（否则 glm-5.3 → glm-5.3-flash 会锁死短标签）
-            if ((!model.label || model.label === autoLabel) && f.label) { model.label = f.label; applied.push('显示 id'); }
-            if (!model.contextLength && f.contextLength) { model.contextLength = f.contextLength; applied.push('上下文长度'); }
-            if (!model.maxOutput && f.maxOutput) { model.maxOutput = f.maxOutput; applied.push('最大输出长度'); }
-            const sameModality = (a, b) => a.length === b.length && a.every(v => b.includes(v));
-            if (!model.inputModalities || model.inputModalities.length === 0 || sameModality(model.inputModalities, ['text'])) {
-                if (!sameModality(model.inputModalities || ['text'], f.inputModalities)) {
-                    model.inputModalities = [...f.inputModalities];
-                    applied.push('输入模态');
-                }
-            }
-            if (!model.type || model.type === 'text') { if (f.type !== 'text') { model.type = f.type; applied.push('模型类型'); } }
-            const hasExtra = model.extraBody && Object.keys(model.extraBody).length > 0;
-            if (!hasExtra && f.extraBody) {
-                model.extraBody = { ...f.extraBody };
-                model.extraBodyText = JSON.stringify(f.extraBody);
-                applied.push('自定义请求体');
-            }
-            if (applied.includes('显示 id')) model.__presetLabel = f.label;
-            return applied;
-        };
-        const onProviderEditorModelIdInput = (model) => {
-            const preset = matchModelIdPreset(model.id);
-            if (!preset) { providerEditorPresetNotice.value = ''; providerEditorPresetModel.value = null; return; }
-            const applied = applyModelIdPreset(model, preset, model.__presetLabel || '');
-            providerEditorPresetModel.value = model;
-            providerEditorPresetNotice.value = applied.length > 0
-                ? `已按预设填充：${applied.join('、')}` : '';
-        };
-        const undoModelIdPreset = (model) => {
-            if (!model || !model.id) return;
-            const preset = matchModelIdPreset(model.id);
-            if (!preset) return;
-            const f = preset.fill;
-            if (model.__presetLabel && model.label === f.label) { model.label = ''; delete model.__presetLabel; }
-            if (model.contextLength === f.contextLength) model.contextLength = null;
-            if (model.maxOutput === f.maxOutput) model.maxOutput = null;
-            const sameModality = (a, b) => a.length === b.length && a.every(v => b.includes(v));
-            if (model.inputModalities && sameModality(model.inputModalities, f.inputModalities)) model.inputModalities = ['text'];
-            if (model.type === f.type) model.type = 'text';
-            if (model.extraBody && f.extraBody
-                && JSON.stringify(model.extraBody) === JSON.stringify(f.extraBody)) { model.extraBody = {}; model.extraBodyText = ''; }
-            providerEditorPresetNotice.value = '';
-            providerEditorPresetModel.value = null;
-        };
-        const addProviderEditorModel = () => {
-            if (!providerEditorDraft.value) return;
-            providerEditorDraft.value.models.push(normalizeProviderModelEntry({ id: '', label: '', inputModalities: ['text'], type: 'text' }));
-        };
-        const removeProviderEditorModel = (index) => {
-            if (!providerEditorDraft.value) return;
-            providerEditorDraft.value.models.splice(index, 1);
-            providerEditorPresetNotice.value = '';
-            providerEditorPresetModel.value = null;
-        };
-        // 编辑器辅助：长度输入（原样保留文本，失焦/保存时经 parseLengthToken 归一）、模态多选、请求体懒编辑
-        const parseLengthSafe = (event) => {
-            const raw = String(event?.target?.value ?? '').trim();
-            if (!raw) return null;
-            const parsed = parseLengthToken(raw);
-            return parsed === null ? raw : parsed;
-        };
-        const toggleModelModality = (model, modality) => {
-            if (!Array.isArray(model.inputModalities)) model.inputModalities = ['text'];
-            const index = model.inputModalities.indexOf(modality);
-            if (index >= 0) {
-                if (model.inputModalities.length > 1) model.inputModalities.splice(index, 1);
-            } else {
-                model.inputModalities.push(modality);
-            }
-        };
-        const setModelExtraBodyText = (model, text) => {
-            // 懒编辑三态：`{"k":"v"}` JSON / `k:v` 单键值 / 空=清空
-            const raw = String(text || '').trim();
-            model.extraBodyText = text;
-            if (!raw) { model.extraBody = {}; return; }
-            if (raw.startsWith('{')) {
-                try { model.extraBody = JSON.parse(raw); return; } catch (e) { return; /* 未完成输入，暂不解析 */ }
-            }
-            const sep = raw.indexOf(':');
-            if (sep > 0) {
-                model.extraBody = { [raw.slice(0, sep).trim()]: raw.slice(sep + 1).trim() };
-            }
-        };
-        // 供应商级/模型级自定义请求体：键值行编辑（值可空 = 懒编辑）
-        const getExtraBodyRows = (obj) => Object.keys(obj || {}).map(k => ({ key: k, value: obj[k] }));
-        const setExtraBodyRows = (obj, rows) => {
-            const next = {};
-            rows.forEach(row => {
-                const key = String(row.key || '').trim();
-                if (!key) return;
-                next[key] = row.value;
-            });
-            Object.keys(obj).forEach(k => delete obj[k]);
-            Object.assign(obj, next);
-        };
-        const providerEditorExtraRows = ref([]);
-        const syncExtraRowsFromDraft = () => {
-            providerEditorExtraRows.value = getExtraBodyRows(providerEditorDraft.value?.extraBody || {});
-        };
-        const commitExtraRowsToDraft = () => {
-            if (!providerEditorDraft.value) return;
-            if (!providerEditorDraft.value.extraBody || typeof providerEditorDraft.value.extraBody !== 'object') {
-                providerEditorDraft.value.extraBody = {};
-            }
-            setExtraBodyRows(providerEditorDraft.value.extraBody, providerEditorExtraRows.value);
-        };
-        const addProviderEditorExtraRow = () => providerEditorExtraRows.value.push({ key: '', value: '' });
-        const removeProviderEditorExtraRow = (index) => providerEditorExtraRows.value.splice(index, 1);
-        // 协议切换：URL 占位与默认地址提示联动
-        const PROTOCOL_URL_HINTS = {
-            openai: { placeholder: 'https://api.example.com/v1', hint: 'OpenAI 兼容端点（GET /v1/models 拉取列表）' },
-            anthropic: { placeholder: 'https://api.anthropic.com', hint: 'Anthropic Messages API（/v1/messages）' },
-            gemini: { placeholder: 'https://generativelanguage.googleapis.com', hint: 'Google Gemini API（/v1beta）' }
-        };
-        const providerEditorProtocolHint = computed(() =>
-            PROTOCOL_URL_HINTS[providerEditorDraft.value?.protocol || 'openai'] || PROTOCOL_URL_HINTS.openai);
-        // 编辑商 id：引用重映射预览（collectModelRefsByProvider 扫描全部槽位）
-        const providerEditorIdConflict = computed(() => {
-            const draft = providerEditorDraft.value;
-            if (!draft || !draft.id) return false;
-            // [LuzzyRP patch 035] 内置商编辑：id 锁定，且 override 合并会重建注册表对象（身份对比失真，
-            // 实测误报「该 id 已被其他供应商占用」），不参与冲突检查
-            if (draft.__builtinEditable) return false;
-            // 排除自身（__source 即编辑中的原条目）；只与其他商比较 id
-            const self = draft.__source;
-            return allApiProviders.value.some(p => p.id === draft.id && p !== self);
-        });
-        const openProviderEditor = (provider, isNew, opts = {}) => {
-            // draft 为浅拷贝（models 逐条拷贝），取消不污染原数据；extraBodyText 供懒编辑输入框回显
-            // [LuzzyRP patch 029] __builtinEditable：内置商编辑态（id 锁定，保存写 override）
-            providerEditorDraft.value = {
-                id: provider.id, name: provider.name, apiUrl: provider.apiUrl || '',
-                icon: provider.icon || '',
-                protocol: normalizeProviderProtocol(provider.protocol),
-                models: (provider.models || []).map(m => ({
-                    ...m,
-                    inputModalities: [...(m.inputModalities || ['text'])],
-                    extraBody: { ...(m.extraBody || {}) },
-                    extraBodyText: Object.keys(m.extraBody || {}).length > 0 ? JSON.stringify(m.extraBody) : ''
-                })),
-                extraBody: { ...(provider.extraBody || {}) },
-                __source: provider,
-                __builtinEditable: !!opts.builtinEditable
-            };
-            providerEditorIsNew.value = !!isNew;
-            providerEditorPresetNotice.value = '';
-            syncExtraRowsFromDraft();
-            showProviderEditor.value = true;
-        };
-        const editUserApiProvider = (provider) => {
-            // [LuzzyRP patch 029] 可编辑内置商（DeepSeek）：编辑器直开，保存写 override
-            if (provider.editable && apiProviderOptions.some(item => item.id === provider.id)) {
-                openProviderEditor(provider, false, { builtinEditable: true });
-                return;
-            }
-            const source = settings.apiProviders.find(item => item.id === provider.id);
-            if (!source) return;
-            openProviderEditor(source, false);
-        };
-        const cancelProviderEditor = () => {
-            // [LuzzyRP patch 015] 新增流程取消：移除占位条目（apiUrl 仍为空，未成为有效商）
-            if (providerEditorIsNew.value && providerEditorDraft.value?.__source) {
-                const src = providerEditorDraft.value.__source;
-                settings.apiProviders = settings.apiProviders.filter(item => item !== src);
-            }
-            showProviderEditor.value = false;
-            providerEditorDraft.value = null;
-            providerEditorPresetNotice.value = '';
-        };
-        const saveProviderEditor = () => {
-            const draft = providerEditorDraft.value;
-            if (!draft) return;
-            const cleanId = String(draft.id || '').trim();
-            const cleanName = String(draft.name || '').trim();
-            const cleanUrl = String(draft.apiUrl || '').trim();
-            if (!cleanId) { showToast('供应商 id 不能为空', 'error'); return; }
-            if (/\s/.test(cleanId) || cleanId.includes(':')) { showToast('供应商 id 不能含空格或冒号', 'error'); return; }
-            if (!cleanName) { showToast('供应商名称不能为空', 'error'); return; }
-            if (!cleanUrl) { showToast('API URL 不能为空', 'error'); return; }
-            if (providerEditorIdConflict.value) { showToast('供应商 id 与现有供应商重复', 'error'); return; }
-            commitExtraRowsToDraft();
-            // [LuzzyRP patch 029] 可编辑内置商：id 锁定，保存写 settings.apiProviderOverrides（冻结条目不写回）
-            if (draft.__builtinEditable) {
-                if (cleanId !== String(draft.__source.id)) { showToast('内置供应商 id 不可修改', 'error'); return; }
-                const overrides = { ...(settings.apiProviderOverrides || {}) };
-                overrides[cleanId] = {
-                    name: cleanName,
-                    apiUrl: cleanUrl,
-                    // [LuzzyRP patch 035] 图标：新选 dataURL / 清除为空串 / 未动保持现值
-                    icon: draft.__iconCleared ? '' : (draft.__iconDataUrl !== undefined ? draft.__iconDataUrl : (draft.icon || '')),
-                    protocol: normalizeProviderProtocol(draft.protocol),
-                    models: draft.models.map(m => ({
-                        ...m,
-                        contextLength: parseLengthToken(m.contextLength) ?? null,
-                        maxOutput: parseLengthToken(m.maxOutput) ?? null
-                    })).map(normalizeProviderModelEntry).filter(m => m.id),
-                    extraBody: { ...(draft.extraBody || {}) }
-                };
-                settings.apiProviderOverrides = overrides;
-                const cachedBuiltin = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
-                const manualBuiltin = overrides[cleanId].models.map(m => ({ ...m, manual: true }))
-                    .filter(m => !cachedBuiltin.some(e => e.id === m.id));
-                if (manualBuiltin.length > 0) {
-                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...cachedBuiltin] };
-                }
-                rebuildMergedAvailableModels();
-                if (settings.apiProviderId === cleanId) {
-                    settings.apiUrl = cleanUrl;
-                }
-                showProviderEditor.value = false;
-                providerEditorDraft.value = null;
-                showToast('已保存内置供应商修改', 'success');
-                return;
-            }
-            const source = draft.__source;
-            const oldId = source.id;
-            const idChanged = cleanId !== oldId;
-            // 模型条目归一 + 去重（同 id 保留首个）；长度字段先经 parseLengthToken（"1M"/"384K" → 数字）
-            const seenModels = new Set();
-            const models = draft.models.map(m => ({
-                ...m,
-                contextLength: parseLengthToken(m.contextLength) ?? null,
-                maxOutput: parseLengthToken(m.maxOutput) ?? null
-            })).map(normalizeProviderModelEntry).filter(m => {
-                if (!m.id || seenModels.has(m.id)) return false;
-                seenModels.add(m.id);
-                return true;
-            });
-            const affectedLabels = idChanged ? collectModelRefsByProvider(oldId) : [];
-            const doApply = () => {
-                source.id = cleanId;
-                source.name = cleanName;
-                source.apiUrl = cleanUrl;
-                // [LuzzyRP patch 035] 图标：新选 dataURL / 清除为空串 / 未动保持现值
-                source.icon = draft.__iconCleared ? '' : (draft.__iconDataUrl !== undefined ? draft.__iconDataUrl : (draft.icon || ''));
-                source.protocol = normalizeProviderProtocol(draft.protocol);
-                source.models = models;
-                source.extraBody = { ...(draft.extraBody || {}) };
-                // 引用重映射：槽位 `旧id::bareId` → `新id::bareId` + key 键改名
-                if (idChanged) {
-                    const remap = (ref) => {
-                        const parsed = parseModelRef(ref);
-                        return parsed.providerId === oldId ? `${cleanId}::${parsed.bareId}` : ref;
-                    };
-                    Object.keys(MODEL_REF_FIELD_LABELS).forEach(field => { settings[field] = remap(settings[field]); });
-                    memorySettings.embeddingModel = remap(memorySettings.embeddingModel);
-                    memorySettings.classicModel = remap(memorySettings.classicModel);
-                    const keys = { ...settings.apiProviderKeys };
-                    if (Object.prototype.hasOwnProperty.call(keys, oldId)) {
-                        keys[cleanId] = keys[oldId];
-                        delete keys[oldId];
-                    }
-                    settings.apiProviderKeys = keys;
-                    const caches = { ...providerModels.value };
-                    if (Object.prototype.hasOwnProperty.call(caches, oldId)) {
-                        caches[cleanId] = caches[oldId];
-                        delete caches[oldId];
-                    }
-                    providerModels.value = caches;
-                    if (settings.apiProviderId === oldId) settings.apiProviderId = cleanId;
-                    rebuildMergedAvailableModels();
-                }
-                // 手动模型并入缓存 → 合并视图热更新（聊天/识图槽位立即可见，无需等 /models 拉取）
-                const cached = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
-                const manualEntries = models.map(m => ({ ...m, manual: true }))
-                    .filter(m => !cached.some(e => e.id === m.id));
-                if (manualEntries.length > 0) {
-                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualEntries, ...cached] };
-                }
-                rebuildMergedAvailableModels();
-                if (settings.apiProviderId === cleanId) {
-                    settings.apiUrl = cleanUrl;
-                }
-                showProviderEditor.value = false;
-                providerEditorDraft.value = null;
-                showToast(idChanged ? `已保存供应商（id 已重映射 ${affectedLabels.length} 个相关槽位）` : '已保存供应商', 'success');
-            };
-            if (idChanged && affectedLabels.length > 0) {
-                confirmAction(`供应商 id 将从「${oldId}」改为「${cleanId}」，以下引用该商的槽位将自动重映射：${affectedLabels.join('、')}。确定保存？`, doApply);
-            } else {
-                doApply();
-            }
-        };
-        const testProviderConnection = async (providerId) => {
-            const provider = getApiProviderById(providerId);
-            if (!provider) return;
-            if (!isProviderConfigured(provider)) {
-                providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'error', count: 0, message: '未配置 Key' } };
-                return;
-            }
-            providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'checking', count: 0, message: '' } };
-            try {
-                const count = await fetchModelsForProvider(provider);
-                providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'ok', count, message: '' } };
-            } catch (error) {
-                providerTestStatus.value = { ...providerTestStatus.value, [providerId]: { status: 'error', count: 0, message: error.message || '连接失败' } };
-            }
-        };
-        const removeUserApiProvider = (provider) => {
-            const affectedLabels = collectModelRefsByProvider(provider.id);
-            const doRemove = () => {
-                resetModelRefsForProvider(provider.id);
-                settings.apiProviders = settings.apiProviders.filter(item => item.id !== provider.id);
-                const keys = { ...settings.apiProviderKeys };
-                delete keys[provider.id];
-                settings.apiProviderKeys = keys;
-                const caches = { ...providerModels.value };
-                delete caches[provider.id];
-                providerModels.value = caches;
-                rebuildMergedAvailableModels();
-                showToast(`已删除供应商「${provider.name}」`, 'success');
-            };
-            if (affectedLabels.length > 0) {
-                confirmAction(`「${provider.name}」仍被以下槽位引用：${affectedLabels.join('、')}。删除后这些槽位将回落为跟随当前 API 预设。确定删除？`, doRemove);
-            } else {
-                confirmAction(`确定删除供应商「${provider.name}」？`, doRemove);
-            }
         };
 
         const selectQuickModels = (models) => {
@@ -4791,26 +3516,8 @@ const app = createApp({
                 apiStatus.value = 'error';
                 return;
             }
-            // [LuzzyRP patch 015] 激活商为用户商时按其协议分型检测
-            const activeProvider = getApiProviderById(settings.apiProviderId);
-            const protocol = activeProvider ? normalizeProviderProtocol(activeProvider.protocol) : 'openai';
             await checkConnectionStatus(apiStatus, apiLatency, 'API', signal => (
-                protocol === 'gemini'
-                    ? fetch(`${String(settings.apiUrl).replace(/\/+$/, '')}/v1beta/models?key=${encodeURIComponent(settings.apiKey)}&pageSize=1`, { signal })
-                    : (protocol === 'anthropic'
-                        ? fetch(`${String(settings.apiUrl).replace(/\/+$/, '')}/v1/models?limit=1`, {
-                            headers: {
-                                'x-api-key': settings.apiKey,
-                                'anthropic-version': '2023-06-01',
-                                'anthropic-dangerous-direct-browser-access': 'true'
-                            },
-                            signal
-                        })
-                        : fetch(buildApiEndpoint(settings.apiUrl, 'models'), {
-                            headers: { 'Authorization': `Bearer ${settings.apiKey}` },
-                            signal
-                        })
-                    )
+                requestJson({ url: buildApiEndpoint(settings.apiUrl, 'models'), apiKey: settings.apiKey, signal })
             ), () => true);
         };
 
@@ -4923,17 +3630,9 @@ const app = createApp({
             reader.readAsDataURL(file);
         });
         const recognizeChatImage = async (image) => {
-            // [LuzzyRP patch 015/025] 识图走多商路由 + provider/protocol 透传
-            const visionResolved = resolveModelRequest(settings.visionModel);
             try {
                 const result = await requestTrackedChatCompletion({
-                    url: buildApiEndpoint(visionResolved.url, 'chat/completions'),
-                    apiKey: visionResolved.apiKey,
-                    model: visionResolved.model,
-                    protocol: visionResolved.protocol,
-                    maxTokens: visionResolved.modelMeta?.maxOutput || null,
-                    extraBody: visionResolved.extraBody,
-                    provider: visionResolved.providerId || '',
+                    model: settings.visionModel,
                     temperature: 0.2,
                     stream: false,
                     messages: [{
@@ -4968,8 +3667,7 @@ const app = createApp({
             }
         };
         const requestChatImageSelection = (input) => {
-            const visionGuard = resolveModelRequest(settings.visionModel);
-            if (!visionGuard.model || !visionGuard.apiKey) {
+            if (!settings.apiKey || !settings.visionModel) {
                 showToast('请先在设置中配置识图模型', 'warning');
                 return;
             }
@@ -5093,7 +3791,43 @@ const app = createApp({
             });
         };
 
-        // [LuzzyRP patch 022] 原生 fullscreen helpers 与全屏切换/同步函数整体移除（v1.2.3）
+        const getNativeFullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+        const requestNativeFullscreen = (element) => {
+            if (element.requestFullscreen) return element.requestFullscreen();
+            if (element.webkitRequestFullscreen) return element.webkitRequestFullscreen();
+            return Promise.reject(new Error('Fullscreen is not supported'));
+        };
+        const exitNativeFullscreen = () => {
+            if (document.exitFullscreen) return document.exitFullscreen();
+            if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+            return Promise.resolve();
+        };
+
+        const toggleChatFullscreen = async () => {
+            try {
+                if (getNativeFullscreenElement()) {
+                    isChatFullscreen.value = false;
+                    await exitNativeFullscreen();
+                    return;
+                }
+                const fullscreenTarget = document.documentElement || document.body;
+                if (!fullscreenTarget || (!fullscreenTarget.requestFullscreen && !fullscreenTarget.webkitRequestFullscreen)) {
+                    showToast('当前浏览器不支持全屏', 'warning');
+                    return;
+                }
+                closeMobileMenu();
+                isChatFullscreen.value = true;
+                await requestNativeFullscreen(fullscreenTarget);
+            } catch (err) {
+                isChatFullscreen.value = !!getNativeFullscreenElement();
+                console.error('Toggle fullscreen failed:', err);
+                showToast('全屏失败', 'error');
+            }
+        };
+
+        const syncChatFullscreenState = () => {
+            isChatFullscreen.value = !!getNativeFullscreenElement();
+        };
 
         const copyMessage = (content) => {
             navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
@@ -5263,9 +3997,7 @@ const app = createApp({
                 }));
             const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
 
-            // [LuzzyRP patch 015] UI 模板副模型走多商路由
-            const uiTemplateResolved = resolveModelRequest(settings.uiTemplateModel);
-            const fallbackModel = uiTemplateResolved.model.trim();
+            const fallbackModel = (settings.uiTemplateModel || '').trim();
             if (!fallbackModel) {
                 markUiTemplateStatus('skipped', '未选模型');
                 return false;
@@ -5301,14 +4033,7 @@ const app = createApp({
                         const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                         const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
                         const result = await requestTrackedChatCompletion({
-                            // [LuzzyRP patch 015/025] 多商路由 + provider 透传
-                            url: buildApiEndpoint(uiTemplateResolved.url, 'chat/completions'),
-                            apiKey: uiTemplateResolved.apiKey,
                             model, temperature: 0.2, stream: false,
-                            protocol: uiTemplateResolved.protocol,
-                            maxTokens: uiTemplateResolved.modelMeta?.maxOutput || null,
-                            extraBody: uiTemplateResolved.extraBody,
-                            provider: uiTemplateResolved.providerId || '',
                             messages: [
                                 {
                                     role: 'system',
@@ -5653,8 +4378,7 @@ const app = createApp({
                 const content = String(message?.content || '');
                 return message?.role === 'user'
                     && content.trim()
-                    && !isRoleMemoryContextContent(content)
-                    && !content.includes('<active_tool_results>');
+                    && !isRoleMemoryContextContent(content);
             });
             if (!latestUserMessage) return msgArray;
 
@@ -5667,35 +4391,34 @@ const app = createApp({
             return msgArray;
         };
 
-        const getActiveToolCallLabels = (tool) => {
-            const baseCallName = normalizeActiveToolBaseCallName(tool?.callName || 'tool_grep');
-            return {
-                add: `${baseCallName}_add`,
-                cover: `${baseCallName}_cover`
-            };
-        };
+        const buildActiveToolDefinitions = (tools) => tools.map(tool => ({
+            type: 'function',
+            function: {
+                name: tool.callName,
+                description: `${tool.description} 每次最多返回 ${tool.resultCount} 条。`,
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        query: { type: 'string', description: isWebActiveTool(tool) ? '具体搜索词，或需要读取的真实网页 URL。' : '前文原文中可能出现的关键词。' },
+                        mode: { type: 'string', enum: ['add', 'cover'], description: '默认 add 保留已有结果；cover 用新结果替换本轮此前所有检索结果。' },
+                        reason: { type: 'string', description: '可选，一句话说明检索用途。' }
+                    },
+                    required: ['query'],
+                    additionalProperties: false
+                }
+            }
+        }));
 
-        const buildActiveToolSystemPrompt = () => {
-            const tools = getEnabledActiveTools();
+        const buildActiveToolSystemPrompt = (tools) => {
             if (tools.length === 0) return '';
             return BUILTIN_PROMPTS.buildActiveToolSystemPrompt({
-                tools: tools.map(tool => {
-                    const labels = getActiveToolCallLabels(tool);
-                    return {
-                        name: tool.name,
-                        description: tool.description,
-                        resultCount: tool.resultCount,
-                        addCallName: labels.add,
-                        coverCallName: labels.cover,
-                        kind: isWebActiveTool(tool) ? 'web' : 'keyword'
-                    };
-                }),
+                tools,
                 reminder: getActiveToolLatestUserReminder(),
                 aggressivenessLabel: getActiveToolAggressivenessLabel(),
-                defaultResultCount: ACTIVE_TOOL_DEFAULT_RESULT_COUNT
+                maxRounds: ACTIVE_TOOL_MAX_AUTO_CONTINUE
             });
         };
-        const usesThinkingCotTag = (model) => /(?:deepseek|glm|kimi)/i.test(String(parseModelRef(model).bareId || ''));
+        const usesThinkingCotTag = (model) => /(?:deepseek|glm|kimi)/i.test(String(model || ''));
         const getMessageThinkingText = (message, includeNativeReasoning = true) => {
             const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
             parts.push(parseCot(message?.content || '').rawCot);
@@ -5719,34 +4442,20 @@ const app = createApp({
                 memoryEnabled: memorySettings.enabled,
                 useThinkingTag,
                 writingStylePrompt,
+                storyPanelsEnabled: isStoryPanelsEnabled.value,
+                replyInTool: isTruncationEnabled.value,
                 uiTemplateEnabled: isUiTemplateAnalysisEnabled()
             });
             target.content = `${String(target.content || '').trimEnd()}\n\n${prompt}`;
         };
-        const isLikelyTruncatedResponse = (text) => {
-            const parsed = parseCot(stripUiTemplateUpdateBlock(String(text || '')));
-            if (parsed.ranges.length && !parsed.isFinished) return true;
-            const value = parsed.main
-                .replace(/image###[^\r\n]*###\s*$/i, '')
-                .replace(/[*_~`]+\s*$/g, '')
-                .trim();
-            if (!value) return false;
-            return !/(?:###|[。！？!?；;：:.!?…」』）》）】〕］\]}"'’”>])$/.test(value);
-        };
-        const getTruncationMaxAttempts = () => Math.min(10, Math.max(5, Number(settings.truncationMaxAttempts) || 5));
-
-        let _wasCancelled = false;
         const generateResponse = async (startTime = null, options = {}) => {
             const reuseGeneratingState = options.reuseGeneratingState === true;
             if (isGenerating.value && !reuseGeneratingState) return;
             const activeToolDepth = Number(options.activeToolDepth) || 0;
             const continueAssistantMessageId = options.continueAssistantMessageId || null;
             const continuationToolCallId = options.continuationToolCallId || null;
-            const continuationAttempt = Number(options.continuationAttempt) || 0;
-            const continuationPrompt = String(options.continuationPrompt || '请直接接着上一条回复续写，不要重复已经输出的内容，也不要解释续写过程。');
-            // [LuzzyRP patch 015] 聊天主模型走多商路由（provider/protocol 供请求分派与用量记录）
-            const requestModelResolved = resolveModelRequest(settings.model);
-            const requestModel = requestModelResolved.model;
+            const requestModel = settings.model;
+            const requestTools = activeToolDepth < ACTIVE_TOOL_MAX_AUTO_CONTINUE ? getEnabledActiveTools() : [];
 
             if (!currentCharacter.value) {
                 showToast('请先选择一个角色', 'error');
@@ -5786,7 +4495,10 @@ const app = createApp({
 
             // --- Advanced World Info Processing ---
 
-            const postprocessedChatHistory = getPostprocessedChatMessages(chatHistory.value, { includeSystem: false });
+            // 中途检索的 assistant 已由原生调用消息携带，不能再作为普通聊天重复注入。
+            const postprocessedChatHistory = getPostprocessedChatMessages(chatHistory.value.map(message => (
+                message === continuationTargetMessage ? null : message
+            )), { includeSystem: false });
             const {
                 entries: budgetedEntries,
                 groups: wiGroups,
@@ -5796,7 +4508,7 @@ const app = createApp({
             // Construct Prompt Parts
             const enabledPresets = presets.value
                 .map(normalizePreset)
-                .filter(p => p.enabled && p.content.trim());
+                .filter(p => isPresetEnabled(p) && p.content.trim());
             const writingStylePresets = enabledPresets.filter(p => p.name === BUILTIN_PRESETS.writingStyle.name);
             const cotPresets = enabledPresets.filter(p => p.name === 'COT');
             const systemPresets = enabledPresets.filter(p => p.name !== 'COT'
@@ -5852,8 +4564,9 @@ const app = createApp({
             // 6. User Info (Moved to end)
             systemPromptParts.push(userPrompt);
 
-            const activeToolPrompt = buildActiveToolSystemPrompt();
+            const activeToolPrompt = buildActiveToolSystemPrompt(requestTools);
             if (activeToolPrompt) systemPromptParts.push(activeToolPrompt);
+            else if (activeToolDepth > 0) systemPromptParts.push('本轮检索已结束，请依据已有结果完成回复，不再调用检索工具；无法确认的信息明确说明。');
 
             const uiTemplateContextPrompt = buildUiTemplateContextSystemPrompt();
             if (uiTemplateContextPrompt) systemPromptParts.push(uiTemplateContextPrompt);
@@ -5937,7 +4650,7 @@ const app = createApp({
             if (cotPresets.length > 0) {
                 for (let index = chatHistory.value.length - 1; index >= 0 && recentThinkingByMessage.size < 2; index--) {
                     const source = chatHistory.value[index];
-                    if (source?.role !== 'assistant' || source === openingSourceMessage) continue;
+                    if (source?.role !== 'assistant' || source === openingSourceMessage || source === continuationTargetMessage) continue;
                     const thinking = getMessageThinkingText(source, useThinkingTag);
                     if (thinking) recentThinkingByMessage.set(source, thinking);
                 }
@@ -6145,15 +4858,7 @@ const app = createApp({
                 vectorDepth: MEMORY_VECTOR_DEFAULT_DEPTH,
                 safeTargetLimit
             });
-            messages = appendActiveToolReminderToLatestUserMessage(messages);
-            const activeToolContextPayload = pendingActiveToolContext.value || (activeToolDepth > 0 ? buildActiveToolResultPayload() : '');
-            if (activeToolContextPayload) {
-                messages.push({
-                    role: 'user',
-                    content: activeToolContextPayload
-                });
-                pendingActiveToolContext.value = '';
-            }
+            if (activeToolDepth === 0) messages = appendActiveToolReminderToLatestUserMessage(messages);
             messages = postprocessContextMessages(messages).map((message, index, array) => ({
                 ...message,
                 content: processRegex(message.content || '', {
@@ -6163,6 +4868,8 @@ const app = createApp({
                 })
             }));
 
+            // 必须在正则、角色合并和记忆处理之后追加，保留 tool_call_id 及服务端签名。
+            messages.push(...activeToolMessages);
             const contextViewerState = buildContextViewerState({
                 messages,
                 budgetedEntries,
@@ -6173,18 +4880,17 @@ const app = createApp({
             lastContextMessages.value = contextViewerState.contextMessages;
             lastTriggeredWorldInfos.value = contextViewerState.triggeredWorldInfos;
 
-            const apiMessages = messages.map(({ role, name, content }) => ({
+            const apiMessages = messages.map(({ role, name, content, tool_calls, tool_call_id, reasoning_content, reasoning, reasoning_details, extra_content }) => ({
                 role,
                 name,
-                content
+                content,
+                ...(tool_calls ? { tool_calls } : {}),
+                ...(tool_call_id ? { tool_call_id } : {}),
+                ...(reasoning_content ? { reasoning_content } : {}),
+                ...(reasoning ? { reasoning } : {}),
+                ...(reasoning_details ? { reasoning_details } : {}),
+                ...(extra_content ? { extra_content } : {})
             }));
-            if (continueAssistantMessageId && !continuationToolCallId) {
-                apiMessages.push({
-                    role: 'user',
-                    content: continuationPrompt
-                });
-            }
-
             let generatedAssistantMessageId = null;
             let assistantMessage = null;
             let continuingAssistantMessage = continuationTargetMessage;
@@ -6192,6 +4898,10 @@ const app = createApp({
             let continuationContentStarted = false;
             let continuationReasoningStarted = false;
             let generationFailed = false;
+            let wasCancelled = false;
+            let toolResponse = null;
+            const requestToolUis = new Map();
+            const requestSignal = abortController.value.signal;
 
             if (continuingAssistantMessage && continuationToolCallId && Array.isArray(continuingAssistantMessage.toolCalls)) {
                 continuationToolCall = continuingAssistantMessage.toolCalls.find(call => call && call.id === continuationToolCallId) || null;
@@ -6200,6 +4910,7 @@ const app = createApp({
 
             const prepareAssistantMessageForAppend = (message) => {
                 if (!message) return null;
+                delete message.responseError;
                 if (!message.id) message.id = generateUUID();
                 if (typeof message.content !== 'string') message.content = '';
                 if (typeof message.reasoning !== 'string') message.reasoning = '';
@@ -6217,16 +4928,6 @@ const app = createApp({
                 const startedKey = field === 'reasoning' ? 'continuationReasoningStarted' : 'continuationContentStarted';
                 const hasStarted = field === 'reasoning' ? continuationReasoningStarted : continuationContentStarted;
 
-                if (field === 'content' && message._activeToolCaptureActive) {
-                    message._activeToolPendingText = `${message._activeToolPendingText || ''}${text}`;
-                    promoteActiveToolCallsFromAssistant(message);
-                    if (isContinuation) {
-                        if (!hasStarted) continuationContentStarted = true;
-                        activeToolContinuationHasResponse.value = true;
-                    }
-                    return;
-                }
-
                 const existing = String(message[field] || '');
                 const appendValue = isContinuation && field === 'content' && !hasStarted
                     ? String(text).replace(/^\s+/, '')
@@ -6234,9 +4935,7 @@ const app = createApp({
                 if (!appendValue) return;
 
                 if (isContinuation && !hasStarted && existing.trim()) {
-                    message[field] = field === 'content'
-                        ? existing.replace(/\s+$/, '') + appendValue
-                        : existing.replace(/\s+$/, '') + '\n\n' + appendValue;
+                    message[field] = existing.replace(/\s+$/, '') + '\n\n' + appendValue;
                 } else {
                     message[field] = existing + appendValue;
                 }
@@ -6244,9 +4943,6 @@ const app = createApp({
                 if (isContinuation && !hasStarted) {
                     if (startedKey === 'continuationReasoningStarted') continuationReasoningStarted = true;
                     else continuationContentStarted = true;
-                }
-                if (field === 'content') {
-                    promoteActiveToolCallsFromAssistant(message);
                 }
                 if (isContinuation) activeToolContinuationHasResponse.value = true;
             };
@@ -6264,36 +4960,6 @@ const app = createApp({
                 isReasoningAutoCollapsed: false
             });
 
-            // [LuzzyRP patch 031] 记忆召回节点数据戳（v1.3.0 需求 4）：从本次请求上下文提取向量召回块摘要。
-            // 时序约束：检索/嵌入完成早于 assistant 消息创建（懒创建），故只能在创建时盖戳、
-            // 渲染期读取戳（getTimelineSteps）。识别走 data-services 暴露的 isVectorMemoryRecallContent
-            // （patch 016 结构化召回块生态）；失败静默降级为无节点，不影响主流程。
-            const extractMemoryRecallStamp = () => {
-                try {
-                    const utils = window.RPHubContextUtils;
-                    if (!utils || typeof utils.isVectorMemoryRecallContent !== 'function') return null;
-                    const contexts = Array.isArray(lastContextMessages.value) ? lastContextMessages.value : [];
-                    let fragments = 0;
-                    const sims = [];
-                    contexts.forEach((ctxMsg) => {
-                        const ctxContent = typeof ctxMsg?.content === 'string' ? ctxMsg.content : '';
-                        if (!ctxContent || !utils.isVectorMemoryRecallContent(ctxContent)) return;
-                        fragments += (ctxContent.match(/<memory_fragment\b[^>]*>/g) || []).length;
-                        const simMatches = ctxContent.matchAll(/similarity="([^"]*)"/g);
-                        for (const simMatch of simMatches) {
-                            const num = Number.parseFloat(simMatch[1]);
-                            if (Number.isFinite(num)) sims.push(num <= 1 ? Math.round(num * 100) : Math.round(num));
-                        }
-                    });
-                    if (fragments === 0) return null;
-                    const rangeText = sims.length > 0 ? `，相似度 ${Math.min(...sims)}%~${Math.max(...sims)}%` : '';
-                    return `生成前从角色记忆库向量检索并注入 ${fragments} 条记忆片段${rangeText}。召回由最近对话驱动，` +
-                        '内容已进入本次请求上下文（明细见上下文查看器「角色记忆（向量召回）」条目）。';
-                } catch (e) {
-                    return null;
-                }
-            };
-
             const ensureAssistantMessage = (content = '', reasoning = '') => {
                 if (assistantMessage) return assistantMessage;
                 if (continuingAssistantMessage) {
@@ -6305,10 +4971,6 @@ const app = createApp({
                 }
 
                 assistantMessage = createAssistantMessage(content, reasoning);
-                // [LuzzyRP patch 031] 记忆召回节点：创建时盖戳（仅新消息；续写保留原戳）
-                const memoryRecallStamp = extractMemoryRecallStamp();
-                if (memoryRecallStamp) assistantMessage.memoryRecall = memoryRecallStamp;
-                promoteActiveToolCallsFromAssistant(assistantMessage);
                 chatHistory.value.push(assistantMessage);
                 isReceiving.value = true;
                 return assistantMessage;
@@ -6316,22 +4978,18 @@ const app = createApp({
 
             try {
                 const responseResult = await requestTrackedChatCompletion({
-                    // [LuzzyRP patch 015/025] 多商路由 + provider 透传
-                    url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
-                    apiKey: requestModelResolved.apiKey,
                     model: requestModel,
-                    protocol: requestModelResolved.protocol,
-                    maxTokens: requestModelResolved.modelMeta?.maxOutput || null,
-                    extraBody: requestModelResolved.extraBody,
-                    provider: requestModelResolved.providerId || '',
                     messages: apiMessages,
+                    replyInTool: isTruncationEnabled.value,
+                    tools: buildActiveToolDefinitions(requestTools),
+                    requireTool: activeToolDepth === 0 && requestTools.length > 0 && getActiveToolAggressiveness() === 'force',
                     temperature: settings.temperature,
                     reasoningEffort: settings.reasoningEffort,
                     stream: settings.stream,
-                    signal: abortController.value.signal,
-                    onDelta: async ({ content: rawContent, reasoning }) => {
+                    signal: requestSignal,
+                    onDelta: async ({ content: rawContent, reasoning, toolCalls }) => {
                         const content = (!assistantMessage && !String(rawContent).trim()) ? '' : rawContent;
-                        if (!content && !reasoning) return;
+                        if (!content && !reasoning && !toolCalls?.length) return;
 
                         let seededContent = false;
                         let seededReasoning = false;
@@ -6358,9 +5016,13 @@ const app = createApp({
                             isThinking.value = false;
                             collapseNativeReasoning(assistantMessage);
                         }
+                        if (toolCalls?.length) syncNativeActiveToolUis(assistantMessage, toolCalls, requestToolUis, requestTools);
                     }
                 }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
-
+                if (requestSignal.aborted) throw createAbortReason();
+                if (activeToolDepth > 0 && !responseResult.toolCalls.length && !responseResult.content.trim()) {
+                    throw new Error('检索完成，但 API 未返回正文，请重新尝试。');
+                }
                 if (!responseResult.isStream) {
                     const { content, reasoning } = responseResult;
                     isThinking.value = !!(reasoning && !content);
@@ -6378,15 +5040,17 @@ const app = createApp({
                         }
                     }
                 }
+                if (responseResult.toolCalls.length) {
+                    assistantMessage = ensureAssistantMessage();
+                    syncNativeActiveToolUis(assistantMessage, responseResult.toolCalls, requestToolUis, requestTools, true);
+                    toolResponse = responseResult;
+                    activeToolHandoffPending.value = true;
+                }
                 const duration = Date.now() - generationStartTime;
 
                 if (assistantMessage) {
                     generatedAssistantMessageId = assistantMessage.id;
-                    const deferUiTemplateAnalysis = isTruncationEnabled.value
-                        && activeToolDepth === 0
-                        && continuationAttempt < getTruncationMaxAttempts()
-                        && isLikelyTruncatedResponse(assistantMessage.content);
-                    if (settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis && !deferUiTemplateAnalysis) {
+                    if (!toolResponse && settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis) {
                         applyMainModelUiTemplateUpdates(assistantMessage, requestModel);
                     }
 
@@ -6395,38 +5059,25 @@ const app = createApp({
                 }
             } catch (error) {
                 generationFailed = true;
-                if (error.name === 'AbortError') {
-                    _wasCancelled = true;
+                for (const toolUi of requestToolUis.values()) {
+                    toolUi.status = 'error';
+                    toolUi.error = error.name === 'AbortError' ? '生成已中止' : (error.message || '工具调用未完整返回');
+                }
+                const cancelled = error.name === 'AbortError';
+                const errorMessage = cancelled ? '生成已中止' : (error.message || '生成失败');
+                const targetMessage = assistantMessage || continuingAssistantMessage;
+                if (cancelled) {
+                    wasCancelled = true;
                     showToast('生成已中止', 'info');
-                    const wasReceiving = isReceiving.value;
                     isGenerating.value = false;
                     isRemoteGenerating.value = false;
                     isThinking.value = false;
-                    const lastMessage = chatHistory.value[chatHistory.value.length - 1];
-                    if (lastMessage && lastMessage.role === 'assistant' && wasReceiving) {
-                        const hasContent = !!(lastMessage.content || '').trim();
-                        const hasReasoning = !!(lastMessage.reasoning || '').trim();
-                        if (hasContent || hasReasoning) {
-                            if (hasContent) {
-                                lastMessage.content += '\n\n*-- 生成已中止 --*';
-                            } else {
-                                lastMessage.content = '*-- 生成已中止 --*';
-                            }
-                            lastMessage.shouldAnimate = false;
-                            collapseNativeReasoning(lastMessage);
-                        } else {
-                            chatHistory.value.pop();
-                            chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: '生成已中止', skipReveal: true });
-                        }
-                    } else {
-                        chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: '生成已中止', skipReveal: true });
-                    }
-                } else if (continuingAssistantMessage) {
-                    const errorMessage = error.message || '生成失败';
-                    appendAssistantResponseError(continuingAssistantMessage, errorMessage);
-                    activeToolContinuationHasResponse.value = true;
+                }
+                if (targetMessage) {
+                    appendAssistantResponseError(targetMessage, errorMessage);
+                    if (continuingAssistantMessage) activeToolContinuationHasResponse.value = true;
                 } else {
-                    chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: error.message });
+                    chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: errorMessage, skipReveal: true });
                 }
             } finally {
                 if (assistantMessage?.content) {
@@ -6448,25 +5099,10 @@ const app = createApp({
                     continuationToolCall.status = 'done';
                 }
                 collapseActiveNativeReasoning();
-                const wasCancelled = _wasCancelled;
-                _wasCancelled = false;
-                const shouldAutoContinue = isTruncationEnabled.value
-                    && !wasCancelled
-                    && !generationFailed
-                    && activeToolDepth === 0
-                    && continuationAttempt < getTruncationMaxAttempts()
-                    && assistantMessage
-                    && isLikelyTruncatedResponse(assistantMessage.content);
-                if (shouldAutoContinue) {
-                    isGenerating.value = true;
-                    isReceiving.value = true;
-                }
                 await saveChatHistoryNow();
                 isThinking.value = false;
-                if (!shouldAutoContinue) {
-                    isGenerating.value = false;
-                    isReceiving.value = false;
-                }
+                isGenerating.value = false;
+                isReceiving.value = false;
                 if (!continueAssistantMessageId || activeToolContinuationMessageId.value === continueAssistantMessageId) {
                     activeToolContinuationMessageId.value = null;
                     activeToolContinuationToolCallId.value = null;
@@ -6478,33 +5114,16 @@ const app = createApp({
                     waitTimer = null;
                 }
 
-                const activeToolContinued = shouldAutoContinue
-                    ? false
-                    : (!wasCancelled && assistantMessage
-                        ? await handleActiveToolCallFromAssistant(assistantMessage, activeToolDepth)
-                        : false);
+                wasCancelled ||= requestSignal.aborted;
+                const activeToolContinued = !wasCancelled && !generationFailed && toolResponse
+                    ? await handleActiveToolCallFromAssistant(assistantMessage, toolResponse, requestToolUis, requestTools, activeToolDepth)
+                    : false;
                 if (!activeToolContinued) {
                     resetActiveToolResultContext();
+                    activeToolHandoffPending.value = false;
                 }
-                if (shouldAutoContinue) {
-                    nextTick(() => {
-                        if (chatHistory.value[chatHistory.value.length - 1] !== assistantMessage
-                            || !assistantMessage.id) {
-                            isGenerating.value = false;
-                            isReceiving.value = false;
-                            return;
-                        }
-                        generateResponse(Date.now(), {
-                            reuseGeneratingState: true,
-                            continueAssistantMessageId: assistantMessage.id,
-                            continuationAttempt: continuationAttempt + 1,
-                            continuationPrompt: '输出被截断，请按输出规则衔接着最后一个字尽快补全当前阶段剧情，不要重复已经输出的内容，不要冗余输出，不要开启新的剧情段落。'
-                        });
-                    });
-                    return;
-                }
-
-                const needsPostGenerationTurns = !wasCancelled
+                const needsPostGenerationTurns = !wasCancelled && !generationFailed
+                    && !toolResponse
                     && ((settings.uiTemplateEnabled && generatedAssistantMessageId)
                         || memorySettings.enabled);
                 const hasCompletedTurns = !activeToolContinued && needsPostGenerationTurns && buildConversationTurnSnapshot().turns.length > 0;
@@ -6686,20 +5305,12 @@ const app = createApp({
         };
 
         const requestClassicMemoryCompletion = async (requestMessages, signal) => {
-            // [LuzzyRP patch 015] 总结副模型走多商路由（provider/protocol 透传进用量记录）
-            const classicResolved = resolveModelRequest(memorySettings.classicModel);
-            if (!classicResolved.url || !classicResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
-            const model = classicResolved.model;
+            const model = String(memorySettings.classicModel || '').trim();
+            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
             if (!model) throw new Error('请先选择总结模式副模型');
 
             const result = await requestTrackedChatCompletion({
-                url: buildApiEndpoint(classicResolved.url, 'chat/completions'),
-                apiKey: classicResolved.apiKey,
-                model, temperature: 0.2, stream: false, messages: requestMessages, signal,
-                protocol: classicResolved.protocol,
-                maxTokens: classicResolved.modelMeta?.maxOutput || null,
-                extraBody: classicResolved.extraBody,
-                provider: classicResolved.providerId || ''
+                model, temperature: 0.2, stream: false, messages: requestMessages, signal
             }, 'summary');
             const summary = parseCot(result.content).main
                 .replace(/^```(?:text|markdown)?\s*/i, '')
@@ -7081,78 +5692,28 @@ const app = createApp({
             return fragments;
         };
 
-        const requestMemoryEmbeddings = async (inputs, signal, embeddingRefOverride = null) => {
-            // [LuzzyRP patch 012] 支持 (provider, model) 引用级嵌入：分桶检索时按桶现算查询向量
-            const embeddingRef = embeddingRefOverride != null ? embeddingRefOverride : getMemoryEmbeddingModel();
-            const embeddingResolved = resolveModelRequest(embeddingRef);
-            // [LuzzyRP patch 026] 分桶引用指向已删除/改名的供应商时显式报错（v1.2.3，需求 2）：
-            // 原行为经 parseModelRef 静默回退默认商（协议还可能错配），整桶必 404 且用户无从自查
-            const refSeparator = String(embeddingRef).indexOf('::');
-            if (refSeparator > 0 && !getApiProviderById(String(embeddingRef).slice(0, refSeparator))) {
-                throw new Error('分片嵌入供应商已不存在：' + String(embeddingRef).slice(0, refSeparator) + '（请重嵌该批分片，或恢复该供应商 ID）');
-            }
-            if (!embeddingResolved.url || !embeddingResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
-            if (!embeddingResolved.model) throw new Error('请先选择向量嵌入模型');
-            const model = embeddingResolved.model;
-            if (embeddingResolved.protocol === 'anthropic') throw new Error('Anthropic 接口不提供嵌入模型');
+        const requestMemoryEmbeddings = async (inputs, signal) => {
+            const model = getMemoryEmbeddingModel();
+            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
+            if (!model) throw new Error('请先选择向量嵌入模型');
 
             const normalizedInputs = inputs.map(input => String(input || '').trim());
             if (normalizedInputs.some(input => !input)) throw new Error('嵌入内容不能为空');
 
             const requestStartedAt = Date.now();
-            // [LuzzyRP patch 015] gemini 协议走 batchEmbedContents；openai 系走 /v1/embeddings
-            let vectors = [];
-            let usagePayload = null;
-            if (embeddingResolved.protocol === 'gemini') {
-                const base = String(embeddingResolved.url || '').replace(/\/+$/, '');
-                const response = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:batchEmbedContents?key=${encodeURIComponent(embeddingResolved.apiKey)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        requests: normalizedInputs.map(text => ({
-                            model: `models/${model}`,
-                            content: { parts: [{ text }] }
-                        }))
-                    }),
-                    signal
-                });
-                if (!response.ok) {
-                    let errorPayload = null;
-                    try { errorPayload = await response.json(); } catch (_) { }
-                    const apiError = extractApiErrorMessage(errorPayload, response.status);
-                    throw new Error(apiError || `Embedding API Error: ${response.status}`);
-                }
-                const data = await response.json();
-                usagePayload = getApiUsagePayload(data);
-                const embeddings = (data.embeddings || []).map(entry => normalizeEmbedding(entry.values));
-                vectors = embeddings;
-            } else {
-                const response = await fetch(buildApiEndpoint(embeddingResolved.url, 'embeddings'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${embeddingResolved.apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model,
-                        input: normalizedInputs.length === 1 ? normalizedInputs[0] : normalizedInputs
-                    }),
-                    signal
-                });
-
-                if (!response.ok) {
-                    let errorPayload = null;
-                    try { errorPayload = await response.json(); } catch (_) { }
-                    const apiError = extractApiErrorMessage(errorPayload, response.status);
-                    throw new Error(apiError || `Embedding API Error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                usagePayload = getApiUsagePayload(data);
-                const rows = Array.isArray(data.data) ? [...data.data] : [];
-                rows.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-                vectors = rows.map(row => normalizeEmbedding(row.embedding));
-            }
+            const apiUrl = settings.apiUrl;
+            const apiKey = settings.apiKey;
+            const data = await requestJson({
+                url: buildApiEndpoint(apiUrl, 'embeddings'), apiKey, signal,
+                body: { model, input: normalizedInputs.length === 1 ? normalizedInputs[0] : normalizedInputs }
+            });
+            recordApiUsage(getApiUsagePayload(data), {
+                type: 'embedding', model, apiUrl, apiKey, isStream: false,
+                durationMs: Date.now() - requestStartedAt, outputCharacters: 0
+            });
+            const rows = Array.isArray(data.data) ? [...data.data] : [];
+            rows.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+            const vectors = rows.map(row => normalizeEmbedding(row.embedding));
 
             if (signal?.aborted) {
                 const abortError = new Error('Aborted');
@@ -7162,18 +5723,6 @@ const app = createApp({
             if (vectors.length !== normalizedInputs.length || vectors.some(vector => vector.length === 0)) {
                 throw new Error('嵌入接口返回的数据不完整');
             }
-
-            recordApiUsage(usagePayload, {
-                type: 'embedding',
-                model,
-                provider: embeddingResolved.providerId || '',
-                protocol: embeddingResolved.protocol,
-                apiUrl: embeddingResolved.url,
-                apiKey: embeddingResolved.apiKey,
-                isStream: false,
-                durationMs: Date.now() - requestStartedAt,
-                outputCharacters: 0
-            });
 
             return vectors;
         };
@@ -7206,8 +5755,7 @@ const app = createApp({
                 contentFingerprint: getVectorFragmentFingerprint(fragment),
                 sourceUserIds: fragment.sourceUserIds,
                 sourceAssistantIds: fragment.sourceAssistantIds,
-                embeddingModel: parseModelRef(getMemoryEmbeddingModel()).bareId,
-                embeddingProvider: parseModelRef(getMemoryEmbeddingModel()).providerId || '',
+                embeddingModel: getMemoryEmbeddingModel(),
                 embedding,
                 sourceText: fragment.sourceText,
                 ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
@@ -7471,6 +6019,10 @@ const app = createApp({
             return retainedTurns;
         };
 
+        const getCurrentRetainedVectorMemoryTurns = () => getRetainedRecentMemoryTurns(
+            getPostprocessedChatMessages(chatHistory.value, { includeSystem: false })
+        );
+
         const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
 
         const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
@@ -7506,30 +6058,6 @@ const app = createApp({
             vectorScore: scored.vectorScore
         });
 
-        // [LuzzyRP patch 012] 跨商向量检索：分片按 (embeddingProvider, embeddingModel) 分桶，
-        // 每桶用该商/该模型现算查询向量（桶内自比较，余弦有效）；legacy 分片（无商字段）跟随激活商 = 原行为
-        const getVectorMemoryBucketKey = (memory) => `${memory.embeddingProvider || ''}\u0000${memory.embeddingModel || ''}`;
-        const buildVectorMemoryBuckets = (vectorMemories) => {
-            const buckets = new Map();
-            vectorMemories.forEach(memory => {
-                const key = getVectorMemoryBucketKey(memory);
-                if (!buckets.has(key)) buckets.set(key, []);
-                buckets.get(key).push(memory);
-            });
-            return buckets;
-        };
-        const getBucketEmbeddingRef = (memory) => {
-            const providerId = memory.embeddingProvider || '';
-            const model = memory.embeddingModel || '';
-            if (!model) return '';
-            return providerId ? `${providerId}::${model}` : model;
-        };
-        const compareVectorScores = (a, b) => {
-            const scoreDiff = b.vectorScore - a.vectorScore;
-            if (Math.abs(scoreDiff) > 0.0001) return scoreDiff;
-            return (b.memory.turn || 0) - (a.memory.turn || 0);
-        };
-
         const selectVectorMemoriesForContext = async (signal, options = {}) => {
             const excludedTurns = options.excludedTurns instanceof Set
                 ? options.excludedTurns
@@ -7549,30 +6077,9 @@ const app = createApp({
             if (!queryText) return [];
 
             try {
-                const buckets = buildVectorMemoryBuckets(vectorMemories);
-                const scoredMemories = [];
-                for (const [bucketKey, bucketMemories] of buckets.entries()) {
-                    if (signal?.aborted) return [];
-                    const embeddingRef = getBucketEmbeddingRef(bucketMemories[0]);
-                    try {
-                        const [queryVector] = await requestMemoryEmbeddings([queryText], signal, embeddingRef);
-                        if (signal?.aborted || !isEmbeddingLike(queryVector)) continue;
-                        scoredMemories.push(...await scoreVectorMemories(bucketMemories, queryVector, queryTerms, signal));
-                    } catch (err) {
-                        if (err.name === 'AbortError') throw err;
-                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
-                        try {
-                            const luzzyToastNow = Date.now();
-                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
-                                window.__luzzyVectorToastAt = luzzyToastNow;
-                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
-                            }
-                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
-                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
-                    }
-                }
-                if (signal?.aborted) return [];
-                scoredMemories.sort(compareVectorScores);
+                const [queryVector] = await requestMemoryEmbeddings([queryText], signal);
+                if (signal?.aborted || !isEmbeddingLike(queryVector)) return [];
+                const scoredMemories = await scoreVectorMemories(vectorMemories, queryVector, queryTerms, signal);
 
                 const selected = [];
                 const seen = new Set();
@@ -7601,15 +6108,16 @@ const app = createApp({
                 return;
             }
 
-            // [LuzzyRP patch 026] 手动检索不再排除「近期保留楼层」轮次（v1.2.3，需求 2）：
-            // 排除窗仅服务自动召回（避免与在上下文中的内容重复）；手动检索是显式动作，
-            // 应覆盖全部启用分片——原行为使新会话分片后立即检索必空（分片轮次全落在
-            // 保留窗内），且判空文案误导为「还没有分片」。
+            const excludedTurns = getCurrentRetainedVectorMemoryTurns();
             const vectorMemories = memories.value
                 .filter(m => m.vectorMemory === true && m.enabled !== false)
-                .filter(m => isEmbeddingLike(m.embedding) && m.embedding.length > 0);
+                .filter(m => isEmbeddingLike(m.embedding) && m.embedding.length > 0)
+                .filter(memory => {
+                    const turn = Number(memory.turn) || 0;
+                    return turn <= 0 || !excludedTurns.has(turn);
+                });
             if (vectorMemories.length === 0) {
-                vectorMemorySearchError.value = '还没有可检索的向量分片（请先完成分片，或检查分片的参与召回开关）';
+                vectorMemorySearchError.value = '还没有可检索的向量分片';
                 return;
             }
 
@@ -7626,43 +6134,21 @@ const app = createApp({
             );
 
             try {
-                const buckets = buildVectorMemoryBuckets(vectorMemories);
+                const [queryVector] = await requestMemoryEmbeddings([`用户：${query}`], searchAbort.signal);
+                if (!isCurrentSearch()) return;
                 const scoredMemories = [];
-                for (const [bucketKey, bucketMemories] of buckets.entries()) {
+                for (let i = 0; i < vectorMemories.length; i++) {
                     if (!isCurrentSearch()) {
                         const abortErr = new Error('Aborted');
                         abortErr.name = 'AbortError';
                         throw abortErr;
                     }
-                    const embeddingRef = getBucketEmbeddingRef(bucketMemories[0]);
-                    try {
-                        const [queryVector] = await requestMemoryEmbeddings([`用户：${query}`], searchAbort.signal, embeddingRef);
-                        if (!isEmbeddingLike(queryVector)) continue;
-                        for (let i = 0; i < bucketMemories.length; i++) {
-                            if (!isCurrentSearch()) {
-                                const abortErr = new Error('Aborted');
-                                abortErr.name = 'AbortError';
-                                throw abortErr;
-                            }
-                            const memory = bucketMemories[i];
-                            const vectorSearchScore = cosineSimilarity(queryVector, memory.embedding);
-                            if (Number.isFinite(vectorSearchScore) && vectorSearchScore > -1 && passesMemorySimilarityThreshold(vectorSearchScore)) {
-                                scoredMemories.push({ memory, vectorSearchScore });
-                            }
-                            if (i > 0 && i % 512 === 0) await yieldToBrowser();
-                        }
-                    } catch (err) {
-                        if (err.name === 'AbortError') throw err;
-                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
-                        try {
-                            const luzzyToastNow = Date.now();
-                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
-                                window.__luzzyVectorToastAt = luzzyToastNow;
-                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
-                            }
-                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
-                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
+                    const memory = vectorMemories[i];
+                    const vectorSearchScore = cosineSimilarity(queryVector, memory.embedding);
+                    if (Number.isFinite(vectorSearchScore) && vectorSearchScore > -1 && passesMemorySimilarityThreshold(vectorSearchScore)) {
+                        scoredMemories.push({ memory, vectorSearchScore });
                     }
+                    if (i > 0 && i % 512 === 0) await yieldToBrowser();
                 }
                 if (!isCurrentSearch()) return;
                 vectorMemorySearchResults.value = scoredMemories
@@ -7706,278 +6192,6 @@ const app = createApp({
             vectorMemorySearchResults.value = [];
             vectorMemorySearchError.value = '';
             isVectorMemorySearching.value = false;
-        };
-
-        // [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
-        // 写路径双轨：当前角色走内存数组 + save*Now（保持会话内响应式联动），
-        // 其他角色走 scoped 存储直写（setScopedStoredValue + compact/clone），互不污染。
-        const memoryManager = reactive({
-            visible: false,
-            selectedCharId: '',
-            branchId: '',
-            loading: false,
-            saving: false,
-            branches: [],
-            vectorList: [],
-            classicList: [],
-            vectorPage: 1,
-            classicPage: 1,
-            expandedShardId: '',
-            editor: null
-        });
-        const ensureCharacterUuids = () => {
-            characters.value.forEach(char => { if (char && !char.uuid) char.uuid = generateUUID(); });
-        };
-        const memoryManagerCharacterOptions = computed(() => characters.value
-            .filter(char => char && char.uuid)
-            .map(char => ({ value: char.uuid, label: char.name || '未命名角色' })));
-        const charactersValueFind = (uuid) => characters.value.find(char => char && char.uuid === uuid) || null;
-        const resolveMemoryManagerChar = () => charactersValueFind(memoryManager.selectedCharId);
-        const getMemoryManagerScopeId = () => {
-            const char = resolveMemoryManagerChar();
-            if (!char) return '';
-            return getStoryBranchScopeId(char.uuid, memoryManager.branchId);
-        };
-        const isMemoryManagerCurrentScope = (scopeId) => Boolean(scopeId) && scopeId === getCurrentStoryBranchScopeId();
-        const isMemoryManagerCurrentCharacter = computed(() => {
-            const currentUuid = currentCharacter.value?.uuid || '';
-            return Boolean(currentUuid) && currentUuid === memoryManager.selectedCharId;
-        });
-        const memoryManagerBranchOptions = computed(() => memoryManager.branches
-            .map(branch => ({ value: branch.id, label: branch.name || '分支' })));
-        const memoryManagerShardModelLabel = (memory) => {
-            const ref = getBucketEmbeddingRef(memory || {});
-            return ref ? formatModelRefText(ref) : '未记录嵌入模型';
-        };
-        const memoryManagerClassicTurnLabel = (memory) => {
-            if (!memory) return '?';
-            const start = memory.displayTurnStart ?? memory.turnStart ?? memory.turn;
-            const end = memory.displayTurnEnd ?? memory.turnEnd ?? memory.turn;
-            return start === end ? `第 ${start ?? '?'} 轮` : `第 ${start ?? '?'}-${end ?? '?'} 轮`;
-        };
-        const sortMemoryManagerVector = (items) => [...(Array.isArray(items) ? items : [])].sort((a, b) => {
-            const turnDiff = (Number(a?.turn) || 0) - (Number(b?.turn) || 0);
-            if (turnDiff !== 0) return turnDiff;
-            return (Number(a?.sequence) || 0) - (Number(b?.sequence) || 0);
-        });
-        const sortMemoryManagerClassic = (items) => [...(Array.isArray(items) ? items : [])].sort((a, b) => {
-            const turnA = Number(a?.turnStart ?? a?.turn) || 0;
-            const turnB = Number(b?.turnStart ?? b?.turn) || 0;
-            return turnA - turnB;
-        });
-        const loadMemoryManagerData = async () => {
-            const char = resolveMemoryManagerChar();
-            if (!char) {
-                memoryManager.branches = [];
-                memoryManager.vectorList = [];
-                memoryManager.classicList = [];
-                return;
-            }
-            memoryManager.loading = true;
-            try {
-                const branchState = await readStoryBranchesForCharacter(char);
-                memoryManager.branches = (branchState.branches || []).map(branch => ({ id: branch.id, name: branch.name || '分支' }));
-                if (!memoryManager.branches.some(branch => branch.id === memoryManager.branchId)) {
-                    memoryManager.branchId = branchState.activeBranchId || STORY_BRANCH_MAIN_ID;
-                }
-                const scopeId = getStoryBranchScopeId(char.uuid, memoryManager.branchId);
-                if (isMemoryManagerCurrentScope(scopeId)) {
-                    memoryManager.vectorList = [...memories.value];
-                    memoryManager.classicList = [...classicMemories.value];
-                } else {
-                    const [vectorSaved, classicSaved] = await Promise.all([
-                        getScopedStoredValue('memories', scopeId),
-                        getScopedStoredValue('classic_memories', scopeId)
-                    ]);
-                    memoryManager.vectorList = Array.isArray(vectorSaved) ? prepareMemoriesForRuntime(vectorSaved) : [];
-                    memoryManager.classicList = Array.isArray(classicSaved) ? prepareClassicMemoriesForRuntime(classicSaved) : [];
-                }
-                memoryManager.vectorPage = 1;
-                memoryManager.classicPage = 1;
-            } catch (error) {
-                console.error('[LuzzyRP patch 017] 记忆管理器加载失败:', error);
-                showToast('记忆内容加载失败: ' + (error?.message || error), 'error');
-            } finally {
-                memoryManager.loading = false;
-            }
-        };
-        const toggleMemoryManager = () => {
-            memoryManager.visible = !memoryManager.visible;
-            if (!memoryManager.visible) return;
-            ensureCharacterUuids();
-            if (!memoryManager.selectedCharId || !resolveMemoryManagerChar()) {
-                memoryManager.selectedCharId = currentCharacter.value?.uuid
-                    || memoryManagerCharacterOptions.value[0]?.value
-                    || '';
-                memoryManager.branchId = '';
-            }
-            loadMemoryManagerData();
-        };
-        const selectMemoryManagerCharacter = async (uuid) => {
-            if (memoryManager.selectedCharId === uuid) return;
-            memoryManager.selectedCharId = uuid;
-            memoryManager.branchId = '';
-            memoryManager.expandedShardId = '';
-            await loadMemoryManagerData();
-        };
-        const selectMemoryManagerBranch = async (branchId) => {
-            if (memoryManager.branchId === branchId) return;
-            memoryManager.branchId = branchId;
-            memoryManager.expandedShardId = '';
-            await loadMemoryManagerData();
-        };
-        const writeMemoryManagerVector = async (list) => {
-            const scopeId = getMemoryManagerScopeId();
-            if (!scopeId) return;
-            const nextList = sortMemoryManagerVector(list);
-            if (isMemoryManagerCurrentScope(scopeId)) {
-                memories.value = nextList;
-                await saveMemoriesNow();
-            } else {
-                await setScopedStoredValue('memories', scopeId, await compactMemoriesForStorageAsync(nextList), { clone: false });
-            }
-            memoryManager.vectorList = [...nextList];
-            memoryManager.vectorPage = Math.min(memoryManager.vectorPage, Math.max(1, Math.ceil(nextList.length / LIST_PAGE_SIZE)));
-        };
-        const writeMemoryManagerClassic = async (list) => {
-            const scopeId = getMemoryManagerScopeId();
-            if (!scopeId) return;
-            const nextList = sortMemoryManagerClassic(list);
-            if (isMemoryManagerCurrentScope(scopeId)) {
-                classicMemories.value = nextList;
-                await saveClassicMemoriesNow();
-            } else {
-                await setScopedStoredValue('classic_memories', scopeId, cloneForStorage(nextList), { clone: false });
-            }
-            memoryManager.classicList = [...nextList];
-            memoryManager.classicPage = Math.min(memoryManager.classicPage, Math.max(1, Math.ceil(nextList.length / LIST_PAGE_SIZE)));
-        };
-        const memoryManagerVectorPageCount = computed(() => Math.max(1, Math.ceil(memoryManager.vectorList.length / LIST_PAGE_SIZE)));
-        const memoryManagerClassicPageCount = computed(() => Math.max(1, Math.ceil(memoryManager.classicList.length / LIST_PAGE_SIZE)));
-        const displayedMemoryManagerVector = computed(() => sortMemoryManagerVector(memoryManager.vectorList)
-            .slice((memoryManager.vectorPage - 1) * LIST_PAGE_SIZE, memoryManager.vectorPage * LIST_PAGE_SIZE));
-        const displayedMemoryManagerClassic = computed(() => sortMemoryManagerClassic(memoryManager.classicList)
-            .slice((memoryManager.classicPage - 1) * LIST_PAGE_SIZE, memoryManager.classicPage * LIST_PAGE_SIZE));
-        // [LuzzyRP patch 036] 记忆内容管理器实时联动：面板展开且作用域为当前会话时，
-        // memories/classicMemories 变化（向量/总结补录新增分片等）即时同步进管理器列表。
-        // 017 原实现为打开时一次性快照，补录完成后不刷新（真机实测反馈）。
-        // 非当前作用域（其他角色/分支）仍走 loadMemoryManagerData 的存储读取，不做联动。
-        // 分页不重置（新增分片追加展示）；管理器自身编辑走 writeMemoryManager* 自带同步。
-        watch(
-            () => [memories.value.length, classicMemories.value.length, memoryManager.visible, memoryManager.selectedCharId, memoryManager.branchId],
-            () => {
-                if (!memoryManager.visible) return;
-                if (!isMemoryManagerCurrentScope(getMemoryManagerScopeId())) return;
-                memoryManager.vectorList = [...memories.value];
-                memoryManager.classicList = [...classicMemories.value];
-            }
-        );
-        const openMemoryManagerEditor = (type, memory) => {
-            memoryManager.expandedShardId = '';
-            memoryManager.editor = {
-                type,
-                id: memory?.id || '',
-                text: type === 'vector'
-                    ? String(memory?.paragraph || memory?.summary || '')
-                    : String(memory?.summary || ''),
-                memory
-            };
-        };
-        const closeMemoryManagerEditor = () => { memoryManager.editor = null; };
-        const saveMemoryManagerEditor = async () => {
-            const editor = memoryManager.editor;
-            if (!editor || memoryManager.saving) return;
-            const text = String(editor.text || '').trim();
-            if (!text) { showToast('内容不能为空', 'warning'); return; }
-            if (editor.type === 'vector') {
-                const memory = memoryManager.vectorList.find(item => item && item.id === editor.id);
-                if (!memory) { showToast('分片不存在或已被删除', 'error'); return; }
-                const originalText = String(memory.paragraph || memory.summary || '');
-                memoryManager.saving = true;
-                try {
-                    if (text !== originalText) {
-                        // 强制重嵌成功才保存：文本变更必须配新向量，杜绝文本/向量错配的脏分片
-                        const embeddingRef = getBucketEmbeddingRef(memory) || getMemoryEmbeddingModel();
-                        const [vector] = await requestMemoryEmbeddings([text], undefined, embeddingRef || null);
-                        if (!isEmbeddingLike(vector) || vector.length === 0) throw new Error('嵌入接口返回数据异常');
-                        memory.embedding = vector;
-                        memory.contentFingerprint = '';
-                        memory.paragraph = text;
-                        memory.summary = trimMemoryText(text, 900);
-                        memory.sourceText = ['第 ' + (Number(memory.turn) || '?') + ' 轮', text].filter(Boolean).join('\n');
-                    }
-                    await writeMemoryManagerVector(memoryManager.vectorList);
-                    showToast('分片已保存，嵌入向量已同步更新', 'success');
-                    memoryManager.editor = null;
-                } catch (error) {
-                    if (error?.name === 'AbortError') return;
-                    console.error('[LuzzyRP patch 017] 分片保存失败:', error);
-                    showToast('保存失败：' + (error?.message || '重新生成嵌入向量出错，请检查嵌入模型与网络'), 'error', 5000);
-                } finally {
-                    memoryManager.saving = false;
-                }
-                return;
-            }
-            const classicMemory = memoryManager.classicList.find(item => item && item.id === editor.id);
-            if (!classicMemory) { showToast('总结记忆不存在或已被删除', 'error'); return; }
-            memoryManager.saving = true;
-            try {
-                classicMemory.summary = text;
-                await writeMemoryManagerClassic(memoryManager.classicList);
-                showToast('总结记忆已保存', 'success');
-                memoryManager.editor = null;
-            } catch (error) {
-                console.error('[LuzzyRP patch 017] 总结保存失败:', error);
-                showToast('保存失败: ' + (error?.message || error), 'error');
-            } finally {
-                memoryManager.saving = false;
-            }
-        };
-        const toggleMemoryManagerVectorEnabled = async (memory) => {
-            if (!memory) return;
-            memory.enabled = memory.enabled === false;
-            try {
-                await writeMemoryManagerVector(memoryManager.vectorList);
-            } catch (error) {
-                memory.enabled = !memory.enabled;
-                showToast('状态保存失败: ' + (error?.message || error), 'error');
-            }
-        };
-        const deleteMemoryManagerVectorItem = (memory) => {
-            if (!memory) return;
-            confirmAction('确定删除这条记忆分片吗？删除后该轮内容可在记忆补录中重新生成。此操作无法撤销。', async () => {
-                const list = memoryManager.vectorList.filter(item => item?.id !== memory.id);
-                await writeMemoryManagerVector(list);
-                showToast('记忆分片已删除', 'success');
-            });
-        };
-        const deleteMemoryManagerClassicItem = (memory) => {
-            if (!memory) return;
-            confirmAction('确定删除这条总结记忆吗？此操作无法撤销。', async () => {
-                const list = memoryManager.classicList.filter(item => item?.id !== memory.id);
-                await writeMemoryManagerClassic(list);
-                showToast('总结记忆已删除', 'success');
-            });
-        };
-        const clearMemoryManagerAll = () => {
-            const char = resolveMemoryManagerChar();
-            if (!char) return;
-            const vectorCount = memoryManager.vectorList.length;
-            const classicCount = memoryManager.classicList.length;
-            if (vectorCount + classicCount === 0) { showToast('该角色没有可清空的记忆', 'info'); return; }
-            showVueConfirmModal(
-                '清空角色记忆',
-                `将删除「${char.name || '未命名角色'}」当前分支的全部记忆：向量分片 ${vectorCount} 条、总结记忆 ${classicCount} 条。此操作无法撤销。`
-            ).then(async (confirmed) => {
-                if (!confirmed) return;
-                if (isMemoryManagerCurrentScope(getMemoryManagerScopeId())) {
-                    abortVectorBatchExtraction();
-                    abortClassicBatchExtraction();
-                }
-                await writeMemoryManagerVector([]);
-                await writeMemoryManagerClassic([]);
-                showToast('该角色记忆已清空', 'success');
-            });
         };
 
         const extractKeywordToolTerms = (query) => {
@@ -8030,7 +6244,7 @@ const app = createApp({
                 if (!message || message.role === 'system') return;
                 if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                 const text = getKeywordToolMessageText(message);
-                if (!text || isRoleMemoryContextContent(text) || text.includes('<active_tool_results>')) return;
+                if (!text || isRoleMemoryContextContent(text)) return;
 
                 const lowerText = text.toLowerCase();
                 const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
@@ -8221,328 +6435,75 @@ const app = createApp({
         };
 
         const resetActiveToolResultContext = () => {
-            activeToolResultContexts.value = [];
-            pendingActiveToolContext.value = '';
+            activeToolMessages.length = 0;
         };
 
-        const buildActiveToolResultPayload = () => {
-            const blocks = activeToolResultContexts.value.filter(Boolean);
-            if (blocks.length === 0) return '';
-            return [
-                '<active_tool_results>',
-                '  <description>以下是本轮正文工具调用返回的记录，可能包含有效结果、空结果或错误。本段内容由系统插入最后一条用户消息结尾。追加调用会保留并追加旧记录，覆盖调用会替换旧记录；只有包含实际片段、网页等证据的记录才算检索成功。请把有效证据作为参考继续回答，不要复述工具调用标签。</description>',
-                blocks.join('\n\n'),
-                '</active_tool_results>'
-            ].join('\n');
-        };
-
-        const updateActiveToolResultContext = (resultContext, mode = 'add') => {
-            if (!resultContext) {
-                pendingActiveToolContext.value = buildActiveToolResultPayload();
-                return;
+        const appendActiveToolResult = (callId, payload) => {
+            if (payload.mode === 'cover' && payload.status === 'ok') {
+                // 保留调用/结果配对，只清掉被新结果取代的资料，避免产生悬空 tool_call_id。
+                activeToolMessages.forEach(message => {
+                    if (message.role === 'tool') message.content = JSON.stringify({ status: 'superseded', replaced_by: callId });
+                });
             }
-            if (mode === 'cover') {
-                activeToolResultContexts.value = [resultContext];
-            } else {
-                activeToolResultContexts.value = [...activeToolResultContexts.value, resultContext];
-            }
-            pendingActiveToolContext.value = buildActiveToolResultPayload();
+            activeToolMessages.push({ role: 'tool', tool_call_id: callId, content: JSON.stringify(payload) });
         };
 
-        const formatActiveToolNoticeContext = (tool, query, mode = 'add', status = 'empty', message = '') => {
-            const title = escapeXmlAttribute(tool?.name || '工具');
-            const modeValue = mode === 'cover' ? 'cover' : 'add';
-            const labels = getActiveToolCallLabels(tool);
-            const callName = escapeXmlAttribute(modeValue === 'cover' ? labels.cover : labels.add);
-            const cleanQuery = trimMemoryText(query, 800);
-            const statusValue = escapeXmlAttribute(status || 'notice');
-            const messageText = escapeXmlText(message || '工具没有返回可用内容。');
-            const bodyTag = status === 'error' ? 'error' : 'description';
-            return [
-                `<active_tool_result name="${title}" call="${callName}" mode="${modeValue}" query="${escapeXmlAttribute(cleanQuery)}" status="${statusValue}">`,
-                `  <${bodyTag}>`,
-                indentXmlText(messageText, 4),
-                `  </${bodyTag}>`,
-                '</active_tool_result>'
-            ].join('\n');
-        };
-
-        const normalizeActiveToolResultContext = (resultContext, tool, query, mode = 'add') => {
-            const text = String(resultContext || '').trim();
-            const hasResultBody = /<(?:description|error|dialogue_fragment|web_source|web_page|failed_page)\b/i.test(text);
-            if (!text || text === '</active_tool_result>' || !text.includes('<active_tool_result') || !hasResultBody) {
-                return formatActiveToolNoticeContext(
-                    tool,
-                    query,
-                    mode,
-                    'empty',
-                    '工具调用已经完成，但没有返回可用内容。请先判断当前上下文是否足够；如果仍不够，请换更具体的检索内容继续调用工具。'
-                );
-            }
-            return text;
-        };
-
-        const formatActiveToolErrorContext = (tool, query, err, mode = 'add') => {
-            const message = err?.message || String(err || '') || '工具调用失败';
-            return formatActiveToolNoticeContext(
-                tool,
-                query,
-                mode,
-                'error',
-                `工具调用出错：${message}\n这不是用户要求的最终答案。请不要停止生成；先基于当前上下文和已有工具结果继续回答。若信息仍不足，可以换更具体的检索内容再次调用工具。`
-            );
-        };
-
-        const formatWebResultItems = (items, tagName, getExtraAttributes = () => []) => items.map(item => {
-            const attributes = [
-                `index="${escapeXmlAttribute(item.index || '')}"`,
-                `title="${escapeXmlAttribute(item.title || '')}"`,
-                `url="${escapeXmlAttribute(item.url || '')}"`,
-                ...getExtraAttributes(item)
-            ];
-            const contentText = indentXmlText(item.content || '', 4);
-            return [
-                `  <${tagName} ${attributes.join(' ')}>`,
-                contentText ? `    <content>\n${contentText}\n    </content>` : '',
-                `  </${tagName}>`
-            ].filter(Boolean).join('\n');
-        }).join('\n\n');
-
-        const formatActiveToolResultContext = (tool, query, results, mode = 'add') => {
-            const title = escapeXmlAttribute(tool.name || '工具');
-            const modeValue = mode === 'cover' ? 'cover' : 'add';
-            const labels = getActiveToolCallLabels(tool);
-            const callName = escapeXmlAttribute(modeValue === 'cover' ? labels.cover : labels.add);
-            const cleanQuery = trimMemoryText(query, 800);
-            const modeDescription = modeValue === 'cover'
-                ? '本次调用模式为覆盖：系统会用本次结果替换本轮此前已检索的工具结果。'
-                : '本次调用模式为追加：系统会把本次结果追加到本轮此前已检索的工具结果后。';
-            if (isWebActiveTool(tool)) {
-                const responseTime = results?.tavilyResponseTime
-                    ? ` response_time="${escapeXmlAttribute(results.tavilyResponseTime)}"`
-                    : '';
-                const webMode = results?.tavilyMode === 'extract' ? 'extract' : 'search';
-
-                if (!Array.isArray(results) || results.length === 0) {
-                    const emptyDescription = webMode === 'extract'
-                        ? `本次网页读取没有检索成功，没有抽取到可用正文，也没有提供可作为答案依据的新证据。${modeDescription}本段内容已插入最后一条用户消息结尾。请先判断当前搜索摘要和上下文是否已经足够；如果仍不够，请换另一个更可靠的来源链接或重新搜索，不要编造网页正文没有支持的信息。`
-                        : `本次联网搜索没有检索成功，没有找到可用网页结果，也没有提供可作为答案依据的新证据。${modeDescription}本段内容已插入最后一条用户消息结尾。请先判断当前上下文是否已经足够；如果仍不够，请换更具体的作品名、角色名、站点名、别名或语言关键词再次调用，不要编造搜索结果没有支持的信息。`;
-                    return [
-                        `<active_tool_result name="${title}" call="${callName}" mode="${modeValue}" query="${escapeXmlAttribute(cleanQuery)}" status="empty" web_mode="${webMode}"${responseTime}>`,
-                        `  <description>${emptyDescription}</description>`,
-                        '</active_tool_result>'
-                    ].join('\n');
+        const parseNativeActiveToolCall = (call, tools) => {
+            const tool = tools.find(item => item.callName === call.function.name);
+            const parsed = { tool, callLabel: call.function.name, query: '', reason: '', mode: 'add', raw: call.function.arguments };
+            try {
+                if (!tool) throw new Error('该工具未开启或不存在');
+                const args = JSON.parse(call.function.arguments);
+                if (!args || typeof args !== 'object' || Array.isArray(args)
+                    || Object.keys(args).some(key => !['query', 'mode', 'reason'].includes(key))
+                    || typeof args.query !== 'string' || !args.query.trim()
+                    || (args.mode !== undefined && !['add', 'cover'].includes(args.mode))
+                    || (args.reason !== undefined && typeof args.reason !== 'string')) {
+                    throw new Error('工具参数应为包含非空 query 字符串的 JSON 对象；mode 只能是 add 或 cover，reason 为可选字符串');
                 }
+                Object.assign(parsed, { query: args.query.trim(), reason: (args.reason || '').trim(), mode: args.mode || 'add' });
+            } catch (error) {
+                parsed.error = error instanceof SyntaxError ? '工具参数不是完整有效的 JSON 对象' : error.message;
+            }
+            return parsed;
+        };
 
-                if (webMode === 'extract') {
-                    const formattedPages = formatWebResultItems(results, 'web_page');
-
-                    const failedPages = (Array.isArray(results.tavilyFailedResults) ? results.tavilyFailedResults : [])
-                        .filter(item => item.url || item.error)
-                        .map(item => `  <failed_page url="${escapeXmlAttribute(item.url || '')}" error="${escapeXmlAttribute(item.error || '网页读取失败')}"></failed_page>`)
-                        .join('\n');
-
-                    return [
-                        `<active_tool_result name="${title}" call="${callName}" mode="${modeValue}" query="${escapeXmlAttribute(cleanQuery)}" web_mode="extract"${responseTime}>`,
-                        `  <description>以下是系统进入网页链接后通过 Tavily Extract 读取到的网页正文。${modeDescription}本段内容由系统插入最后一条用户消息结尾。请优先依据网页正文继续回答；不要把正文没有支持的内容说成事实。如果正文仍不足以确认，请回到搜索结果选择另一个可靠来源链接，或换更具体的关键词继续搜索。</description>`,
-                        formattedPages,
-                        failedPages,
-                        '</active_tool_result>'
-                    ].filter(Boolean).join('\n');
+        const syncNativeActiveToolUis = (message, calls, requestUis, tools, complete = false) => {
+            if (!Array.isArray(message.toolCalls)) message.toolCalls = [];
+            calls.forEach((call, position) => {
+                const key = call.index ?? position;
+                const parsed = parseNativeActiveToolCall(call, tools);
+                let ui = requestUis.get(key);
+                if (!ui) {
+                    ui = reactive(createActiveToolUi(parsed, 'receiving'));
+                    requestUis.set(key, ui);
+                    message.toolCalls.push(ui);
                 }
-
-                const formattedResults = formatWebResultItems(results, 'web_source', item => [
-                    Number.isFinite(item.score) ? `score="${escapeXmlAttribute(item.score.toFixed(4))}"` : '',
-                    item.publishedDate ? `published_date="${escapeXmlAttribute(item.publishedDate)}"` : ''
-                ].filter(Boolean));
-
-                return [
-                    `<active_tool_result name="${title}" call="${callName}" mode="${modeValue}" query="${escapeXmlAttribute(cleanQuery)}" web_mode="search"${responseTime}>`,
-                    `  <description>以下是系统通过 Tavily 联网搜索得到的网页资料。${modeDescription}本段内容由系统插入最后一条用户消息结尾。请优先依据这些标题、链接和摘要继续回答；不要把搜索结果没有支持的内容说成事实。如果摘要仍不足以明确回答，请从结果中选择一个或多个最相关的真实 URL，追加调用 <${callName}:该URL> 进入网页读取正文，或换更具体的关键词继续搜索。可以多行调用多个 URL，系统会按顺序追加结果。</description>`,
-                    formattedResults,
-                    '</active_tool_result>'
-                ].filter(Boolean).join('\n');
-            }
-            if (!Array.isArray(results) || results.length === 0) {
-                return [
-                    `<active_tool_result name="${title}" call="${callName}" mode="${modeValue}" query="${escapeXmlAttribute(cleanQuery)}" status="empty">`,
-                    `  <description>本次关键词检索没有检索成功，没有找到包含该关键词的对话片段，也没有提供可作为答案依据的新证据。${modeDescription}本段内容已插入最后一条用户消息结尾。请换更贴近原文的关键词再次调用，不要编造未出现过的对话内容。</description>`,
-                    '</active_tool_result>'
-                ].join('\n');
-            }
-
-            const formattedResults = results.map(item => {
-                const turnValue = escapeXmlAttribute(item.turn || '?');
-                const roleValue = escapeXmlAttribute(item.role || 'unknown');
-                const speakerValue = escapeXmlAttribute(item.speaker || '');
-                const matchedValue = escapeXmlAttribute((item.matchedTerms || []).join(', '));
-                const fragmentText = indentXmlText(item.dialogueText || '', 4);
-                return [
-                    `  <dialogue_fragment turn="${turnValue}" role="${roleValue}" speaker="${speakerValue}" matched="${matchedValue}">`,
-                    fragmentText,
-                    '  </dialogue_fragment>'
-                ].join('\n');
-            }).join('\n\n');
-
-            return [
-                `<active_tool_result name="${title}" call="${callName}" mode="${modeValue}" query="${escapeXmlAttribute(cleanQuery)}">`,
-                `  <description>以下是系统根据关键词从当前对话历史中精确抓取到的原文片段。${modeDescription}本段内容由系统插入最后一条用户消息结尾。请优先依据这些原文片段继续回答，不要把没有出现过的内容说成事实；如果仍不足以明确回答，请换更贴近原文的关键词继续调用工具。</description>`,
-                formattedResults,
-                '</active_tool_result>'
-            ].join('\n');
-        };
-
-        const stripCodeBlocksForToolDetection = (text) => String(text || '')
-            .replace(/```[\s\S]*?```/g, '')
-            .replace(/~~~[\s\S]*?~~~/g, '');
-
-        const escapeRegexText = (value) => String(value || '').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-
-        const cleanActiveToolCallReason = (value) => String(value || '')
-            .replace(/<\/\s*reason\s*>?\s*$/i, '')
-            .trim();
-
-        const getActiveToolCallReasonMeta = (content, callIndex) => {
-            const beforeCall = String(content || '').slice(0, Math.max(0, callIndex));
-            const match = beforeCall.match(/<\s*reason\s*[:：]\s*([\s\S]*?)(?:>\s*|<\/\s*reason\s*>?\s*)$/i)
-                || beforeCall.match(/<\s*reason\s*>\s*([\s\S]*?)<\/\s*reason\s*>\s*$/i);
-            const reason = cleanActiveToolCallReason(match?.[1]);
-            if (!match || !reason) return { reason: '', rawPrefix: '', mainIndex: callIndex };
-            return {
-                reason,
-                rawPrefix: match[0],
-                mainIndex: callIndex - match[0].length
-            };
-        };
-
-        const buildActiveToolCallMeta = (originalContent, mainContent, toolRaw, callIndex) => {
-            const reasonMeta = getActiveToolCallReasonMeta(mainContent, callIndex);
-            const raw = `${reasonMeta.rawPrefix}${toolRaw}`;
-            const originalIndex = originalContent.indexOf(raw, Math.max(0, reasonMeta.mainIndex));
-            const toolIndex = originalContent.indexOf(toolRaw, callIndex);
-            return {
-                reason: reasonMeta.reason,
-                raw: originalIndex >= 0 ? raw : toolRaw,
-                toolRaw,
-                index: originalIndex >= 0 ? originalIndex : (toolIndex >= 0 ? toolIndex : callIndex),
-                mainIndex: reasonMeta.mainIndex
-            };
-        };
-
-        const findActiveToolCallsInText = (text) => {
-            const originalContent = String(text || '');
-            if (!originalContent) return [];
-            const mainContent = stripCodeBlocksForToolDetection(parseCot(originalContent).main);
-            const tools = getEnabledActiveTools();
-            const calls = [];
-            const seen = new Set();
-
-            for (const tool of tools) {
-                const labels = getActiveToolCallLabels(tool);
-                const callForms = [
-                    { label: labels.add, mode: 'add' },
-                    { label: labels.cover, mode: 'cover' }
-                ];
-                for (const form of callForms) {
-                    const escapedName = escapeRegexText(form.label);
-                    const regex = new RegExp(`<\\s*${escapedName}\\s*:\\s*([\\s\\S]{1,30000}?)\\s*>`, 'gi');
-                    let match;
-                    while ((match = regex.exec(mainContent)) !== null) {
-                        const query = String(match[1] || '').trim();
-                        if (!query) continue;
-
-                        const meta = buildActiveToolCallMeta(originalContent, mainContent, match[0], match.index);
-                        const raw = meta.raw;
-                        const index = meta.index;
-                        const key = `${index}:${match.index}:${form.label}:${raw}`;
-                        if (seen.has(key)) continue;
-                        seen.add(key);
-
-                        calls.push({
-                            tool,
-                            mode: form.mode,
-                            callLabel: form.label,
-                            query,
-                            raw,
-                            toolRaw: meta.toolRaw,
-                            reason: meta.reason,
-                            index,
-                            mainIndex: meta.mainIndex
-                        });
-                    }
-                }
-            }
-
-            return calls.sort((a, b) => {
-                const indexDiff = (a.index ?? 0) - (b.index ?? 0);
-                if (indexDiff !== 0) return indexDiff;
-                return (a.mainIndex ?? 0) - (b.mainIndex ?? 0);
+                Object.assign(ui, {
+                    toolId: parsed.tool?.id || '',
+                    toolType: parsed.tool?.type || '',
+                    name: parsed.tool?.name || call.function.name || '工具调用',
+                    callName: call.function.name,
+                    baseCallName: call.function.name,
+                    query: parsed.query || (complete ? '无有效查询' : '正在接收工具参数…'),
+                    raw: parsed.raw,
+                    reason: parsed.reason,
+                    mode: parsed.mode,
+                    status: complete ? 'queued' : 'receiving'
+                });
             });
         };
 
-        const getActiveToolDetectionText = (message) => [
-            String(message?.content || ''),
-            String(message?._activeToolPendingText || '')
-        ].filter(Boolean).join('\n');
-
-        const findActiveToolCallsInAssistantMessage = (message) => findActiveToolCallsInText(getActiveToolDetectionText(message));
-
-        const findPendingActiveToolCallInText = (text) => {
-            const originalContent = String(text || '');
-            if (!originalContent) return null;
-            const mainContent = stripCodeBlocksForToolDetection(parseCot(originalContent).main);
-            const tools = getEnabledActiveTools();
-            const candidates = [];
-
-            for (const tool of tools) {
-                const labels = getActiveToolCallLabels(tool);
-                [
-                    { label: labels.add, mode: 'add' },
-                    { label: labels.cover, mode: 'cover' }
-                ].forEach(form => {
-                    const escapedName = escapeRegexText(form.label);
-                    const regex = new RegExp(`<\\s*${escapedName}\\s*:\\s*([\\s\\S]*)$`, 'i');
-                    const match = mainContent.match(regex);
-                    if (!match) return;
-
-                    const meta = buildActiveToolCallMeta(originalContent, mainContent, match[0], mainContent.length - match[0].length);
-                    const raw = meta.raw;
-                    candidates.push({
-                        tool,
-                        mode: form.mode,
-                        callLabel: form.label,
-                        query: String(match[1] || '').trim(),
-                        raw,
-                        toolRaw: meta.toolRaw,
-                        reason: meta.reason,
-                        index: meta.index,
-                        mainIndex: meta.mainIndex,
-                        pending: true
-                    });
-                });
-            }
-
-            return candidates.sort((a, b) => {
-                const indexDiff = (a.index ?? 0) - (b.index ?? 0);
-                if (indexDiff !== 0) return indexDiff;
-                return (a.mainIndex ?? 0) - (b.mainIndex ?? 0);
-            })[0] || null;
-        };
-
-        const getPendingToolCallQueryPreview = (toolCall) => {
-            const query = String(toolCall?.query || '').trim();
-            if (!query) return '正在接收工具参数...';
-            return trimMemoryText(query, 160);
-        };
+        const cleanActiveToolCallReason = (value) => String(value || '').trim();
 
         const createActiveToolUi = (toolCall, initialStatus = 'queued') => ({
             id: generateUUID(),
             toolId: toolCall.tool?.id || '',
-            toolType: toolCall.tool?.type || ACTIVE_TOOL_KEYWORD_TYPE,
+            toolType: toolCall.tool?.type || '',
             toolResultCount: toolCall.tool?.resultCount || ACTIVE_TOOL_DEFAULT_RESULT_COUNT,
-            name: toolCall.tool?.name || '关键词检索',
-            callName: toolCall.callLabel || toolCall.tool?.callName || 'tool_grep_add',
-            baseCallName: toolCall.tool?.callName || 'tool_grep',
+            name: toolCall.tool?.name || '工具调用',
+            callName: toolCall.callLabel || toolCall.tool?.callName || '',
+            baseCallName: toolCall.tool?.callName || toolCall.callLabel || '',
             mode: toolCall.mode || 'add',
             query: toolCall.query || '',
             raw: toolCall.raw,
@@ -8687,18 +6648,6 @@ const app = createApp({
             const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
             const cotInfo = parseCot(message.content || '');
 
-            // 0. [LuzzyRP patch 031] 记忆召回节点（v1.3.0 需求 4）：时间线首位（检索先于生成）；
-            //    仅携带 memoryRecall 戳的消息显示——纯文本回复无卡片时不可见（与「原生思考」同条件，拍板 D2）
-            if (message.memoryRecall) {
-                steps.push({
-                    id: 'luzzy-memory-recall',
-                    type: 'thinking',
-                    title: '记忆召回',
-                    text: message.memoryRecall,
-                    charCount: getTimelineCharCount(message.memoryRecall)
-                });
-            }
-
             // 1. 初始原生思考
             const reasoningText = String(getAssistantReasoningText(message) || '').trim();
             if (reasoningText) {
@@ -8753,381 +6702,81 @@ const app = createApp({
             return steps;
         };
 
-        const stripActiveToolCallsFromAssistant = (message, toolCalls) => {
-            if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return;
-            const originalContent = String(message.content || '');
-            const firstToolCallIndex = toolCalls
-                .map(toolCall => Number.isFinite(toolCall.index) ? toolCall.index : originalContent.indexOf(toolCall.raw))
-                .filter(index => index >= 0)
-                .sort((a, b) => a - b)[0];
-            const nextContent = (Number.isFinite(firstToolCallIndex)
-                ? originalContent.slice(0, firstToolCallIndex)
-                : toolCalls.reduce((content, toolCall) => content.replace(toolCall.raw, ''), originalContent))
-                .replace(/\n{3,}/g, '\n\n')
-                .trim();
-
-            message.content = nextContent;
-            message.skipReveal = true;
-        };
-
-        const appendActiveToolCallsToAssistant = (message, toolCalls) => {
-            if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return [];
-            if (!Array.isArray(message.toolCalls)) message.toolCalls = [];
-
-            const toolUis = [];
-            toolCalls.forEach((toolCall, index) => {
-                const pendingUiId = message._activeToolPendingUiId;
-                const pendingIndex = index === 0 && pendingUiId
-                    ? message.toolCalls.findIndex(item => item?.id === pendingUiId && item.status === 'receiving')
-                    : -1;
-                const nextUi = createActiveToolUi(toolCall);
-                if (pendingIndex >= 0) {
-                    const previousUi = message.toolCalls[pendingIndex];
-                    nextUi.id = previousUi.id;
-                    nextUi.isOpen = previousUi.isOpen;
-                    nextUi.reason = nextUi.reason || previousUi.reason || '';
-                    nextUi.reasoning = previousUi.reasoning || nextUi.reasoning;
-                    nextUi.isReasoningOpen = previousUi.isReasoningOpen;
-                    message.toolCalls.splice(pendingIndex, 1, nextUi);
-                    delete message._activeToolPendingUiId;
-                } else {
-                    message.toolCalls.push(nextUi);
-                }
-                toolUis.push(nextUi);
-            });
-            message.skipReveal = true;
-            return toolUis;
-        };
-
-        const upsertPendingActiveToolCallToAssistant = (message, toolCall) => {
-            if (!message || !toolCall) return null;
-            if (!Array.isArray(message.toolCalls)) message.toolCalls = [];
-            let toolUi = message._activeToolPendingUiId
-                ? message.toolCalls.find(item => item?.id === message._activeToolPendingUiId && item.status === 'receiving')
-                : null;
-            if (!toolUi) {
-                toolUi = createActiveToolUi(toolCall, 'receiving');
-                message.toolCalls.push(toolUi);
-                message._activeToolPendingUiId = toolUi.id;
-            }
-            toolUi.toolId = toolCall.tool?.id || toolUi.toolId || '';
-            toolUi.toolType = toolCall.tool?.type || toolUi.toolType || ACTIVE_TOOL_KEYWORD_TYPE;
-            toolUi.name = toolCall.tool?.name || toolUi.name || '工具';
-            toolUi.callName = toolCall.callLabel || toolUi.callName || 'tool_grep_add';
-            toolUi.baseCallName = toolCall.tool?.callName || toolUi.baseCallName || 'tool_grep';
-            toolUi.mode = toolCall.mode || toolUi.mode || 'add';
-            toolUi.query = getPendingToolCallQueryPreview(toolCall);
-            toolUi.reason = cleanActiveToolCallReason(toolCall.reason || toolUi.reason || '');
-            toolUi.raw = toolCall.raw || toolUi.raw || '';
-            toolUi.status = 'receiving';
-            message.skipReveal = true;
-            return toolUi;
-        };
-
-        const attachActiveToolCallsToAssistant = (message, toolCalls, options = {}) => {
-            const toolUis = appendActiveToolCallsToAssistant(message, toolCalls, options);
-            if (toolUis.length === 0) return [];
-            stripActiveToolCallsFromAssistant(message, toolCalls);
-            return toolUis;
-        };
-
-        const removeActiveToolCallRawsFromText = (text, toolCalls) => {
-            let nextText = String(text || '');
-            [...toolCalls]
-                .sort((a, b) => (b.index ?? b.mainIndex ?? 0) - (a.index ?? a.mainIndex ?? 0))
-                .forEach(toolCall => {
-                    const index = Number.isFinite(toolCall.index) ? toolCall.index : nextText.indexOf(toolCall.raw);
-                    if (index < 0) return;
-                    nextText = `${nextText.slice(0, index)}${nextText.slice(index + String(toolCall.raw || '').length)}`;
-                });
-            return nextText;
-        };
-
-        const promoteActiveToolCallsFromAssistant = (message, options = {}) => {
-            if (!message || typeof message.content !== 'string') return [];
-            const scanText = message._activeToolCaptureActive
-                ? String(message._activeToolPendingText || '')
-                : String(message.content || '');
-            const detectedCalls = findActiveToolCallsInText(scanText);
-            if (detectedCalls.length === 0) {
-                const pendingCall = findPendingActiveToolCallInText(scanText);
-                if (!pendingCall) return [];
-
-                let toolBuffer = scanText;
-                if (!message._activeToolCaptureActive) {
-                    const firstIndex = Math.max(0, pendingCall.index ?? pendingCall.mainIndex ?? scanText.indexOf(pendingCall.raw));
-                    message.content = scanText.slice(0, firstIndex)
-                        .replace(/\n{3,}/g, '\n\n')
-                        .trim();
-                    toolBuffer = scanText.slice(firstIndex);
-                    message._activeToolCaptureActive = true;
-                }
-                upsertPendingActiveToolCallToAssistant(message, {
-                    ...pendingCall,
-                    raw: toolBuffer,
-                    query: String(pendingCall.toolRaw || toolBuffer || '').replace(new RegExp(`^\\s*<\\s*${escapeRegexText(pendingCall.callLabel)}\\s*:\\s*`, 'i'), '')
-                });
-                message._activeToolPendingText = toolBuffer;
-                message.skipReveal = true;
-                activeToolHandoffPending.value = true;
-                return [];
-            }
-
-            let toolBuffer = scanText;
-            let callsForUi = detectedCalls;
-            if (!message._activeToolCaptureActive) {
-                const firstIndex = Math.max(0, detectedCalls[0].index ?? detectedCalls[0].mainIndex ?? scanText.indexOf(detectedCalls[0].raw));
-                message.content = scanText.slice(0, firstIndex)
-                    .replace(/\n{3,}/g, '\n\n')
-                    .trim();
-                message.skipReveal = true;
-                toolBuffer = scanText.slice(firstIndex);
-                callsForUi = findActiveToolCallsInText(toolBuffer);
-                message._activeToolCaptureActive = true;
-            }
-
-            const toolUis = appendActiveToolCallsToAssistant(message, callsForUi, options);
-            if (toolUis.length > 0) {
-                activeToolHandoffPending.value = true;
-            }
-            message._activeToolPendingText = removeActiveToolCallRawsFromText(toolBuffer, callsForUi);
-            return toolUis;
-        };
-
-        const cleanupActiveToolCaptureState = (message) => {
-            if (!message) return;
-            delete message._activeToolCaptureActive;
-            delete message._activeToolPendingText;
-            delete message._activeToolPendingUiId;
-        };
-
-        const resolveActiveToolForUi = (toolUi) => {
-            const baseCallName = normalizeActiveToolBaseCallName(
-                toolUi?.baseCallName
-                || toolUi?.callName
-                || 'tool_grep'
-            );
-            const enabledMatch = getEnabledActiveTools().find(tool => (
-                tool.id === toolUi?.toolId
-                || normalizeActiveToolBaseCallName(tool.callName) === baseCallName
-            ));
-            if (enabledMatch) return enabledMatch;
-            return getDefaultActiveToolDefinitions().find(tool => (
-                tool.id === toolUi?.toolId
-                || normalizeActiveToolBaseCallName(tool.callName) === baseCallName
-            )) || null;
-        };
-
-        const buildActiveToolCallFromUi = (toolUi) => {
-            const tool = resolveActiveToolForUi(toolUi);
-            if (!tool) return null;
-            return {
-                tool,
-                mode: toolUi?.mode || 'add',
-                callLabel: toolUi?.callName || getActiveToolCallLabels(tool).add,
-                query: String(toolUi?.query || '').trim(),
-                raw: toolUi?.raw || '',
-                reason: cleanActiveToolCallReason(toolUi?.reason)
-            };
-        };
-
-        const handleActiveToolCallFromAssistant = async (assistantMessage, activeToolDepth = 0) => {
-            promoteActiveToolCallsFromAssistant(assistantMessage);
-            let toolUis = Array.isArray(assistantMessage?.toolCalls)
-                ? assistantMessage.toolCalls.filter(toolCall => ['queued', 'running'].includes(toolCall?.status))
-                : [];
-            let toolCalls = toolUis.map(buildActiveToolCallFromUi).filter(toolCall => toolCall?.query);
-
-            if (toolCalls.length === 0) {
-                toolCalls = findActiveToolCallsInAssistantMessage(assistantMessage);
-            }
-            if (toolCalls.length === 0) {
-                const receivingToolUis = Array.isArray(assistantMessage?.toolCalls)
-                    ? assistantMessage.toolCalls.filter(toolCall => toolCall?.status === 'receiving')
-                    : [];
-                if (receivingToolUis.length > 0) {
-                    receivingToolUis.forEach(toolUi => {
-                        toolUi.status = 'error';
-                        toolUi.error = '工具调用没有完整输出，请重试。';
-                        toolUi.resultText = toolUi.error;
-                    });
-                    await saveChatHistoryNow();
-                }
-                cleanupActiveToolCaptureState(assistantMessage);
-                activeToolHandoffPending.value = false;
-                return false;
-            }
-
-            if (activeToolDepth >= ACTIVE_TOOL_MAX_AUTO_CONTINUE) {
-                if (toolUis.length === 0) {
-                    stripActiveToolCallsFromAssistant(assistantMessage, toolCalls);
-                } else {
-                    toolUis.forEach(toolUi => {
-                        toolUi.status = 'error';
-                    });
-                }
-                cleanupActiveToolCaptureState(assistantMessage);
-                activeToolHandoffPending.value = false;
-                await saveChatHistoryNow();
-                return false;
-            }
-
-            if (toolUis.length === 0) {
-                toolUis = attachActiveToolCallsToAssistant(assistantMessage, toolCalls);
-            }
-            if (toolUis.length === 0) {
-                cleanupActiveToolCaptureState(assistantMessage);
-                activeToolHandoffPending.value = false;
-                return false;
-            }
-            await saveChatHistoryNow();
-
+        const handleActiveToolCallFromAssistant = async (assistantMessage, response, requestUis, requestTools, activeToolDepth) => {
             const toolAbort = new AbortController();
+            activeToolQueueAbortController = toolAbort;
             activeToolQueueRunning.value = true;
             activeToolHandoffPending.value = false;
-            activeToolQueueAbortController = toolAbort;
-            let continuationToolUi = null;
-            let hasToolResult = false;
-
-            const applyActiveToolSuccessRecord = (record) => {
-                if (!record?.ok) return;
-                updateActiveToolResultContext(record.resultContext, record.toolCall.mode);
-                continuationToolUi = record.toolUi;
-                hasToolResult = true;
-            };
-
-            const runActiveToolCallSafely = async (toolCall, toolUi, options = {}) => {
-                try {
-                    if (toolAbort.signal.aborted) throw createAbortReason('Generation cancelled by user');
-                    if (options.markRunning !== false) {
-                        toolUi.status = 'running';
-                        await saveChatHistoryNow();
-                    }
-
-                    const results = isWebActiveTool(toolCall.tool)
-                        ? await searchWebByTavilyForTool(
-                            toolCall.query,
-                            toolCall.tool,
-                            toolAbort.signal
-                        )
-                        : searchDialogueByKeywordForTool(toolCall.query, toolCall.tool.resultCount, {
-                            excludeMessageId: assistantMessage.id
-                        });
-                    if (toolAbort.signal.aborted) throw createAbortReason('Generation cancelled by user');
-
-                    const resultContext = normalizeActiveToolResultContext(
-                        formatActiveToolResultContext(toolCall.tool, toolCall.query, results, toolCall.mode),
-                        toolCall.tool,
-                        toolCall.query,
-                        toolCall.mode
-                    );
-                    toolUi.status = 'done';
-                    toolUi.resultCount = Array.isArray(results) ? results.length : 0;
-                    toolUi.resultText = resultContext;
-                    await saveChatHistoryNow();
-                    return {
-                        ok: true,
-                        toolCall,
-                        toolUi,
-                        resultContext
-                    };
-                } catch (err) {
-                    if (err.name === 'AbortError') {
-                        return { aborted: true, toolCall, toolUi };
-                    }
-                    const resultContext = formatActiveToolErrorContext(toolCall.tool, toolCall.query, err, toolCall.mode);
-                    toolUi.status = 'error';
-                    toolUi.error = err.message || '工具检索失败';
-                    toolUi.resultCount = 0;
-                    toolUi.resultText = resultContext;
-                    await saveChatHistoryNow();
-                    return { ok: true, toolCall, toolUi, resultContext, error: err };
-                }
-            };
-
-            const flushWebToolBatch = async (webBatch) => {
-                if (!webBatch.length) return;
-                webBatch.forEach(({ toolUi }) => {
-                    toolUi.status = 'running';
-                });
-                await saveChatHistoryNow();
-
-                const records = await Promise.all(webBatch.map(({ toolCall, toolUi }) => (
-                    runActiveToolCallSafely(toolCall, toolUi, { markRunning: false })
-                )));
-                if (records.some(record => record?.aborted)) {
-                    throw createAbortReason('Generation cancelled by user');
-                }
-                records.forEach(applyActiveToolSuccessRecord);
-                webBatch.length = 0;
-            };
-
+            const toolUis = [...requestUis.values()];
             try {
-                const webBatch = [];
-                for (let index = 0; index < toolCalls.length; index += 1) {
-                    const toolCall = toolCalls[index];
-                    const toolUi = toolUis[index];
-                    if (isWebActiveTool(toolCall.tool)) {
-                        webBatch.push({ toolCall, toolUi });
-                        continue;
+                if (activeToolDepth >= ACTIVE_TOOL_MAX_AUTO_CONTINUE) throw new Error('已达到本轮检索次数上限');
+                activeToolMessages.push(response.assistantMessage);
+                // 即使接口一次返回多个调用，也逐一配对结果；并发查询，按原始调用顺序应用 add/cover。
+                const records = await Promise.all(response.toolCalls.map(async (call, position) => {
+                    const toolUi = requestUis.get(call.index ?? position);
+                    const toolCall = parseNativeActiveToolCall(call, requestTools);
+                    let payload;
+                    try {
+                        if (toolAbort.signal.aborted) throw createAbortReason();
+                        if (position >= 5) throw new Error('单次最多执行 5 项检索，请缩小查询范围');
+                        if (toolCall.error) throw new Error(toolCall.error);
+                        if (!getEnabledActiveTools().some(tool => tool.callName === call.function.name)) throw new Error('该工具已关闭');
+                        toolUi.status = 'running';
+                        const results = isWebActiveTool(toolCall.tool)
+                            ? await searchWebByTavilyForTool(toolCall.query, toolCall.tool, toolAbort.signal)
+                            : searchDialogueByKeywordForTool(toolCall.query, toolCall.tool.resultCount, { excludeMessageId: assistantMessage.id });
+                        if (toolAbort.signal.aborted) throw createAbortReason();
+                        payload = {
+                            status: results.length ? 'ok' : 'empty',
+                            query: toolCall.query,
+                            mode: toolCall.mode,
+                            results,
+                            ...(results.tavilyMode ? { operation: results.tavilyMode } : {}),
+                            ...(results.tavilyFailedResults?.length ? { failed_sources: results.tavilyFailedResults } : {})
+                        };
+                        toolUi.status = 'done';
+                        toolUi.resultCount = results.length;
+                    } catch (error) {
+                        if (error.name === 'AbortError') throw error;
+                        payload = { status: 'error', query: toolCall.query, mode: toolCall.mode, error: error.message || '工具检索失败' };
+                        toolUi.status = 'error';
+                        toolUi.error = payload.error;
                     }
-
-                    await flushWebToolBatch(webBatch);
-                    const record = await runActiveToolCallSafely(toolCall, toolUi);
-                    if (record?.aborted) {
-                        markActiveToolInlineWorkCancelled();
-                        await saveChatHistoryNow();
-                        return false;
-                    }
-                    applyActiveToolSuccessRecord(record);
-                }
-                await flushWebToolBatch(webBatch);
-
-                if (!hasToolResult || !continuationToolUi) return false;
-                if (toolAbort.signal.aborted) {
-                    markActiveToolInlineWorkCancelled();
-                    await saveChatHistoryNow();
-                    return false;
-                }
-
-                if (continuationToolUi.status !== 'error') {
-                    continuationToolUi.status = 'continuing';
-                }
-                cleanupActiveToolCaptureState(assistantMessage);
+                    toolUi.resultText = JSON.stringify(payload, null, 2);
+                    console.info('[检索工具]', { 工具: call.function.name, 状态: payload.status, 条数: toolUi.resultCount, ...(payload.error ? { 错误: payload.error } : {}) });
+                    return { callId: call.id, payload };
+                }));
+                if (toolAbort.signal.aborted) throw createAbortReason();
+                records.forEach(record => appendActiveToolResult(record.callId, record.payload));
+                const continuationToolUi = toolUis[toolUis.length - 1];
+                if (continuationToolUi.status !== 'error') continuationToolUi.status = 'continuing';
                 activeToolQueueRunning.value = false;
                 activeToolContinuationPending.value = true;
                 await saveChatHistoryNow();
+                if (toolAbort.signal.aborted) throw createAbortReason();
                 await generateResponse(Date.now(), {
                     activeToolDepth: activeToolDepth + 1,
                     continueAssistantMessageId: assistantMessage.id,
                     continuationToolCallId: continuationToolUi.id
                 });
-                if (continuationToolUi.status === 'continuing') {
-                    continuationToolUi.status = 'done';
-                }
-                await saveChatHistoryNow();
+                if (continuationToolUi.status === 'continuing') continuationToolUi.status = 'done';
                 return true;
-            } catch (err) {
-                if (err.name === 'AbortError') {
+            } catch (error) {
+                if (error.name === 'AbortError') {
                     markActiveToolInlineWorkCancelled();
-                    await saveChatHistoryNow();
-                    return false;
-                }
-                if (assistantMessage) {
-                    const errorMessage = err.message || '生成失败';
-                    appendAssistantResponseError(assistantMessage, errorMessage);
-                    activeToolContinuationHasResponse.value = true;
-                    await saveChatHistoryNow();
+                } else {
+                    toolUis.filter(ui => TOOL_CALL_RUNNING_STATUSES.includes(ui.status)).forEach(ui => {
+                        ui.status = 'error';
+                        ui.error = error.message || '工具处理失败';
+                    });
+                    appendAssistantResponseError(assistantMessage, error.message || '工具处理失败');
                 }
                 return false;
             } finally {
-                if (activeToolQueueAbortController === toolAbort) {
-                    activeToolQueueAbortController = null;
-                }
+                if (activeToolQueueAbortController === toolAbort) activeToolQueueAbortController = null;
                 activeToolHandoffPending.value = false;
                 activeToolQueueRunning.value = false;
                 activeToolContinuationPending.value = false;
-                cleanupActiveToolCaptureState(assistantMessage);
                 await saveChatHistoryNow();
             }
         };
@@ -9788,10 +7437,7 @@ const app = createApp({
             const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
 
             const encodedTargetArtists = encodeURIComponent(targetArtists);
-            // [LuzzyRP patch 015] 生图模型来源：官方 STA1N（NAI 代理 URL 模板）| 自定义供应商 image 模型（伪 URL → startCustomImageTask）
-            const imageRequestUrl = settings.imageModelSource === 'custom' && settings.customImageModelRef
-                ? buildCustomImageRequestUrl(settings.customImageModelRef, '$1', settings.imageSize)
-                : `${baseUrl}/generate?tag=$1&token=${encodeURIComponent(imageGenToken)}&model=${settings.imageModel}&artist=${encodedTargetArtists}&size=${settings.imageSize}&steps=40&scale=6&cfg=0&sampler=k_dpmpp_2m_sde&negative={{{{bad anatomy}}}},{bad feet},bad hands,{{{bad proportions}}},{blurry},cloned face,cropped,{{{deformed}}},{{{disfigured}}},error,{{{extra arms}}},{extra digit},{{{extra legs}}},extra limbs,{{extra limbs}},{fewer digits},{{{fused fingers}}},gross proportions,ink eyes,ink hair,jpeg artifacts,{{{{long neck}}}},low quality,{malformed limbs},{{missing arms}},{missing fingers}},{{missing legs}},{{{more than 2 nipples}}},mutated hands,{{{mutation}}},normal quality,owres,{{poorly drawn face}},{{poorly drawn hands}},reen eyes,signature,text,{{too many fingers}},{{{ugly}}},username,uta,watermark,worst quality,{{{more than 2 legs}}},awkward hand sign,weird hand gesture,contorted hand,unnatural finger pose,deformed hand gesture,{shaka},{hang loose},{{rock on}},{shaka sign}&nocache=0&noise_schedule=karras`;
+            const imageRequestUrl = `${baseUrl}/generate?tag=$1&token=${encodeURIComponent(imageGenToken)}&model=${settings.imageModel}&artist=${encodedTargetArtists}&size=${settings.imageSize}&steps=40&scale=6&cfg=0&sampler=k_dpmpp_2m_sde&negative={{{{bad anatomy}}}},{bad feet},bad hands,{{{bad proportions}}},{blurry},cloned face,cropped,{{{deformed}}},{{{disfigured}}},error,{{{extra arms}}},{extra digit},{{{extra legs}}},extra limbs,{{extra limbs}},{fewer digits},{{{fused fingers}}},gross proportions,ink eyes,ink hair,jpeg artifacts,{{{{long neck}}}},low quality,{malformed limbs},{{missing arms}},{missing fingers}},{{missing legs}},{{{more than 2 nipples}}},mutated hands,{{{mutation}}},normal quality,owres,{{poorly drawn face}},{{poorly drawn hands}},reen eyes,signature,text,{{too many fingers}},{{{ugly}}},username,uta,watermark,worst quality,{{{more than 2 legs}}},awkward hand sign,weird hand gesture,contorted hand,unnatural finger pose,deformed hand gesture,{shaka},{hang loose},{{rock on}},{shaka sign}&nocache=0&noise_schedule=karras`;
             const imageGenRegexContent = {
                 name: imageGenRegexName,
                 regex: getImageTagRegex().toString(),
@@ -10537,6 +8183,54 @@ const app = createApp({
             editingWorldInfo.data.keys = parseWorldInfoKeysText(worldInfoKeysText.value, editingWorldInfo.data.useRegex);
         };
 
+        const importCharacterData = async (rawData, avatarUrl, askImageGeneration = true) => {
+            const imported = cardUtils.parseImportedCharacterCard(rawData);
+            const char = {
+                name: imported.name,
+                description: imported.description,
+                first_mes: imported.first_mes,
+                avatar: avatarUrl || defaultAvatar,
+                personality: imported.personality,
+                creator_notes: imported.creator_notes,
+                worldInfo: imported.worldInfoEntries
+                    .map(entry => normalizeWorldInfoEntry({ ...entry, scope: 'character' }))
+                    .filter(entry => entry.scope !== 'global'),
+                regexScripts: imported.regexScripts
+                    .map(script => cardUtils.normalizeImportedRegexScript(
+                        { ...script, scope: 'character' },
+                        { fallbackScope: 'character', systemNames: systemRegexNames }
+                    ))
+                    .filter(script => script.scope !== 'global'),
+                uiTemplates: imported.uiTemplates.map(template => normalizeUiTemplate({
+                    ...sanitizeUiTemplateImportEntry(template),
+                    id: generateUUID(),
+                    scope: 'character'
+                })),
+                recentGenerationTimes: [],
+                uuid: generateUUID(),
+                createdAt: Date.now()
+            };
+
+            characters.value.push(char);
+            try {
+                await saveCharactersNow();
+            } catch (error) {
+                const index = characters.value.findIndex(item => item.uuid === char.uuid);
+                if (index >= 0) characters.value.splice(index, 1);
+                throw error;
+            }
+
+            showAddCharacterMenu.value = false;
+            if (currentView.value === 'characters' && useCharacterDeck.value) {
+                characterSearchQuery.value = '';
+                await nextTick();
+                await characterDeck.value?.revealImportedCard(char.uuid);
+            }
+            const newCharacterIndex = characters.value.findIndex(item => item.uuid === char.uuid);
+            await selectCharacter(newCharacterIndex, askImageGeneration);
+            return char;
+        };
+
         const importCharacter = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -10545,48 +8239,6 @@ const app = createApp({
 
             // Reset file input
             event.target.value = '';
-
-            const processCharacterData = async (rawData, avatarUrl) => {
-                try {
-                    const imported = cardUtils.parseImportedCharacterCard(rawData);
-                    const char = {
-                        name: imported.name,
-                        description: imported.description,
-                        first_mes: imported.first_mes,
-                        avatar: avatarUrl || defaultAvatar,
-                        personality: imported.personality,
-                        creator_notes: imported.creator_notes,
-                        worldInfo: imported.worldInfoEntries
-                            .map(entry => normalizeWorldInfoEntry({ ...entry, scope: 'character' }))
-                            .filter(entry => entry.scope !== 'global'),
-                        regexScripts: imported.regexScripts
-                            .map(script => cardUtils.normalizeImportedRegexScript(
-                                { ...script, scope: 'character' },
-                                { fallbackScope: 'character', systemNames: systemRegexNames }
-                            ))
-                            .filter(script => script.scope !== 'global'),
-                        uiTemplates: imported.uiTemplates.map(template => normalizeUiTemplate({
-                            ...sanitizeUiTemplateImportEntry(template),
-                            id: generateUUID(),
-                            scope: 'character'
-                        })),
-                        recentGenerationTimes: [],
-                        uuid: generateUUID(),
-                        createdAt: Date.now()
-                    };
-
-                    characters.value.push(char);
-
-                    // Auto-select the new character and enter chat immediately.
-                    const newCharacterIndex = characters.value.length - 1;
-                    showAddCharacterMenu.value = false;
-                    await selectCharacter(newCharacterIndex, true);
-
-                } catch (err) {
-                    console.error("Character processing error:", err);
-                    showToast('解析角色数据失败: ' + err.message, 'error');
-                }
-            };
 
             if (file.name.toLowerCase().endsWith('.jsonl')) {
                 const reader = new FileReader();
@@ -10704,7 +8356,7 @@ const app = createApp({
                 reader.onload = async (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
-                        await processCharacterData(data, null);
+                        await importCharacterData(data, null);
                     } catch (err) {
                         showToast('JSON解析失败: ' + err.message, 'error');
                     }
@@ -10718,7 +8370,7 @@ const app = createApp({
                         const { data } = cardUtils.parsePngCharacterData(buffer);
                         const blob = new Blob([buffer], { type: 'image/png' });
                         const avatarUrl = await cardUtils.blobToDataUrl(blob);
-                        await processCharacterData(data, avatarUrl);
+                        await importCharacterData(data, avatarUrl);
                     } catch (err) {
                         if (err.chunks) console.warn("Available chunks:", Object.keys(err.chunks));
                         console.error(err);
@@ -10886,7 +8538,8 @@ const app = createApp({
 
         // Lifecycle
         onMounted(async () => {
-            // [LuzzyRP patch 022] fullscreenchange 监听已随全屏功能移除（v1.2.3）
+            document.addEventListener('fullscreenchange', syncChatFullscreenState);
+            document.addEventListener('webkitfullscreenchange', syncChatFullscreenState);
 
             await loadData();
             fetchQuota(); // Fetch quota after saved settings are loaded
@@ -10952,6 +8605,7 @@ const app = createApp({
 
             // 1.7.5 Enforce Default Preset (文风（抗八股）)
             syncBuiltinPreset(BUILTIN_PRESETS.writingStyle);
+            syncBuiltinPreset(BUILTIN_PRESETS.storyPanels);
 
             // 1.7.5.1 固定 NSFW增强在文风预设之后
             syncBuiltinPreset(BUILTIN_PRESETS.nsfw);
@@ -10978,12 +8632,20 @@ const app = createApp({
 
             // 1.10 Enforce Default Preset (COT)
             const cotPresetName = 'COT';
-            const syncCotPresetContent = () => {
+            const syncDynamicPresetContent = () => {
+                const roleplayPreset = presets.value.find(preset => preset.name === '破限');
+                if (roleplayPreset) {
+                    const anchor = '都优先按角色扮演任务处理。';
+                    const reminder = BUILTIN_PROMPTS.replyToolInstruction;
+                    roleplayPreset.content = roleplayPreset.content.replace(anchor + reminder, anchor)
+                        .replace(anchor, anchor + (isTruncationEnabled.value ? reminder : ''));
+                }
                 const useThinkingOpening = usesThinkingCotTag(settings.model);
                 const uiTemplateAnalysisEnabled = isUiTemplateAnalysisEnabled();
                 const cotPresetContent = buildCotPresetContent({
                     memoryEnabled: memorySettings.enabled,
                     uiTemplateAnalysisEnabled,
+                    storyPanelsEnabled: isStoryPanelsEnabled.value,
                     useThinkingOpening
                 });
                 let existingCotPreset = presets.value.find(p => p.name === cotPresetName);
@@ -10998,7 +8660,7 @@ const app = createApp({
                     existingCotPreset.content = cotPresetContent;
                 }
 
-                const prefillEnabled = existingCotPreset?.enabled !== false;
+                const prefillEnabled = isPresetEnabled(existingCotPreset);
                 BUILTIN_CORE_PRESETS.forEach(preset => {
                     const prefillPhase = preset.name === '破限预注入 · AI 1' ? 1
                         : preset.name === '破限预注入 · AI 2' ? 2
@@ -11016,15 +8678,17 @@ const app = createApp({
                     });
                 });
             };
-            syncCotPresetContent();
+            syncDynamicPresetContent();
             watch([
                 () => memorySettings.enabled,
                 () => settings.uiTemplateEnabled,
                 () => settings.uiTemplateMainModelAnalysis,
                 () => activeUiTemplates.value.length,
+                isStoryPanelsEnabled,
                 () => settings.model,
+                isTruncationEnabled,
                 () => presets.value.find(preset => preset.name === cotPresetName)?.enabled
-            ], syncCotPresetContent);
+            ], syncDynamicPresetContent);
             removeLegacyUserRegex();
 
             // Save enforced defaults immediately (仅保存预设/正则等结构性数据)
@@ -11085,11 +8749,7 @@ const app = createApp({
                 selectCharacter(0);
             }
 
-            // [LuzzyRP patch 012] 启动仅拉取激活商模型，其余已配置商在选择器打开时惰性补拉
-            const activeProvider = getApiProviderById(settings.apiProviderId);
-            if (isProviderConfigured(activeProvider)) {
-                fetchModelsForProvider(activeProvider).catch(() => { });
-            }
+            fetchModels();
 
             // Initial Status Check
             checkAllStatuses();
@@ -11126,7 +8786,8 @@ const app = createApp({
             generatedImageObserver?.disconnect();
             generatedImageTasks.clear();
             closeMobileMenu();
-            // [LuzzyRP patch 022] fullscreenchange 监听移除已随全屏功能下线（v1.2.3）
+            document.removeEventListener('fullscreenchange', syncChatFullscreenState);
+            document.removeEventListener('webkitfullscreenchange', syncChatFullscreenState);
             if (window.visualViewport) {
                 window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                 window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
@@ -11143,25 +8804,45 @@ const app = createApp({
             const imageStart = cardUtils.findLastUnprotectedMatch(mainText, /image###/gi)?.index ?? -1;
             if (imageStart !== -1) {
                 const imageTail = mainText.slice(imageStart + 'image###'.length);
-                if (!imageTail.includes('###')
-                    && (isTruncationEnabled.value || !/[\r\n]/.test(imageTail))) {
-                    const lineBreak = imageTail.search(/[\r\n]/);
-                    mainText = mainText.slice(0, imageStart)
-                        + (lineBreak >= 0 ? imageTail.slice(lineBreak) : '');
+                if (!imageTail.includes('###') && !/[\r\n]/.test(imageTail)) mainText = mainText.slice(0, imageStart);
+            }
+            // 只暂存未闭合的 UI；完整面板及其后的正文可以继续流式展示。
+            const uiTokens = /```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\r\n]*`|<!--[\s\S]*?(?:-->|$)|<(script|style)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>[\s\S]*?(?:<\/\1\s*>|$)|<!doctype\b[^>]*(?:>|$)|<\/?[a-z][\w:-]*(?:[^"'<>]|"[^"]*(?:"|$)|'[^']*(?:'|$))*(>|$)/gi;
+            const openTags = [];
+            let pendingStart = -1;
+            const waitForUi = index => ({ text: mainText.slice(0, pendingStart < 0 ? index : pendingStart), showSpinner: true });
+            for (const match of mainText.matchAll(uiTokens)) {
+                const token = match[0];
+                const fence = token.startsWith('```') ? '```' : token.startsWith('~~~') ? '~~~' : '';
+                if (fence) {
+                    const isHtml = /^(?:```|~~~)[ \t]*(?:html|xml|vue)\b|^(?:```|~~~)[^\n]*\n\s*<(?:!doctype|html|head|body|div|span|style|script|table|img)\b/i.test(token);
+                    if (isHtml && (token.length < 6 || !token.endsWith(fence))) return waitForUi(match.index);
+                    continue;
+                }
+                if (token.startsWith('`') || token.startsWith('<!--')) continue;
+                if (match[1]) {
+                    if (!/<\/(?:script|style)\s*>$/i.test(token)) return waitForUi(match.index);
+                    continue;
+                }
+                if (/^<!doctype\b/i.test(token)) {
+                    if (pendingStart < 0) pendingStart = match.index;
+                    continue;
+                }
+                const tag = token.match(/^<(\/?)(html|div|script|style)(?=[\s/>]|$)/i);
+                if (!tag) continue;
+                if (match[2] !== '>') return waitForUi(match.index);
+                const name = tag[2].toLowerCase();
+                if (!tag[1]) {
+                    if (pendingStart < 0) pendingStart = match.index;
+                    openTags.push(name);
+                } else {
+                    const openIndex = openTags.lastIndexOf(name);
+                    if (openIndex < 0) continue;
+                    openTags.splice(openIndex);
+                    if (!openTags.length) pendingStart = -1;
                 }
             }
-            const patterns = ['```html', '```vue', '<!DOCTYPE', '<div', '<style'];
-            let earliestIndex = -1;
-            for (const p of patterns) {
-                const idx = mainText.toLowerCase().indexOf(p);
-                if (idx !== -1 && (earliestIndex === -1 || idx < earliestIndex)) {
-                    earliestIndex = idx;
-                }
-            }
-            if (earliestIndex !== -1) {
-                return { text: mainText.substring(0, earliestIndex), showSpinner: true };
-            }
-            return { text: mainText, showSpinner: false };
+            return pendingStart < 0 ? { text: mainText, showSpinner: false } : waitForUi(pendingStart);
         };
 
         const switchProfile = (id) => {
@@ -11326,7 +9007,6 @@ const app = createApp({
             switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
             processMainContent, replaceUserNamePlaceholder,
             currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
-            appVersionLabel, changelogHtml, openGitHubRepo, changelogVersionOptions, changelogSelectedVersion, changelogKeyword, changelogResultCount, aboutViewEl, aboutFabVisible, onAboutScroll, scrollAboutToTop, // [LuzzyRP patch 030/024]
             showActiveToolEditor,
             showExportModal, exportItems, selectedExportIndices, // Export Modal
             showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
@@ -11341,27 +9021,24 @@ const app = createApp({
             startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
             tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
             showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
-            filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory, usageChartRange, usageChartRangeOptions, usageChartProvider, usageChartProviderOptions, usageChartModelOptions, usageChartSelectedModels, usageChartData, toggleUsageChartModel, // [LuzzyRP patch 025]
+            filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory,
             latestMainTokenUsage, formatLatestTokenCount, formatLatestUsageCost,
             getUncachedInputTokens, formatTokenCount, formatTokenAggregate, formatTokenUsageTime, getTokenUsageTypeLabel, clearTokenUsageHistory,
             storageStats, refreshStorageStats, cleanupUnusedStorage, formatStorageSize,
             showCharacterExportModal, openCharacterExportModal, confirmCharacterExport, // Character Export Modal
             updateModalRef, latestUpdateConfig,
-            showConfirmModal, confirmMessage, modelMode, isGeminiModel, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
-            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel, // [LuzzyRP patch 012]
-            user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
-            showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
-            providerModelCount, providerIconInputEl, providerIconCrop, providerEditorIconPreview, providerIconPick, providerIconClear, providerIconFileChosen, providerIconBoxDown, providerIconCropCancel, providerIconCropConfirm, // [LuzzyRP patch 035]
-            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
+            showConfirmModal, confirmMessage, modelMode, isGeminiModel, isTruncationEnabled, isPresetEnabled, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
+            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters,
+            user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
             getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
             isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,
             chatRoundStats, conversationBodyLength, summaryCompressedBodyLength, summaryCompressionRate,
-            editingCharacter, editingPreset, editingUiTemplate, toasts, chatContainer, isMobileKeyboardOpen, inputBox, messageElements,
+            editingCharacter, editingPreset, editingUiTemplate, toasts, chatContainer, isChatFullscreen, isMobileKeyboardOpen, inputBox, messageElements,
             isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
             isSquareLoading, squareUrl, onSquareLoad, // Square exports
             isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-            editorTab, characterDisplayLimit, hasOpenedCharacterManager, isDesktopCharacterLayout, displayedCharacters, loadMoreCharacters,
+            editorTab, characterDisplayLimit, hasOpenedCharacterManager, isDesktopCharacterLayout, characterGridView, characterDeck, useCharacterDeck, displayedCharacters, loadMoreCharacters, getCharacterWICount, getCharacterRegexCount,
             isAutoImageGenEnabled,
             apiStatus, apiLatency, imageGenStatus, imageGenLatency, checkAllStatuses, // Status Exports
             toggleAutoImageGen, setWorldInfoEnabled, handleGeneratedImageReroll,
@@ -11374,14 +9051,6 @@ const app = createApp({
             vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
             startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
             activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
-            // [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结
-            memoryManager, memoryManagerCharacterOptions, memoryManagerBranchOptions,
-            isMemoryManagerCurrentCharacter, memoryManagerVectorPageCount, memoryManagerClassicPageCount,
-            displayedMemoryManagerVector, displayedMemoryManagerClassic, memoryManagerShardModelLabel,
-            memoryManagerClassicTurnLabel,
-            toggleMemoryManager, selectMemoryManagerCharacter, selectMemoryManagerBranch, clearMemoryManagerAll,
-            openMemoryManagerEditor, closeMemoryManagerEditor, saveMemoryManagerEditor,
-            deleteMemoryManagerVectorItem, deleteMemoryManagerClassicItem, toggleMemoryManagerVectorEnabled,
             // 滑块值映射：4-10 为变量分析消息层数。
             uiTemplateAnalysisDepthSlider: computed({
                 get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
@@ -11423,7 +9092,7 @@ const app = createApp({
                 });
             },
             toggleMobileMenu, closeMobileMenu,
-            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat,
+            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat, toggleChatFullscreen,
             handleConfirm, handleCancel, // Export handlers
             copyMessage, playMessageActionFeedback, canDeleteMessage, deleteMessage, regenerateMessage,
             editMessage, saveEditMessage, cancelEditMessage,

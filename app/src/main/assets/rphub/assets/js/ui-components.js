@@ -350,10 +350,9 @@
                 <div class="h-16 flex items-center border-b border-gray-100/80 bg-white/70 backdrop-blur-xl transition-all duration-300"
                     :class="collapsed ? 'justify-center px-0' : 'justify-between px-6'">
                     <div v-show="!collapsed" class="app-logo relative inline-flex items-baseline gap-1.5 pr-1 min-w-0">
-                        <!-- [LuzzyRP patch 019] 侧栏品牌字样：RP HUB → LuzzyRP（Luzzy 主字 + RP 品牌色，与开屏字标同构） -->
-                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.02em] leading-none">Luzzy</span>
-                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.08em] leading-none">RP</span>
-                        <span class="absolute -bottom-1 left-0 h-[2px] w-14 rounded-full bg-primary-500/60"></span>
+                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.08em] leading-none">RP</span>
+                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.18em] leading-none">HUB</span>
+                        <span class="absolute -bottom-1 left-0 h-[2px] w-11 rounded-full bg-primary-500/60"></span>
                     </div>
                     <button @click="$emit('update:collapsed', !collapsed)"
                         :class="['hidden md:flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200/80 rounded-xl text-gray-500 hover:text-primary-600 transition-all shadow-sm active:scale-95', collapsed ? 'w-12 h-12 p-0' : 'p-2']"
@@ -440,24 +439,10 @@
                         </div>
                     </div>
 
-                    <!-- [LuzzyRP patch 014] 侧栏底部簇：外观/关于改为独立视图（selectView 带激活态）；
-                         [LuzzyRP patch 019] 顺序调整：外观 → 设置 → 关于（关于置底） -->
-                    <button @click="selectView('appearance')" title="外观"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('appearance'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
-                    </button>
-
                     <button @click="selectView('settings')" title="设置"
                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
-                    </button>
-
-                    <button @click="selectView('about')" title="关于"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
                     </button>
                 </div>
 
@@ -483,7 +468,7 @@
 
 // --- Reusable views and modals ---
 (function () {
-    const { onBeforeUnmount, ref } = Vue;
+    const { onBeforeUnmount, ref, computed, watch, nextTick } = Vue;
     const CustomSelect = window.RPHubCustomSelect;
 
     const UiTemplatePending = {
@@ -794,8 +779,8 @@
         emits: ['update:name', 'update:description', 'update:person', 'save'],
         template: `
             <modal-shell v-if="show" overlay-class="z-[70] bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
-                panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-md flex flex-col shadow-2xl transform transition-all scale-100">
-                    <div class="p-6">
+                panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden shadow-2xl transform transition-all scale-100">
+                    <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 custom-scrollbar">
                         <div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 text-primary-600 mb-4 mx-auto">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
@@ -827,7 +812,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-row-reverse rounded-b-xl">
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-row-reverse shrink-0 rounded-b-xl">
                         <button @click="$emit('save')" :disabled="!name || name === '请前往设置自定义你的名称'" type="button"
                             class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">保存并开始</button>
                     </div>
@@ -843,8 +828,7 @@
             tags: { type: Array, default: () => [] },
             models: { type: Array, default: () => [] },
             currentModel: { type: String, default: '' },
-            slotModels: { type: Array, default: () => [] },
-            formatModelText: { type: Function, default: null }
+            slotModels: { type: Array, default: () => [] }
         },
         emits: ['close', 'select', 'select-slots', 'update:search-query', 'update:active-tag'],
         data() {
@@ -870,27 +854,6 @@
                 this.draftSlotModels[this.activeSlot] = this.draftSlotModels[this.activeSlot] === modelId ? '' : modelId;
                 this.draftSlotModels = [...this.draftSlotModels];
                 this.$emit('select-slots', [...this.draftSlotModels]);
-            },
-            // [LuzzyRP patch 015] 手动模型 meta 摘要：`1M · 文本+图像` / `128K · 嵌入`
-            // [LuzzyRP patch 012] 手动模型元信息摘要（1M · 文本+图像 chip）
-            modelMetaSummary(model) {
-                if (!model || model.manual !== true) return '';
-                const parts = [];
-                const formatLen = (value) => {
-                    const num = Number(value);
-                    if (!Number.isFinite(num) || num <= 0) return '';
-                    if (num % (1024 * 1024) === 0) return `${num / (1024 * 1024)}M`;
-                    if (num % 1024 === 0) return `${num / 1024}K`;
-                    return String(num);
-                };
-                if (model.contextLength) parts.push(formatLen(model.contextLength));
-                if (model.type === 'embedding') parts.push('嵌入');
-                else {
-                    const mods = Array.isArray(model.inputModalities) ? model.inputModalities : ['text'];
-                    const modLabel = { text: '文本', image: '图像', video: '视频' };
-                    parts.push(mods.map(m => modLabel[m] || m).join('+'));
-                }
-                return parts.join(' · ');
             }
         },
         template: `
@@ -910,7 +873,7 @@
                                 @click="activeSlot = index"
                                 :class="['min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors', activeSlot === index ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50']">
                                 <span class="block text-xs font-bold mb-1">槽位 {{ index + 1 }}</span>
-                                <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] ? (formatModelText ? formatModelText(draftSlotModels[index]) : draftSlotModels[index]) : '未选择' }}</span>
+                                <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] || '未选择' }}</span>
                             </button>
                         </div>
                         <div class="p-4 border-b border-gray-100 flex flex-col gap-3">
@@ -941,12 +904,7 @@
                             <div class="space-y-1">
                                 <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
                                     class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-colors flex justify-between items-center group border border-transparent hover:border-gray-100 active:bg-gray-100">
-                                    <span class="min-w-0 flex items-center gap-2 overflow-hidden">
-                                        <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
-                                        <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
-                                        <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
-                                        <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
-                                    </span>
+                                    <span class="text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.id }}</span>
                                     <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -1958,7 +1916,8 @@
                                                         'bg-green-100 text-green-700 border border-green-200 shadow-sm': message.isMemory,
                                                         'bg-red-100 text-red-700 border border-red-200 shadow-sm': message.role === 'system' && !message.isMemory,
                                                         'bg-green-100 text-green-700 border border-green-200 shadow-sm': message.role === 'user',
-                                                        'bg-purple-100 text-purple-700 border border-purple-200 shadow-sm': message.role === 'assistant'
+                                                        'bg-purple-100 text-purple-700 border border-purple-200 shadow-sm': message.role === 'assistant',
+                                                        'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm': message.role === 'tool'
                                                     }" class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider flex items-center justify-center min-w-[70px] whitespace-nowrap">
                                                         <span v-if="message.floor" class="opacity-70 mr-1 font-bold">F{{ message.floor }}</span> {{ message.isMemory ? '记忆' : message.role }}
                                                     </span>
@@ -2009,38 +1968,13 @@
             formatCount: { type: Function, required: true },
             formatTime: { type: Function, required: true },
             getTypeLabel: { type: Function, required: true },
-                        getUncachedInput: { type: Function, required: true },
-            formatModelLabel: { type: Function, default: null },
-            chartData: { type: Object, default: () => ({ buckets: [], series: [], peak: 1, count: 0 }) },
-            chartRange: { type: String, default: 'day' },
-            chartRangeOptions: { type: Array, default: () => [] },
-            chartProvider: { type: String, default: 'all' },
-            chartProviderOptions: { type: Array, default: () => [] },
-            chartModelOptions: { type: Array, default: () => [] },
-            chartSelectedModels: { type: Array, default: () => [] }
+            getUncachedInput: { type: Function, required: true }
         },
         emits: [
-                        'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
-            'update:page', 'update:help-topic', 'update:chart-range', 'update:chart-provider', 'toggle-chart-model'
+            'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
+            'update:page', 'update:help-topic'
         ],
-        setup(props) {
-            // [LuzzyRP patch 025] 用量折线图几何辅助（v1.2.3）
-            const chartPlot = Object.freeze({ left: 44, right: 316, top: 12, bottom: 118 });
-            const usageChartX = (index, count) => {
-                if (!count || count < 2) return (chartPlot.left + chartPlot.right) / 2;
-                return chartPlot.left + (chartPlot.right - chartPlot.left) * index / (count - 1);
-            };
-            const usageChartY = value => chartPlot.bottom - (chartPlot.bottom - chartPlot.top) * Math.max(0, Math.min(1, value / (props.chartData.peak || 1)));
-            const usageChartPoints = series => series.totals.map((value, index) => usageChartX(index, series.totals.length).toFixed(1) + ',' + usageChartY(value).toFixed(1)).join(' ');
-            const usageChartGridValue = step => (props.chartData.peak || 1) * step;
-            const usageChartLabelBuckets = computed(() => {
-                const buckets = props.chartData.buckets || [];
-                if (!buckets.length) return [];
-                if (buckets.length <= 4) return buckets.map((bucket, index) => ({ bucket, index }));
-                const indices = [0, Math.floor((buckets.length - 1) / 2), buckets.length - 1];
-                return indices.map(index => ({ bucket: buckets[index], index }));
-            });
-            const usageChartSeriesColor = key => (props.chartData.series || []).find(series => series.key === key)?.color || 'rgb(var(--tw-gray-300))';
+        setup() {
             const formatDuration = (value) => {
                 if (!Number.isFinite(value)) return '--';
                 if (value < 1000) return `${Math.round(value)}ms`;
@@ -2053,7 +1987,6 @@
                 return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
             };
             return {
-                usageChartX, usageChartY, usageChartPoints, usageChartGridValue, usageChartLabelBuckets, usageChartSeriesColor,
                 formatDuration,
                 formatOutputSpeed,
                 formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
@@ -2126,47 +2059,7 @@
                     <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                 </div>
 
-                                <!-- [LuzzyRP patch 025] 用量趋势折线图（v1.2.3，需求 4）：日（小时）/周（天）/月（周）+ 供应商/模型筛选 -->
-                <div class="relative mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" title="日=近24小时（按小时）· 周=近7天（按天）· 月=近28天（按周）">
-                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <h3 class="text-sm font-bold text-gray-700">用量趋势</h3>
-                        <div class="flex rounded-lg bg-gray-100 p-0.5">
-                            <button v-for="option in chartRangeOptions" :key="option.value" type="button"
-                                @click="$emit('update:chart-range', option.value)"
-                                class="rounded-md px-3 py-1 text-xs font-bold transition-colors"
-                                :class="chartRange === option.value ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'">{{ option.label }}</button>
-                        </div>
-                    </div>
-                    <div class="mb-3 flex flex-wrap gap-1.5">
-                        <button v-for="option in chartProviderOptions" :key="option.value || '__none__'" type="button"
-                            @click="$emit('update:chart-provider', option.value)"
-                            class="rounded-full border px-2.5 py-1 text-xs font-bold transition-colors"
-                            :class="chartProvider === option.value ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'">{{ option.label }}</button>
-                    </div>
-                    <div v-if="chartModelOptions.length" class="mb-3 flex flex-wrap gap-1.5">
-                        <button v-for="option in chartModelOptions" :key="option.key" type="button"
-                            @click="$emit('toggle-chart-model', option.key)" :title="option.label"
-                            class="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
-                            :class="!chartSelectedModels.length || chartSelectedModels.includes(option.key) ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-gray-100 bg-white text-gray-400'">
-                            <span class="h-2 w-2 flex-none rounded-full" :style="{ background: usageChartSeriesColor(option.key) }"></span>
-                            <span class="truncate">{{ option.label }}</span>
-                        </button>
-                    </div>
-                    <div v-if="!chartData.series.length" class="flex h-36 items-center justify-center rounded-xl border border-dashed border-gray-200 text-xs text-gray-400">该时间窗内暂无用量记录</div>
-                    <svg v-else viewBox="0 0 320 140" class="block w-full" role="img" aria-label="模型用量折线图">
-                        <g v-for="step in [0, 0.25, 0.5, 0.75, 1]" :key="'g' + step">
-                            <line :x1="44" :x2="316" :y1="usageChartY(usageChartGridValue(step))" :y2="usageChartY(usageChartGridValue(step))"
-                                stroke="currentColor" stroke-width="0.5" stroke-dasharray="2 3" class="text-gray-200"></line>
-                            <text :x="40" :y="usageChartY(usageChartGridValue(step)) + 3" text-anchor="end" class="fill-current text-gray-400" font-size="8">{{ formatAggregate(usageChartGridValue(step), 1) }}</text>
-                        </g>
-                        <g v-for="series in chartData.series" :key="series.key">
-                            <polyline :points="usageChartPoints(series)" fill="none" :stroke="series.color" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline>
-                            <circle v-for="(value, index) in series.totals" :key="index" :cx="usageChartX(index, series.totals.length)" :cy="usageChartY(value)" r="2" :fill="series.color"></circle>
-                        </g>
-                        <text v-for="item in usageChartLabelBuckets" :key="'x' + item.index" :x="usageChartX(item.index, chartData.buckets.length)" y="132" text-anchor="middle" class="fill-current text-gray-400" font-size="8">{{ item.bucket.label }}</text>
-                    </svg>
-                </div>
-<div class="flex items-center justify-between mb-3">
+                <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                     <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
                 </div>
@@ -2175,7 +2068,7 @@
                         class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                         <div class="mb-3 min-w-0">
                             <div class="flex min-w-0 items-center justify-between gap-3">
-                                <span class="min-w-0 flex-1 truncate text-sm text-gray-600" :title="record.model">{{ (formatModelLabel && formatModelLabel(record)) || record.model || '未知模型' }}</span>
+                                <span class="min-w-0 flex-1 truncate text-sm text-gray-600" :title="record.model">{{ record.model || '未知模型' }}</span>
                                  <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                             </div>
                             <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">
@@ -2234,8 +2127,7 @@
             settings: { type: Object, required: true },
             updateStatus: { type: Object, required: true },
             helpTopic: String,
-            analysisDepth: Number,
-            formatModelText: { type: Function, default: null }
+            analysisDepth: Number
         },
         emits: [
             'menu', 'export', 'import', 'create', 'update:show-settings', 'update:help-topic',
@@ -2354,7 +2246,7 @@
                                         <div class="flex gap-2">
                                             <button @click="$emit('select-model')" class="settings-model-button truncate"
                                                 :title="settings.uiTemplateModel || '未选择模型'">
-                                                <span :class="settings.uiTemplateModel ? 'text-gray-700' : 'text-gray-400'">{{ settings.uiTemplateModel ? (formatModelText ? formatModelText(settings.uiTemplateModel) : settings.uiTemplateModel) : '未选择模型' }}</span>
+                                                <span :class="settings.uiTemplateModel ? 'text-gray-700' : 'text-gray-400'">{{ settings.uiTemplateModel || '未选择模型' }}</span>
                                             </button>
                                         </div>
                                     </div>
@@ -2546,6 +2438,7 @@
         props: {
             char: { type: Object, required: true },
             mobile: Boolean,
+            deck: Boolean,
             active: Boolean,
             loading: Boolean,
             batchMode: Boolean,
@@ -2605,12 +2498,12 @@
         template: `
             <div class="char-grid-item relative rounded-2xl overflow-hidden transition-[transform,shadow,border-color] duration-300"
                 :class="mobile
-                    ? ['aspect-[2/3] shadow-md border border-gray-100', active && !batchMode ? 'ring-4 ring-primary-500 ring-offset-2' : '']
+                    ? ['aspect-[2/3] shadow-md', deck ? 'character-card--deck' : 'border border-gray-100', active && !batchMode && !deck ? 'ring-4 ring-primary-500 ring-offset-2' : '']
                     : ['bg-white border border-gray-200 hover:border-primary-400 hover:shadow-xl cursor-pointer group shadow-sm flex flex-col', active && !batchMode ? 'ring-4 ring-primary-500 ring-offset-2' : '', batchMode && selected ? 'ring-2 ring-red-500 border-red-500' : '']"
                 :aria-busy="loading"
-                @pointerenter="beginCoverZoom" @pointerdown="beginPress" @pointerup="endPress"
+                @pointerenter="!deck && beginCoverZoom($event)" @pointerdown="!deck && beginPress($event)" @pointerup="endPress"
                 @pointercancel="endPress" @pointerleave="endPress($event); endCoverZoom($event)"
-                @click="!loading && $emit('select')">
+                @click="!deck && !loading && $emit('select')">
                 <div v-if="loading && !batchMode" @click.stop role="status" aria-live="polite"
                     class="absolute inset-0 z-40 flex items-center justify-center bg-gray-950/45 backdrop-blur-[2px]">
                     <div class="flex flex-col items-center gap-3 text-white drop-shadow-md">
@@ -2621,7 +2514,9 @@
                     </div>
                 </div>
                 <template v-if="mobile">
-                    <img :src="char?.avatar" class="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async">
+                    <div v-if="deck" class="character-deck__placeholder" aria-hidden="true">{{ (char.name || '角').slice(0, 1) }}</div>
+                    <img v-if="!deck || char?.avatar" :src="char?.avatar" :alt="char.name" draggable="false"
+                        class="absolute inset-0 w-full h-full object-cover" :loading="deck ? 'eager' : 'lazy'" decoding="async">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
 
                     <div v-if="batchMode" class="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
@@ -2634,20 +2529,22 @@
                     </div>
 
                     <div v-if="active && !batchMode" class="absolute top-3 left-3 z-10">
-                        <div class="flex items-center text-[10px] font-bold text-white bg-green-600/60 backdrop-blur-xl px-2 py-1 rounded-full border border-white/30 shadow-lg">
-                            <span class="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 shadow-[0_0_5px_rgba(74,222,128,0.8)]"></span>
+                        <div class="flex items-center text-xs font-bold text-white bg-green-600/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white/30 shadow-lg">
+                            <span class="w-2 h-2 bg-green-400 rounded-full mr-2 shadow-[0_0_5px_rgba(74,222,128,0.8)]"></span>
                             当前使用
                         </div>
                     </div>
 
                     <div v-if="!batchMode" class="absolute top-3 right-3 flex flex-col gap-2 z-20">
                         <button @click.stop="$emit('edit')"
+                            title="编辑角色" aria-label="编辑角色"
                             class="p-2 bg-white/20 backdrop-blur-md text-white rounded-full border border-white/20 active:bg-white/40 shadow-lg">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                             </svg>
                         </button>
                         <button @click.stop="$emit('export-card')"
+                            title="导出角色" aria-label="导出角色"
                             class="p-2 bg-white/20 backdrop-blur-md text-white rounded-full border border-white/20 active:bg-white/40 shadow-lg">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
@@ -2659,10 +2556,14 @@
                             :title="favorite ? '取消收藏' : '收藏角色'" :aria-label="favorite ? '取消收藏' : '收藏角色'">
                             <svg class="w-4 h-4" :fill="favorite ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-star"></use></svg>
                         </button>
+                        <button v-if="deck" @click.stop="$emit('delete-card')" title="删除角色" aria-label="删除角色"
+                            class="p-2 bg-white/20 backdrop-blur-md text-white rounded-full border border-white/20 active:bg-white/40 shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-delete"></use></svg>
+                        </button>
                     </div>
 
                     <div class="absolute bottom-0 left-0 right-0 p-3 z-10">
-                        <h3 class="text-white font-bold text-sm truncate mb-2 drop-shadow-md">{{ char.name }}</h3>
+                        <h3 class="character-card-name text-white font-bold text-sm truncate mb-2 drop-shadow-md" :title="char.name">{{ char.name }}</h3>
                         <div v-if="!batchMode" class="flex items-center justify-between">
                             <div class="flex flex-wrap gap-1">
                                 <span class="px-1.5 py-0.5 bg-white/20 backdrop-blur-md text-white text-[8px] rounded border border-white/10">{{ worldInfoCount }} 世界书</span>
@@ -2732,6 +2633,230 @@
             </div>`
     };
 
+    const CharacterDeck = {
+        components: { CharacterCard },
+        props: {
+            items: { type: Array, required: true },
+            visible: { type: Boolean, default: true },
+            activeId: String,
+            loadingIndex: { type: Number, default: null },
+            worldInfoCount: { type: Function, required: true },
+            regexCount: { type: Function, required: true }
+        },
+        emits: ['select', 'edit', 'export-card', 'toggle-favorite', 'delete-card'],
+        setup(props, { expose }) {
+            const focusedId = ref(props.activeId || '');
+            const opening = ref(false);
+            const importing = ref(false);
+            const stageRef = ref(null);
+            let importAnimation = null;
+            const dragOffset = ref(0);
+            const dragging = ref(false);
+            let gesture = null;
+            let suppressClickUntil = 0;
+            const busy = computed(() => importing.value || (props.loadingIndex !== null && props.loadingIndex >= 0));
+            const focusedIndex = computed(() => Math.max(0, props.items.findIndex(item => item.char.uuid === focusedId.value)));
+            const focused = computed(() => props.items[focusedIndex.value]);
+            const buttonColors = ref(null);
+            watch(() => focused.value?.char.avatar, avatar => { if (!avatar) buttonColors.value = null; });
+            const syncButtonColors = event => {
+                const image = event.currentTarget;
+                if (image.getAttribute('src') !== focused.value?.char.avatar) return;
+                buttonColors.value = null;
+                if (event.type === 'error') return;
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = canvas.height = 12;
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    context.drawImage(image, 0, 0, 12, 12);
+                    const pixels = context.getImageData(0, 0, 12, 12).data;
+                    const rgb = [0, 0, 0];
+                    let weight = 0;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        const alpha = pixels[i + 3] / 255;
+                        weight += alpha;
+                        rgb.forEach((_, channel) => { rgb[channel] += pixels[i + channel] * alpha; });
+                    }
+                    if (!weight) return;
+                    const color = rgb.map(value => Math.round(value / weight));
+                    const linear = color.map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+                    const luminance = linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+                    buttonColors.value = { '--deck-button-bg': `rgb(${color.join(',')})`, '--deck-button-text': luminance > 0.45 ? '#000' : '#fff' };
+                } catch {
+                    // 跨域封面无法取色时使用默认配色，不影响封面显示或切换。
+                }
+            };
+            watch(() => props.items.map(item => item.char.uuid), (ids, previous = []) => {
+                if (ids.includes(focusedId.value)) return;
+                const nextIndex = Math.max(0, Math.min(previous.indexOf(focusedId.value), ids.length - 1));
+                focusedId.value = ids.includes(props.activeId) ? props.activeId : (ids[nextIndex] || '');
+            }, { immediate: true });
+            watch(() => props.activeId, id => {
+                if (props.items.some(item => item.char.uuid === id)) focusedId.value = id;
+            });
+            // 最多渲染中间与左右各两张，收藏排序或筛选改变时仍跟随同一个角色。
+            const visibleItems = computed(() => {
+                const count = props.items.length;
+                const result = [];
+                const leftCount = Math.min(2, Math.floor((count - (dragOffset.value > 0 ? 0 : 1)) / 2));
+                for (let offset = -leftCount; offset <= Math.min(2, count - leftCount - 1); offset++) {
+                    if (!count) break;
+                    const index = (focusedIndex.value + offset + count) % count;
+                    const position = offset + dragOffset.value;
+                    result.push({ ...props.items[index], offset, position, depth: Math.abs(position) });
+                }
+                return result;
+            });
+            const move = direction => {
+                if (busy.value || props.items.length < 2) return;
+                opening.value = false;
+                const index = (focusedIndex.value + direction + props.items.length) % props.items.length;
+                focusedId.value = props.items[index].char.uuid;
+            };
+            const focusCard = item => {
+                if (busy.value) return;
+                opening.value = false;
+                focusedId.value = item.char.uuid;
+            };
+            const onKeydown = event => {
+                if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.target.closest('input, textarea, select')) return;
+                event.preventDefault();
+                move(event.key === 'ArrowLeft' ? -1 : 1);
+            };
+            const beginDrag = event => {
+                if (gesture || busy.value || props.items.length < 2 || !event.isPrimary
+                    || (event.pointerType === 'mouse' && event.button !== 0)
+                    || event.target.closest('button:not(.character-deck__peek)')) return;
+                const stage = event.currentTarget;
+                const cardWidth = stage.querySelector('.character-deck__item')?.offsetWidth || stage.clientWidth;
+                const spread = parseFloat(getComputedStyle(stage).getPropertyValue('--deck-spread')) || 50;
+                gesture = { id: event.pointerId, container: stage, x: event.clientX, y: event.clientY, time: event.timeStamp, step: Math.max(1, cardWidth * spread / 100) };
+                // 和分支拖拽一样提前接住手势；侧卡按钮保留轻点切换。
+                if (!event.target.closest('button')) stage.setPointerCapture(event.pointerId);
+            };
+            const resetDrag = () => {
+                const state = gesture;
+                gesture = null;
+                dragOffset.value = 0;
+                dragging.value = false;
+                if (state?.container.hasPointerCapture(state.id)) state.container.releasePointerCapture(state.id);
+            };
+            const updateDrag = event => {
+                if (!gesture || gesture.id !== event.pointerId) return;
+                const dx = event.clientX - gesture.x;
+                const dy = event.clientY - gesture.y;
+                if (!dragging.value) {
+                    if (Math.hypot(dx, dy) < 4) return;
+                    if (Math.abs(dy) > Math.abs(dx) * 1.25 && Math.abs(dy) > 8) { resetDrag(); return; }
+                    if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy)) return;
+                    opening.value = false;
+                    dragging.value = true;
+                    gesture.container.setPointerCapture(event.pointerId);
+                }
+                dragOffset.value = Math.max(-1, Math.min(1, dx / gesture.step));
+                event.preventDefault();
+            };
+            const endDrag = event => {
+                if (!gesture || gesture.id !== event.pointerId) return;
+                if (event.type === 'pointerup') updateDrag(event);
+                if (!gesture) return;
+                const completed = event.type === 'pointerup' && dragging.value;
+                const distance = event.clientX - gesture.x;
+                const threshold = Math.max(20, Math.min(40, gesture.step * 0.25));
+                const quickSwipe = Math.abs(distance) >= 12 && Math.abs(distance) / Math.max(1, event.timeStamp - gesture.time) >= 0.4;
+                resetDrag();
+                if (completed) {
+                    suppressClickUntil = performance.now() + 250;
+                    if (Math.abs(distance) >= threshold || quickSwipe) move(distance < 0 ? 1 : -1);
+                }
+            };
+            const cancelImportAnimation = () => {
+                importAnimation?.cancel();
+                importAnimation = null;
+                importing.value = false;
+            };
+            const revealImportedCard = async id => {
+                if (!props.visible || !props.items.some(item => item.char.uuid === id)) return;
+                resetDrag();
+                cancelImportAnimation();
+                opening.value = false;
+                importing.value = true;
+                focusedId.value = id;
+                await nextTick();
+                const card = stageRef.value?.querySelector('.character-deck__item.is-focused');
+                if (!props.visible || !card?.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    importing.value = false;
+                    return;
+                }
+                let animation = null;
+                try {
+                    animation = card.animate([
+                        { transform: 'translateX(-50%) translateY(-65%) scale(0.94)', opacity: 0 },
+                        { transform: 'translateX(-50%) translateY(0) scale(1)', opacity: 1 }
+                    ], { duration: 650, easing: 'cubic-bezier(0.22, 0.72, 0.18, 1)' });
+                    importAnimation = animation;
+                    await animation.finished;
+                } catch {
+                    // 离开页面或动画不受支持时，不阻断角色卡导入。
+                } finally {
+                    if (importAnimation === animation) cancelImportAnimation();
+                }
+            };
+            expose({ revealImportedCard });
+            watch(() => props.visible, visible => {
+                opening.value = visible;
+                if (!visible) { resetDrag(); cancelImportAnimation(); }
+            }, { immediate: true });
+            onBeforeUnmount(() => { resetDrag(); cancelImportAnimation(); });
+            const guardClick = event => {
+                if (performance.now() < suppressClickUntil) { event.preventDefault(); event.stopPropagation(); }
+            };
+            return { focused, visibleItems, busy, opening, importing, stageRef, dragging, buttonColors, syncButtonColors, move, focusCard, onKeydown, beginDrag, updateDrag, endDrag, guardClick };
+        },
+        template: `
+            <section class="character-deck" role="region" aria-roledescription="轮播" aria-label="角色卡浏览"
+                :class="{ 'character-deck--opening': opening }" tabindex="0" @keydown="onKeydown"
+                @animationend="$event.animationName === 'character-deck-open' && (opening = false)">
+                <div class="character-deck__backdrop" aria-hidden="true">
+                    <transition name="character-backdrop">
+                        <img v-if="focused?.char.avatar" :key="focused.char.uuid" :src="focused.char.avatar" alt="" decoding="async"
+                            @load="syncButtonColors" @error="syncButtonColors">
+                    </transition>
+                </div>
+                <div ref="stageRef" class="character-deck__stage" :class="{ 'is-dragging': dragging, 'is-importing': importing }" :inert="importing"
+                    @pointerdown="beginDrag" @pointermove="updateDrag" @pointerup="endDrag"
+                    @pointercancel="endDrag" @lostpointercapture="endDrag" @click.capture="guardClick" @dragstart.prevent>
+                    <transition-group name="character-deck">
+                        <article v-for="item in visibleItems" :key="item.char.uuid"
+                            class="character-deck__item" :class="{ 'is-focused': item.depth < 0.5 }"
+                            :style="{ '--deck-offset': item.position, '--deck-depth': item.depth, zIndex: 100 - Math.round(item.depth * 10) }">
+                            <character-card :char="item.char" mobile deck :active="activeId === item.char.uuid"
+                                :loading="loadingIndex === item.originalIndex" :favorite="Number(item.char.favoriteAt) > 0"
+                                :world-info-count="worldInfoCount(item.char)" :regex-count="regexCount(item.char)"
+                                :inert="item.offset !== 0" :aria-hidden="item.offset !== 0"
+                                @edit="$emit('edit', item.originalIndex)" @export-card="$emit('export-card', item.originalIndex)"
+                                @toggle-favorite="$emit('toggle-favorite', item.originalIndex)" @delete-card="$emit('delete-card', item.originalIndex)">
+                            </character-card>
+                            <button v-if="item.offset !== 0" class="character-deck__peek" :disabled="busy"
+                                :aria-label="'浏览角色：' + item.char.name" @click="focusCard(item)"></button>
+                        </article>
+                    </transition-group>
+                </div>
+                <div v-if="focused" class="character-deck__navigation">
+                    <button class="character-deck__arrow" aria-label="上一个角色" :disabled="items.length < 2 || busy" @click="move(-1)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <button class="character-deck__enter" :style="buttonColors" :disabled="busy" @click="$emit('select', focused.originalIndex)">
+                        {{ loadingIndex === focused.originalIndex ? '正在切换…' : activeId === focused.char.uuid ? '继续对话' : '进入对话' }}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <button class="character-deck__arrow" aria-label="下一个角色" :disabled="items.length < 2 || busy" @click="move(1)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
+            </section>`
+    };
+
     window.RPHubComponents = {
         ActionConfirmModal,
         ActiveToolEditorModal,
@@ -2740,6 +2865,7 @@
         CharacterExportModal,
         CharacterEditorModal,
         CharacterCard,
+        CharacterDeck,
         ContextViewerModal,
         EmbeddedViewContent,
         GenerationTimer,

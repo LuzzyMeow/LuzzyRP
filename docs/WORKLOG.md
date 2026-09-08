@@ -1807,3 +1807,18 @@ https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.3.0 ；④debug 包交付�
 四项。真机回归：用户自行完成（debug 包覆盖日常包验证）。
 
 **遗留**：无阻塞项。后续候选见 README 规划表 v1.4.0 行。
+
+---
+
+## v2.0.0 原生重构 · 终止归档（2026-09-08）
+
+v2.0（WebView → Kotlin + Compose 原生重构）于 v2-native 分支开发（2026-09-06 ~ 09-07，
+会话 22-23，末次提交 cbb0ca17）。经多轮 1:1 保真修复后用户判定结果与预期不符，已按要求
+整体移除：v2-native 分支与 docs/PLAN-v2.0.0-native.md 均已删除，origin 从未推送过该
+分支。主仓库维持 v1.3.0 WebView 线不变（tag webview-v1.3.0-final）。
+
+**成果概要**：harness 层对齐 DSH（SSE/三协议/AgentLoop/事件溯源）、RP 领域层 1:1 移植
+（十步上下文/正则/双轨记忆/生图/供应商）、Compose 全 15 视图、Room 迁移、282 单测、
+verify-native 35 门、多轮双端像素级并排修复。未发布、未合入 main、真机未验证。
+
+如需考古：提交对象在本地 reflog 中保留至 GC（末次 cbb0ca17）。

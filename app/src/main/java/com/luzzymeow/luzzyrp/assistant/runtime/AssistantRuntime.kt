@@ -8,7 +8,8 @@ import com.luzzymeow.luzzyrp.assistant.data.db.entity.AssistantEntity
 import com.luzzymeow.luzzyrp.assistant.data.prefs.AssistantPrefs
 import com.luzzymeow.luzzyrp.assistant.data.workspace.WorkspaceManager
 import com.luzzymeow.luzzyrp.assistant.domain.llm.LlmRequest
-import com.luzzymeow.luzzyrp.assistant.domain.llm.OpenAiTransport
+import com.luzzymeow.luzzyrp.assistant.domain.llm.LlmTransport
+import com.luzzymeow.luzzyrp.assistant.domain.llm.defaultRoutingTransport
 import com.luzzymeow.luzzyrp.assistant.domain.loop.AgentLoop
 import com.luzzymeow.luzzyrp.assistant.domain.loop.BudgetGuard
 import com.luzzymeow.luzzyrp.assistant.domain.prompt.MemoryMode
@@ -106,7 +107,8 @@ class AssistantRuntime(
     /** MCP 仓库（P2：JSON 导入 / HTTP·SSE 连接 / 工具注册为 T2 外部工具）。 */
     val mcpRepository: McpRepository = McpRepository(database, registry)
 
-    val transport: OpenAiTransport = OpenAiTransport(log = { msg -> log(msg) })
+    /** 三协议分派（OpenAI / Anthropic / Gemini，PLAN §5.3）。 */
+    val transport: LlmTransport = defaultRoutingTransport(log = { msg -> log(msg) })
 
     val contextBuilder: ContextBuilder = ContextBuilder(
         memory = MemoryProvider { query, mode, limit ->

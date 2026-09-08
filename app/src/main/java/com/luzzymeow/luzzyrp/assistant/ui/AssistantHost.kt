@@ -17,6 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -138,6 +142,7 @@ private fun AssistantRoot(onExit: () -> Unit) {
                         },
                     )
                     val chatState by chatVm.state.collectAsStateWithLifecycle()
+                    val scope = rememberCoroutineScope()
                     ChatScreen(
                         assistant = selectedAssistant,
                         conversation = conversations.firstOrNull { it.id == current.conversationId },
@@ -154,6 +159,17 @@ private fun AssistantRoot(onExit: () -> Unit) {
                         onDeny = chatVm::deny,
                         onAnswer = chatVm::answer,
                         onDismissError = chatVm::dismissError,
+                        onExport = { asJson ->
+                            scope.launch {
+                                val text = runCatching {
+                                    runtime.repository.exportConversation(current.conversationId, asJson)
+                                }.getOrDefault("")
+                                if (text.isNotBlank()) {
+                                    val name = if (asJson) "conversation.json" else "conversation.md"
+                                    shareText(context, name, text)
+                                }
+                            }
+                        },
                     )
                 }
 
@@ -177,6 +193,8 @@ private fun AssistantRoot(onExit: () -> Unit) {
                         threshold = memoryState.threshold,
                         recent = memoryState.recent,
                         onBack = { route = AssistantRoute.ChatList },
+                        onAdd = memoryVm::addMemory,
+                        onDelete = memoryVm::deleteMemory,
                     )
                 }
 
@@ -271,4 +289,15 @@ private fun AssistantRoot(onExit: () -> Unit) {
             }
         }
     }
+}
+
+/** 系统分享（导出会话：写工作区 + 分享给任意应用，用户可另存）。 */
+private fun shareText(context: Context, fileName: String, text: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, fileName)
+        putExtra(Intent.EXTRA_TEXT, text)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(Intent.createChooser(intent, "导出会话").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }

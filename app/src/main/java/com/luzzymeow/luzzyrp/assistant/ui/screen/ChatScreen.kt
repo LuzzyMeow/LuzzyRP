@@ -63,6 +63,7 @@ fun ChatScreen(
     onDeny: () -> Unit = {},
     onAnswer: (String) -> Unit = {},
     onDismissError: () -> Unit = {},
+    onExport: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -119,6 +120,17 @@ fun ChatScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("■", style = MaterialTheme.typography.labelMedium, color = colors.error)
+                }
+            }
+            if (onExport != null) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable { onExport(true) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("⇪", style = MaterialTheme.typography.titleMedium, color = colors.muted)
                 }
             }
             Box(

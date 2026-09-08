@@ -52,6 +52,32 @@ class MemoryViewModel(
         }
     }
 
+    /** 新增记忆（用户手动补录）。 */
+    fun addMemory(content: String, type: String) {
+        val text = content.trim()
+        if (text.isEmpty()) return
+        viewModelScope.launch {
+            runCatching {
+                runtime.memoryStore.write(
+                    content = text,
+                    type = type,
+                    scope = "assistant",
+                    assistantId = assistantId,
+                    conversationId = null,
+                )
+            }
+            refresh()
+        }
+    }
+
+    /** 删除记忆（需用户确认，UI 层负责弹确认）。 */
+    fun deleteMemory(id: String) {
+        viewModelScope.launch {
+            runCatching { runtime.memoryStore.delete(id) }
+            refresh()
+        }
+    }
+
     private fun modeLabel(mode: String?): String = when (mode) {
         "embed" -> "向量"
         "hybrid" -> "混合"

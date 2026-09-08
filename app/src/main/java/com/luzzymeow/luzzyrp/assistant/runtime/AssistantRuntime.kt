@@ -25,6 +25,8 @@ import com.luzzymeow.luzzyrp.assistant.domain.tool.WorkspaceAccess
 import com.luzzymeow.luzzyrp.assistant.domain.tool.WorkspaceEntry
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.AskUserTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.ClipboardReadTool
+import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.CalendarReadTool
+import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.CalendarWriteTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.ClipboardWriteTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.GetDeviceInfoTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.GetTimeTool
@@ -46,6 +48,7 @@ import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WorkspaceWriteTool
 import com.luzzymeow.luzzyrp.assistant.runtime.memory.EmbeddingConfig
 import com.luzzymeow.luzzyrp.assistant.runtime.memory.RoomMemoryStore
 import com.luzzymeow.luzzyrp.assistant.runtime.terminal.GlobalShellRunner
+import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidCalendarPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidClipboardPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidDeviceInfoProvider
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.SystemClockProvider
@@ -161,6 +164,9 @@ class AssistantRuntime(
                 MemoryUpdateTool(memoryStore),
                 MemoryDeleteTool(memoryStore),
                 MemoryListTool(memoryStore),
+                // T2：默认关闭 + 逐调用审批（日历需运行时权限）
+                CalendarReadTool(AndroidCalendarPort(context)),
+                CalendarWriteTool(AndroidCalendarPort(context)),
             )
         )
     }

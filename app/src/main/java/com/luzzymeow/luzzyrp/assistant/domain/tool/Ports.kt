@@ -77,6 +77,49 @@ data class MemoryHit(
     val similarity: Float?,
 )
 
+/**
+ * 日历读写（`calendar_read` / `calendar_write`，PLAN §12.2 T2 档）。
+ *
+ * 权限被拒时实现须抛 [CalendarPermissionException]（工具层转成可操作提示，
+ * 引导用户去系统设置授权），**不得静默返回空**。
+ */
+interface CalendarPort {
+    /** 查询区间内的事件（`from`/`to` 为 epoch millis；`query` 可选关键词）。 */
+    suspend fun read(fromMillis: Long, toMillis: Long, query: String?, limit: Int): List<CalendarEvent>
+
+    /** 插入事件，返回事件 id。 */
+    suspend fun insert(event: CalendarEventDraft): String
+
+    /** 更新事件；返回是否命中。 */
+    suspend fun update(eventId: String, event: CalendarEventDraft): Boolean
+
+    /** 删除事件；返回是否命中（需用户审批，由审批门保证）。 */
+    suspend fun delete(eventId: String): Boolean
+}
+
+data class CalendarEvent(
+    val id: String,
+    val title: String,
+    val startMillis: Long,
+    val endMillis: Long,
+    val location: String?,
+    val description: String?,
+    val allDay: Boolean,
+)
+
+data class CalendarEventDraft(
+    val title: String,
+    val startMillis: Long,
+    val endMillis: Long,
+    val location: String? = null,
+    val description: String? = null,
+    val reminderMinutes: Int? = null,
+    val allDay: Boolean = false,
+)
+
+/** 日历权限被拒（工具层据此提示用户授权）。 */
+class CalendarPermissionException(message: String) : SecurityException(message)
+
 /** 时间/时区（`get_time`）——抽出来便于单测注入固定时钟。 */
 interface ClockProvider {
     /** epoch millis。 */

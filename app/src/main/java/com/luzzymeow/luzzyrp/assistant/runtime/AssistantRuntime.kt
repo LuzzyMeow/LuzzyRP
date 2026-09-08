@@ -105,7 +105,10 @@ class AssistantRuntime(
         onDegraded = { reason -> log(reason) },
     )
 
-    val registry: ToolRegistry = ToolRegistry(approval = approvalGate)
+    /** 审计落库（PLAN §13.2）。 */
+    val auditSink: RoomAuditSink = RoomAuditSink(database.toolAuditDao())
+
+    val registry: ToolRegistry = ToolRegistry(approval = approvalGate, audit = auditSink)
 
     /** MCP 仓库（P2：JSON 导入 / HTTP·SSE 连接 / 工具注册为 T2 外部工具）。 */
     val mcpRepository: McpRepository = McpRepository(database, registry)

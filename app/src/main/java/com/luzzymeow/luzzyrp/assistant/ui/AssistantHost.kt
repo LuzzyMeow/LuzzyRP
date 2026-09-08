@@ -304,6 +304,7 @@ private fun AssistantRoot(onExit: () -> Unit) {
                         onTogglePreview = settingsVm::togglePreview,
                         onSave = settingsVm::save,
                         onDismissMessage = settingsVm::dismissMessage,
+                        onClearAudit = settingsVm::clearAudit,
                         onBack = { route = AssistantRoute.ChatList },
                     )
                 }

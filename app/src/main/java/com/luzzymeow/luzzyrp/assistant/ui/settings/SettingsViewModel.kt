@@ -30,6 +30,46 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch { load() }
+        viewModelScope.launch { loadAudit() }
+    }
+
+    /** 工具审计（PLAN §13.2：参数已脱敏，只显示键名与长度）。 */
+    fun loadAudit() {
+        viewModelScope.launch {
+            val rows = runCatching { runtime.auditSink.recent(assistantId, AUDIT_LIMIT) }.getOrDefault(emptyList())
+            _state.value = _state.value.copy(
+                auditEntries = rows.map { entity ->
+                    AuditRow(
+                        id = entity.id,
+                        toolName = entity.toolName,
+                        argsPreview = entity.argsJson,
+                        resultPreview = entity.resultPreview,
+                        ok = entity.ok,
+                        durationLabel = "${entity.durationMs} ms",
+                        timeLabel = relativeTime(entity.createdAt),
+                    )
+                },
+            )
+        }
+    }
+
+    fun clearAudit() {
+        viewModelScope.launch {
+            runCatching { runtime.auditSink.clear(assistantId) }
+            loadAudit()
+        }
+    }
+
+    private fun relativeTime(millis: Long): String {
+        if (millis <= 0L) return "—"
+        val zone = java.time.ZoneId.systemDefault()
+        val time = java.time.Instant.ofEpochMilli(millis).atZone(zone)
+        val today = java.time.Instant.ofEpochMilli(System.currentTimeMillis()).atZone(zone).toLocalDate()
+        return when (time.toLocalDate()) {
+            today -> time.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
+            today.minusDays(1) -> "昨天 " + time.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            else -> time.format(java.time.format.DateTimeFormatter.ofPattern("M-d HH:mm"))
+        }
     }
 
     private suspend fun load() {
@@ -132,9 +172,23 @@ class SettingsViewModel(
 
     fun dismissMessage() = _state.value.let { _state.value = it.copy(message = null) }
 
+    companion object {
+        const val AUDIT_LIMIT = 50
+    }
+
     private fun redact(key: String): String =
         if (key.isBlank()) "" else key.take(3) + "***" + key.takeLast(2)
 }
+
+data class AuditRow(
+    val id: Long,
+    val toolName: String,
+    val argsPreview: String,
+    val resultPreview: String,
+    val ok: Boolean,
+    val durationLabel: String,
+    val timeLabel: String,
+)
 
 data class SettingsState(
     val name: String = "",
@@ -154,4 +208,5 @@ data class SettingsState(
     val message: String? = null,
     val showPreview: Boolean = false,
     val previewText: String = "",
+    val auditEntries: List<AuditRow> = emptyList(),
 )

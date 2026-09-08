@@ -21,6 +21,10 @@ class ToolRegistry(
     tools: List<Tool> = emptyList(),
     /** 工具开关 + 审批策略（与 [com.luzzymeow.luzzyrp.assistant.domain.loop.AgentLoop] 共用同一实例）。 */
     val approval: ApprovalGate = ApprovalGate(),
+    /** 审计落库端口（PLAN §13.2；默认空操作，实现失败不得影响执行）。 */
+    private val audit: AuditSink = AuditSink.NONE,
+    /** 审计时间源（单测可注入）。 */
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
 
     private val byName = LinkedHashMap<String, Tool>()
@@ -66,7 +70,8 @@ class ToolRegistry(
         if (!approval.isEnabled(tool)) {
             return ToolResult.Error("工具已关闭：${call.name}（请在助手设置中开启）", retryable = false)
         }
-        return try {
+        val startedAt = now()
+        val result = try {
             tool.execute(call.arguments, ctx)
         } catch (e: CancellationException) {
             throw e
@@ -76,6 +81,47 @@ class ToolRegistry(
                 retryable = false,
             )
         }
+        recordAudit(tool, call, result, startedAt, ctx)
+        return result
+    }
+
+    /** 落审计（脱敏 + 截断；异常静默——审计失败不影响对话）。 */
+    private suspend fun recordAudit(
+        tool: Tool,
+        call: ToolCall,
+        result: ToolResult,
+        startedAt: Long,
+        ctx: ToolContext,
+    ) {
+        val preview = when (result) {
+            is ToolResult.Ok -> result.text.take(AUDIT_PREVIEW_LIMIT)
+            is ToolResult.Error -> result.message.take(AUDIT_PREVIEW_LIMIT)
+            is ToolResult.NeedUserInput -> "（等待用户输入）"
+        }
+        runCatching {
+            audit.record(
+                AuditEntry(
+                    assistantId = ctx.assistantId,
+                    conversationId = ctx.conversationId,
+                    toolName = tool.name,
+                    argsPreview = redactArgs(call).take(AUDIT_ARGS_LIMIT),
+                    resultPreview = preview,
+                    approved = true,
+                    ok = result !is ToolResult.Error,
+                    durationMs = (now() - startedAt).coerceAtLeast(0),
+                    createdAtMillis = startedAt,
+                )
+            )
+        }
+    }
+
+    /**
+     * 参数脱敏：只保留键名与「值类型/长度」，**不回显值内容**——工具参数可能含用户隐私
+     * 或密钥（如 MCP 头、剪贴板文本），审计面板是给用户看的，不需要原文。
+     */
+    internal fun redactArgs(call: ToolCall): String = call.arguments.entries.joinToString(", ", "{", "}") { (key, value) ->
+        val text = value.toString()
+        "$key:${text.length}字"
     }
 
     /**
@@ -112,6 +158,9 @@ class ToolRegistry(
     }
 
     companion object {
+        const val AUDIT_PREVIEW_LIMIT: Int = 400
+        const val AUDIT_ARGS_LIMIT: Int = 300
+
         const val MCP_PREFIX: String = "mcp__"
         private const val MCP_SEPARATOR = "__"
 

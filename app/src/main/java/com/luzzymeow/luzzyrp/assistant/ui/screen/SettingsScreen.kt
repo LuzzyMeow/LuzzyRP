@@ -50,6 +50,7 @@ fun SettingsScreen(
     onTogglePreview: () -> Unit,
     onSave: () -> Unit,
     onDismissMessage: () -> Unit,
+    onClearAudit: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -153,6 +154,48 @@ fun SettingsScreen(
                     onExtraBody,
                     minHeight = 96.dp,
                 )
+            }
+
+            SectionCard("工具审计（最近 ${state.auditEntries.size} 条）") {
+                Text(
+                    text = "参数只记键名与长度（脱敏），结果截断 400 字",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.mutedSoft,
+                )
+                if (state.auditEntries.isEmpty()) {
+                    Text("（暂无调用记录）", style = MaterialTheme.typography.labelMedium, color = colors.mutedSoft)
+                } else {
+                    state.auditEntries.take(20).forEach { row ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = if (row.ok) "✓" else "✗",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (row.ok) colors.success else colors.error,
+                            )
+                            Text(
+                                text = row.toolName,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontFamily = FontFamily.Monospace,
+                                color = colors.body,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(row.durationLabel, style = MaterialTheme.typography.labelMedium, color = colors.mutedSoft)
+                            Text(row.timeLabel, style = MaterialTheme.typography.labelMedium, color = colors.mutedSoft)
+                        }
+                        Text(
+                            text = row.argsPreview,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = colors.mutedSoft,
+                        )
+                    }
+                    Text(
+                        text = "清空审计",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.error,
+                        modifier = Modifier.clickable(onClick = onClearAudit).padding(top = 4.dp),
+                    )
+                }
             }
 
             SectionCard("预览最终请求") {

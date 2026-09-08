@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="UTF-8">
+<title>方向 C · 场记 Slate — LuzzyRP 助手原生 Agent 三方向板</title>
+<style>
+/* ===== 字体（本地，无 CDN） ===== */
+@font-face{font-family:'Lora';src:url('../boards-v3/fonts/Lora-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'Lora';src:url('../boards-v3/fonts/Lora-Italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2');font-weight:400;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-85-Bold.woff2') format('woff2');font-weight:700;font-display:swap;}
+@font-face{font-family:'AlibabaSans';src:url('../boards-v3/fonts/AlibabaSans-Medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+
+:root{
+  --canvas:#FAF9F5; --soft:#F5F0E8; --card:#EFE9DE; --line:#E6DFD8; --line-strong:#BEB6A8;
+  --muted-soft:#8E8B82; --muted:#6C6A64; --mid:#52504A; --body:#3D3A36; --ink:#141413;
+  --accent:#CC785C; --accent-btn:#A9583E; --accent-text:#A9583E; --accent-100:#F5E2D8; --accent-300:#E5B099; --accent-50:#FAF0EA;
+  --user:#F1E3D9; --hl:rgba(245,217,168,.55);
+  --ok:#5DB872; --warn:#D4A017; --err:#C64545;
+  --shadow:0 2px 8px rgba(20,20,19,.05);
+  --board-bg:#141413; --board-fg:#FAF9F5; --board-dim:#A5A198; --board-line:rgba(250,249,245,.16);
+  --serif:'Lora','PuHuiTi',Georgia,serif;
+  --sans:'AlibabaSans','PuHuiTi','Segoe UI',sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+html[data-mode="dark"]{
+  --canvas:#171614; --soft:#201E1B; --card:#2B2824; --line:#3E3A34; --line-strong:#6B675F;
+  --muted-soft:#8A867D; --muted:#A5A198; --mid:#C4BFB5; --body:#DED9CF; --ink:#FAF9F5;
+  --accent:#D97757; --accent-btn:#B85C3E; --accent-text:#D97757; --accent-100:#2E211B; --accent-300:#9A6244; --accent-50:#2E211B;
+  --user:#2E211B; --hl:rgba(245,217,168,.22);
+  --shadow:0 2px 8px rgba(0,0,0,.34);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1080px;height:2400px;overflow:hidden;}
+body{background:var(--board-bg);color:var(--board-fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+.board{width:1080px;height:2400px;padding:34px 40px 0;display:flex;flex-direction:column;gap:26px;justify-content:space-between;}
+
+/* ===== 板头 ===== */
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex:none;}
+.head .left{display:flex;align-items:baseline;gap:16px;}
+.tag{font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--board-dim);border:1px solid var(--board-line);border-radius:999px;padding:4px 12px;}
+h1{font-family:var(--serif);font-weight:400;font-size:38px;line-height:1.05;letter-spacing:-.01em;}
+h1 em{font-style:italic;color:var(--accent);}
+.head .pos{font-size:15px;color:var(--board-dim);padding-bottom:4px;}
+.head .pos b{color:var(--board-fg);font-weight:500;}
+.mode-chip{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--board-dim);border:1px solid var(--board-line);border-radius:999px;padding:5px 14px;align-self:flex-end;}
+
+/* ===== 行 / 手机框 ===== */
+.row{display:flex;gap:56px;flex:none;align-items:flex-start;justify-content:center;}
+figure{display:flex;flex-direction:column;gap:12px;}
+figcaption{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--board-dim);}
+figcaption b{color:var(--board-fg);font-weight:500;letter-spacing:.04em;font-family:var(--sans);font-size:12px;}
+figcaption::before{content:'';width:14px;height:1px;background:var(--accent);display:block;}
+.device{width:390px;height:844px;border-radius:38px;padding:8px;background:#141413;border:1px solid rgba(250,249,245,.2);box-shadow:0 20px 50px rgba(0,0,0,.5);flex:none;}
+.screen{position:relative;width:374px;height:828px;border-radius:30px;overflow:hidden;background:var(--canvas);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;}
+.status{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 16px;color:var(--muted);font-size:12px;font-weight:500;}
+.status .ic{display:flex;align-items:center;gap:5px;}
+.bars{display:flex;align-items:flex-end;gap:1.5px;}
+.bars i{width:2.5px;background:currentColor;border-radius:1px;display:block;}
+.bars i:nth-child(1){height:4px;opacity:.5}.bars i:nth-child(2){height:6px;opacity:.7}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:20px;height:10px;border:1.2px solid currentColor;border-radius:3px;position:relative;opacity:.8;}
+.batt::after{content:'';position:absolute;inset:1.6px;right:6px;background:currentColor;border-radius:1px;}
+.gesture{height:22px;flex:none;display:flex;align-items:center;justify-content:center;}
+.gesture i{width:112px;height:4px;border-radius:999px;background:var(--line-strong);opacity:.7;display:block;}
+
+/* ===== 主体：左轨 + 内容 ===== */
+.main{flex:1;min-height:0;display:flex;}
+.rail{width:56px;flex:none;background:var(--soft);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:10px 0 12px;gap:6px;}
+.rail .ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.rail .ico.on{background:var(--accent-100);color:var(--accent-text);}
+.rail .grow{flex:1;}
+.av{border-radius:999px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--serif);color:var(--body);flex:none;}
+.av.s32{width:32px;height:32px;font-size:13px;}
+.av.s40{width:40px;height:40px;font-size:16px;}
+.av.s48{width:48px;height:48px;font-size:20px;}
+.av.on{border:2px solid var(--accent);color:var(--accent);}
+.content{flex:1;min-width:0;display:flex;flex-direction:column;}
+.cbody{flex:1;min-height:0;overflow:hidden;padding:0 20px;}
+
+/* ===== 大标题区 ===== */
+.chead{flex:none;padding:6px 20px 14px;border-bottom:1px solid var(--line);}
+.chead h2{font-family:var(--serif);font-size:25px;font-weight:400;line-height:1.2;letter-spacing:-.01em;}
+.chead .sub{font-size:12.5px;color:var(--muted);margin-top:6px;}
+.chead .row1{display:flex;align-items:flex-start;gap:10px;}
+.chead .row1 .grow{flex:1;min-width:0;}
+.chead .acts{display:flex;gap:2px;color:var(--muted);flex:none;padding-top:4px;}
+
+/* ===== 演员表（助手列表） ===== */
+.arow{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--line);}
+.arow .info{flex:1;min-width:0;}
+.arow .nm{font-family:var(--serif);font-size:17px;line-height:1.25;}
+.arow .meta{font-size:12.5px;color:var(--mid);margin-top:5px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.arow .rt{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:none;}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:3px 8px;border-radius:999px;background:var(--card);color:var(--mid);border:1px solid var(--line);white-space:nowrap;}
+.chip.coral{background:var(--accent-50);color:var(--accent-text);border-color:var(--accent-300);}
+.dot{width:7px;height:7px;border-radius:999px;background:var(--accent);flex:none;}
+.sec{display:flex;align-items:center;justify-content:space-between;padding:18px 0 4px;}
+.sec span{font-family:var(--serif);font-size:14px;color:var(--muted);}
+
+/* ===== 对话 + 时间轴 ===== */
+.thread{position:relative;padding-right:22px;}
+.thread::before{content:'';position:absolute;right:3px;top:8px;bottom:8px;width:1.5px;background:var(--line);}
+.node{position:relative;}
+.node::after{content:'';position:absolute;right:-21px;top:16px;width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 3px var(--canvas);}
+.node.soft::after{background:var(--line-strong);}
+.node.warn::after{background:var(--warn);}
+.node .tl-cap{position:absolute;right:-21px;top:-16px;transform:rotate(-90deg);transform-origin:right top;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);}
+.msg{margin-bottom:12px;}
+.bub{border-radius:16px;padding:11px 14px;font-size:14.5px;line-height:1.7;max-width:88%;}
+.bub.ai{background:var(--soft);border:1px solid var(--line);color:var(--body);}
+.bub.me{background:var(--user);border:1px solid var(--accent-300);color:var(--ink);margin-left:auto;max-width:82%;}
+html[data-mode="dark"] .bub.me{border-color:var(--accent);}
+.bub h3{font-family:var(--serif);font-size:17px;font-weight:400;color:var(--ink);margin-bottom:7px;}
+.bub p{margin-bottom:8px;}
+.bub p:last-child{margin-bottom:0;}
+.bub ul{padding-left:17px;margin-bottom:4px;}
+.bub li{margin-bottom:5px;}
+.hl{background:linear-gradient(180deg,transparent 58%,var(--hl) 58%);padding:0 1px;}
+.note{display:flex;gap:10px;margin-bottom:12px;padding-left:2px;}
+.note .bar{width:2px;background:var(--line-strong);border-radius:999px;flex:none;}
+.note .txt{font-family:var(--serif);font-style:italic;font-size:13.5px;line-height:1.65;color:var(--mid);}
+.note .txt b{font-style:normal;font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--muted);display:block;margin-bottom:3px;font-weight:400;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;}
+.steps{margin-bottom:12px;}
+.steps .hd{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;}
+.steps .hd .n{font-family:var(--serif);font-size:15px;}
+.steps .hd .t{font-size:12px;color:var(--muted);}
+.steps .hd .grow{flex:1;}
+.tool{margin-bottom:12px;}
+.tool .r{display:flex;align-items:baseline;gap:8px;}
+.tool .nm{font-family:var(--mono);font-size:12px;color:var(--ink);}
+.tool .grow{flex:1;}
+.tool .pill{font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;color:var(--ok);background:rgba(93,184,114,.14);}
+.tool .args{font-family:var(--mono);font-size:12px;color:var(--mid);margin-top:7px;line-height:1.7;background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:7px 9px;white-space:pre-wrap;}
+
+/* 输入岛 + 状态线 */
+.island{flex:none;margin:0 16px 6px;height:54px;border-radius:22px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;}
+.island .ph{flex:1;font-size:14px;color:var(--mid);}
+.island .send{width:42px;height:42px;border-radius:999px;background:var(--accent-btn);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;}
+.statebar{flex:none;text-align:center;font-size:12px;color:var(--muted);padding-bottom:6px;}
+
+/* ===== 编年记忆 ===== */
+.era{display:flex;align-items:center;gap:12px;padding:16px 0 8px;}
+.era b{font-family:var(--serif);font-size:19px;font-weight:400;color:var(--ink);}
+.era i{flex:1;height:1px;background:var(--line);display:block;}
+.entry{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);}
+.entry .mk{width:6px;height:6px;border-radius:999px;background:var(--line-strong);flex:none;margin-top:7px;}
+.entry.hit .mk{background:var(--accent);}
+.entry .txt{flex:1;min-width:0;font-size:14.5px;line-height:1.7;color:var(--body);}
+.entry .meta{display:flex;gap:8px;margin-top:6px;font-size:12px;color:var(--muted);}
+.entry .meta .grow{flex:1;}
+
+/* ===== 规格面板 ===== */
+.spec{width:470px;height:844px;flex:none;display:flex;flex-direction:column;gap:18px;}
+.panel{border:1px solid var(--board-line);border-radius:16px;padding:18px 20px;background:rgba(250,249,245,.035);}
+.panel h3{font-family:var(--serif);font-size:16px;font-weight:400;color:var(--board-fg);margin-bottom:12px;}
+.panel h3 span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--board-dim);margin-left:8px;}
+.ia{font-size:13px;line-height:1.85;color:var(--board-dim);}
+.ia .n{color:var(--board-fg);}
+.ia .k{color:var(--accent);font-family:var(--mono);font-size:11.5px;}
+.ia ul{list-style:none;margin-left:12px;border-left:1px solid var(--board-line);padding-left:14px;}
+.ia li{position:relative;}
+.ia li::before{content:'';position:absolute;left:-14px;top:12px;width:10px;height:1px;background:var(--board-line);}
+.spec-list{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12px;color:var(--board-dim);}
+.spec-list b{color:var(--board-fg);font-weight:500;font-family:var(--mono);font-size:11.5px;}
+.diff{font-size:12.5px;line-height:1.75;color:var(--board-dim);}
+.diff b{color:var(--board-fg);font-weight:500;}
+
+/* ===== 板尾 ===== */
+.foot{display:flex;gap:26px;flex:none;align-items:stretch;}
+.foot .panel{flex:1;}
+table.motion{width:100%;border-collapse:collapse;font-size:12px;color:var(--board-dim);}
+table.motion th{text-align:left;font-weight:500;font-size:10px;letter-spacing:.14em;color:var(--board-dim);padding-bottom:6px;font-family:var(--mono);}
+table.motion td{padding:4px 0;border-top:1px solid var(--board-line);vertical-align:top;}
+table.motion td:first-child{color:var(--board-fg);white-space:nowrap;padding-right:12px;}
+table.motion code{font-family:var(--mono);font-size:11px;color:var(--accent);}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;}
+.sw{display:flex;flex-direction:column;gap:5px;width:74px;}
+.sw i{height:26px;border-radius:6px;border:1px solid var(--board-line);display:block;}
+.sw span{font-family:var(--mono);font-size:9.5px;color:var(--board-dim);}
+</style>
+</head>
+<body>
+<div class="board">
+
+  <header class="head">
+    <div class="left">
+      <span class="tag">DIRECTION C</span>
+      <h1>场记 <em>Slate</em></h1>
+      <span class="pos"><b>左轨导航，右栏时间轴，对话即剧本。</b>　常驻轨道 · 编年记忆 · 低密度</span>
+    </div>
+    <span class="mode-chip" id="modeChip">LIGHT</span>
+  </header>
+
+  <!-- ================= 行 1 ================= -->
+  <section class="row">
+
+    <!-- 屏 1 · 演员表 -->
+    <figure>
+      <figcaption><b>助手列表</b>　演员表 · 左轨一级直达</figcaption>
+      <div class="device"><div class="screen">
+        <div class="status"><span>9:41</span><span class="ic"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"></span></span></div>
+        <div class="main">
+          <nav class="rail">
+            <div class="av s32 on">墨</div>
+            <div class="ico on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a7.5 7.5 0 0 1-11 6.7L4 20l1.3-4.2A7.5 7.5 0 1 1 20 12z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4.2L6 20z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="17" r="1.6" fill="currentColor" stroke="none"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 10l2.5 2L8 14M13 15h3"/></svg></div>
+            <div class="grow"></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.5 6.5l1.4 1.4M16.1 16.1l1.4 1.4M17.5 6.5l-1.4 1.4M7.9 16.1l-1.4 1.4"/></svg></div>
+          </nav>
+          <div class="content">
+            <div class="chead">
+              <div class="row1">
+                <div class="grow"><h2>演员表</h2><div class="sub">3 位助手 · 1 条未读</div></div>
+                <div class="acts"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+              </div>
+            </div>
+            <div class="cbody">
+              <div class="arow">
+                <div class="av s48 on">墨</div>
+                <div class="info"><div class="nm">阿墨</div><div class="meta">12 分钟前 · 第 42 周周报</div></div>
+                <div class="rt"><span class="chip">v4-pro</span><span class="dot"></span></div>
+              </div>
+              <div class="arow">
+                <div class="av s48">拾</div>
+                <div class="info"><div class="nm">拾光</div><div class="meta">昨天 · 素材归类与去重</div></div>
+                <div class="rt"><span class="chip">glm-5.3</span></div>
+              </div>
+              <div class="arow">
+                <div class="av s48">满</div>
+                <div class="info"><div class="nm">小满</div><div class="meta">9 月 6 日 · 日程整理</div></div>
+                <div class="rt"><span class="chip">v4-flash</span></div>
+              </div>
+              <div class="sec"><span>已归档</span><span class="chip">1</span></div>
+              <div class="arow" style="border-bottom:none;padding-top:12px;">
+                <div class="av s48" style="opacity:.65">旧</div>
+                <div class="info"><div class="nm" style="font-size:16px;">旧稿助手</div><div class="meta">7 月 12 日归档</div></div>
+                <div class="rt"><span class="chip">恢复</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gesture"><i></i></div>
+      </div></div>
+    </figure>
+
+    <!-- 屏 2 · 会话 + 时间轴 -->
+    <figure>
+      <figcaption><b>会话页</b>　markdown + 旁注 + 工具卡 + 步骤组 · 右侧时间轴</figcaption>
+      <div class="device"><div class="screen">
+        <div class="status"><span>9:41</span><span class="ic"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"></span></span></div>
+        <div class="main">
+          <nav class="rail">
+            <div class="av s32 on">墨</div>
+            <div class="ico on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a7.5 7.5 0 0 1-11 6.7L4 20l1.3-4.2A7.5 7.5 0 1 1 20 12z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4.2L6 20z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="17" r="1.6" fill="currentColor" stroke="none"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 10l2.5 2L8 14M13 15h3"/></svg></div>
+            <div class="grow"></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.5 6.5l1.4 1.4M16.1 16.1l1.4 1.4M17.5 6.5l-1.4 1.4M7.9 16.1l-1.4 1.4"/></svg></div>
+          </nav>
+          <div class="content">
+            <div class="chead">
+              <div class="row1">
+                <div class="grow"><h2>第 42 周周报</h2><div class="sub">阿墨 · 今天 9:41 · 第 3 轮</div></div>
+                <div class="acts">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="cbody" style="padding-top:14px;">
+              <div class="thread">
+                <div class="msg"><div class="bub me">把第 42 周会议整理成周报。</div></div>
+
+                <div class="node soft note">
+                  <div class="bar"></div>
+                  <div class="txt"><b>旁注 · 12s</b>先看 5 份记录，再召回 3 条记忆，别漏了改期。</div>
+                </div>
+
+                <div class="node steps card">
+                  <div class="hd"><span class="n">5 步</span><span class="t">· 12.4s</span><span class="grow"></span><span class="chip">展开</span></div>
+                  <div class="tool" style="margin:0 0 8px;">
+                    <div class="r"><span class="nm">memory_search</span><span class="grow"></span><span class="pill">3 命中</span></div>
+                  </div>
+                  <div class="tool" style="margin:0;">
+                    <div class="r"><span class="nm">workspace_write</span><span class="grow"></span><span class="pill">1.2 KB</span></div>
+                  </div>
+                </div>
+
+                <div class="msg">
+                  <div class="bub ai">
+                    <h3>第 42 周周报</h3>
+                    <p>本周 5 场会议，遗留 <span class="hl">三条待决事项</span>。</p>
+                    <ul>
+                      <li>设计评审改期至下周三</li>
+                      <li>嵌入模型额度告警</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="node tool card">
+                  <div class="r"><span class="nm">workspace_write</span><span class="grow"></span><span class="pill">成功</span></div>
+                  <div class="args">{ "path": "reports/week-42.md", "bytes": 1229 }</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="island">
+          <span class="ph">继续写…</span>
+          <span class="send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"/></svg></span>
+        </div>
+        <div class="statebar">阿墨 · deepseek-v4-pro · 混合记忆</div>
+        <div class="gesture"><i></i></div>
+      </div></div>
+    </figure>
+  </section>
+
+  <!-- ================= 行 2 ================= -->
+  <section class="row">
+
+    <!-- 屏 3 · 编年记忆 -->
+    <figure>
+      <figcaption><b>记忆页</b>　编年体 · 日期作分隔</figcaption>
+      <div class="device"><div class="screen">
+        <div class="status"><span>9:41</span><span class="ic"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"></span></span></div>
+        <div class="main">
+          <nav class="rail">
+            <div class="av s32 on">墨</div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a7.5 7.5 0 0 1-11 6.7L4 20l1.3-4.2A7.5 7.5 0 1 1 20 12z"/></svg></div>
+            <div class="ico on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4.2L6 20z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="17" r="1.6" fill="currentColor" stroke="none"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 10l2.5 2L8 14M13 15h3"/></svg></div>
+            <div class="grow"></div>
+            <div class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.5 6.5l1.4 1.4M16.1 16.1l1.4 1.4M17.5 6.5l-1.4 1.4M7.9 16.1l-1.4 1.4"/></svg></div>
+          </nav>
+          <div class="content">
+            <div class="chead">
+              <div class="row1">
+                <div class="grow"><h2>记忆</h2><div class="sub">阿墨 · 24 条 · 混合检索</div></div>
+                <div class="acts">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="cbody">
+              <div class="era"><b>今天</b><i></i></div>
+              <div class="entry hit">
+                <span class="mk"></span>
+                <div class="txt">第 42 周会议里，设计评审延到下周三。
+                  <div class="meta"><span>事实</span><span>·</span><span>agent</span><span class="grow"></span><span>0.88</span></div>
+                </div>
+              </div>
+              <div class="entry hit">
+                <span class="mk"></span>
+                <div class="txt">把 week-42 周报发给产品群，等改期确认后。
+                  <div class="meta"><span>任务</span><span>·</span><span>agent</span><span class="grow"></span><span>0.71</span></div>
+                </div>
+              </div>
+              <div class="era"><b>昨天</b><i></i></div>
+              <div class="entry">
+                <span class="mk"></span>
+                <div class="txt">周报按「进展 / 风险 / 下周」三段写，不要表格。
+                  <div class="meta"><span>偏好</span><span>·</span><span>user</span><span class="grow"></span><span>0.76</span></div>
+                </div>
+              </div>
+              <div class="entry">
+                <span class="mk"></span>
+                <div class="txt">沙盒里 rg 比 grep 快，已 apk add。
+                  <div class="meta"><span>笔记</span><span>·</span><span>user</span><span class="grow"></span><span>0.64</span></div>
+                </div>
+              </div>
+              <div class="era"><b>更早</b><i></i></div>
+              <div class="entry">
+                <span class="mk"></span>
+                <div class="txt">供应商额度告警阈值 80%，超过就换模型。
+                  <div class="meta"><span>事实</span><span>·</span><span>user</span><span class="grow"></span><span>0.61</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gesture"><i></i></div>
+      </div></div>
+    </figure>
+
+    <aside class="spec">
+      <div class="panel">
+        <h3>信息架构 <span>IA / NAVIGATION</span></h3>
+        <div class="ia">
+          <div class="n">助手层入口 · 左侧常驻轨道</div>
+          <ul>
+            <li>轨顶头像 → <span class="k">演员表</span>（助手列表）</li>
+            <li><span class="k">会话</span> / <span class="k">记忆</span> / <span class="k">工具</span>（技能·MCP）</li>
+            <li><span class="k">工作区</span> / <span class="k">终端</span> / <span class="k">设置</span></li>
+            <li>会话页右侧 = 章节时间轴（点节点跳转）</li>
+          </ul>
+          <div style="margin-top:10px;font-size:12px;">全部页面 <b style="color:var(--board-fg)">1 跳直达</b>，无抽屉、无 tab；设置置底。</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>布局与密度 <span>GRID / DENSITY</span></h3>
+        <div class="spec-list">
+          <div>轨道 <b>56 dp</b></div><div>内容边距 <b>20 dp</b></div>
+          <div>标题 <b>Lora 25 dp</b></div><div>正文 <b>14.5 px / 1.7</b></div>
+          <div>助手行 <b>84 dp</b></div><div>会话/屏 <b>5 条</b></div>
+          <div>记忆/屏 <b>5 条</b></div><div>时间轴 <b>22 dp 槽</b></div>
+          <div>输入岛 <b>22 dp</b></div><div>caption <b>12 px</b></div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;">
+        <h3>组件形态 <span>COMPONENTS</span></h3>
+        <div class="diff">
+          <b>AI 气泡</b> surface-soft + hairline，正文 14.5/1.7，最大 88%；<br>
+          <b>思考卡 = 旁注</b> 2dp hairline 竖线 + Lora 斜体 13.5dp，折叠为一行；<br>
+          <b>工具卡 = 时间轴节点卡</b> 圆点（coral 成功 / warning 等待 / error 失败）+ 等宽参数块；<br>
+          <b>步骤组 = 时间轴段</b> 连线加粗 + 「5 步 · 12.4s」；<br>
+          <b>记忆 = 编年条目</b> Lora 19dp 日期分隔 + 6dp 圆点（本次召回 coral）；<br>
+          <b>输入岛</b> 底部 11dp 状态线（助手 · 模型 · 记忆模式）。
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ================= 板尾 ================= -->
+  <footer class="foot">
+    <div class="panel">
+      <h3>动效叙事 <span>MOTION</span></h3>
+      <table class="motion">
+        <tr><td>轨道切换</td><td>active 底块淡入 <code>200ms</code>，图标色 <code>140ms</code></td></tr>
+        <tr><td>页面转场</td><td>右移 16dp + 淡入 <code>200ms</code>；返回反向 <code>140ms</code></td></tr>
+        <tr><td>时间轴节点</td><td>自下浮入 <code>200ms</code> + 连线绘制 <code>200ms</code></td></tr>
+        <tr><td>工具卡浮出</td><td>右移 12dp + scale(.96) + 淡入 <code>200ms</code></td></tr>
+        <tr><td>缓动</td><td><code>cubic-bezier(.23,1,.32,1)</code></td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>色板（DESIGN.md token） <span>PALETTE</span></h3>
+      <div class="swatches">
+        <div class="sw"><i style="background:#FAF9F5"></i><span>#FAF9F5</span></div>
+        <div class="sw"><i style="background:#F5F0E8"></i><span>#F5F0E8</span></div>
+        <div class="sw"><i style="background:#EFE9DE"></i><span>#EFE9DE</span></div>
+        <div class="sw"><i style="background:#E6DFD8"></i><span>#E6DFD8</span></div>
+        <div class="sw"><i style="background:#CC785C"></i><span>#CC785C</span></div>
+        <div class="sw"><i style="background:#A9583E"></i><span>#A9583E</span></div>
+        <div class="sw"><i style="background:#F1E3D9"></i><span>#F1E3D9</span></div>
+        <div class="sw"><i style="background:#141413"></i><span>#141413</span></div>
+        <div class="sw"><i style="background:#171614"></i><span>#171614</span></div>
+        <div class="sw"><i style="background:#2B2824"></i><span>#2B2824</span></div>
+        <div class="sw"><i style="background:#D97757"></i><span>#D97757</span></div>
+        <div class="sw"><i style="background:#DED9CF"></i><span>#DED9CF</span></div>
+      </div>
+      <div class="diff" style="margin-top:14px;">
+        <b>工程备注</b> 轨道为低频 chrome，可保留 1px 发丝线与 surface-soft 实底（不用 blur）；
+        气泡 / 旁注 / 节点卡 / 输入岛一律实底；时间轴只渲染步骤组节点，工具节点展开后出现。
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  var m = new URLSearchParams(location.search).get('mode') === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-mode', m);
+  document.getElementById('modeChip').textContent = m.toUpperCase();
+</script>
+</body>
+</html>

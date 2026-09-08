@@ -1,0 +1,60 @@
+# 助手原生页 · 设计方向选定（direction-approved-assistant）
+
+> **状态：已选定（2026-09-09，用户拍板）**。
+> 依据硬性规定 9「三方向硬门」流程：先完整阅读 4 项设计 SKILL → 产出 3 个差异化方向
+> （含真实视觉初稿）→ 用户选定 → 写入 `DESIGN.md` → 才进入实施。
+> 三方向产出见 [`assistant-v1/directions.md`](assistant-v1/directions.md) 与同目录 6 张 1080×2400 截图。
+
+## 用户原话与约束
+
+1. 「**设计请和现有主题保持一致**」——三方向一律落在既有「暖幕手记 × Claude」token 体系内，
+   不得新增色相；差异只在信息架构 / 布局栅格 / 信息密度 / 层级表达 / 组件形态 / 动效叙事 / 排版尺度。
+2. 选定 **方向 A · 卷宗（Ledger）**。
+3. 字体策略选定 **全量 1:1 复刻 Web 端**（Lora + AlibabaSans + Alibaba PuHuiTi 3.0 三字重，约 +21MB）。
+
+## 选定方向：A · 卷宗（Ledger）
+
+**一句话定位**：对话是家，工具收进抽屉。会话优先 · 单列长读 · 抽屉式二级。
+
+| 维度 | 规格 |
+|------|------|
+| 一级导航 | **无**——会话即家（首屏是会话列表） |
+| 二级入口 | 右侧抽屉（记忆 / 技能 / MCP / 工作区 / 终端 / 设置），**2 跳** |
+| 布局栅格 | 单列，内容边距 16dp |
+| 信息密度 | 会话行 68dp、单屏 7 条会话 / 5 条记忆；正文 14px / 行高 1.65；caption 12px |
+| 层级承担者 | 表面色阶（canvas → surface-soft → surface-card）+ 发丝线 |
+| display 尺度 | Lora 17dp（较克制） |
+| 标志动效 | 抽屉右滑 12dp + 淡入 200ms；返回 140ms |
+| 主要风险 | 功能发现性弱（已用「头部条 + 全部助手」「底部输入岛键盘领接」缓解） |
+
+### 关键组件映射（沿用 DESIGN.md token）
+
+- **AI 气泡**：`surface-soft` + hairline，圆角 16dp；
+- **用户气泡**：`#F1E3D9` + coral-300 边；
+- **思考卡**：`surface-card` + hairline，执行中 live coral 描边，默认折叠；
+- **工具卡**：单行 52dp（等宽工具名 + 状态 pill + 耗时），默认折叠；
+- **步骤组**：新头部「N 步 · 总耗时」+ 缩进步骤行，组默认折叠；
+- **输入岛**：`surface-card` 实底 + 22dp 圆角 + 44dp coral 发送键；
+- **记忆行**：类型标签 + 正文 + `agent/user · 时间` + 相似度条（`primary-500`）。
+
+## 与其它两方向的关系
+
+- **B 工作台**（未选）：底部 4 tab + 双列栅格 + 状态仪表盘，密度最高、入口最浅，但气质偏控制台；
+- **C 场记**（未选）：左轨 56dp + 右侧时间轴 + 编年体记忆，叙事感最强，但轨道占宽、小屏吃紧；
+- 选定 A 后，B/C 的产出保留在 `assistant-v1/` 作为备选与后续迭代参考，**不删除**。
+
+## 字体落地（硬性规定 4）
+
+| 项 | 决策 |
+|----|------|
+| 转换 | `python tools/assistant-fonts.py --all`（woff2 → TTF，8 枚 / 21.2MB，落 `assets/assistant/fonts/`） |
+| 正文/UI | **Alibaba PuHuiTi 3.0**（Regular/Medium/Bold）——覆盖中英文，与 Web 端观感一致 |
+| display | **Lora**（拉丁）+ **PuHuiTi**（中文）经 `Typeface.CustomFallbackBuilder` 串成逐字形回退链（API 29+）；API 26-28 退化为 Lora + 系统衬线 |
+| 偏差说明 | Compose 的 `FontFamily` **不做逐字形回退**（按字重/字形选字体），无法直接复刻 CSS 的 `Lora, PuHuiTi` 语义；故正文主族取 PuHuiTi、display 走自定义回退链。此为平台限制，已在 DESIGN.md 注明 |
+| 体积 | 8 枚 TTF 约 21.2MB（用户已确认）；APK 约 43MB → 64MB |
+
+## 下一步（实施范围）
+
+1. P0：助手列表 / 会话 / 记忆 三屏骨架 + 右侧抽屉导航（按 `directions.md` 规格）；
+2. 其余五类页面（技能 / MCP / 工作区 / 终端 / 设置）与审批弹窗、空态按同一 IA 补齐；
+3. 交付前执行 open-design 五维 critique + ui-ux-pro-max pro-rules 逐项对照。

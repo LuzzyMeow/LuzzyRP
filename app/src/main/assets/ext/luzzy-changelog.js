@@ -29,6 +29,33 @@
   提示词与模型设置 / 渲染）+ 追加工具（澄清提问 / 系统时间 / 程序编译 / 日历读写 / 记忆工具）
   + Room 10 表数据模型 + U/P0-P4 阶段路线与验收标准 + R1-R13 风险清单。**本文只定义信息架构，
   不含视觉设计**。
+- **「助手」原生页 P0 骨架（原生 Compose，方向 A · 卷宗）**：
+  - **设计门（硬性规定 9 全流程）**：完整阅读 4 项设计 SKILL → 产出 **3 个差异化方向**
+    （A 卷宗 / B 工作台 / C 场记，各含 1080×2400 亮暗双截图与 IA·栅格·密度·动效规格，
+    见 \`docs/design/assistant-v1/\`）→ **用户选定 A · 卷宗**（记录见
+    \`docs/design/direction-approved-assistant.md\`）→ 写入 \`DESIGN.md\`「助手原生页」章。
+  - **宿主接线**：\`MainActivity\` 懒创建 \`ComposeView\` 覆盖层（WebView 保持存活）+
+    返回键三级优先级（抽屉 → 二级页 → 退出助手）；桥接新增 \`openAssistant\` /
+    \`isAssistantVisible\` / \`setAssistantConfig\` / \`getAssistantConfig\` / \`setAssistantThemeMode\`。
+  - **侧栏入口**：\`assets/ext/luzzy-assistant.js\` DOM 注入（零上游改动）+ \`luzzy-ext.js\` 动态加载；
+    桌面实测按钮位于「外观」之上、点击降级提示正常、零 JS 异常。
+  - **界面骨架**：会话列表（家）/ 会话页 / 记忆页 / 全部助手管理页 + 右侧抽屉六项
+    （技能·MCP·工作区·终端·设置给「规划中」占位）；组件含头像条、会话行、气泡、思考卡、
+    工具卡、步骤组、输入岛、审批弹窗、记忆卡、检索框。
+  - **主题与字体**：\`LuzzyAssistantTheme\` 落地 DESIGN.md 全部 token（亮/暗双模式、圆角、动效常量）；
+    字体按用户选定「全量 1:1 复刻」——\`tools/assistant-fonts.py\` 把上游 woff2 转为 8 枚 TTF
+    （Lora + AlibabaSans + Alibaba PuHuiTi 3.0 三字重，约 21.2MB），正文/UI 用 PuHuiTi、
+    display 用 Lora。
+  - **契约与安全内核（纯 Kotlin，43 项单测全绿）**：\`Tool\` / \`ToolResult\` / \`ToolContext\` /
+    \`AgentEvent\` / \`LlmTransport\` / JSON Schema DSL / 工具调用分片累加器 / 宽松 JSON 解析；
+    **HARDLINE 危险命令无条件拦截**（9 类模式）、**SSRF 防护**（DNS 解析层拒绝私网/回环/
+    链路本地/保留地址 + IPv4 映射 IPv6）、**三层审批门**（每工具开关 / 逐调用审批 /
+    本会话始终允许）。
+  - **数据层**：Room 十表（\`assistant\` / \`conversation\` / \`message\` / \`memory\` / \`skill\` /
+    \`skill_binding\` / \`mcp_server\` / \`mcp_binding\` / \`tool_audit\` + FTS4 检索镜像）+ DataStore 偏好
+    + \`WorkspaceManager\`（每助手独立工作区、路径越界/符号链接穿越拒绝、配额 2GB/64MB）。
+  - **构建接入**：AGP 9.2.1 内置 Kotlin + Compose 编译器插件 + KSP/Room + kotlinx-serialization
+    全部打通（计划 R2 风险解除），\`assembleDebug\` 通过。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id \`10207\`，更新时间 09/08 15:30；基线 \`d2f2625\` → \`4aef0bb\`，

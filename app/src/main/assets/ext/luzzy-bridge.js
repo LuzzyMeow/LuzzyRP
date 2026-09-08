@@ -79,5 +79,72 @@
         }
     };
 
+    // ------------------------------------------------------------------
+    // [LuzzyRP v1.5.0 助手] 桥接封装（PLAN §14）
+    // 全部走「存在性检测 + 降级」；原生侧未接线时返回安全默认值，绝不抛错。
+    // ------------------------------------------------------------------
+
+    /** 侧栏「助手」入口 → 显示原生助手覆盖层。返回是否已交由原生处理。 */
+    Luzzy.openAssistant = function () {
+        if (bridge && typeof bridge.openAssistant === 'function') {
+            try {
+                bridge.openAssistant();
+                return true;
+            } catch (e) { /* fall through */ }
+        }
+        // 降级：桌面浏览器无原生层 → 提示（不阻断页面）
+        Luzzy.toast('助手页需要在 LuzzyRP 应用内使用');
+        return false;
+    };
+
+    /** 助手覆盖层是否可见（原生未接线时恒 false）。 */
+    Luzzy.isAssistantVisible = function () {
+        try {
+            if (bridge && typeof bridge.isAssistantVisible === 'function') {
+                return !!bridge.isAssistantVisible();
+            }
+        } catch (e) { /* fall through */ }
+        return false;
+    };
+
+    /**
+     * 推送 Web 端供应商配置（只读复用）。
+     * 由 luzzy-assistant.js 组装；**内容含 API Key，禁止写入日志/控制台**。
+     */
+    Luzzy.pushAssistantConfig = function (json) {
+        try {
+            if (bridge && typeof bridge.setAssistantConfig === 'function') {
+                bridge.setAssistantConfig(typeof json === 'string' ? json : JSON.stringify(json));
+                return true;
+            }
+        } catch (e) { /* fall through */ }
+        return false;
+    };
+
+    /** 读取最近一次推送的配置（未推送时返回空串）。 */
+    Luzzy.getAssistantConfig = function () {
+        try {
+            if (bridge && typeof bridge.getAssistantConfig === 'function') {
+                return bridge.getAssistantConfig() || '';
+            }
+        } catch (e) { /* fall through */ }
+        return '';
+    };
+
+    /** 主题模式联动（助手覆盖层跟随 Web 端亮/暗）。 */
+    Luzzy.setAssistantThemeMode = function (mode) {
+        try {
+            if (bridge && typeof bridge.setAssistantThemeMode === 'function') {
+                bridge.setAssistantThemeMode(mode === 'dark' ? 'dark' : 'light');
+            }
+        } catch (e) { /* fall through */ }
+    };
+
+    /**
+     * 原生 → JS 回调占位：助手显隐时由 MainActivity 调用（PLAN §14）。
+     * 扩展层可覆盖此函数以暂停/恢复轮询等。
+     */
+    Luzzy.onAssistantVisibilityChanged = Luzzy.onAssistantVisibilityChanged || function () {};
+
     window.Luzzy = Luzzy;
 })();

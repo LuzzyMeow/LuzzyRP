@@ -10,6 +10,13 @@ import java.util.Properties
 // 签名配置：从根目录 keystore.properties 读取（该文件不入库，见 .gitignore）。
 plugins {
     alias(libs.plugins.android.application)
+    // [v1.5.0 助手] Compose 编译器插件（Kotlin 2.x 起由独立插件提供；
+    // AGP 9 内置 Kotlin，故不引入 org.jetbrains.kotlin.android）
+    alias(libs.plugins.kotlin.compose)
+    // [v1.5.0 助手] Room 注解处理（assistant.db，PLAN §4.1 十表）
+    alias(libs.plugins.ksp)
+    // [v1.5.0 助手] kotlinx-serialization（LLM 协议 / 工具 schema / 配置 JSON）
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // [LuzzyRP v1.2.3] 资产签名自动解压（根治「改 assets 忘 bump EXTRACT_VERSION」）：
@@ -97,6 +104,8 @@ android {
 
     buildFeatures {
         buildConfig = true
+        // [v1.5.0 助手] Compose 原生页
+        compose = true
     }
 }
 
@@ -115,8 +124,36 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
+    // [v1.5.0 助手] Compose UI（BOM 统一版本；DESIGN.md token 落地见 assistant/ui/theme）
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // [v1.5.0 助手] 数据层：Room（会话/消息/记忆/技能/MCP/审计）+ DataStore（偏好）
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.datastore.preferences)
+
+    // [v1.5.0 助手] 网络与序列化（LLM 三协议 / MCP JSON-RPC / 工具 schema）
+    implementation(libs.squareup.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+
     // 测试
     testImplementation(libs.junit)
+}
+
+// [v1.5.0 助手] Room schema 导出（迁移审计用；目录入库，便于版本 diff）
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }
 
 // [LuzzyRP v1.2.3] 应用内 CHANGELOG 自动同步（硬性规定 5 辅助机制）：

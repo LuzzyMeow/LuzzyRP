@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>LuzzyRP · 助手原生 Agent 页 · 三方向对比</title>
+<style>
+@font-face{font-family:'Lora';src:url('../boards-v3/fonts/Lora-Regular.woff2') format('woff2');font-weight:400;font-display:swap;}
+@font-face{font-family:'Lora';src:url('../boards-v3/fonts/Lora-Italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2');font-weight:400;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+@font-face{font-family:'AlibabaSans';src:url('../boards-v3/fonts/AlibabaSans-Medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+:root{
+  --bg:#141413; --fg:#FAF9F5; --dim:#A5A198; --line:rgba(250,249,245,.16);
+  --coral:#D97757; --coral-soft:#CC785C;
+  --serif:'Lora','PuHuiTi',Georgia,serif;
+  --sans:'AlibabaSans','PuHuiTi','Segoe UI',sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;padding:48px 40px 72px;}
+.wrap{max-width:1440px;margin:0 auto;}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:34px;}
+.top .l{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;}
+.overline{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dim);}
+h1{font-family:var(--serif);font-weight:400;font-size:40px;line-height:1.06;letter-spacing:-.01em;}
+h1 em{font-style:italic;color:var(--coral);}
+.top .r{font-size:13px;color:var(--dim);line-height:1.7;text-align:right;}
+.top .r b{color:var(--fg);font-weight:500;}
+.top .r code{font-family:var(--mono);font-size:11.5px;color:var(--coral);}
+
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:34px;}
+.col{border:1px solid var(--line);border-radius:18px;padding:22px 22px 26px;background:rgba(250,249,245,.035);display:flex;flex-direction:column;}
+.col .dh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.col .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 10px;}
+.col h2{font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.1;}
+.col h2 em{font-style:italic;color:var(--coral);}
+.col .pos{font-size:14px;color:var(--fg);margin-top:10px;line-height:1.6;}
+.col .pos b{font-weight:500;}
+.col .lead{font-size:12.5px;color:var(--dim);line-height:1.7;margin-top:8px;}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0 16px;}
+.shot{display:flex;flex-direction:column;gap:7px;}
+.shot img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line);background:#000;}
+.shot span{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);}
+.kv{font-size:12.5px;line-height:1.85;color:var(--dim);border-top:1px solid var(--line);padding-top:14px;}
+.kv b{color:var(--fg);font-weight:500;}
+.kv .k{font-family:var(--mono);font-size:11.5px;color:var(--coral);}
+.kv ul{list-style:none;margin-top:6px;}
+.kv li{position:relative;padding-left:12px;margin-bottom:3px;}
+.kv li::before{content:'';position:absolute;left:0;top:9px;width:5px;height:5px;border-radius:999px;background:var(--line);}
+.kv li.hi::before{background:var(--coral);}
+.links{margin-top:auto;padding-top:16px;font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.9;}
+.links a{color:var(--coral);text-decoration:none;border-bottom:1px solid rgba(217,119,87,.4);}
+h3.sect{font-family:var(--serif);font-weight:400;font-size:22px;margin:44px 0 16px;}
+table.cmp{width:100%;border-collapse:collapse;font-size:13px;}
+table.cmp th,table.cmp td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+table.cmp th{font-size:11px;letter-spacing:.14em;font-family:var(--mono);color:var(--dim);font-weight:500;}
+table.cmp td:first-child{color:var(--dim);white-space:nowrap;}
+table.cmp td b{color:var(--fg);font-weight:500;}
+table.cmp td.a{color:#DED9CF;}
+.foot{margin-top:36px;border-top:1px solid var(--line);padding-top:20px;font-size:12px;color:var(--dim);line-height:1.9;}
+.foot b{color:var(--fg);font-weight:500;}
+.foot .ok{color:#5DB872;}
+.foot code{font-family:var(--mono);font-size:11.5px;color:var(--coral);}
+@media (max-width:1100px){.cols{grid-template-columns:1fr;}.shots{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="l">
+      <span class="overline">LUZZYRP · V1.5.0 · ASSISTANT</span>
+      <h1>助手原生 Agent 页 · <em>三方向</em></h1>
+    </div>
+    <div class="r">
+      同一「暖幕手记 × Claude」token 体系下的三种组织方式<br>
+      差异只来自 <b>信息架构 / 栅格 / 密度 / 层级 / 组件形态 / 动效叙事 / 排版尺度</b><br>
+      初稿 <code>1080×2400</code> · 亮暗双模式 · 字体全部本地 <code>@font-face</code>
+    </div>
+  </header>
+
+  <div class="cols">
+
+    <!-- A -->
+    <section class="col">
+      <div class="dh"><span class="tag">DIRECTION A</span><h2>卷宗 <em>Ledger</em></h2></div>
+      <p class="pos"><b>对话是家，工具收进抽屉。</b></p>
+      <p class="lead">会话优先：进入助手即落在会话列表，助手切换用顶部头像条，记忆 / 技能 / MCP / 工作区 / 终端 / 设置收进右侧抽屉（二级）。</p>
+      <div class="shots">
+        <div class="shot"><img src="screenshot-a-light.png" alt="方向 A 亮色方向板"><span>LIGHT · 1080×2400</span></div>
+        <div class="shot"><img src="screenshot-a-dark.png" alt="方向 A 暗色方向板"><span>DARK · 1080×2400</span></div>
+      </div>
+      <div class="kv">
+        <b>关键 token 用法</b>
+        <ul>
+          <li class="hi">AI 气泡 <span class="k">surface-soft</span> + hairline，圆角 16dp</li>
+          <li>用户气泡 <span class="k">#F1E3D9</span> + coral-300 边（暗 coral-50 + coral 边）</li>
+          <li class="hi">思考卡 live 态 coral 描边；工具卡单行 52dp + 状态 pill</li>
+          <li>输入岛 22dp 实底 + 44dp coral 圆发送键</li>
+          <li>单列 16dp / 会话行 68dp / 记忆 4 条 / 屏</li>
+        </ul>
+      </div>
+      <div class="links">
+        <a href="mock-a.html">mock-a.html</a>（<a href="mock-a.html?mode=dark">?mode=dark</a>）
+      </div>
+    </section>
+
+    <!-- B -->
+    <section class="col">
+      <div class="dh"><span class="tag">DIRECTION B</span><h2>工作台 <em>Workbench</em></h2></div>
+      <p class="pos"><b>先看仪表盘，再进对话。</b></p>
+      <p class="lead">工具优先：底部四 tab（会话 / 记忆 / 工具 / 助手），会话页顶部是状态带与最近会话；双列栅格 + 高密度，全部页面 1 跳可达。</p>
+      <div class="shots">
+        <div class="shot"><img src="screenshot-b-light.png" alt="方向 B 亮色方向板"><span>LIGHT · 1080×2400</span></div>
+        <div class="shot"><img src="screenshot-b-dark.png" alt="方向 B 暗色方向板"><span>DARK · 1080×2400</span></div>
+      </div>
+      <div class="kv">
+        <b>关键 token 用法</b>
+        <ul>
+          <li class="hi">卡片为容器：<span class="k">surface-card</span> + hairline + 12dp + 纸感投影</li>
+          <li>状态卡数字走 Lora 17dp（display），标签 10.5dp caption</li>
+          <li class="hi">工具卡 = 运行日志行（等宽 + 状态点 + 2dp hairline 竖线）</li>
+          <li>步骤组 = 4dp coral 进度条 + 「5 步 · 12.4s」</li>
+          <li>双列 12dp gutter / 记忆行 8 条 / 屏</li>
+        </ul>
+      </div>
+      <div class="links">
+        <a href="mock-b.html">mock-b.html</a>（<a href="mock-b.html?mode=dark">?mode=dark</a>）
+      </div>
+    </section>
+
+    <!-- C -->
+    <section class="col">
+      <div class="dh"><span class="tag">DIRECTION C</span><h2>场记 <em>Slate</em></h2></div>
+      <p class="pos"><b>左轨导航，右栏时间轴，对话即剧本。</b></p>
+      <p class="lead">叙事优先：左侧 56dp 常驻图标轨，全部页面 1 跳直达；会话页右侧是章节时间轴（旁注 / 步骤组 / 工具节点），记忆页走编年体。</p>
+      <div class="shots">
+        <div class="shot"><img src="screenshot-c-light.png" alt="方向 C 亮色方向板"><span>LIGHT · 1080×2400</span></div>
+        <div class="shot"><img src="screenshot-c-dark.png" alt="方向 C 暗色方向板"><span>DARK · 1080×2400</span></div>
+      </div>
+      <div class="kv">
+        <b>关键 token 用法</b>
+        <ul>
+          <li class="hi">思考卡 = 旁注：2dp hairline 竖线 + Lora 斜体 13.5dp</li>
+          <li>工具卡 = 时间轴节点卡（coral / warning / error 圆点）+ 等宽参数块</li>
+          <li class="hi">轨道 active = coral-100 圆角块 + coral 图标（无左彩边卡）</li>
+          <li>记忆 = 编年：Lora 19dp 日期分隔 + 6dp 圆点</li>
+          <li>轨道 56dp / 内容 20dp / 标题 Lora 25dp / 低密度</li>
+        </ul>
+      </div>
+      <div class="links">
+        <a href="mock-c.html">mock-c.html</a>（<a href="mock-c.html?mode=dark">?mode=dark</a>）
+      </div>
+    </section>
+  </div>
+
+  <h3 class="sect">横向对比</h3>
+  <table class="cmp">
+    <tr><th>维度</th><th>A · 卷宗</th><th>B · 工作台</th><th>C · 场记</th></tr>
+    <tr><td>一级导航</td><td>无（会话即家）</td><td><b>底部 4 tab</b></td><td><b>左侧 56dp 轨道</b></td></tr>
+    <tr><td>二级入口</td><td>右侧抽屉（2 跳）</td><td>tab 内分段（1 跳）</td><td>轨道直达（1 跳）</td></tr>
+    <tr><td>首屏</td><td>会话列表</td><td>概览仪表盘</td><td>会话 + 大标题</td></tr>
+    <tr><td>栅格</td><td>单列 16dp</td><td><b>双列 12dp gutter</b></td><td>轨道 + 单列 20dp</td></tr>
+    <tr><td>单屏会话 / 记忆</td><td>7 条 / 4 条</td><td>5 条 / <b>8 条</b></td><td>5 条 / 5 条</td></tr>
+    <tr><td>层级承担者</td><td>表面色阶 + 发丝线</td><td>栅格 + 状态卡</td><td><b>轨道 + 排版尺度</b></td></tr>
+    <tr><td>display 尺度</td><td>Lora 17dp</td><td>Lora 17-22dp</td><td><b>Lora 25dp</b></td></tr>
+    <tr><td>标志动效</td><td>抽屉横滑 200ms</td><td>卡片 stagger 24ms/张</td><td>时间轴绘制 200ms</td></tr>
+    <tr><td>主风险</td><td>发现性弱（2 跳）</td><td>气质偏控制台</td><td>宽度吃紧（318dp 内容区）</td></tr>
+  </table>
+
+  <div class="foot">
+    <b>自检</b>　<span class="ok">✓</span> 色值全部取自 DESIGN.md，无新增色相　
+    <span class="ok">✓</span> 无 emoji 图标 / 左彩边卡 / 紫渐变 / 霓虹　
+    <span class="ok">✓</span> 高频面零 backdrop-filter、零常驻 will-change　
+    <span class="ok">✓</span> 动效 200/140ms + <code>cubic-bezier(.23,1,.32,1)</code>，无 scale(0)　
+    <span class="ok">✓</span> 正文 ≥14px、行高 1.6-1.7、caption ≥12px　
+    <span class="ok">✓</span> 手作记号每屏 ≤3 处　
+    <span class="ok">✓</span> 字体本地 @font-face，零 CDN<br>
+    <b>完整说明</b> 见 <code>directions.md</code>（信息架构 / 布局栅格 / 信息密度 / 动效叙事 / 组件形态 / 差异点 / 风险与适用场景）。
+  </div>
+</div>
+</body>
+</html>

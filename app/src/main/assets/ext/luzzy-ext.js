@@ -106,3 +106,28 @@
         });
     } catch (e) { /* 旧内核降级：仅启动时写一次 */ }
 })();
+
+// ============================================================
+// [LuzzyRP v1.5.0] 助手侧栏入口加载器（PLAN §3.3 原型段）
+// 以动态注入方式加载 ext/luzzy-assistant.js，**避免修改上游 index.html**
+// （硬性规定 2/3：上游文件零裸改、扩展层隔离）。
+// 加载失败时静默降级——助手入口缺失不影响 RP-Hub 主流程。
+// 落地形态：W1 完成后由 patch 040 把入口移入上游侧栏底部簇（登记 + 标记），
+// 本加载器届时保留（luzzy-assistant.js 仍承担配置推送与主题同步职责）。
+// ============================================================
+(function () {
+    'use strict';
+    try {
+        if (document.getElementById('luzzy-assistant-script')) return;
+        var s = document.createElement('script');
+        s.id = 'luzzy-assistant-script';
+        s.src = '../ext/luzzy-assistant.js';
+        s.async = false;
+        s.onerror = function () {
+            if (window.console && console.debug) {
+                console.debug('[LuzzyRP 助手] 入口脚本加载失败（功能降级，不影响主流程）');
+            }
+        };
+        (document.body || document.documentElement).appendChild(s);
+    } catch (e) { /* 静默降级 */ }
+})();

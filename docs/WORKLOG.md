@@ -2342,3 +2342,58 @@ CHANGELOG 顶部。基线自检：参考克隆 `4aef0bb` ✓、`verify-markers` 
   广场一键导入（联网）、开屏与沉浸宽度目测。
 - **W2「助手」原生 Agent**：先走硬性规定 9 设计门（读 4 项 SKILL → 三方向硬门 → 用户选定 →
   写 DESIGN.md），再按 §16 P0→P4 执行；侧栏入口 patch 040 的前置条件（W1 完成）已满足。
+
+---
+
+### 会话 28 · W2「助手」原生 Agent 启动：设计门 + P0 骨架（2026-09-09）
+
+**范围**：`docs/PLAN-v1.5.0-assistant.md` §16 的 P0 阶段 + 硬性规定 9 设计门全流程。
+W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段先用扩展层 DOM 注入原型）。
+
+**完成项**：
+1. **构建接入（计划 R2 风险解除）**：`gradle/libs.versions.toml` + `app/build.gradle.kts` 接入
+   Compose（BOM 2026.08.00）/ KSP+Room 2.8.4 / DataStore / kotlinx-serialization / OkHttp，
+   逐项编译验证通过；Room schema 导出落 `app/schemas/`。
+2. **设计门（硬性规定 9 全流程）**：
+   - 完整阅读 4 项设计 SKILL 主文档（huashu-design / awesome-design-md / open-design /
+     ui-ux-pro-max）；
+   - 产出 **3 个差异化方向**（A 卷宗 / B 工作台 / C 场记），每方向含 1080×2400 亮暗双截图、
+     IA / 栅格 / 密度 / 动效 / 组件规格——全部落在既有「暖幕手记 × Claude」token 内，
+     无新增色相（用户指示「设计与现有主题保持一致」）；
+   - **用户选定 A · 卷宗**（对话是家，工具收进抽屉；单列 16dp；会话行 68dp）；
+   - 落档 `docs/design/direction-approved-assistant.md` + `DESIGN.md` 新增「助手原生页」章。
+3. **字体（硬性规定 4）**：用户选定「全量 1:1 复刻」→ 新增 `tools/assistant-fonts.py`
+   （woff2 → TTF），转换 8 枚（Lora + AlibabaSans + PuHuiTi 三字重，21.2MB）落
+   `assets/assistant/fonts/`；主题正文用 PuHuiTi、display 用 Lora。
+   **平台偏差已记录**：Compose 的 `FontFamily` 不做逐字形回退，无法复刻 CSS 字体栈语义。
+4. **P0 接线**：`MainActivity` 懒创建 ComposeView 覆盖层 + 返回键三级优先级；
+   `LuzzyBridge` 新增 5 个助手桥接方法；`luzzy-bridge.js` 封装（含降级）；
+   `luzzy-assistant.js` 侧栏入口 DOM 注入 + `luzzy-ext.js` 动态加载（**零上游改动**）；
+   verify-markers 新增 4 项扩展层门禁（86 PASS）。
+5. **界面骨架（方向 A）**：会话列表 / 会话页 / 记忆页 / 全部助手管理页 + 右侧抽屉六项；
+   组件库（头像条 / 会话行 / 气泡 / 思考卡 / 工具卡 / 步骤组 / 输入岛 / 审批弹窗 /
+   记忆卡 / 检索框 / 页面头 / 空态）。
+6. **契约与安全内核（我直接实现，43 项单测全绿）**：
+   - 契约：`Tool` / `ToolResult` / `ToolContext` / `WorkspaceAccess` / `Schema`（JSON Schema DSL）/
+     `AgentEvent` / `LlmTransport` + `ToolCallAccumulator` + `JsonLenient`；
+   - 安全：`HardlineGuard`（9 类危险命令无条件拦截）、`SsrfGuard`（DNS 层拒私网/回环/
+     链路本地/保留 + IPv4 映射 IPv6）、`ApprovalGate`（三层审批模型）。
+7. **数据层（子代理交付）**：Room 十表 + 10 DAO + FTS4 镜像 + DataStore 偏好 + WorkspaceManager
+   （路径越界 / 符号链接穿越拒绝、配额 2GB / 单文件 64MB）；`assistant.db` schema 已导出。
+
+**决策记录**：
+- **D1 设计方向**：用户选定 **A · 卷宗**（备选 B/C 产出保留在 `assistant-v1/` 供后续参考）。
+- **D2 字体**：用户选定 **全量**（+21MB，APK 约 43MB → 64MB）。
+- **D3 中文检索**：数据层报告 FTS4 `unicode61` 无中文分词（整段中文成词，仅前缀命中，实测
+  `年度*` 命中而 `报告*` 零命中）——**拍板 ① bigram + ② LIKE 回落兜底**（子代理实施中）。
+- **D4 导航实现**：方向 A 页面数少、转场统一，用密封类状态机 + `AnimatedContent` 手写，
+  不引入 Navigation 库（零额外依赖、可控）。
+
+**遗留 / 风险**：
+- **Compose UI 无法在本会话肉眼验收**（adb 无连接设备）——需真机（小米 df97f3c4）安装
+  debug 包后走查：覆盖层显示/隐藏、返回键优先级、抽屉转场、三屏密度是否符合
+  `directions.md` 规格。
+- 领域核心（AgentLoop / OpenAI 流式 / ContextBuilder / ToolRegistry）与内置工具、
+  记忆引擎仍在实施（子代理进行中）；技能 / MCP / 工作区 / 终端 / 设置为「规划中」占位。
+- APK 体积增加约 21MB（字体全量）；若用户后续改主意，`python tools/assistant-fonts.py`
+  （不带 `--all`）可退回默认集。

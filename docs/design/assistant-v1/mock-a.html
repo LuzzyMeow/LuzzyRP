@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="UTF-8">
+<title>方向 A · 卷宗 Ledger — LuzzyRP 助手原生 Agent 三方向板</title>
+<style>
+/* ===== 字体（本地，无 CDN） ===== */
+@font-face{font-family:'Lora';src:url('../boards-v3/fonts/Lora-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'Lora';src:url('../boards-v3/fonts/Lora-Italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2');font-weight:400;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+@font-face{font-family:'PuHuiTi';src:url('../boards-v3/fonts/AlibabaPuHuiTi-3-85-Bold.woff2') format('woff2');font-weight:700;font-display:swap;}
+@font-face{font-family:'AlibabaSans';src:url('../boards-v3/fonts/AlibabaSans-Medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+
+/* ===== DESIGN.md token（亮） ===== */
+:root{
+  --canvas:#FAF9F5; --soft:#F5F0E8; --card:#EFE9DE; --line:#E6DFD8; --line-strong:#BEB6A8;
+  --muted-soft:#8E8B82; --muted:#6C6A64; --mid:#52504A; --body:#3D3A36; --ink:#141413;
+  --accent:#CC785C; --accent-btn:#A9583E; --accent-100:#F5E2D8; --accent-300:#E5B099; --accent-50:#FAF0EA;
+  --user:#F1E3D9; --hl:rgba(245,217,168,.55);
+  --ok:#5DB872; --warn:#D4A017; --err:#C64545;
+  --accent-text:#A9583E;
+  --shadow:0 2px 8px rgba(20,20,19,.05);
+  --board-bg:#141413; --board-fg:#FAF9F5; --board-dim:#A5A198; --board-line:rgba(250,249,245,.16);
+  --serif:'Lora','PuHuiTi',Georgia,serif;
+  --sans:'AlibabaSans','PuHuiTi','Segoe UI',sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+/* ===== DESIGN.md token（暗） ===== */
+html[data-mode="dark"]{
+  --canvas:#171614; --soft:#201E1B; --card:#2B2824; --line:#3E3A34; --line-strong:#6B675F;
+  --muted-soft:#8A867D; --muted:#A5A198; --mid:#C4BFB5; --body:#DED9CF; --ink:#FAF9F5;
+  --accent:#D97757; --accent-btn:#B85C3E; --accent-100:#2E211B; --accent-300:#9A6244; --accent-50:#2E211B;
+  --user:#2E211B; --hl:rgba(245,217,168,.22); --accent-text:#D97757;
+  --shadow:0 2px 8px rgba(0,0,0,.34);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1080px;height:2400px;overflow:hidden;}
+body{background:var(--board-bg);color:var(--board-fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+.board{width:1080px;height:2400px;padding:34px 40px 0;display:flex;flex-direction:column;gap:26px;justify-content:space-between;}
+
+/* ===== 板头 ===== */
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex:none;}
+.head .left{display:flex;align-items:baseline;gap:16px;}
+.tag{font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--board-dim);border:1px solid var(--board-line);border-radius:999px;padding:4px 12px;}
+h1{font-family:var(--serif);font-weight:400;font-size:38px;line-height:1.05;letter-spacing:-.01em;}
+h1 em{font-style:italic;color:var(--accent);}
+.head .pos{font-size:15px;color:var(--board-dim);padding-bottom:4px;}
+.head .pos b{color:var(--board-fg);font-weight:500;}
+.mode-chip{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--board-dim);border:1px solid var(--board-line);border-radius:999px;padding:5px 14px;align-self:flex-end;}
+
+/* ===== 行 ===== */
+.row{display:flex;gap:56px;flex:none;align-items:flex-start;}
+.row-1{justify-content:center;}
+.row-2{justify-content:center;}
+figure{display:flex;flex-direction:column;gap:12px;}
+figcaption{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--board-dim);}
+figcaption b{color:var(--board-fg);font-weight:500;letter-spacing:.04em;font-family:var(--sans);font-size:12px;}
+figcaption::before{content:'';width:14px;height:1px;background:var(--accent);display:block;}
+
+/* ===== 手机框 ===== */
+.device{width:390px;height:844px;border-radius:38px;padding:8px;background:#141413;border:1px solid rgba(250,249,245,.2);box-shadow:0 20px 50px rgba(0,0,0,.5);flex:none;}
+.screen{position:relative;width:374px;height:828px;border-radius:30px;overflow:hidden;background:var(--canvas);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;}
+.status{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:var(--muted);font-size:12px;font-weight:500;letter-spacing:.02em;}
+.status .ic{display:flex;align-items:center;gap:5px;}
+.bars{display:flex;align-items:flex-end;gap:1.5px;}
+.bars i{width:2.5px;background:currentColor;border-radius:1px;display:block;}
+.bars i:nth-child(1){height:4px;opacity:.5}.bars i:nth-child(2){height:6px;opacity:.7}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+.batt{width:20px;height:10px;border:1.2px solid currentColor;border-radius:3px;position:relative;opacity:.8;}
+.batt::after{content:'';position:absolute;inset:1.6px;right:6px;background:currentColor;border-radius:1px;}
+.gesture{height:22px;flex:none;display:flex;align-items:center;justify-content:center;}
+.gesture i{width:112px;height:4px;border-radius:999px;background:var(--line-strong);opacity:.7;display:block;}
+
+/* ===== 通用 App 元素 ===== */
+.appbar{flex:none;display:flex;align-items:center;gap:12px;padding:4px 16px 12px;border-bottom:1px solid var(--line);}
+.appbar .grow{flex:1;min-width:0;}
+.appbar h2{font-family:var(--serif);font-size:19px;font-weight:400;line-height:1.2;color:var(--ink);}
+.appbar .sub{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.iconbtn{width:44px;height:44px;flex:none;border-radius:999px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--body);}
+.iconbtn.plain{border:none;background:transparent;}
+.body-scroll{flex:1;min-height:0;overflow:hidden;padding:0 16px;}
+.sec-label{display:flex;align-items:center;justify-content:space-between;padding:16px 0 8px;}
+.sec-label span{font-family:var(--serif);font-size:13px;color:var(--muted);letter-spacing:.02em;}
+.sec-label a{font-size:12px;color:var(--accent-text);text-decoration:none;}
+.rule{height:1px;background:var(--line);border:none;}
+
+/* 头像 */
+.av{border-radius:999px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--serif);color:var(--body);flex:none;}
+.av.s40{width:40px;height:40px;font-size:16px;}
+.av.s48{width:48px;height:48px;font-size:19px;}
+.av.s56{width:56px;height:56px;font-size:22px;}
+.av.on{border:2px solid var(--accent);color:var(--accent);}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;background:var(--card);color:var(--mid);border:1px solid var(--line);white-space:nowrap;}
+.chip.coral{background:var(--accent-50);color:var(--accent-text);border-color:var(--accent-300);}
+.chip.ghost{background:transparent;border-style:dashed;}
+.dot-unread{width:7px;height:7px;border-radius:999px;background:var(--accent);flex:none;}
+
+/* 助手切换条 */
+.switcher{flex:none;display:flex;gap:18px;padding:14px 16px 12px;overflow:hidden;}
+.switcher .item{display:flex;flex-direction:column;align-items:center;gap:6px;width:56px;flex:none;}
+.switcher .item span{font-size:11px;color:var(--muted);}
+.switcher .item.on span{color:var(--ink);font-weight:500;}
+
+/* 助手列表行 */
+.arow{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);}
+.arow .info{flex:1;min-width:0;}
+.arow .nm{font-family:var(--serif);font-size:16px;color:var(--ink);line-height:1.3;}
+.arow .meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.arow .right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:none;}
+
+/* 气泡 */
+.msg{display:flex;flex-direction:column;gap:6px;margin-bottom:11px;}
+.msg .name{font-family:var(--serif);font-size:13px;color:var(--muted);}
+.bub{border-radius:16px;padding:10px 13px;font-size:14px;line-height:1.6;max-width:84%;}
+.bub.ai{background:var(--soft);border:1px solid var(--line);color:var(--body);align-self:flex-start;}
+.bub.me{background:var(--user);border:1px solid var(--accent-300);color:var(--ink);align-self:flex-end;max-width:80%;}
+html[data-mode="dark"] .bub.me{border-color:var(--accent);}
+.bub h3{font-family:var(--serif);font-size:15px;font-weight:400;color:var(--ink);margin-bottom:6px;}
+.bub p{margin-bottom:8px;}
+.bub p:last-child{margin-bottom:0;}
+.bub ul{padding-left:16px;margin-bottom:8px;}
+.bub li{margin-bottom:4px;}
+.hl{background:linear-gradient(180deg,transparent 58%,var(--hl) 58%);padding:0 1px;}
+.quote{border-left:2px solid var(--line-strong);padding-left:10px;color:var(--mid);font-family:var(--serif);font-style:italic;font-size:13px;}
+.code{margin:8px 0 0;background:var(--canvas);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--mid);white-space:pre-wrap;}
+.code .fold{display:flex;align-items:center;gap:6px;color:var(--accent-text);font-family:var(--sans);font-size:11px;padding-top:6px;border-top:1px dashed var(--line);margin-top:6px;}
+
+/* 思考卡 / 工具卡 / 步骤组 */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;}
+.think{margin-bottom:10px;padding:10px 13px;}
+.think.live{border-color:var(--accent-300);box-shadow:0 0 0 3px var(--accent-50);}
+.think .row1{display:flex;align-items:center;gap:8px;}
+.think .lbl{font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--mid);}
+.think .sum{font-size:12.5px;color:var(--mid);margin-top:5px;line-height:1.5;}
+.pulse{width:6px;height:6px;border-radius:999px;background:var(--accent);flex:none;}
+.steps{margin-bottom:10px;overflow:hidden;}
+.steps .hd{display:flex;align-items:center;gap:10px;padding:13px;font-size:13px;color:var(--ink);}
+.steps .hd .n{font-family:var(--serif);font-size:14px;}
+.steps .hd .t{font-size:12px;color:var(--muted);}
+.steps .hd .grow{flex:1;}
+.steps .list{padding:0 13px 10px;}
+.step{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px;color:var(--mid);}
+.step .bul{width:7px;height:7px;border-radius:999px;background:var(--ok);flex:none;}
+.step .bul.w{background:var(--warn);}
+.step code{font-family:var(--mono);font-size:12px;color:var(--body);}
+.step .grow{flex:1;}
+.step .rs{font-size:12px;color:var(--mid);}
+.tool{display:flex;align-items:center;gap:10px;padding:10px 13px;margin-bottom:10px;}
+.tool .tname{font-family:var(--mono);font-size:12px;color:var(--ink);}
+.tool .targ{font-size:12px;color:var(--mid);}
+.tool .grow{flex:1;min-width:0;}
+.pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;flex:none;}
+.pill.ok{color:var(--ok);background:rgba(93,184,114,.14);}
+.pill.warn{color:var(--warn);background:rgba(212,160,23,.16);}
+.pill.err{color:var(--err);background:rgba(198,69,69,.14);}
+
+/* 输入岛 */
+.island{flex:none;margin:0 12px 8px;height:56px;border-radius:22px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;}
+.island .ph{flex:1;font-size:14px;color:var(--mid);}
+.island .send{width:44px;height:44px;border-radius:999px;background:var(--accent-btn);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;}
+
+/* 记忆页 */
+.mode-strip{flex:none;display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--soft);border-bottom:1px solid var(--line);}
+.mode-strip .txt{font-size:12px;color:var(--mid);flex:1;}
+.searchbar{flex:none;margin:12px 16px 0;height:44px;border-radius:12px;background:var(--soft);border:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--mid);font-size:13.5px;}
+.mcard{padding:13px 14px;margin-bottom:12px;}
+.mcard .top{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.mcard .txt{font-size:14px;line-height:1.62;color:var(--body);}
+.mcard .meta{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;color:var(--mid);}
+.mcard .meta .grow{flex:1;}
+.bar{width:56px;height:4px;border-radius:999px;background:var(--line);overflow:hidden;}
+.bar i{display:block;height:100%;background:var(--accent);}
+.rain{display:flex;gap:5px;justify-content:center;padding:10px 0 2px;}
+.rain i{width:3px;height:3px;border-radius:999px;background:var(--line-strong);display:block;}
+
+/* ===== 右侧规格面板 ===== */
+.spec{width:470px;height:844px;flex:none;display:flex;flex-direction:column;gap:18px;}
+.panel{border:1px solid var(--board-line);border-radius:16px;padding:18px 20px;background:rgba(250,249,245,.035);}
+.panel h3{font-family:var(--serif);font-size:16px;font-weight:400;color:var(--board-fg);margin-bottom:12px;}
+.panel h3 span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--board-dim);margin-left:8px;}
+.ia{font-size:13px;line-height:1.85;color:var(--board-dim);}
+.ia .n{color:var(--board-fg);}
+.ia .k{color:var(--accent);font-family:var(--mono);font-size:11.5px;}
+.ia ul{list-style:none;margin-left:12px;border-left:1px solid var(--board-line);padding-left:14px;}
+.ia li{position:relative;}
+.ia li::before{content:'';position:absolute;left:-14px;top:12px;width:10px;height:1px;background:var(--board-line);}
+.spec-list{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12px;color:var(--board-dim);}
+.spec-list b{color:var(--board-fg);font-weight:500;font-family:var(--mono);font-size:11.5px;}
+.diff{font-size:12.5px;line-height:1.75;color:var(--board-dim);}
+.diff b{color:var(--board-fg);font-weight:500;}
+
+/* ===== 板尾 ===== */
+.foot{display:flex;gap:26px;flex:none;align-items:stretch;}
+.foot .panel{flex:1;}
+table.motion{width:100%;border-collapse:collapse;font-size:12px;color:var(--board-dim);}
+table.motion th{text-align:left;font-weight:500;font-size:10px;letter-spacing:.14em;color:var(--board-dim);padding-bottom:6px;font-family:var(--mono);}
+table.motion td{padding:4px 0;border-top:1px solid var(--board-line);vertical-align:top;}
+table.motion td:first-child{color:var(--board-fg);white-space:nowrap;padding-right:12px;}
+table.motion code{font-family:var(--mono);font-size:11px;color:var(--accent);}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;}
+.sw{display:flex;flex-direction:column;gap:5px;width:74px;}
+.sw i{height:26px;border-radius:6px;border:1px solid var(--board-line);display:block;}
+.sw span{font-family:var(--mono);font-size:9.5px;color:var(--board-dim);letter-spacing:.02em;}
+</style>
+</head>
+<body>
+<div class="board">
+
+  <!-- ================= 板头 ================= -->
+  <header class="head">
+    <div class="left">
+      <span class="tag">DIRECTION A</span>
+      <h1>卷宗 <em>Ledger</em></h1>
+      <span class="pos"><b>对话是家，工具收进抽屉。</b>　会话优先 · 单列长读 · 抽屉式二级</span>
+    </div>
+    <span class="mode-chip" id="modeChip">LIGHT</span>
+  </header>
+
+  <!-- ================= 行 1：助手列表 + 会话 ================= -->
+  <section class="row row-1">
+
+    <!-- 屏 1 · 助手列表 -->
+    <figure>
+      <figcaption><b>助手列表</b>　头像条 + 全部助手</figcaption>
+      <div class="device"><div class="screen">
+        <div class="status"><span>9:41</span><span class="ic"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"></span></span></div>
+        <div class="appbar">
+          <div class="grow"><h2>助手</h2><div class="sub">3 位 · 1 条未读</div></div>
+          <div class="iconbtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+        </div>
+        <div class="switcher">
+          <div class="item on"><div class="av s48 on">墨</div><span>阿墨</span></div>
+          <div class="item"><div class="av s48">拾</div><span>拾光</span></div>
+          <div class="item"><div class="av s48">满</div><span>小满</span></div>
+          <div class="item"><div class="av s48 chip ghost" style="border-style:dashed;color:var(--muted-soft);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div><span>新建</span></div>
+        </div>
+        <hr class="rule" style="margin:0 16px;">
+        <div class="body-scroll">
+          <div class="sec-label"><span>全部助手</span><a>归档 ›</a></div>
+          <div class="arow">
+            <div class="av s40 on">墨</div>
+            <div class="info">
+              <div class="nm">阿墨</div>
+              <div class="meta">12 分钟前 · 第 42 周周报</div>
+            </div>
+            <div class="right"><span class="chip">deepseek-v4-pro</span><span class="dot-unread"></span></div>
+          </div>
+          <div class="arow">
+            <div class="av s40">拾</div>
+            <div class="info">
+              <div class="nm">拾光</div>
+              <div class="meta">昨天 · 素材归类与去重</div>
+            </div>
+            <div class="right"><span class="chip">glm-5.3</span></div>
+          </div>
+          <div class="arow">
+            <div class="av s40">满</div>
+            <div class="info">
+              <div class="nm">小满</div>
+              <div class="meta">9 月 6 日 · 日程整理</div>
+            </div>
+            <div class="right"><span class="chip">deepseek-v4-flash</span></div>
+          </div>
+          <div class="arow" style="border-bottom:none;">
+            <div class="av s40">砚</div>
+            <div class="info">
+              <div class="nm">砚秋</div>
+              <div class="meta">8 月 30 日 · 稿件校对</div>
+            </div>
+            <div class="right"><span class="chip">glm-5.3-flash</span></div>
+          </div>
+          <div class="rain"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="card" style="border-style:dashed;background:transparent;padding:16px;text-align:center;font-size:13px;color:var(--muted);">新建助手 · 或从已有助手复制</div>
+        </div>
+        <div class="gesture"><i></i></div>
+      </div></div>
+    </figure>
+
+    <!-- 屏 2 · 会话 -->
+    <figure>
+      <figcaption><b>会话页</b>　markdown + 思考卡 + 工具卡 + 步骤组</figcaption>
+      <div class="device"><div class="screen">
+        <div class="status"><span>9:41</span><span class="ic"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"></span></span></div>
+        <div class="appbar">
+          <div class="iconbtn plain">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </div>
+          <div class="grow"><h2>阿墨</h2><div class="sub">第 42 周周报</div></div>
+          <div class="iconbtn plain">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </div>
+        </div>
+        <div class="body-scroll" style="padding-top:14px;">
+          <div class="msg">
+            <div class="bub me">把第 42 周会议整理成周报。</div>
+          </div>
+
+          <div class="think card live">
+            <div class="row1">
+              <span class="pulse"></span><span class="lbl">THINKING</span>
+              <span class="grow" style="flex:1"></span><span class="lbl" style="letter-spacing:0">12s</span>
+            </div>
+            <div class="sum">正在梳理 5 份会议记录，召回 3 条记忆…</div>
+          </div>
+
+          <div class="steps card">
+            <div class="hd">
+              <span class="n">5 步</span><span class="t">· 12.4s</span>
+              <span class="grow"></span>
+              <span class="lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted-soft);letter-spacing:.1em">收起</span>
+            </div>
+            <div class="list">
+              <div class="step"><span class="bul"></span><code>memory_search</code><span class="grow"></span><span class="rs">3 命中</span></div>
+              <div class="step"><span class="bul"></span><code>workspace_read</code><span class="grow"></span><span class="rs">×2</span></div>
+              <div class="step"><span class="bul"></span><code>workspace_write</code><span class="grow"></span><span class="rs">1.2 KB</span></div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="name">阿墨</div>
+            <div class="bub ai">
+              <h3>第 42 周周报</h3>
+              <p>本周 5 场会议，2 个里程碑，遗留 <span class="hl">三条待决事项</span>。</p>
+              <ul>
+                <li>设计评审改期至下周三</li>
+              </ul>
+              <div class="code">## 待决事项
+- [ ] 评审改期确认
+- [ ] 额度复核<div class="fold">已折叠 18 行 · 点击展开</div></div>
+            </div>
+          </div>
+
+          <div class="tool card">
+            <div class="grow" style="display:flex;align-items:baseline;gap:7px;">
+              <span class="tname">workspace_write</span>
+              <span class="targ">week-42.md · 1.2 KB</span>
+            </div>
+            <span class="pill ok">成功</span>
+          </div>
+        </div>
+        <div class="island">
+          <span class="ph">继续写…</span>
+          <span style="color:var(--muted);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18.5V5.5m0 0L6.5 11M12 5.5L17.5 11"/></svg>
+          </span>
+          <span class="send">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"/></svg>
+          </span>
+        </div>
+        <div class="gesture"><i></i></div>
+      </div></div>
+    </figure>
+  </section>
+
+  <!-- ================= 行 2：记忆 + 规格面板 ================= -->
+  <section class="row row-2">
+
+    <!-- 屏 3 · 记忆 -->
+    <figure>
+      <figcaption><b>记忆页</b>　混合检索 · 类型 + 相似度</figcaption>
+      <div class="device"><div class="screen">
+        <div class="status"><span>9:41</span><span class="ic"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"></span></span></div>
+        <div class="appbar">
+          <div class="iconbtn plain">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </div>
+          <div class="grow"><h2>记忆</h2><div class="sub">阿墨 · 24 条</div></div>
+          <div class="iconbtn plain">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+          </div>
+        </div>
+        <div class="mode-strip">
+          <span class="chip coral">混合</span>
+          <span class="txt">TopK 8 · 阈值 0.35 · 最近 5 条</span>
+        </div>
+        <div class="searchbar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+          搜索记忆…
+        </div>
+        <div class="body-scroll" style="padding-top:14px;">
+          <div class="mcard card">
+            <div class="top"><span class="chip">事实</span><span class="chip" style="border:none;background:transparent;color:var(--muted-soft);padding-left:0;">本次召回</span></div>
+            <div class="txt">第 42 周会议里，设计评审延到下周三。</div>
+            <div class="meta"><span>agent</span><span>·</span><span>12 分钟前</span><span class="grow"></span><span>0.88</span><span class="bar"><i style="width:88%"></i></span></div>
+          </div>
+          <div class="mcard card">
+            <div class="top"><span class="chip">偏好</span></div>
+            <div class="txt">周报按「进展 / 风险 / 下周」三段写，不要表格。</div>
+            <div class="meta"><span>user</span><span>·</span><span>昨天</span><span class="grow"></span><span>0.76</span><span class="bar"><i style="width:76%"></i></span></div>
+          </div>
+          <div class="mcard card">
+            <div class="top"><span class="chip">任务</span></div>
+            <div class="txt">把 week-42 周报发给产品群，等评审改期确认后。</div>
+            <div class="meta"><span>agent</span><span>·</span><span>昨天</span><span class="grow"></span><span>0.71</span><span class="bar"><i style="width:71%"></i></span></div>
+          </div>
+          <div class="mcard card">
+            <div class="top"><span class="chip">笔记</span></div>
+            <div class="txt">沙盒里 <code style="font-family:var(--mono);font-size:12.5px;">rg</code> 比 grep 快，已 apk add。</div>
+            <div class="meta"><span>user</span><span>·</span><span>9 月 4 日</span><span class="grow"></span><span>0.64</span><span class="bar"><i style="width:64%"></i></span></div>
+          </div>
+          <div class="rain"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="gesture"><i></i></div>
+      </div></div>
+    </figure>
+
+    <!-- 规格面板 -->
+    <aside class="spec">
+      <div class="panel">
+        <h3>信息架构 <span>IA / NAVIGATION</span></h3>
+        <div class="ia">
+          <div class="n">助手层入口</div>
+          <ul>
+            <li><span class="k">会话</span>（家 · 一级）</li>
+            <li>顶栏 <span class="k">⋯</span> → 抽屉</li>
+            <li style="padding-left:16px;border-left:1px solid var(--board-line);">
+              记忆 · 技能 · MCP · 工作区 · 终端 · 设置
+            </li>
+            <li>头像条 → <span class="k">全部助手</span></li>
+            <li>底部输入岛（键盘邻接，不入玻璃族）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>布局与密度 <span>GRID / DENSITY</span></h3>
+        <div class="spec-list">
+          <div>边距 <b>16 dp</b></div><div>栅格 <b>单列</b></div>
+          <div>列表行 <b>68 dp</b></div><div>抽屉行 <b>56 dp</b></div>
+          <div>会话/屏 <b>7 条</b></div><div>记忆/屏 <b>5 条</b></div>
+          <div>气泡圆角 <b>16 dp</b></div><div>输入岛 <b>22 dp</b></div>
+          <div>正文 <b>14 px / 1.65</b></div><div>caption <b>12 px</b></div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;">
+        <h3>组件形态 <span>COMPONENTS</span></h3>
+        <div class="diff">
+          <b>AI 气泡</b> surface-soft + hairline，名牌 Lora 13dp muted；<br>
+          <b>用户气泡</b> #F1E3D9 + coral-300 边（暗 coral-50 + coral 边）；<br>
+          <b>思考卡</b> surface-card + hairline，live 态 coral 描边（实装按 DESIGN.md 磨砂配方）；<br>
+          <b>工具卡</b> 单行 52dp：等宽工具名 + 状态 pill + 耗时；<br>
+          <b>步骤组</b> 折叠头「N 步 · 总耗时」+ 缩进步骤行；<br>
+          <b>输入岛</b> surface-card 实底 + 44dp coral 圆发送键。
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ================= 板尾 ================= -->
+  <footer class="foot">
+    <div class="panel">
+      <h3>动效叙事 <span>MOTION</span></h3>
+      <table class="motion">
+        <tr><td>会话进入</td><td>右移 12dp + 淡入 <code>200ms</code>；返回 <code>140ms</code></td></tr>
+        <tr><td>抽屉</td><td>右滑入 <code>200ms</code> + scrim；关闭 <code>140ms</code></td></tr>
+        <tr><td>消息进入</td><td>上移 8dp + 淡入 <code>200ms</code></td></tr>
+        <tr><td>流式渲染</td><td>三通道统一节流 <code>100ms</code></td></tr>
+        <tr><td>缓动</td><td><code>cubic-bezier(.23,1,.32,1)</code></td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>色板（DESIGN.md token） <span>PALETTE</span></h3>
+      <div class="swatches">
+        <div class="sw"><i style="background:#FAF9F5"></i><span>#FAF9F5</span></div>
+        <div class="sw"><i style="background:#F5F0E8"></i><span>#F5F0E8</span></div>
+        <div class="sw"><i style="background:#EFE9DE"></i><span>#EFE9DE</span></div>
+        <div class="sw"><i style="background:#E6DFD8"></i><span>#E6DFD8</span></div>
+        <div class="sw"><i style="background:#CC785C"></i><span>#CC785C</span></div>
+        <div class="sw"><i style="background:#A9583E"></i><span>#A9583E</span></div>
+        <div class="sw"><i style="background:#F1E3D9"></i><span>#F1E3D9</span></div>
+        <div class="sw"><i style="background:#141413"></i><span>#141413</span></div>
+        <div class="sw"><i style="background:#171614"></i><span>#171614</span></div>
+        <div class="sw"><i style="background:#2B2824"></i><span>#2B2824</span></div>
+        <div class="sw"><i style="background:#D97757"></i><span>#D97757</span></div>
+        <div class="sw"><i style="background:#DED9CF"></i><span>#DED9CF</span></div>
+      </div>
+      <div class="diff" style="margin-top:14px;">
+        <b>工程备注</b> 高频面（气泡 / 输入岛 / 列表行 / 工具卡）实底、零 backdrop-filter、零常驻 will-change；
+        静态稿一律不启用 blur（headless 截图会挂起）；思考卡实装按 DESIGN.md 保留磨砂。
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  var m = new URLSearchParams(location.search).get('mode') === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-mode', m);
+  document.getElementById('modeChip').textContent = m.toUpperCase();
+</script>
+</body>
+</html>

@@ -314,3 +314,55 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   IndexedDB 随 saveData 持久化；**不使用**独立 localStorage 键）；
 - 系统栏：`applyThemeMode` → `LuzzyBridge.setSystemBarStyle`（见桥接实现）；
 - 迁移：老用户（savedSettings 无 theme）→ classic；新用户默认 luzzy/light + luzzy 字体。
+
+## 助手原生页（v1.5.0 · Compose 原生 UI）
+
+> **方向选定：A · 卷宗（Ledger）**（2026-09-09 用户拍板；三方向产出与截图见
+> `docs/design/assistant-v1/`，决策记录见 `docs/design/direction-approved-assistant.md`）。
+> 本页是**原生 Compose**，不经过 WebView，但**必须复用同一套 token**——色板/字体/圆角/
+> 动效一律取自本文档，禁止临场发明（硬性规定 9 第 3 步）。
+
+### 信息架构
+
+- **无一级导航**：会话即家（首屏 = 会话列表）；
+- 二级收进**右侧抽屉**（记忆 / 技能 / MCP / 工作区 / 终端 / 设置），抽屉右滑 12dp + 淡入 200ms、返回 140ms；
+- 助手切换：列表页头部条「全部助手」→ 切换器；会话页头部条显示当前助手。
+
+### 布局与密度
+
+| 项 | 值 |
+|----|-----|
+| 内容边距 | 16dp（单列） |
+| 会话行 | 68dp；单屏 7 条 |
+| 记忆行 | 56dp；单屏 5 条 |
+| 气泡圆角 | 16dp |
+| 输入岛圆角 | 22dp；发送键 44dp（coral 实心圆） |
+| 正文 / 行高 | 14px / 1.65；caption 12px |
+| display 尺度 | Lora 17dp（克制） |
+
+### 组件映射
+
+| 组件 | 规格 |
+|------|------|
+| AI 气泡 | `surface-soft` 底 + hairline 边 |
+| 用户气泡 | `#F1E3D9` 底 + coral-300 边 |
+| 思考卡 | `surface-card` + hairline；执行中 live coral 描边；默认折叠 |
+| 工具卡 | 单行 52dp（等宽工具名 + 状态 pill + 耗时）；默认折叠 |
+| 步骤组 | 头部「N 步 · 总耗时」+ 缩进步骤行；默认折叠 |
+| 输入岛 | `surface-card` 实底（**禁 backdrop-filter**，v1.3.0 性能档位） |
+| 记忆行 | 类型标签 + 正文 + `agent/user · 时间` + 相似度条（`primary-500`） |
+
+### 动效
+
+进入 200ms / 退出 140ms / `cubic-bezier(0.23,1,0.32,1)`；禁 `scale(0)` 起步（用 `scale(0.96)` + 透明度）；
+尊重系统「减少动态效果」；高频滚动/流式路径上的表面一律实底，玻璃只上低频 chrome。
+
+### 字体（硬性规定 4）
+
+- 正文/UI：**Alibaba PuHuiTi 3.0**（Regular/Medium/Bold，本地 TTF）；
+- display：**Lora**（拉丁）+ **PuHuiTi**（中文）经 `Typeface.CustomFallbackBuilder` 串成逐字形回退链
+  （API 29+；26-28 退化为 Lora + 系统衬线）；
+- **平台偏差**：Compose 的 `FontFamily` 不做逐字形回退（与 CSS `font-family` 栈语义不同），
+  故正文主族取 PuHuiTi 而非 AlibabaSans——观感与 Web 端一致，但拉丁字形来自 PuHuiTi；
+- 转换工具 `tools/assistant-fonts.py`（woff2 → TTF）；**禁止**运行时 CDN（硬性规定 4）；
+- 体积：8 枚 TTF 约 21.2MB（用户 2026-09-09 确认）。

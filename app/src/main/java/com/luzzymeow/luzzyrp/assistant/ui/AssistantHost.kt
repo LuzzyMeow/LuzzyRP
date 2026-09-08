@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.luzzymeow.luzzyrp.assistant.runtime.AssistantRuntimeProvider
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantChatViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantListViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.component.SideDrawerContent
 import com.luzzymeow.luzzyrp.assistant.ui.model.SampleData
 import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
@@ -64,11 +65,17 @@ fun AssistantApp(
 private fun AssistantRoot(onExit: () -> Unit) {
     var route by remember { mutableStateOf<AssistantRoute>(AssistantRoute.ChatList) }
     var drawerOpen by remember { mutableStateOf(false) }
-    var selectedAssistantId by remember { mutableStateOf(SampleData.assistants.first().id) }
 
-    val assistants = SampleData.assistants
-    val selectedAssistant = assistants.firstOrNull { it.id == selectedAssistantId } ?: assistants.first()
-    val conversations = SampleData.conversations.filter { it.assistantId == selectedAssistantId }
+    val context = LocalContext.current
+    val runtime = remember(context) { AssistantRuntimeProvider.get(context) }
+    val listVm: AssistantListViewModel = viewModel(
+        factory = viewModelFactory { initializer { AssistantListViewModel(runtime) } },
+    )
+    val listState by listVm.state.collectAsStateWithLifecycle()
+
+    val assistants = listState.assistants
+    val selectedAssistant = assistants.firstOrNull { it.id == listState.selectedId }
+    val conversations = listState.conversations
 
     // 返回键优先级：抽屉 → 二级页 → 退出助手层（PLAN §2.3）
     BackHandler(enabled = true) {
@@ -102,25 +109,23 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     assistants = assistants,
                     selectedAssistant = selectedAssistant,
                     conversations = conversations,
-                    onSelectAssistant = { selectedAssistantId = it },
+                    onSelectAssistant = listVm::select,
                     onOpenManager = { route = AssistantRoute.AssistantManager },
                     onOpenConversation = { route = AssistantRoute.Chat(it) },
                     onOpenDrawer = { drawerOpen = true },
-                    onNewConversation = { route = AssistantRoute.Chat("new") },
+                    onNewConversation = { listVm.createConversation { id -> route = AssistantRoute.Chat(id) } },
                 )
 
                 is AssistantRoute.Chat -> {
-                    val context = LocalContext.current
-                    val runtime = remember(context) { AssistantRuntimeProvider.get(context) }
                     val chatVm: AssistantChatViewModel = viewModel(
                         key = "chat-${current.conversationId}",
                         factory = viewModelFactory {
                             initializer {
                                 AssistantChatViewModel(
                                     runtime = runtime,
-                                    assistantId = selectedAssistant.id,
+                                    assistantId = selectedAssistant?.id.orEmpty(),
                                     conversationId = current.conversationId,
-                                    assistantName = selectedAssistant.name,
+                                    assistantName = selectedAssistant?.name ?: "助手",
                                     systemPrompt = "",
                                     workspacePath = "files/",
                                 )
@@ -219,8 +224,8 @@ private fun AssistantRoot(onExit: () -> Unit) {
                 if (visible) {
                     SideDrawerContent(
                         entries = AssistantRoute.drawerEntries,
-                        assistantName = selectedAssistant.name,
-                        modelLabel = selectedAssistant.modelLabel,
+                        assistantName = selectedAssistant?.name ?: "助手",
+                        modelLabel = selectedAssistant?.modelLabel ?: "未配置模型",
                         onSelect = { entry -> route = entry.route },
                         onClose = { drawerOpen = false },
                     )

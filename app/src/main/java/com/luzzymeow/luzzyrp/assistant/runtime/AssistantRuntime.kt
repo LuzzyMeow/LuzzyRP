@@ -86,6 +86,9 @@ class AssistantRuntime(
         policy = ApprovalGate.POLICY_PER_CALL,
     )
 
+    /** 数据仓库（P2 持久化：会话/消息/检索/导出）。 */
+    val repository: AssistantRepository = AssistantRepository(database)
+
     val workspaceManager: WorkspaceManager = WorkspaceManager(context)
 
     val memoryStore: RoomMemoryStore = RoomMemoryStore(

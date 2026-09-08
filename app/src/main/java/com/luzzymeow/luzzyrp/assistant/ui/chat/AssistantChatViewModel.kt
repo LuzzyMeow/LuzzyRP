@@ -60,6 +60,34 @@ class AssistantChatViewModel(
     private var approvalDeferred: CompletableDeferred<Boolean>? = null
     private var pendingApprovalCall: ToolCall? = null
 
+    init {
+        viewModelScope.launch { restoreHistory() }
+    }
+
+    /** 从 Room 恢复会话（P2：重启后完整恢复）。 */
+    private suspend fun restoreHistory() {
+        val rows = runCatching { runtime.repository.messages(conversationId) }.getOrDefault(emptyList())
+        if (rows.isEmpty()) return
+        history.clear()
+        history += runtime.repository.toLlmMessages(rows)
+        _state.value = _state.value.copy(
+            messages = rows.map { row ->
+                MessageUi(
+                    id = row.id,
+                    role = when (row.role) {
+                        "user" -> MessageRoleUi.USER
+                        "assistant" -> MessageRoleUi.ASSISTANT
+                        else -> MessageRoleUi.SYSTEM
+                    },
+                    content = row.content,
+                    thinking = row.reasoning?.takeIf { it.isNotBlank() }?.let { reasoning ->
+                        ThinkingUi(summary = reasoning.lineSequence().first().take(48), fullText = reasoning, durationLabel = "—")
+                    },
+                )
+            },
+        )
+    }
+
     // ------------------------------------------------------------------
     // 对外动作
     // ------------------------------------------------------------------
@@ -75,7 +103,18 @@ class AssistantChatViewModel(
             ),
         )
         cancelled = false
-        runJob = viewModelScope.launch { startRunInternal(text) }
+        runJob = viewModelScope.launch {
+            // 先落库（用户消息 + 自动标题），再跑循环——保证崩溃也能恢复
+            runCatching {
+                runtime.repository.appendMessage(
+                    conversationId = conversationId,
+                    role = "user",
+                    content = text,
+                )
+                runtime.repository.autoTitleIfNeeded(conversationId, text)
+            }
+            startRunInternal(text)
+        }
     }
 
     /** 用户点「停止」：置位协作式取消信号，循环会在下一个检查点发 cancelled。 */

@@ -189,29 +189,3 @@ fun MemoryScreen(
         )
     }
 }
-
-/**
- * 管理页占位（技能 / MCP / 工作区 / 终端 / 设置）。
- *
- * 方向 A 的抽屉六项在 P0 全部可达；未实现项给「规划中」占位而非空白页
- * （避免用户以为功能坏了）。P2/P3 按 PLAN §8/§9/§10/§11 逐项替换。
- */
-@Composable
-fun PlaceholderScreen(
-    title: String,
-    note: String,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = LuzzyTheme.colors
-    Column(modifier = modifier.fillMaxSize().background(colors.canvas)) {
-        PageHeader(title = title, onBack = onBack)
-        Text(
-            text = note,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.muted,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        EmptyState(title = "规划中", hint = "该页将在 v1.5.0 后续阶段接入。")
-    }
-}

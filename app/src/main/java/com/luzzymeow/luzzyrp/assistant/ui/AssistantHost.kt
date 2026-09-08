@@ -36,7 +36,9 @@ import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantListViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.mcp.McpViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.memory.MemoryViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.screen.McpScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.SettingsScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.TerminalScreen
+import com.luzzymeow.luzzyrp.assistant.ui.settings.SettingsViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.screen.WorkspaceScreen
 import com.luzzymeow.luzzyrp.assistant.ui.terminal.TerminalViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.workspace.WorkspaceViewModel
@@ -48,7 +50,6 @@ import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.ChatListScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.ChatScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.MemoryScreen
-import com.luzzymeow.luzzyrp.assistant.ui.screen.PlaceholderScreen
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyAssistantTheme
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyMotion
 
@@ -282,11 +283,30 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     )
                 }
 
-                AssistantRoute.Settings -> PlaceholderScreen(
-                    title = "设置",
-                    note = "提示词与模型 / 参数 / 请求体扩展 / 预览最终请求（密钥脱敏）。",
-                    onBack = { route = AssistantRoute.ChatList },
-                )
+                AssistantRoute.Settings -> {
+                    val settingsVm: SettingsViewModel = viewModel(
+                        key = "settings-${selectedAssistant?.id}",
+                        factory = viewModelFactory {
+                            initializer { SettingsViewModel(runtime, selectedAssistant?.id.orEmpty()) }
+                        },
+                    )
+                    val settingsState by settingsVm.state.collectAsStateWithLifecycle()
+                    SettingsScreen(
+                        state = settingsState,
+                        onName = settingsVm::updateName,
+                        onPrompt = settingsVm::updateSystemPrompt,
+                        onModel = settingsVm::updateModelRef,
+                        onTemperature = settingsVm::updateTemperature,
+                        onTopP = settingsVm::updateTopP,
+                        onMaxTokens = settingsVm::updateMaxTokens,
+                        onExtraBody = settingsVm::updateExtraBody,
+                        onMemoryMode = settingsVm::updateMemoryMode,
+                        onTogglePreview = settingsVm::togglePreview,
+                        onSave = settingsVm::save,
+                        onDismissMessage = settingsVm::dismissMessage,
+                        onBack = { route = AssistantRoute.ChatList },
+                    )
+                }
             }
         }
 

@@ -20,7 +20,7 @@
 > - 修改范围：安卓壳封装、资源离线化、品牌化、独立扩展层（详见 [CHANGELOG](CHANGELOG.md)）；
 > - 上游原 LICENSE 文件保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布。
 
-![Status](https://img.shields.io/badge/Status-v1.3.0--正式版·可游玩-10B981)
+![Status](https://img.shields.io/badge/Status-v1.4.0--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.1-4FC08D?logo=vue.js&logoColor=white)
@@ -245,7 +245,7 @@ LuzzyRP/
 
 ## 版本规划
 
-**当前版本**：[v1.3.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
+**当前版本**：[v1.4.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
 
 > [!TIP]
 > 本页不再逐版维护版本说明——历史版本一律看 [CHANGELOG](CHANGELOG.md) 与

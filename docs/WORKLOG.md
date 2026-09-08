@@ -1930,3 +1930,64 @@ D3-A 保留「开卷」开屏；D4-A 新功能默认值原样。
 ④三方合并冲突块 `git merge-file -p ours base theirs` 标记语义：第一个侧=ours（1.9.2+字符串块）、
 第二个侧=theirs（v1.3.0）；⑤v1.3.0 旧版提取必须用 2056a2c6（v1.3.0 发布提交），不能用 HEAD~N
 （HEAD 已含覆盖提交）。
+
+---
+
+### 会话 25 · v1.4.0 遗留项收尾（2026-09-08）
+
+**开始**：用户指示按顺序完成会话 24 遗留的六个步骤（index.html 三处缺陷 → 指纹表 →
+实体重放通道 → 阶段 3 收尾 → 阶段 4 桌面冒烟 → 阶段 5-6 发版准备）。
+
+**完成**：
+
+1. ✅ **index.html 三处缺陷修复（commit 32e1434b）**：①开屏区混合体（上游 entry-transition
+   书本动画 + luzzy-splash 残骸、七结构节点与 027 注释丢失）→ 用 v1.3.0（2056a2c6）行
+   164-184 完整 splash 块整块替换（21 行，含 027 注释 4 行），`entry-transition` 彻底退役；
+   ②补回 001/004/006 标记注释（对照 v1.3.0 原样）；③删除 `fonts.googleapis.com` preconnect
+   两行（硬性规定 4）。diff 16+/18−（无整文件伪 diff，行尾保持纯 CRLF）。
+   **verify-markers 67→72 PASS**（003/004/006-local-fonts/006-no-gfonts/027 五项转 PASS）。
+2. ✅ **指纹表更新（commit 323c4c20）**：全表 14 项以 d2f2625 基线重算 SHA-256（工作树字节），
+   头部注释更新为 1.9.2；**R1/R2 转 PASS（74 PASS / 1 FAIL）**。逐字节实证：built-in-content.js
+   （nsfw 对象）、styles.css、presence.js、update-check.js 与上游工作树一致。
+3. ✅ **实体重放通道修复（commit 839e2d3b）——根因三层，会话 24「git apply 静默失败」实为误判**：
+   - **根因①（脚本顺序）**：实体前像 = 上游纯净基线，但脚本先跑字符串块改写了 index.html/
+     app.js（CRLF + 内容变更），前像失配 → 实体段必然 FAIL。修复=**实体段移到字符串块段之前**
+     （脚本内两段重排，字符串块随后全部 SKIP）。
+   - **根因②（stderr 终止）**：`git apply` 的 trailing-whitespace 告警写 stderr，
+     `$ErrorActionPreference='Stop'` 下 PowerShell 视为终止错误 → **第 4 枚实体后脚本整体中断**
+     （前 3 枚 OK 是巧合）。修复=git 调用临时置 Continue + stderr 落盘 + 应用后强制校验标记落盘。
+   - **根因③（基线判定口径）**：指纹表存主仓库 CRLF 字节哈希，上游覆盖态是 LF 检出，必然不等。
+     修复=**前像判定改用实体头 `index <pre>..<post>` 的 pre**，与目标文件 LF 归一 blob id
+     （`git hash-object` 同构）比对，另留上游基线兜底。
+   - **index.html 实体以 1.9.2 基线重新生成**（含会话 25 补回的 001/004/006 标记与 preconnect 删除）。
+   - **验证**：仓库外逆向 9/9 PASS（上游基线 → apply 实体 → 与工作树 LF 归一逐字节一致）；
+     纯净基线端到端重放 **9/9 PASS**（apply-patches.ps1 实跑，9 枚全部 `[ OK ]` 且结果与工作树一致）。
+   - **关键教训（写入坑表）**：`git apply` 在仓库内**按仓库根解析 patch 路径**——从嵌套目录
+     执行时路径不匹配会静默跳过（返回 0 且不改文件）；验证类脚本必须在**仓库外**目录执行，
+     或用 `--directory=<仓库相对路径>` 从仓库根执行。
+4. ✅ **阶段 3 收尾**：全 JS `node --check` **17/17 PASS**（rphub 9 + ext 4 + 其他）；
+   verify-markers **75 PASS / 0 FAIL**（R3 由 gen-changelog 解决）；apply-patches 已应用态
+   全 SKIP（实体 9 + 字符串块 11）。
+5. ✅ **阶段 4 桌面冒烟（Edge headless 152 + CDP）**：tools/desktop-smoke.cjs 全绿
+   （品牌卡固定文案 / 供应商管理器仅 DeepSeek + 编辑按钮 / 035 编辑器：无冲突误报 + 图标行 +
+   id 锁定标签 / **零异常**）；补充冒烟（临时脚本，已清理）：开屏「开卷」七节点齐全且已隐去、
+   `data-theme=luzzy` + `data-mode=light` 首帧正确、`entry-transition` 不存在、侧栏品牌
+   Luzzy+RP 同构渲染、外观页（亮/暗预览卡 + 字体样张 + 模式/字体/字号）、设置页（沉浸模式开关
+   可切且 checked 态翻转、存储自动统计、界面主题已移除=028 单轨、API URL 可编、供应商选择器）、
+   记忆页「记忆内容管理」卡在位、上游新功能可见性（storyPanels 预设 + `<story_panels>` 协议、
+   immersiveMode 字段与 watch、CharacterDeck 组件注册、全屏已下线）。
+6. ⏳ **阶段 5-6**：CHANGELOG v1.4.0「开发中」章节 + gen-changelog（README/应用内同步，
+   R3 绿）+ versionCode 11→12 / versionName 1.4.0（commit a6f1eac0）→ assembleDebug →
+   真机（小米 df97f3c4）install -r → 用户验证 → release。
+
+**决策记录（用户已拍板，勿再问）**：D1-A 全屏继续下线；D2-A 抗截断采纳上游 output_reply
+协议；D3-A 保留「开卷」开屏；D4-A 新功能默认值原样。
+
+**遗留 / 下一步**：
+- debug 包真机安装 + 用户人工验证（§6.2 全量 + 新功能专项：剧情面板/沉浸模式/CharacterDeck/
+  快捷面板/抗截断 + 开屏「开卷」+ 工坊页首屏）；
+- 用户确认后发布 release（三件套 APK + notes 源文件 docs/release-notes-v1.4.0.md 待写）；
+- AGENTS §9 快照更新至 v1.4.0 / 1.9.2 / 75 PASS（发版时一并）；
+- **坑（本会话新踩）**：①`git apply` 仓库内按仓库根解析路径（嵌套目录执行静默跳过）；
+  ②PowerShell `$ErrorActionPreference='Stop'` 下原生命令 stderr 会中断脚本（需临时 Continue）；
+  ③行尾归一化脚本必须保持整文件 CRLF（按 `\n` 切分再 join 会引入裸 CR/LF 造成整文件伪 diff）。

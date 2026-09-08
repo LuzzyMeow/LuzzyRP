@@ -72,7 +72,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
 | `tools/sync-upstream.ps1` | 上游同步脚本 | fetch → 覆盖 → patch 重放 → 报告 |
-| `tools/apply-patches.ps1` | patch 重放脚本 | 001-011 字符串重放 + 007/009/012-020 实体 patch（`patches/entities/`，指纹基线判定） |
+| `tools/apply-patches.ps1` | patch 重放脚本 | **两段重放，顺序关键**：① 实体段（`patches/entities/`，前像 = 上游纯净基线，须先落盘）→ ② 字符串块段（001-011，实体已覆盖同名改动多为 SKIP）；前像判定用实体头 `index pre` 的 LF 归一 blob id（见 §7 坑表） |
 | `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行）；**同时自动同步 README Status 徽章与「当前版本」行**（README 版本说明已收敛至 CHANGELOG，逐版表格移除） |
@@ -394,14 +394,40 @@ Luzzy.copyToClipboard = function (text) {
 | **Tailwind CDN 不接受 var() 颜色值** | ~~已证伪~~：JIT 接受纯 var()，但见下一行真正的坑 |
 | **主题色板必须用 RGB 三元组 + `<alpha-value>`** | 纯 `var()` 色值下基本工具类正常，但带透明度修饰符的类（`bg-gray-50/60` 等）会**静默回退纯白**（暗色白块根因，不报错难排查）。正确写法：config 用 `rgb(var(--tw-gray-50) / <alpha-value>)` + 变量存三元组如 `250 249 245`（2026-09-01 jsdom+CDP 双实证，见 §9） |
 | **~~改 assets 不 bump EXTRACT_VERSION = 白改~~（v1.2.3 已根治）** | 构建期 assetSignature（文件数+大小+mtime）注入 BuildConfig.ASSET_SIGNATURE，AssetExtractor 启动比对签名自动重解压——改资产零手动操作；若签名粒度漏检（同 mtime/size 改写）仍可手动 bump 兜底 |
+| **`git apply` 在仓库内按「仓库根」解析 patch 路径**（会话 25 实证） | 从嵌套目录执行时路径不匹配会**静默跳过**（返回 0 且不改文件）——「返回 0 但行未插入」的假象来源。验证/重放脚本一律在**仓库外**目录执行，或从仓库根配 `--directory=<仓库相对路径>` |
+| **PowerShell `$ErrorActionPreference='Stop'` 下原生命令 stderr 会中断脚本**（会话 25 实证） | `git apply` 的 trailing-whitespace 告警写 stderr 即触发终止错误（表现为脚本跑到第 N 条莫名中断）。调用原生工具前临时置 `'Continue'` 并把 stderr 落盘，仅在退出码非 0 时读取 |
+| **实体前像 = 上游纯净基线**（会话 25 修正） | 实体段必须先于字符串块重放（否则前像失配）；前像判定用实体头 `index <pre>` 的 LF 归一 blob id，勿用指纹表（CRLF 工作树哈希）比对覆盖态 |
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-06 会话 21 快照 · v1.3.0 已发布 · 上游基线 1.9.1）
+## 9. 当前状态与已知问题（2026-09-08 会话 25 快照 · v1.4.0 开发中 · 上游基线 1.9.2）
 
-> 完整过程见 `docs/WORKLOG.md` 会话 15-21。上游基线 RP-Hub **1.9.1**（2026-09-05 会话 21 二次同步）。
+> 完整过程见 `docs/WORKLOG.md` 会话 24-25。上游基线 RP-Hub **1.9.2**（commit `d2f2625`，
+> 2026-09-08 同步）。参考克隆锚定 `d2f2625`（**合并全程只引用该工作树**，勿用 HEAD~N）。
 
-### 版本状态（2026-09-05 · 会话 21）
+### 版本状态（2026-09-08 · 会话 25）
+
+- **v1.4.0 开发中**（versionCode 12 / versionName 1.4.0，上游基线 1.9.2）：同步上游 1.9.2
+  （UI 实时生成剧情面板 `story_panels` / 沉浸模式 `immersiveMode` / CharacterDeck / 主动工具
+  调用改原生 toolCalls / 快捷面板密度 / 抗截断改 `output_reply` 工具协议）——决策 D1-A 全屏
+  继续下线、D2-A 抗截断采纳上游协议、D3-A 保留「开卷」开屏、D4-A 新功能默认值原样。
+  debug 包已装真机（小米 df97f3c4，versionCode 12 / 1.4.0-debug，install -r 数据保留）；
+  **release 待用户真机验证通过后发布**。
+- **门禁现状**：verify-markers **75 PASS / 0 FAIL**（实体 9 枚以 d2f2625 基线再生成，
+  仓库外逆向 9/9 PASS + 纯净基线端到端重放 9/9 PASS；全 JS `node --check` 17/17）。
+- **会话 25 修复**：index.html 开屏区混合体恢复完整「开卷」块 + 补回 001/004/006 标记 +
+  删除 Google Fonts preconnect（003/004/006/027 五项转 PASS）；指纹表全表更新至 d2f2625
+  （R1/R2 转 PASS）；**实体重放通道三层根因修复**（脚本顺序：实体段先于字符串块；前像判定：
+  实体头 `index pre` 的 LF 归一 blob id；git stderr 隔离 + 落盘校验）。
+- **待办**：用户真机人工验证（§6.2 全量 + 新功能专项：剧情面板/沉浸模式/CharacterDeck/
+  快捷面板/抗截断 + 开屏「开卷」+ 工坊页首屏）→ 用户确认后 `assembleRelease` + push +
+  GitHub Release（notes 源文件 `docs/release-notes-v1.4.0.md` 待写）→ AGENTS 本节快照
+  更新为「正式版已发布」。
+- **明确不做（本版）**：剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制（先 classic
+  样式交付，真机体验后按硬性规定 9 走设计流程）、styles.css 低频硬编码蓝收编、向量阈值
+  滑杆、「荧光笔落笔」动效、深链、自建更新检查。
+
+### 版本状态（2026-09-05 · 会话 21 · 历史快照）
 
 - **v1.3.0 正式版已发布**（2026-09-06，versionCode 11，Release 附三件套 APK；v1.2.3 为 versionCode 10）：
   ① patch 032 流式渲染降载（间隔 60→120ms + 流式 LRU 旁路）；② patch 034 性能治理

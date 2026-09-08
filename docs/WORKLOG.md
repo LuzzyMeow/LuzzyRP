@@ -1991,3 +1991,46 @@ D3-A 保留「开卷」开屏；D4-A 新功能默认值原样。
 - **坑（本会话新踩）**：①`git apply` 仓库内按仓库根解析路径（嵌套目录执行静默跳过）；
   ②PowerShell `$ErrorActionPreference='Stop'` 下原生命令 stderr 会中断脚本（需临时 Continue）；
   ③行尾归一化脚本必须保持整文件 CRLF（按 `\n` 切分再 join 会引入裸 CR/LF 造成整文件伪 diff）。
+
+---
+
+### 会话 25 追记 · 用户三项新需求实施（2026-09-08，patch 037-039）
+
+**需求与实施**：
+
+1. **用量统计页时间筛选去冲突（patch 037）**：用户指出「明面的日/周/月（保留）」与「右上角
+   更多项按钮（全部/24小时/7天/30天）」双筛选冲突，要求删除后者。核实：日/周/月 = 用量趋势
+   折线图粒度（patch 025 的 `usageChartRangeOptions`），更多项 = 上游 `tokenUsageTimeFilter`
+   下拉。**整链下线**：ui-components.js（props 4 项 / emits 2 项 / 模板容器整块）+
+   runtime-services.js（状态 2 个 / 选项 / 区间表 / label computed / filteredTokenUsageHistory
+   只按类型过滤 / watch 改单依赖 / return 4 项）+ index.html（4 个绑定 + 2 个事件）+
+   app.js（解构 4 项 / click-outside 收起 / setup return 3 项）。桌面验收：
+   `.token-usage-time-filter-container` 不存在、「24小时/30天」文案消失、折线图日/周/月与
+   类型筛选保留。
+2. **版本更新公告品牌化（patch 038）**：弹窗标题 `update.title`（上游「网站公告」）→ 品牌名
+   「LuzzyRP」；内容区底部新增同步来源注释「同步更新上游节点：本公告内容随上游 RP-Hub 版本
+   同步，由 LuzzyRP 呈现。」（仅本地上游公告显示，远程新版提示不显示）。桌面验收：
+   标题 = LuzzyRP、注释命中、正文仍为上游 1.9.2 公告全文。
+3. **关于页检索关键词高亮（patch 039）**：`renderChangelogView` 渲染后经 `highlightKeyword`
+   把关键词包进 `<mark>`（文本节点级 TreeWalker 遍历、跳过 script/style、大小写不敏感、
+   正则元字符转义、零长度匹配保护）；样式 `bg-[rgb(var(--luzzy-mark))] text-gray-900`；
+   `ext/luzzy-theme.css` 新增 `--luzzy-mark`（亮/暗同值 245 217 168 = DESIGN.md highlight
+   token #F5D9A8，与开屏荧光笔记号同源，暗色下配 gray-900 反转主文字 ≥10:1）。桌面验收：
+   搜「记忆」→ 命中 8 个版本、29 处 `<mark>`、计算背景 `rgb(245,217,168)`、前景
+   `rgb(20,20,19)`。
+
+**门禁与验证**：verify-markers **82 PASS / 0 FAIL**（新增 7 项：037 四项 notcontains +
+038 同步注释 + 039 标记/变量）；实体以 d2f2625 基线重新生成 4 枚（index / app /
+ui-components / runtime-services）→ 仓库外逆向 **9/9 PASS** + 纯净基线端到端重放
+**9/9 PASS**；全 JS `node --check` 13/13；桌面冒烟三项全绿 + **零异常**；gen-changelog
+重跑（R3 绿）。
+
+**决策记录**：折线图「日/周/月」为保留项（用户明示）；时间范围下拉整链删除（不留死代码）；
+公告标题用品牌名；同步注释文案「同步更新上游节点：…」。
+
+**遗留 / 下一步**：debug 包重打（versionCode 12 含 037-039）→ 真机 install -r → 用户验证
+（本次三项 + 上游 1.9.2 新功能）→ release。
+
+**坑（本追记）**：①`mark` 元素不在本项目 DOMPurify `cleanConfig.ADD_TAGS` 白名单内，
+高亮必须在 `renderMarkdown` **之后**做（不经二次 sanitize），否则会被剥掉；②高亮必须走
+文本节点遍历（`createTreeWalker`），字符串替换会破坏标签结构。

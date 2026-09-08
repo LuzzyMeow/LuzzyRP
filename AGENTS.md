@@ -242,7 +242,7 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-035，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-039，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -282,6 +282,9 @@ LuzzyRP = **RP-Hub（上游，纯前端）** + **原生 WebView 壳（Kotlin）*
 | 034 | ext/luzzy-theme.css | 性能治理（扩展层直改）：D1 高频面退实底（气泡/typing/输入岛/侧栏 blur 归零）+ will-change 合成层瘦身 + 开屏 lspDiveZoom 去 filter:blur（v1.3.0，DESIGN.md 已同步） |
 | 035 | index.html + app.js | 供应商图标（相册选取 + 1:1 裁剪拖拽 + 128×128 dataURL 持久化，选择器/管理卡圆角显示）+ 管理卡两行式布局（防名称截断）+ 模型数徽标 + 内置商编辑冲突误报修复（override 合并致身份对比失真）+ 模型来源提示（/models 拉取缓存语义澄清；v1.3.0） |
 | 036 | app.js | 记忆内容管理器实时联动：面板展开且作用域为当前会话时 watch memories/classicMemories 变化即时同步列表（修复补录成功后管理器不更新的存量缺陷，017 打开时快照无联动；v1.3.0） |
+| 037 | ui-components.js + runtime-services.js + index.html + app.js | 用量页时间范围筛选整链下线（右上角「更多」下拉 全部/24小时/7天/30天 与折线图「日/周/月」粒度冲突；保留折线图粒度 + 类型筛选；v1.4.0） |
+| 038 | ui-components.js | 版本更新公告品牌化：弹窗标题「网站公告」→「LuzzyRP」+ 底部同步来源注释「同步更新上游节点…」（v1.4.0） |
+| 039 | app.js + ext/luzzy-theme.css | 关于页 CHANGELOG 关键词检索高亮：命中内容关键词包 `<mark>`（文本节点级遍历/跳过 script-style/大小写不敏感/正则转义）+ `--luzzy-mark` token（DESIGN.md highlight #F5D9A8；v1.4.0） |
 
 **新增 patch 的规则**：
 

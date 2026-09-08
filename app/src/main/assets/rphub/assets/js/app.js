@@ -1785,15 +1785,13 @@ const app = createApp({
             getUncachedInputTokens,
             recordApiUsage,
             saveTokenUsageHistoryNow,
-            showTokenUsageTimeFilter,
+            // [LuzzyRP patch 037] 用量页时间范围整链下线（v1.4.0）：原 showTokenUsageTimeFilter /
+            // tokenUsageTimeFilter / tokenUsageTimeFilterLabel / tokenUsageTimeFilterOptions 解构移除
             tokenUsageFilter,
             tokenUsageHistory,
             tokenUsagePage,
             tokenUsagePageCount,
             tokenUsageStats,
-            tokenUsageTimeFilter,
-            tokenUsageTimeFilterLabel,
-            tokenUsageTimeFilterOptions,
             latestMainTokenUsage
         } = useTokenUsage({
             pageSize: LIST_PAGE_SIZE,
@@ -4021,6 +4019,47 @@ const app = createApp({
                 sections: sections.map(section => ({ version: section.version, md: section.lines.join('\n').trim() }))
             };
         };
+        // [LuzzyRP patch 039] 检索关键词高亮（v1.4.0，需求 3）：命中内容中把关键词包进 <mark>，
+        // 颜色取 DESIGN.md highlight token（--luzzy-mark，亮暗同值）+ gray-900 反转主文字。
+        // 只处理文本节点（跳过 script/style），大小写不敏感，避免破坏标签结构。
+        const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const highlightKeyword = (html, keyword) => {
+            const needle = String(keyword || '').trim();
+            if (!html || !needle) return html;
+            const root = document.createElement('div');
+            root.innerHTML = html;
+            const walker = document.createTreeWalker(root, 4, null);
+            const textNodes = [];
+            let node = walker.nextNode();
+            while (node) {
+                const parentTag = node.parentNode && node.parentNode.nodeName;
+                if (parentTag !== 'SCRIPT' && parentTag !== 'STYLE') textNodes.push(node);
+                node = walker.nextNode();
+            }
+            const pattern = new RegExp(escapeRegExp(needle), 'gi');
+            textNodes.forEach((textNode) => {
+                const text = textNode.nodeValue || '';
+                pattern.lastIndex = 0;
+                if (!pattern.test(text)) return;
+                pattern.lastIndex = 0;
+                const fragment = document.createDocumentFragment();
+                let lastIndex = 0;
+                let match = pattern.exec(text);
+                while (match) {
+                    if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+                    const mark = document.createElement('mark');
+                    mark.className = 'bg-[rgb(var(--luzzy-mark))] text-gray-900 rounded-sm px-0.5';
+                    mark.textContent = match[0];
+                    fragment.appendChild(mark);
+                    lastIndex = match.index + match[0].length;
+                    if (!match[0].length) pattern.lastIndex += 1;
+                    match = pattern.exec(text);
+                }
+                if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+                textNode.replaceWith(fragment);
+            });
+            return root.innerHTML;
+        };
         const renderChangelogView = () => {
             const keyword = changelogKeyword.value.trim().toLowerCase();
             const matched = changelogSections.value.filter(section =>
@@ -4033,7 +4072,11 @@ const app = createApp({
             }
             parts.push(...matched.map(section => section.md));
             try {
-                changelogHtml.value = parts.length ? renderMarkdown(parts.join('\n\n'), 'assistant', true) : '';
+                // [LuzzyRP patch 039] 有关键词时对渲染结果做高亮（v1.4.0，需求 3）
+                const rendered = parts.length ? renderMarkdown(parts.join('\n\n'), 'assistant', true) : '';
+                changelogHtml.value = rendered && changelogKeyword.value.trim()
+                    ? highlightKeyword(rendered, changelogKeyword.value.trim())
+                    : rendered;
             } catch (e) { changelogHtml.value = ''; }
         };
         let changelogSearchTimer = 0;
@@ -10541,9 +10584,7 @@ const app = createApp({
                     && !e.target.closest('.settings-help-popover')) {
                     settingsHelpTopic.value = '';
                 }
-                if (showTokenUsageTimeFilter.value && !e.target.closest('.token-usage-time-filter-container')) {
-                    showTokenUsageTimeFilter.value = false;
-                }
+                // [LuzzyRP patch 037] 用量页时间范围下拉下线，原 click-outside 收起逻辑同步移除（v1.4.0）
                 if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                     showProfileDropdown.value = false;
                 }
@@ -10790,8 +10831,7 @@ const app = createApp({
             createStoryBranch, deleteSelectedStoryBranch,
             selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
             startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
-            tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, tokenUsageTimeFilter,
-            showTokenUsageTimeFilter, tokenUsageTimeFilterOptions, tokenUsageTimeFilterLabel,
+            tokenUsageHistory, tokenUsagePage, tokenUsagePageCount, tokenUsageFilter, // [LuzzyRP patch 037] 时间范围 expose 移除
             filteredTokenUsageHistory, tokenUsageStats, displayedTokenUsageHistory, usageChartRange, usageChartRangeOptions, usageChartProvider, usageChartProviderOptions, usageChartModelOptions, usageChartSelectedModels, usageChartData, toggleUsageChartModel, // [LuzzyRP patch 025]
             latestMainTokenUsage, formatLatestTokenCount, formatLatestUsageCost,
             getUncachedInputTokens, formatTokenCount, formatTokenAggregate, formatTokenUsageTime, getTokenUsageTypeLabel, clearTokenUsageHistory,

@@ -16,6 +16,9 @@
 > 上游 1.9.2（commit \`d2f2625\`，14 提交 / 9 文件 +2242 −2268）。
 
 **新增**
+- **关于页更新日志关键词高亮（patch 039）**：关键词检索命中的内容里，关键词以 \`<mark>\` 高亮
+  （文本节点级遍历、跳过 script/style、大小写不敏感、正则元字符转义；底色取 DESIGN.md
+  highlight token \`--luzzy-mark\` = \`#F5D9A8\`，与开屏荧光笔记号同源，暗色下配反转主文字）。
 - **同步上游 1.9.2（会话 24-25）**：UI 实时生成（剧情面板 \`story_panels\` 协议）／沉浸模式
   （\`settings.immersiveMode\`）／角色卡牌组（CharacterDeck）／主动工具调用改原生 toolCalls
   协议／快捷面板密度重构／开屏改版（书本动画，**我方 D3-A 保留「开卷」不采纳**）；
@@ -29,6 +32,12 @@
   UI 模板/总结四请求点）、\`getImageTagRegex\` 签名去参调用点适配（015）。
 
 **优化**
+- **用量页时间筛选去冲突（patch 037）**：右上角「更多」下拉（全部/24小时/7天/30天）与
+  折线图「日/周/月」粒度双重筛选语义冲突——按用户指示整链下线（props/emits/模板/状态/
+  watch/绑定/click-outside 全部移除），只保留折线图粒度与类型筛选。
+- **版本更新公告品牌化（patch 038）**：公告弹窗标题由上游「网站公告」改为品牌名 **LuzzyRP**，
+  内容区底部新增同步来源注释「同步更新上游节点：本公告内容随上游 RP-Hub 版本同步，
+  由 LuzzyRP 呈现。」
 - **index.html 开屏区恢复（会话 25）**：会话 24 三方合并时 C1/C3 冲突块误取 ours 侧，
   开屏区成为「上游 entry-transition 书本动画 + 我方 luzzy-splash 残骸」混合体且
   \`luzzy-splash-page/stack/center/glow/seal/wordmark/slogan\` 七节点与 027 标记丢失——

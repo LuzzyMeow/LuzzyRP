@@ -384,6 +384,35 @@
 #   - 对应：用户真机实测反馈（冲突误报截图/名称截断/模型来源困惑/图标功能需求）
 #   - 预期冲突点：上游改编辑器模板/管理卡结构/normalizeUserApiProviders 时需重打
 #
+# 037-usage-time-filter-removal.patch（2026-09-08，v1.4.0 需求 1）
+#   - ui-components.js: TokenUsageView 移除「更多」时间范围下拉（全部/24小时/7天/30天）——
+#     props timeFilter/showTimeFilter/timeFilterLabel/timeFilterOptions、emits
+#     update:time-filter/update:show-time-filter、模板 token-usage-time-filter-container 整块
+#   - runtime-services.js: useTokenUsage 移除 tokenUsageTimeFilter/showTokenUsageTimeFilter/
+#     tokenUsageTimeFilterOptions/tokenUsageTimeRanges/tokenUsageTimeFilterLabel +
+#     filteredTokenUsageHistory 只按类型过滤 + watch 改单依赖 + return 项清理
+#   - index.html: token-usage-view 的 :time-filter/:show-time-filter/:time-filter-label/
+#     :time-filter-options 与 @update:time-filter/@update:show-time-filter 绑定移除
+#   - app.js: useTokenUsage 解构 + click-outside 收起逻辑 + setup return 三处清理
+#   - 对应：用户需求 1（用量页两处时间筛选语义冲突——保留折线图「日/周/月」粒度）
+#   - 预期冲突点：上游改 TokenUsageView 模板/props 或 useTokenUsage 返回结构时需重打
+#
+# 038-update-notice-brand.patch（2026-09-08，v1.4.0 需求 2）
+#   - ui-components.js: UpdateNotificationModal 标题 update.title（上游「网站公告」）→ 品牌名
+#     「LuzzyRP」；内容区底部新增同步来源注释「同步更新上游节点：本公告内容随上游 RP-Hub
+#     版本同步，由 LuzzyRP 呈现。」（仅本地上游公告弹层显示，远程新版提示不显示）
+#   - 对应：用户需求 2（更新弹窗标题品牌化 + 同步上游节点说明）
+#   - 预期冲突点：上游改公告弹层模板/标题绑定或新增同类弹层时需重打
+#
+# 039-changelog-search-highlight.patch（2026-09-08，v1.4.0 需求 3）
+#   - app.js: 关于页 CHANGELOG 关键词检索命中内容高亮——renderChangelogView 渲染后经
+#     highlightKeyword 把关键词包进 <mark>（文本节点级遍历，跳过 script/style，大小写不敏感，
+#     正则元字符转义）；样式 bg-[rgb(var(--luzzy-mark))] + text-gray-900
+#   - ext/luzzy-theme.css: 新增 --luzzy-mark 变量（亮/暗同值 245 217 168 = DESIGN.md
+#     highlight token #F5D9A8，与开屏荧光笔记号同源）
+#   - 对应：用户需求 3（搜索命中内容高亮显示关键词）
+#   - 预期冲突点：上游改 CHANGELOG 渲染管线（renderChangelogView/parseChangelogSections）时需重打
+#
 ## 标记体系与实体重放（2026-09-02，v1.2.1，硬性规定 10）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

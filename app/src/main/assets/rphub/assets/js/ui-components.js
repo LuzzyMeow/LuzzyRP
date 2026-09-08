@@ -728,7 +728,8 @@
                 panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-lg flex flex-col shadow-2xl transform transition-all scale-100 overflow-hidden relative">
                     <div class="bg-gradient-to-r from-primary-50 to-purple-50 p-4 border-b border-gray-100">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-xl font-bold text-gray-900">{{ remoteUpdateId ? '发现新版本' : update.title }}</h3>
+                            <!-- [LuzzyRP patch 038] 公告标题品牌化（v1.4.0）：上游 update.title='网站公告' 改为品牌名 LuzzyRP -->
+                            <h3 class="text-xl font-bold text-gray-900">{{ remoteUpdateId ? '发现新版本' : 'LuzzyRP' }}</h3>
                             <span class="bg-primary-100 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-200 transform translate-y-0.5">New</span>
                         </div>
                     </div>
@@ -739,6 +740,10 @@
                         <div v-else class="prose prose-sm prose-gray max-w-none">
                             <div class="markdown-body" v-html="renderMarkdown(update.content, 'assistant', true)"></div>
                         </div>
+                        <!-- [LuzzyRP patch 038] 同步来源注释（v1.4.0）：说明公告内容同步自上游节点 -->
+                        <p v-if="!remoteUpdateId" class="mt-4 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2 text-[11px] leading-relaxed text-gray-500">
+                            同步更新上游节点：本公告内容随上游 RP-Hub 版本同步，由 LuzzyRP 呈现。
+                        </p>
                         <div class="mt-8 mb-2 flex justify-end">
                             <button @click="close" :disabled="!remoteUpdateId && countdown > 0"
                                 :class="{ 'opacity-50 cursor-not-allowed': !remoteUpdateId && countdown > 0 }"
@@ -1996,10 +2001,6 @@
             show: Boolean,
             historyLength: { type: Number, default: 0 },
             filter: { type: String, default: 'all' },
-            timeFilter: { type: String, default: 'all' },
-            showTimeFilter: Boolean,
-            timeFilterLabel: { type: String, default: '' },
-            timeFilterOptions: { type: Array, default: () => [] },
             stats: { type: Object, default: () => ({}) },
             filteredCount: { type: Number, default: 0 },
             records: { type: Array, default: () => [] },
@@ -2021,7 +2022,7 @@
             chartSelectedModels: { type: Array, default: () => [] }
         },
         emits: [
-            'menu', 'clear', 'update:filter', 'update:time-filter', 'update:show-time-filter',
+            'menu', 'clear', 'update:filter',
             'update:page', 'update:help-topic', 'update:chart-range', 'update:chart-provider', 'toggle-chart-model'
         ],
         setup(props) {
@@ -2083,37 +2084,14 @@
                     </button>
                 </settings-page-header>
 
+                <!-- [LuzzyRP patch 037] 用量页「更多」时间范围下拉（全部/24小时/7天/30天）整块移除：
+                     与折线图「日/周/月」粒度双重筛选冲突，按用户指示只保留折线图粒度（v1.4.0） -->
                 <div class="mb-4 flex items-center gap-2">
                     <div class="segmented-switch segmented-switch--compact segmented-switch--four min-w-0 flex-1">
                         <div class="segmented-switch__indicator" :class="filterOptions.find(option => option.value === filter)?.position"></div>
                         <button v-for="option in filterOptions" :key="option.value" type="button"
                             @click="$emit('update:filter', option.value)" class="segmented-switch__option"
                             :class="{ 'is-active': filter === option.value }">{{ option.label }}</button>
-                    </div>
-                    <div class="token-usage-time-filter-container relative flex-none">
-                        <button type="button" @click="$emit('update:show-time-filter', !showTimeFilter)"
-                            class="flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition-all active:scale-95"
-                            :class="timeFilter === 'all' ? 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700' : 'border-primary-200 bg-primary-50 text-primary-600'"
-                            :title="'时间范围：' + timeFilterLabel" aria-label="筛选 Token 记录时间范围" :aria-expanded="showTimeFilter">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16l-6 7v5l-4 2v-7L4 5z"></path>
-                            </svg>
-                        </button>
-                        <transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 translate-y-1 scale-95"
-                            enter-to-class="opacity-100 translate-y-0 scale-100" leave-active-class="transition duration-100 ease-in"
-                            leave-from-class="opacity-100 translate-y-0 scale-100" leave-to-class="opacity-0 translate-y-1 scale-95">
-                            <div v-if="showTimeFilter" class="absolute right-0 top-full z-30 mt-2 w-36 origin-top-right rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl ring-1 ring-black/5">
-                                <button v-for="option in timeFilterOptions" :key="option.value" type="button"
-                                    @click="$emit('update:time-filter', option.value); $emit('update:show-time-filter', false)"
-                                    class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors"
-                                    :class="timeFilter === option.value ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'">
-                                    <span>{{ option.label }}</span>
-                                    <svg v-if="timeFilter === option.value" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </transition>
                     </div>
                 </div>
 

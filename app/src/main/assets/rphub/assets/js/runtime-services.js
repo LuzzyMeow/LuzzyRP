@@ -188,38 +188,17 @@
         const tokenUsageHistory = ref([]);
         const tokenUsagePage = ref(1);
         const tokenUsageFilter = ref('all');
-        const tokenUsageTimeFilter = ref('all');
-        const showTokenUsageTimeFilter = ref(false);
-        const tokenUsageTimeFilterOptions = Object.freeze([
-            { value: 'all', label: '全部' },
-            { value: '24h', label: '24小时' },
-            { value: '7d', label: '7天' },
-            { value: '30d', label: '30天' }
-        ]);
-        const tokenUsageTimeRanges = Object.freeze({
-            '24h': 24 * 60 * 60 * 1000,
-            '7d': 7 * 24 * 60 * 60 * 1000,
-            '30d': 30 * 24 * 60 * 60 * 1000
-        });
-        const tokenUsageTimeFilterLabel = computed(() => (
-            tokenUsageTimeFilterOptions.find(option => option.value === tokenUsageTimeFilter.value)?.label || '全部'
-        ));
+        // [LuzzyRP patch 037] 用量页时间范围筛选整链下线（v1.4.0）：右上角「更多」下拉
+        // （全部/24小时/7天/30天）与折线图「日/周/月」粒度双重筛选语义冲突，按用户指示
+        // 只保留折线图粒度；原 tokenUsageTimeFilter* 状态/选项/区间/label 全部移除。
         const getTokenUsageCategory = (type) => {
             if (['summary', 'embedding'].includes(type)) return 'memory';
             if (type === 'ui_template') return 'variables';
             return 'chat';
         };
-        const filteredTokenUsageHistory = computed(() => {
-            const timeRange = tokenUsageTimeRanges[tokenUsageTimeFilter.value];
-            const cutoff = timeRange ? Date.now() - timeRange : 0;
-            return tokenUsageHistory.value.filter(record => {
-                const matchesType = tokenUsageFilter.value === 'all'
-                    || getTokenUsageCategory(record.type) === tokenUsageFilter.value;
-                if (!matchesType || !timeRange) return matchesType;
-                const timestamp = Number(record.timestamp);
-                return Number.isFinite(timestamp) && timestamp >= cutoff;
-            });
-        });
+        const filteredTokenUsageHistory = computed(() => tokenUsageHistory.value.filter(record =>
+            tokenUsageFilter.value === 'all'
+            || getTokenUsageCategory(record.type) === tokenUsageFilter.value));
         const getUncachedInputTokens = (record) => {
             if (!Number.isFinite(record?.inputTokens)) return null;
             const cached = Number.isFinite(record.cacheReadTokens) ? record.cacheReadTokens : 0;
@@ -335,7 +314,7 @@
             });
         };
 
-        watch([tokenUsageFilter, tokenUsageTimeFilter], () => { tokenUsagePage.value = 1; });
+        watch(tokenUsageFilter, () => { tokenUsagePage.value = 1; });
         watch(tokenUsagePageCount, count => { tokenUsagePage.value = Math.min(tokenUsagePage.value, count); });
 
         return {
@@ -357,15 +336,11 @@
             latestMainTokenUsage,
             recordApiUsage,
             saveTokenUsageHistoryNow,
-            showTokenUsageTimeFilter,
             tokenUsageFilter,
             tokenUsageHistory,
             tokenUsagePage,
             tokenUsagePageCount,
-            tokenUsageStats,
-            tokenUsageTimeFilter,
-            tokenUsageTimeFilterLabel,
-            tokenUsageTimeFilterOptions
+            tokenUsageStats
         };
     };
 

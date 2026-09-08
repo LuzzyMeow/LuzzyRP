@@ -112,6 +112,13 @@ $Manifest = @(
     @{ Id = '035-icon-index';         File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 035]';                   Min = 3 },
     @{ Id = '035-icon-app';           File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 035]';                   Min = 7 },
     @{ Id = '036-manager-live';       File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 036]';                   Min = 1 },
+    @{ Id = '037-usage-timefilter-gone'; File = 'assets/js/ui-components.js';     Mode = 'notcontains';  Needle = 'token-usage-time-filter-container' },
+    @{ Id = '037-usage-timefilter-app';  File = 'assets/js/app.js';               Mode = 'notcontains';  Needle = 'showTokenUsageTimeFilter.value' },
+    @{ Id = '037-usage-timefilter-runtime'; File = 'assets/js/runtime-services.js'; Mode = 'notcontains'; Needle = 'tokenUsageTimeFilterOptions' },
+    @{ Id = '037-usage-timefilter-index'; File = 'index.html';                    Mode = 'notcontains';  Needle = ':time-filter="tokenUsageTimeFilter"' },
+    @{ Id = '038-update-notice-brand';   File = 'assets/js/ui-components.js';     Mode = 'contains';     Needle = '同步更新上游节点';                       Min = 1 },
+    @{ Id = '039-changelog-highlight';   File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 039]';                   Min = 2 },
+    @{ Id = '039-mark-token';            File = '../ext/luzzy-theme.css';         Mode = 'contains';     Needle = '--luzzy-mark';                          Min = 2 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

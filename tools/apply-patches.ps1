@@ -3,13 +3,173 @@
 # ============================================================
 # 用法:  .\tools\apply-patches.ps1
 # 前置:  sync-upstream.ps1 已覆盖上游文件（app/src/main/assets/rphub/）
-# 行为:  按登记顺序重放 patch；失败时逐条报告（AGENTS.md §4.3 冲突处理）
+# 行为:  两段重放（顺序关键，会话 25 修正）：
+#        ① 实体段（patches/entities/）——实体前像 = 上游纯净基线，必须先于字符串块落盘；
+#        ② 字符串块段（001-011）——实体已覆盖同名改动，此段在覆盖态下多为 SKIP。
+#        失败时逐条报告（AGENTS.md §4.3 冲突处理）。
 # ============================================================
 
 $ErrorActionPreference = "Stop"
 $RphubDir = Join-Path $PSScriptRoot "..\app\src\main\assets\rphub"
 
 Write-Host "== LuzzyRP patch 重放（目标: $RphubDir）=="
+
+# ------------------------------------------------------------------
+# 实体 patch（entities/，v1.2.1 硬性规定 10）
+# ------------------------------------------------------------------
+# 覆盖 007/009/012-028 的全部二创改动（与上游基线的逐文件 diff，
+# 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
+# 判定规则（会话 25 重写）：
+#   目标文件已含对应标记                        -> SKIP（已应用）
+#   目标文件 LF 归一 blob id == 实体头 index pre -> git apply 实体（覆盖态/字符串块已落盘态皆可）
+#   目标文件 == 上游纯净基线（rp-hub-reference） -> git apply 实体（前像缺失时的兜底）
+#   其余（上游已发新版）                        -> FAIL，按 AGENTS.md §4.3 手工合并
+# 应用后强制校验标记落盘：git apply 返回 0 但路径/行尾异常时会静默不写入（会话 25 加固）。
+# 注意：手工合并后必须用 rp-hub-reference 重新生成实体并复跑 verify-markers.ps1。
+# ------------------------------------------------------------------
+$entitiesDir = Join-Path $PSScriptRoot "patches\entities"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$fingerprintPath = Join-Path $repoRoot "tools\upstream-fingerprints.txt"
+$fingerprints = @{}
+if (Test-Path $fingerprintPath) {
+    Get-Content $fingerprintPath | ForEach-Object {
+        if ($_ -match '^([0-9A-Fa-f]{64})\s+\*?(.+)$') {
+            $fingerprints[$Matches[2].Trim().Replace('\', '/').ToLower()] = $Matches[1].ToUpper()
+        }
+    }
+}
+function Get-FileGitBlobIdLfNormalized([string]$Path) {
+    # 计算「LF 归一内容」的 git blob 对象 id（与 git hash-object 同构）：
+    # 实体 patch 头 index <pre>..<post> 的 pre 即该文件的期望前像 blob id，
+    # 用它判定目标文件是否处于实体可应用状态（全新上游覆盖态，或字符串块已落盘态）。
+    if (-not (Test-Path $Path)) { return $null }
+    $text = [System.IO.File]::ReadAllText($Path)
+    $text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
+    $header = [System.Text.UTF8Encoding]::new($false).GetBytes("blob $($bytes.Length)`0")
+    $sha1 = [System.Security.Cryptography.SHA1]::Create()
+    try {
+        $sha1.TransformBlock($header, 0, $header.Length, $header, 0) | Out-Null
+        $sha1.TransformFinalBlock($bytes, 0, $bytes.Length) | Out-Null
+        return (($sha1.Hash) | ForEach-Object { $_.ToString('x2') }) -join ''
+    } finally { $sha1.Dispose() }
+}
+function Get-EntityPreImage([string]$EntityPath) {
+    if (-not (Test-Path $EntityPath)) { return $null }
+    foreach ($line in [System.IO.File]::ReadAllLines($EntityPath)) {
+        if ($line -match '^index ([0-9a-f]{7,40})\.\.([0-9a-f]{7,40})') { return $Matches[1] }
+    }
+    return $null
+}
+function Get-FileSha256Local([string]$Path) {
+    if (-not (Test-Path $Path)) { return $null }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try { return (($sha.ComputeHash($stream)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $stream.Dispose() }
+    } finally { $sha.Dispose() }
+}
+# 基线比对用 LF 归一哈希：上游覆盖态（rp-hub-reference 检出，LF）与指纹表（主仓库工作树 CRLF）
+# 仅行尾不同，逐字节比对会误判「与上游基线不一致」而阻断重放（会话 25 实证：覆盖后 9 枚实体全部
+# 被指纹门拦截，误报为「git apply 静默失败」）。归一为 LF 后比对，两种检出态都可正确判定。
+function Get-FileSha256LfNormalized([string]$Path) {
+    if (-not (Test-Path $Path)) { return $null }
+    $text = [System.IO.File]::ReadAllText($Path)
+    $text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return (($sha.ComputeHash($bytes)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $sha.Dispose() }
+}
+function Get-BaselineSha256LfNormalized([string]$RelativePath) {
+    # 从上游参考克隆取基线文件内容（d2f2625 工作树），LF 归一后哈希，作为「全新上游覆盖态」判定基准。
+    # 指纹表存的是主仓库工作树 CRLF 字节的哈希，两者仅行尾不同，故统一归一后比对。
+    $refDir = Join-Path $repoRoot "rp-hub-reference"
+    if (-not (Test-Path $refDir)) { return $null }
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $content = & git -C $refDir show "d2f2625:$RelativePath" 2>$null
+    $ErrorActionPreference = $prevEap
+    if ($LASTEXITCODE -ne 0 -or -not $content) { return $null }
+    $text = (($content | Out-String) -replace "`r`n", "`n") -replace "`r", "`n"
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return (($sha.ComputeHash($bytes)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $sha.Dispose() }
+}
+$entityItems = @(
+    @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
+    @{ File = 'novel/index.html';             Entity = '007-029-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
+    @{ File = 'assets/js/core-utils.js';      Entity = '009-035-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
+    @{ File = 'index.html';                   Entity = '012-035-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
+    @{ File = 'assets/js/app.js';             Entity = '012-036-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/ui-components.js';   Entity = '012-035-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/runtime-services.js'; Entity = '012-035-runtime-services-js.patch'; Marker = '[LuzzyRP patch 032]' },
+    @{ File = 'assets/js/api-utils.js';       Entity = '015-032-api-utils-js.patch';      Marker = '[LuzzyRP patch 015]' },
+    @{ File = 'assets/js/data-services.js';   Entity = '016-035-data-services-js.patch';  Marker = '[LuzzyRP patch 016]' }
+)
+Write-Host ""
+Write-Host "== 实体 patch（007/009/012-035/015-032）=="
+foreach ($item in $entityItems) {
+    $relKey = $item.File.ToLower()
+    $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')
+    $entityPath = Join-Path $entitiesDir $item.Entity
+    if (-not (Test-Path $targetPath)) { Write-Host "[FAIL] $($item.Entity): 目标文件不存在"; continue }
+    if (([System.IO.File]::ReadAllText($targetPath)).Contains($item.Marker)) {
+        Write-Host "[SKIP] $($item.Entity) (已应用)"
+        continue
+    }
+    # 前像判定（会话 25 重写）：实体头 index <pre>..<post> 的 pre 即期望前像 blob id。
+    # 目标文件 LF 归一后的 blob id 与 pre 一致 → 实体可干净应用（覆盖态/字符串块已落盘态皆可）。
+    # 不一致时再退回「上游纯净基线」比对，两者都不符 → FAIL（上游可能已发新版）。
+    $preImage = Get-EntityPreImage $entityPath
+    $blobId = Get-FileGitBlobIdLfNormalized $targetPath
+    $preMatch = $false
+    if ($preImage -and $blobId) {
+        $cmpLen = [Math]::Min($preImage.Length, $blobId.Length)
+        $preMatch = ($blobId.Substring(0, $cmpLen) -eq $preImage.Substring(0, $cmpLen))
+    }
+    if (-not $preMatch) {
+        $baseline = Get-BaselineSha256LfNormalized $item.File
+        if (-not $baseline) {
+            # 参考克隆不可用（离线等）→ 退回指纹表比对
+            $rawBaseline = $fingerprints[$relKey]
+            if (-not $rawBaseline) {
+                Write-Host "[FAIL] $($item.Entity): 无法判定基线（rp-hub-reference 不可用且指纹表缺项）"
+                continue
+            }
+            Write-Host "[WARN] $($item.Entity): rp-hub-reference 不可用，退回指纹表比对（请确认基线版本）"
+            $baseline = $rawBaseline
+        }
+        if ((Get-FileSha256LfNormalized $targetPath) -ne $baseline) {
+            Write-Host "[FAIL] $($item.Entity): 目标文件与上游基线不一致（上游可能已更新），请手工合并该文件全部二创改动"
+            continue
+        }
+    }
+    if (-not (Test-Path $entityPath)) { Write-Host "[FAIL] $($item.Entity): 实体文件缺失"; continue }
+    # git apply 会把 "trailing whitespace" 等告警写到 stderr；本脚本 $ErrorActionPreference='Stop'
+    # 时 PowerShell 会把原生命令 stderr 视为终止错误（会话 25 实证：第 4 枚实体后脚本整体中断）。
+    # 故显式重定向到临时文件，仅在退出码非 0 时读取内容。
+    $applyLog = Join-Path ([System.IO.Path]::GetTempPath()) "luzzy-apply-$PID.log"
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $null = & git -C $repoRoot apply --ignore-whitespace --directory="app/src/main/assets/rphub" $entityPath 2>$applyLog
+    $applyExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEap
+    $applyErr = if (Test-Path $applyLog) { (Get-Content $applyLog -Raw) } else { '' }
+    if (Test-Path $applyLog) { Remove-Item $applyLog -Force }
+    if ($applyExit -eq 0) {
+        # 落盘校验：git apply 返回 0 不等于真的写入（路径/行尾异常时会静默跳过），
+        # 必须确认标记真的出现，否则视为重放失败（会话 25 加固）。
+        if (([System.IO.File]::ReadAllText($targetPath)).Contains($item.Marker)) {
+            Write-Host "[ OK ] $($item.Entity)"
+        } else {
+            Write-Host "[FAIL] $($item.Entity): git apply 返回成功但标记未落盘（$($item.Marker) 缺失），请检查实体与行尾"
+        }
+    }
+    else { Write-Host "[FAIL] $($item.Entity): git apply 失败 — $applyErr" }
+}
+
+Write-Host ""
+Write-Host "== 字符串块（001-011）=="
 
 # ------------------------------------------------------------------
 # Patch 001 · 品牌标题
@@ -322,70 +482,3 @@ if ($appContent -match "theme: 'luzzy'") {
     [System.IO.File]::WriteAllText($appPath, $appContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host "[ OK ] 011b-theme-logic"
 }
-
-# ------------------------------------------------------------------
-# 实体 patch（entities/，v1.2.1 硬性规定 10）
-# ------------------------------------------------------------------
-# 覆盖 007/009/012-028 的全部二创改动（与上游基线的逐文件 diff，
-# 由 rp-hub-reference 生成，含 [LuzzyRP patch NNN] 标记）。
-# 判定规则：
-#   目标文件已含对应标记           -> SKIP（已应用）
-#   目标文件 hash == 上游基线指纹  -> git apply 实体（全新上游覆盖态）
-#   其余（上游已发新版）           -> FAIL，按 AGENTS.md §4.3 手工合并
-# 注意：手工合并后必须用 rp-hub-reference 重新生成实体并复跑 verify-markers.ps1。
-# ------------------------------------------------------------------
-$entitiesDir = Join-Path $PSScriptRoot "patches\entities"
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$fingerprintPath = Join-Path $repoRoot "tools\upstream-fingerprints.txt"
-$fingerprints = @{}
-if (Test-Path $fingerprintPath) {
-    Get-Content $fingerprintPath | ForEach-Object {
-        if ($_ -match '^([0-9A-Fa-f]{64})\s+\*?(.+)$') {
-            $fingerprints[$Matches[2].Trim().Replace('\', '/').ToLower()] = $Matches[1].ToUpper()
-        }
-    }
-}
-function Get-FileSha256Local([string]$Path) {
-    if (-not (Test-Path $Path)) { return $null }
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $stream = [System.IO.File]::OpenRead($Path)
-        try { return (($sha.ComputeHash($stream)) | ForEach-Object { $_.ToString('x2') }) -join '' } finally { $stream.Dispose() }
-    } finally { $sha.Dispose() }
-}
-$entityItems = @(
-    @{ File = 'character/index.html';         Entity = '007-character-html.patch';        Marker = '[LuzzyRP patch 007]' },
-    @{ File = 'novel/index.html';             Entity = '007-029-novel-html.patch';        Marker = '[LuzzyRP patch 007]' },
-    @{ File = 'assets/js/core-utils.js';      Entity = '009-035-core-utils-js.patch';     Marker = '[LuzzyRP patch 009]' },
-    @{ File = 'index.html';                   Entity = '012-035-index-html.patch';        Marker = '[LuzzyRP patch 014]' },
-    @{ File = 'assets/js/app.js';             Entity = '012-036-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/ui-components.js';   Entity = '012-035-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/runtime-services.js'; Entity = '012-035-runtime-services-js.patch'; Marker = '[LuzzyRP patch 032]' },
-    @{ File = 'assets/js/api-utils.js';       Entity = '015-032-api-utils-js.patch';      Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/data-services.js';   Entity = '016-035-data-services-js.patch';  Marker = '[LuzzyRP patch 016]' }
-)
-Write-Host ""
-Write-Host "== 实体 patch（007/009/012-035/015-032）=="
-foreach ($item in $entityItems) {
-    $relKey = $item.File.ToLower()
-    $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')
-    $entityPath = Join-Path $entitiesDir $item.Entity
-    if (-not (Test-Path $targetPath)) { Write-Host "[FAIL] $($item.Entity): 目标文件不存在"; continue }
-    if (([System.IO.File]::ReadAllText($targetPath)).Contains($item.Marker)) {
-        Write-Host "[SKIP] $($item.Entity) (已应用)"
-        continue
-    }
-    $currentHash = (Get-FileSha256Local $targetPath)
-    $baseline = $fingerprints[$relKey]
-    if ($baseline -and $currentHash -ne $baseline) {
-        Write-Host "[FAIL] $($item.Entity): 目标文件与上游基线不一致（上游可能已更新），请手工合并该文件全部二创改动"
-        continue
-    }
-    if (-not (Test-Path $entityPath)) { Write-Host "[FAIL] $($item.Entity): 实体文件缺失"; continue }
-    $gitOut = & git -C $repoRoot apply --ignore-whitespace --directory="app/src/main/assets/rphub" $entityPath 2>&1
-    if ($LASTEXITCODE -eq 0) { Write-Host "[ OK ] $($item.Entity)" }
-    else { Write-Host "[FAIL] $($item.Entity): git apply 失败 — $gitOut" }
-}
-
-Write-Host "== patch 重放完成 =="
-Write-Host "提示: 重放后请运行 verify-markers.ps1（硬性规定 10）并执行 sync 回归清单（AGENTS.md §6.2）"

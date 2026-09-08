@@ -2448,3 +2448,33 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
   （`MessageDao.insertIndexed` 等）即可持久化——领域与数据层接口已就绪。
 - 技能 / MCP / 工作区 / 终端 / 设置五页仍为「规划中」占位（P2/P3）。
 - Anthropic / Gemini 协议、stdio MCP、日历工具未做（P4）。
+
+---
+
+### 会话 30 · W2 P2 起步：持久化与真实数据接线（2026-09-09）
+
+**完成项**：
+1. **`AssistantRepository`（runtime）**：把 10 张表的 DAO 收拢为用例接口——助手（首启自动建默认
+   助手 / 新建 / 归档）、会话（新建 / 改名 / 归档 / 删除连带清 FTS / 分页）、消息
+   （`appendMessage` 走 `MessageDao` 的 `*Indexed` 事务方法，FTS 索引随写；`autoTitleIfNeeded`
+   首条用户消息截断成标题）、**检索双通道**（正文 FTS bigram → 无命中回落 LIKE；标题 LIKE）、
+   导出（MD / JSON）、索引幂等重建。
+2. **会话重启恢复**：`AssistantChatViewModel.init` 从 Room 恢复历史并重建领域消息；send 先落库
+   （用户消息 + 自动标题）再跑循环；收尾落助手消息（含 reasoning / status / token 用量）。
+   —— P1 验收项「会话重启后完整恢复」达成。
+3. **真实数据接线**：`AssistantListViewModel`（助手/会话列表 + 日期分组 + 相对时间 + 新建）与
+   `MemoryViewModel`（记忆类型/时间/相似度 + 模式条取自助手设置）替代 SampleData；
+   `AssistantHost` 用 `viewModelFactory` 按助手/会话 key 创建。
+
+**决策记录**：
+- **D8 检索分层**：正文与标题分通道（正文 FTS bigram + LIKE 回落，标题 LIKE），
+  与数据层决策 D3b 一致——避免把 CJK 标题 token 并入 FTS 带来的重命名刷新复杂度。
+- **D9 写入顺序**：用户消息**先落库**再发请求（崩溃也能恢复对话前半段）；助手消息在流结束时落库。
+
+**验证**：`./gradlew :app:testDebugUnitTest :app:assembleDebug` → BUILD SUCCESSFUL；
+213 tests / 0 failed。
+
+**遗留 / 下一步**：
+- 真机验收仍未做（无连接设备）：重启恢复、流式渲染、审批弹窗需实机确认。
+- 记忆页目前只读（新增/编辑/删除入口在 P2 后续补）；技能导入、MCP HTTP/SSE、会话导出 UI 未接。
+- 会话列表尚无「置顶 / 搜索框接真实检索」；搜索框当前只过滤已加载列表。

@@ -2385,7 +2385,14 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - **D1 设计方向**：用户选定 **A · 卷宗**（备选 B/C 产出保留在 `assistant-v1/` 供后续参考）。
 - **D2 字体**：用户选定 **全量**（+21MB，APK 约 43MB → 64MB）。
 - **D3 中文检索**：数据层报告 FTS4 `unicode61` 无中文分词（整段中文成词，仅前缀命中，实测
-  `年度*` 命中而 `报告*` 零命中）——**拍板 ① bigram + ② LIKE 回落兜底**（子代理实施中）。
+  `年度*` 命中而 `报告*` 零命中）——**拍板 ① bigram + ② LIKE 回落兜底**，已实施：
+  `CjkBigram` 切分（CJK 连续段 bigram / 单字保留 / 拉丁小写 / 按 code point 迭代）+
+  `message_fts.search_text` 列 + `FtsQueryBuilder` 同套切分 + `MessageFtsDao.searchFallback`
+  （LikeEscaper 转义）+ `MessageFtsIndexer`（幂等重建）；写入路径改由 `MessageDao` 的
+  `@Transaction` 方法唯一入口（触发器算不了 bigram）。
+- **D3b 标题检索**：CJK 标题经 FTS bigram 不命中（title 列整段成 token）——**采用
+  「正文走 FTS + 标题走 `ConversationDao.searchByTitle`（LIKE）」双通道**，由查询层合并；
+  不改 title 索引（重命名刷新只能在 Kotlin 侧做，收益不抵复杂度）。
 - **D4 导航实现**：方向 A 页面数少、转场统一，用密封类状态机 + `AnimatedContent` 手写，
   不引入 Navigation 库（零额外依赖、可控）。
 

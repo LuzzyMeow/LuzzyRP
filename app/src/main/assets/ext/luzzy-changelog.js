@@ -139,7 +139,14 @@
   - **APK 资产名修复**：AGP 会把 \`rootfs.tar.gz\` 解压成 \`rootfs.tar\`（去掉 \`.gz\`）——
     运行时改为两种名字都试 + magic bytes 判断，否则真机沙盒装不上。
   - **发版自检**：单 APK（\`app-release.apk\` 42.9MB）+ 签名指纹与 keystore 逐位一致
-    （CN=LuzzyRP / SHA-256 \`ed78235d…ffb1\`）；全仓 **318 项单测 / 0 失败**。
+    （CN=LuzzyRP / SHA-256 \`ed78235d…ffb1\`）；全仓 **318 项单测 / 0 失败**。- **「助手」密钥加密存储与 Key 类搜索（完成）**：
+  - \`KeystoreSecretStore\`：**AndroidKeyStore AES-256-GCM 主密钥**加密每条密钥，密文存
+    应用私有目录（不引第三方依赖）；读取不缓存、值不进日志、写入临时文件防半写；
+    满足 PLAN §13.2「密钥不进 DataStore/Room/日志」。
+  - 搜索提供方补齐 **Tavily**（Key 在请求体）与 **Brave**（\`X-Subscription-Token\` 头），
+    Key 只从加密存储取；设置页新增两个 Key 输入框（保存后不回显）。
+  - **验证**：全仓 **323 项单测 / 0 失败**；真机（小米 25098PN5AC / Android 16）debug 包
+    \`install -r\` 成功、冷启动「开卷」开屏正常、logcat 无崩溃。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id \`10207\`，更新时间 09/08 15:30；基线 \`d2f2625\` → \`4aef0bb\`，

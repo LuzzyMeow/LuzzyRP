@@ -2693,3 +2693,31 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 **验证**：318 tests / 0 failed；`assembleRelease` / `assembleDebug` 通过。
 
 **遗留**：真机验收（沙盒释放、`apk add python3`、流式渲染、审批弹窗、重启恢复）——adb 仍无设备。
+
+---
+
+### 会话 38 · 密钥加密存储 + Key 类搜索 + 真机首次安装（2026-09-09）
+
+**完成项**：
+1. **`KeystoreSecretStore`**（PLAN §13.2）：AndroidKeyStore 里的 AES-256-GCM 主密钥加密每条值，
+   密文 `base64(iv‖ciphertext+tag)` 存 `filesDir/assistant/secrets.json`；不引第三方依赖
+   （`androidx.security:security-crypto` 未在本地缓存且已停止维护）；读取不缓存、
+   值不进日志、临时文件 + 改名防半写、主密钥失效返回 null 不抛。
+2. **Tavily / Brave 搜索提供方**：Key 从加密存储按固定键名读取；缺失时给「请在设置页填入」
+   的可操作提示；设置页两个 Key 输入框（保存后清空、不回显，仅显示「已配置」）。
+3. **真机首次安装**（小米 25098PN5AC / Android 16）：debug 包 `install -r` 成功（保留用户数据）、
+   冷启动「开卷」开屏渲染正常、logcat 无 FATAL/AndroidRuntime 异常。
+
+**决策记录**：
+- **D26 加密存储自实现**：不用 `security-crypto`（未缓存 + 已停维护），改用 AndroidKeyStore
+  自管 AES-GCM 主密钥；密钥文件在应用私有目录且不参与备份。
+- **D27 密钥只写不读回**：设置页不回显已存 Key（只显示「已配置」），避免截图/日志泄漏面。
+
+**用户指示（2026-09-09）**：**不准发版 release**，真机验收由用户手动完成 → 本轮只做只读检查
+（screencap / logcat / dumpsys），未驱动 UI。
+
+**验证**：323 tests / 0 failed；`assembleDebug` 通过；设备端版本 `1.4.0-debug`（versionCode 12）
+——**版本号在发版时按 AGENTS §3.4 步骤 1 统一 bump 到 1.5.0**。
+
+**待用户手动验收清单**（详见交接消息）：助手入口 → 覆盖层显隐 → 返回键 → 会话与流式 →
+审批弹窗 → 重启恢复 → 沙盒释放与 `apk add python3` → 记忆/技能/MCP/工作区/终端/设置六页。

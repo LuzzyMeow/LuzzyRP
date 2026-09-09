@@ -90,7 +90,7 @@ fun SettingsScreen(
             title = "设置",
             onBack = onBack,
             actions = {
-                LedgerButton(text = "保存", tone = LedgerButtonTone.Primary, onClick = onSave)
+                LedgerButton(text = "保存", onClick = onSave)
             },
         )
         Spacer(Modifier.height(Ledger.PageHeaderGap))
@@ -144,7 +144,7 @@ fun SettingsScreen(
             }
 
             LedgerCollapseCard(
-                icon = LedgerIcons.Workspace,
+                icon = LedgerIcons.Sliders,
                 title = "参数",
                 expanded = openParams,
                 onToggle = { openParams = !openParams },

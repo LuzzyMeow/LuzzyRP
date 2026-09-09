@@ -126,11 +126,12 @@ class McpTest {
 
     @Test
     fun `适配器命名空间与分级`() {
-        val adapter = McpToolAdapter(
+        val adapter = McpToolAdapter.http(
             serverId = "srv",
             serverName = "演示",
             config = McpServerConfig("srv", McpServerConfig.TRANSPORT_HTTP, url = "https://a/mcp"),
             spec = McpToolSpec("read_file", "读取文件", """{"type":"object","properties":{"path":{"type":"string"}}}"""),
+            client = McpClient(),
         )
         assertEquals("mcp__srv__read_file", adapter.name)
         assertEquals(com.luzzymeow.luzzyrp.assistant.domain.tool.ToolTier.T2_WRITE_DEVICE, adapter.tier)
@@ -140,11 +141,12 @@ class McpTest {
 
     @Test
     fun `非法 schema 回退空对象 schema`() {
-        val adapter = McpToolAdapter(
+        val adapter = McpToolAdapter.http(
             serverId = "srv",
             serverName = "s",
             config = McpServerConfig("srv", McpServerConfig.TRANSPORT_HTTP, url = "https://a/mcp"),
             spec = McpToolSpec("t", "d", "not-json"),
+            client = McpClient(),
         )
         assertEquals("object", (adapter.parameters["type"]!!).toString().trim('"'))
     }

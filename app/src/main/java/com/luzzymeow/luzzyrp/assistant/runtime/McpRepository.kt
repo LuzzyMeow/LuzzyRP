@@ -8,6 +8,9 @@ import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpConfigParser
 import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpException
 import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpNamespace
 import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpServerConfig
+import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpStdioClient
+import com.luzzymeow.luzzyrp.assistant.domain.mcp.ProcessStdioTransport
+import com.luzzymeow.luzzyrp.assistant.domain.mcp.ProotSpawner
 import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpToolAdapter
 import com.luzzymeow.luzzyrp.assistant.domain.mcp.McpToolSpec
 import com.luzzymeow.luzzyrp.assistant.domain.tool.ToolRegistry
@@ -33,7 +36,13 @@ class McpRepository(
     private val database: AssistantDatabase,
     private val registry: ToolRegistry,
     private val client: McpClient = McpClient(),
+    /** stdio 进程启动器（runtime 层注入 proot 沙盒实现）；未注入时 stdio 明确报「需沙盒」。 */
+    private val spawner: ProotSpawner = ProotSpawner { _, _, _ -> null },
 ) {
+
+    private val stdioSessions = mutableMapOf<String, McpStdioClient>()
+
+    private fun spawnerAvailable(): Boolean = spawner.spawn("true", emptyList(), emptyMap()) != null
 
     private val serverDao = database.mcpServerDao()
     private val bindingDao = database.mcpBindingDao()
@@ -91,12 +100,10 @@ class McpRepository(
     suspend fun connect(serverId: String): Pair<Boolean, String> {
         val entity = serverDao.getById(serverId) ?: return false to "服务器不存在"
         val config = entity.toConfig()
-        if (!config.isHttp) {
-            val note = "stdio 传输需沙盒内运行时（PLAN §9.3），本版不连接"
-            serverDao.updateConnectionState(serverId, null, note)
-            return false to note
-        }
         unregisterTools(serverId)
+        if (!config.isHttp) {
+            return connectStdio(entity, config)
+        }
         return try {
             client.initialize(config)
             val specs = client.listTools(config)
@@ -122,8 +129,42 @@ class McpRepository(
         }
     }
 
+    /**
+     * stdio 连接（PLAN §9.3）：在 proot 沙盒内启动命令，JSON-RPC 走 stdin/stdout。
+     *
+     * **前置**：沙盒已安装且命令存在（`npx`/`uvx` 需先 `apk add nodejs`/`python3`）。
+     */
+    private suspend fun connectStdio(entity: McpServerEntity, config: McpServerConfig): Pair<Boolean, String> {
+        val command = config.command ?: return false to "stdio 服务器缺少 command"
+        if (!spawnerAvailable()) {
+            val note = "stdio 需要 proot 沙盒（首次使用请在终端页切换到沙盒模式完成安装）"
+            serverDao.updateConnectionState(entity.id, null, note)
+            return false to note
+        }
+        return try {
+            val session = McpStdioClient(ProcessStdioTransport(spawner, command, config.args, config.env))
+            val serverInfo = session.initialize()
+            val specs = session.listTools()
+            specs.forEach { spec ->
+                registry.register(McpToolAdapter.stdio(entity.id, entity.name, spec, session))
+            }
+            stdioSessions[entity.id]?.close()
+            stdioSessions[entity.id] = session
+            serverDao.updateConnectionState(entity.id, now(), null)
+            true to "已连接（$serverInfo），注册 ${specs.size} 个工具"
+        } catch (e: McpException) {
+            serverDao.updateConnectionState(entity.id, null, e.message)
+            false to (e.message ?: "stdio 连接失败")
+        } catch (e: Exception) {
+            val message = e.message ?: e.javaClass.simpleName
+            serverDao.updateConnectionState(entity.id, null, message)
+            false to message
+        }
+    }
+
     /** 断开并注销工具。 */
     suspend fun unregisterTools(serverId: String) {
+        stdioSessions.remove(serverId)?.close()
         registry.all()
             .filter { it.name.startsWith(McpNamespace.PREFIX + serverId + "__") }
             .forEach { registry.unregister(it.name) }
@@ -137,7 +178,7 @@ class McpRepository(
         specs.forEach { spec ->
             if (allowlist != null && spec.name !in allowlist) return@forEach
             registry.register(
-                McpToolAdapter(
+                McpToolAdapter.http(
                     serverId = entity.id,
                     serverName = entity.name,
                     config = config,

@@ -116,7 +116,13 @@ class AssistantRuntime(
     val registry: ToolRegistry = ToolRegistry(approval = approvalGate, audit = auditSink)
 
     /** MCP 仓库（P2：JSON 导入 / HTTP·SSE 连接 / 工具注册为 T2 外部工具）。 */
-    val mcpRepository: McpRepository = McpRepository(database, registry)
+    val mcpRepository: McpRepository = McpRepository(
+        database = database,
+        registry = registry,
+        spawner = com.luzzymeow.luzzyrp.assistant.domain.mcp.ProotSpawner { command, args, env ->
+            prootRuntime.spawnInteractive(command, args, env)
+        },
+    )
 
     /** 三协议分派（OpenAI / Anthropic / Gemini，PLAN §5.3）。 */
     val transport: LlmTransport = defaultRoutingTransport(log = { msg -> log(msg) })

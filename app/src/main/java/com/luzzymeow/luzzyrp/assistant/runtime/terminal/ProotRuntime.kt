@@ -93,6 +93,30 @@ class ProotRuntime(
         )
     }
 
+    /**
+     * 启动一个**交互式**沙盒进程（stdin/stdout 管道可用），供 MCP stdio 客户端使用。
+     *
+     * 与 [runInWorkspace] 的区别：不收集输出、不设超时——生命周期由调用方管理（[close]）。
+     * 返回 null 表示沙盒未就绪或启动失败。
+     */
+    fun spawnInteractive(
+        command: String,
+        args: List<String>,
+        env: Map<String, String> = emptyMap(),
+        workspaceDir: File = workspaceRootHint().let(::File),
+    ): Process? {
+        if (!isInstalled()) return null
+        workspaceDir.mkdirs()
+        val full = buildCommand(workspaceDir, (listOf(command) + args).joinToString(" "))
+        return runCatching {
+            ProcessBuilder(full)
+                .directory(workspaceDir)
+                .redirectErrorStream(false)
+                .apply { environment().putAll(environment()); environment().putAll(env) }
+                .start()
+        }.getOrNull()
+    }
+
     /** 供单测/诊断查看启动命令（不含任何密钥）。 */
     fun buildCommand(workspaceDir: File, command: String): List<String> =
         ProotCommand.build(prootBin, rootfsDir, workspaceDir, command)

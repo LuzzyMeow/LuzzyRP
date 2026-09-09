@@ -1,6 +1,7 @@
 package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,17 +16,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.luzzymeow.luzzyrp.assistant.ui.component.EmptyState
 import com.luzzymeow.luzzyrp.assistant.ui.component.PageHeader
+import com.luzzymeow.luzzyrp.assistant.ui.component.SearchField
 import com.luzzymeow.luzzyrp.assistant.ui.skill.SkillRow
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyShapes
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
@@ -44,12 +51,26 @@ fun SkillsScreen(
     onToggleBinding: (String, Boolean) -> Unit,
     onDelete: (String) -> Unit,
     onDismissMessage: () -> Unit,
+    onImportUrl: (String) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
+    var showUrlDialog by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxSize().background(colors.canvas)) {
-        PageHeader(title = "技能", subtitle = "共 ${skills.size} 个", onBack = onBack)
+        PageHeader(
+            title = "技能",
+            subtitle = "共 ${skills.size} 个",
+            onBack = onBack,
+            action = {
+                Text(
+                    text = "＋ 链接导入",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.accentButton,
+                    modifier = Modifier.clickable { showUrlDialog = true }.padding(8.dp),
+                )
+            },
+        )
 
         if (message != null) {
             Row(
@@ -75,6 +96,43 @@ fun SkillsScreen(
                 )
             }
             Spacer(Modifier.size(8.dp))
+        }
+
+        if (showUrlDialog) {
+            var url by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showUrlDialog = false },
+                confirmButton = {
+                    Text(
+                        text = "导入",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.accentButton,
+                        modifier = Modifier.clickable {
+                            onImportUrl(url)
+                            showUrlDialog = false
+                        }.padding(8.dp),
+                    )
+                },
+                dismissButton = {
+                    Text(
+                        text = "取消",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.muted,
+                        modifier = Modifier.clickable { showUrlDialog = false }.padding(8.dp),
+                    )
+                },
+                title = { Text("从链接导入技能", style = MaterialTheme.typography.titleMedium, color = colors.ink) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "仅支持 http/https；需为 Markdown（可含 front-matter）",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.mutedSoft,
+                        )
+                        SearchField(value = url, onValueChange = { url = it }, placeholder = "https://example.com/skill.md")
+                    }
+                },
+            )
         }
 
         if (skills.isEmpty()) {

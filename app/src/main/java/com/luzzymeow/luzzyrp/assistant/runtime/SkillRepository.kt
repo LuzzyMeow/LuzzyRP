@@ -7,6 +7,13 @@ import com.luzzymeow.luzzyrp.assistant.data.db.entity.SkillEntity
 import com.luzzymeow.luzzyrp.assistant.domain.prompt.SkillDocument
 import com.luzzymeow.luzzyrp.assistant.domain.prompt.SkillScope
 import com.luzzymeow.luzzyrp.assistant.domain.skill.SkillLoader
+import com.luzzymeow.luzzyrp.assistant.domain.skill.SkillParseException
+import com.luzzymeow.luzzyrp.assistant.domain.tool.SsrfGuard
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.util.UUID
 
 /**
@@ -80,6 +87,31 @@ class SkillRepository(
         return entity
     }
 
+    /**
+     * 从 URL 导入技能（PLAN §8.2 `source=url`）。
+     *
+     * **安全**：协议白名单 + [SsrfGuard] DNS 层拒私网/回环；正文上限 256KB；
+     * 解析失败抛 [com.luzzymeow.luzzyrp.assistant.domain.skill.SkillParseException]（不静默吞）。
+     */
+    suspend fun importFromUrl(url: String): SkillEntity = withContext(Dispatchers.IO) {
+        if (!SsrfGuard.schemeAllowed(url)) throw SkillParseException("仅支持 http/https 链接")
+        SsrfGuard.reasonOf(url)?.let { throw SkillParseException(it) }
+        val text = try {
+            client.newCall(
+                Request.Builder().url(url).header("User-Agent", USER_AGENT).get().build()
+            ).execute().use { response ->
+                if (!response.isSuccessful) throw SkillParseException("HTTP ${response.code}")
+                response.body?.string().orEmpty().take(MAX_URL_BYTES)
+            }
+        } catch (e: SkillParseException) {
+            throw e
+        } catch (e: IOException) {
+            throw SkillParseException("下载失败：${e.message ?: e.javaClass.simpleName}")
+        }
+        val fileName = url.substringBefore('?').substringAfterLast('/').ifBlank { "skill.md" }
+        importMarkdown(text, SkillLoader.nameFromFileName(fileName), SkillEntity.SOURCE_URL)
+    }
+
     suspend fun setEnabledGlobal(id: String, enabled: Boolean) = skillDao.setEnabledGlobal(id, enabled, now())
 
     suspend fun delete(id: String) {
@@ -118,5 +150,12 @@ class SkillRepository(
 
     companion object {
         const val BUILTIN_DIR: String = "assistant/skills"
+        private const val MAX_URL_BYTES: Int = 256 * 1024
+        private const val USER_AGENT: String = "LuzzyRP/1.5.0 (+assistant skill import)"
+        private val client: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(25, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
     }
 }

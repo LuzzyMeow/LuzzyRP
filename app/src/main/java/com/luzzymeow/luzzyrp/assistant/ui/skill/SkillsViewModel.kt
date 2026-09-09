@@ -92,6 +92,22 @@ class SkillsViewModel(
         }
     }
 
+    /** 从 URL 导入技能（协议/私网校验在仓库层，失败原因原样呈现）。 */
+    fun importFromUrl(url: String) {
+        val target = url.trim()
+        if (target.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { runtime.skillRepository.importFromUrl(target) }
+                .onSuccess {
+                    _state.value = _state.value.copy(message = "已从链接导入：${it.name}")
+                    refresh()
+                }
+                .onFailure { error ->
+                    _state.value = _state.value.copy(message = "导入失败：${error.message}")
+                }
+        }
+    }
+
     fun dismissMessage() {
         _state.value = _state.value.copy(message = null)
     }

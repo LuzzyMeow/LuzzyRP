@@ -218,6 +218,7 @@ private fun AssistantRoot(onExit: () -> Unit) {
                         onToggleBinding = skillsVm::toggleBinding,
                         onDelete = skillsVm::delete,
                         onDismissMessage = skillsVm::dismissMessage,
+                        onImportUrl = skillsVm::importFromUrl,
                         onBack = { route = AssistantRoute.ChatList },
                     )
                 }

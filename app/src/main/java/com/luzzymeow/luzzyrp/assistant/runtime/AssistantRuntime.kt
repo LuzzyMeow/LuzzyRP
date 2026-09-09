@@ -36,6 +36,7 @@ import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.MemorySearchTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.MemoryUpdateTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.MemoryWriteTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.RunCodeTool
+import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.SendToRpChatTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.TerminalRunTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WebFetchTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WebSearchTool
@@ -199,6 +200,8 @@ class AssistantRuntime(
                 // T2：默认关闭 + 逐调用审批（日历需运行时权限）
                 CalendarReadTool(AndroidCalendarPort(context)),
                 CalendarWriteTool(AndroidCalendarPort(context)),
+                // 预留：RP 会话回填（默认关；未接线时工具返回「未启用」）
+                SendToRpChatTool(),
             )
         )
     }

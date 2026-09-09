@@ -47,6 +47,8 @@ data class LuzzyColors(
     val canvas: Color,
     val surfaceSoft: Color,
     val surfaceCard: Color,
+    /** 卡片面：上游 `bg-white`（暗色被 luzzy-theme.css 覆盖为 gray-100 #201E1B）。 */
+    val card: Color,
     val hairline: Color,
     val hairlineStrong: Color,
     // 文字阶梯
@@ -77,6 +79,7 @@ val LuzzyColorsLight = LuzzyColors(
     canvas = Color(0xFFFAF9F5),
     surfaceSoft = Color(0xFFF5F0E8),
     surfaceCard = Color(0xFFEFE9DE),
+    card = Color(0xFFFFFFFF),
     hairline = Color(0xFFE6DFD8),
     hairlineStrong = Color(0xFFBEB6A8),
     ink = Color(0xFF141413),
@@ -99,6 +102,7 @@ val LuzzyColorsDark = LuzzyColors(
     canvas = Color(0xFF171614),
     surfaceSoft = Color(0xFF201E1B),
     surfaceCard = Color(0xFF2B2824),
+    card = Color(0xFF201E1B),
     hairline = Color(0xFF3E3A34),
     hairlineStrong = Color(0xFF6B675F),
     ink = Color(0xFFFAF9F5),

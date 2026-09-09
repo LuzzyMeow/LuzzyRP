@@ -160,6 +160,24 @@
     （DOM 注入，未改上游文件），点击按路由打开助手对应页面。
   - 会话列表退化为二级页（`ConversationsScreen`，含助手切换 + 新建），由 chevron 或侧栏「会话」进入。
   - 桥接新增 `openAssistantAt(route)` / `openRpSidebar()`（契约见 PLAN §14）。
+- **「助手」管理页设计一致性重构（用户 P0 反馈）**：
+  - **根因**：`DESIGN.md` 此前只规范了聊天页组件，管理页零规范 → 实现层临场发明组件
+    （违反硬性规定 9 第 3 步）。
+  - **补设计契约**：`DESIGN.md` 新增「管理页组件规范」——15 个组件逐项标注上游 Tailwind 类与
+    像素值（`.settings-page-header` / `.settings-toggle` 44×24 / `.settings-collapse` 0.36s /
+    `.settings-section-heading` / `px-3 py-1.5` 按钮 / 24dp 线性图标），换算基线 1 CSS px = 1 dp。
+  - **新建组件库** `ui/component/ledger/`：`Ledger`（尺寸/字级 token）、`LedgerIcons`（19 枚图标，
+    路径逐条取自上游 SVG）、`LedgerPageHeader` / `LedgerCard` / `LedgerCollapseCard` /
+    `LedgerToggle`（自绘 44×24，替换 Material3 Switch）/ `LedgerButton` / `LedgerIconButton` /
+    `LedgerTextField` / `LedgerSearchField` / `LedgerListRow` / `LedgerEmptyState` /
+    `LedgerStatusPill` / `LedgerSegmented`。
+  - **六个管理页 + 会话页 + 助手管理页全部改用该库**；删除临场组件（`PageHeader` / `SectionCard` /
+    `Field` / `ToggleRow` / `EmptyState` / `SearchField` / `MemoryCard` / `ConversationRow`）。
+  - **新增 token `card`**：上游卡片是 `bg-white`（暗色 #201E1B），此前误用 `surface-card`
+    （实为上游边框色 #EFE9DE）当填充，导致卡片整体深一档。
+  - **规格锁定测试**：`LedgerTokensTest` 8 项断言（开关 44×24 / 按钮 32 / 页面头 48 / 圆角 8·12·16 /
+    图标 24 与 stroke 2 / 折叠 360ms），改规格必须先改 DESIGN.md。
+  - **验证**：全仓 **331 项单测 / 0 失败**；`assembleDebug` 通过。**真机视觉比对待设备重新连接**。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id `10207`，更新时间 09/08 15:30；基线 `d2f2625` → `4aef0bb`，
@@ -537,11 +555,3 @@
 - 排查结论备档：记忆链路本身（提取→嵌入→分桶检索→注入）经罐装端到端验证无回归；
   「看不到注入」另有两个非缺陷因素——保留窗口（默认 50 楼内轮次防重复不注入）与
   相似度阈值 0.45。
-- 会话 17 文档回写（纯文档，不影响安装包）：README 状态徽章/版本规划表/硬性规定计数同步为
-  「已发布/10 条」；AGENTS §1.1/§3.1/§1.5/§9 陈旧值修正（9→10 条、verify-markers 39→41 项、
-  EXTRACT 14→15、真机复验状态、遗留待办复核）；HARD_REQUIREMENTS 规定 2 守护落点登记计数
-  修正为 001-019（按 AGENTS §1.1 于本 CHANGELOG 声明）。
-- 会话 17 工作区整洁（硬性规定 7）：移除 v0.x 旧工程遗物（AGENT-GUIDE / INVARIANTS-CHECKLIST /
-  audit / PLAN-v0.1.0 / task 任务书 / trpg 世界卡）与大型参考资料入库（game-icon-pack /
-  lobe-ui-master / rikkahub-master / D&D SRD / 字体源 / brand-logos，合计约 1.24 万入库文件），
-  另移除 APK 内无任何代码引用的 `app/src/main/assets/CHANGELOG.md`（v0.2.0 时代残留）；

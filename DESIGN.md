@@ -366,3 +366,76 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   故正文主族取 PuHuiTi 而非 AlibabaSans——观感与 Web 端一致，但拉丁字形来自 PuHuiTi；
 - 转换工具 `tools/assistant-fonts.py`（woff2 → TTF）；**禁止**运行时 CDN（硬性规定 4）；
 - 体积：8 枚 TTF 约 21.2MB（用户 2026-09-09 确认）。
+
+### 管理页组件规范（v1.5.0 · 与上游同构）
+
+> **起因（用户 2026-09-09 P0 反馈）**：「助手页下各个页面的组件设计与摆放方式等均只是与其他页相似，
+> 而不是做到同一个设计理念」。根因：本章此前只规范了**聊天页组件**，管理页零规范，导致实现层
+> 临场发明组件（违反硬性规定 9 第 3 步）。
+>
+> **总原则：不发明组件。** 助手原生页的每个组件 = **上游结构（Tailwind 类名逐项复制）
+> + Luzzy token（`ext/luzzy-theme.css` 覆盖色）**。本节每条规格都标注上游出处，实施时**不得改动**。
+
+#### 换算基线
+
+WebView 视口即设备 dp，故 **1 CSS px = 1 dp = 1 sp**。
+
+| 项 | 上游出处 | Compose 规格 |
+|----|----------|--------------|
+| 页面内边距 | `.management-view` `p-4 md:p-6` | 16dp |
+| 页面内容宽 | `max-w-3xl md:max-w-5xl mx-auto` | `fillMaxWidth`（移动端无上限） |
+| 卡片间距 | `space-y-4 md:space-y-8` | 16dp |
+| 页面头下间距 | `mb-4 md:mb-6` | 16dp |
+| 圆角 | `rounded-lg` 8 / `rounded-xl` 12 / `rounded-2xl` 16 | 8 / 12 / 16 dp |
+| 阴影 | `shadow-sm` | `0 1dp 2dp rgba(0,0,0,0.05)` |
+| 字号 | `text-xs` 12 / `text-sm` 14 / `text-base` 16 / `text-xl` 20 / `text-2xl` 24 | 12 / 14 / 16 / 20 / 24 sp |
+| 字重 | `font-medium` 500 / `font-semibold` 600 / `font-bold` 700 | Medium / SemiBold / Bold |
+| 按下反馈 | `active:scale-95` | 0.95 缩放（press） |
+| 过渡 | `transition-all` 150–200ms | 200ms 进 / 140ms 出，`cubic-bezier(.23,1,.32,1)` |
+
+#### 新增 token：卡片面 `card`
+
+上游卡片是 `bg-white`（`ext/luzzy-theme.css` 仅在暗色覆盖为 gray-100），
+**不是** `surface-card`（gray-200 = `border-gray-200`，上游用作**边框**）。
+
+| token | 亮色 | 暗色 | 出处 |
+|-------|------|------|------|
+| `card`（卡片填充） | `#FFFFFF` | `#201E1B`（gray-100） | `bg-white` / 暗色覆盖 |
+| 卡片边框 | `hairline` `#E6DFD8`… 实为 `border-gray-200` `#EFE9DE` | `border-gray-300` `#3E3A34` | `border border-gray-200` |
+
+#### 组件清单（逐项对齐上游）
+
+| # | 组件 | 上游出处与规格 | Compose 规格 |
+|---|------|----------------|--------------|
+| 1 | **页面头** | `.settings-page-header`：`flex items-center justify-between mb-4`；左＝汉堡（`.mobile-menu-button` `w-6 h-6` `text-gray-600` `mr-3`）+ `h2 text-xl font-bold text-gray-800 flex items-center` + 前置图标 `w-6 h-6 mr-2 text-primary-600`；右＝按钮组 `flex gap-2` | `Row`(高 48dp, mb 16dp)；图标 24dp；标题 20sp Bold `body`；右侧动作区 |
+| 2 | **图标按钮** | `p-2.5 bg-white rounded-xl border border-gray-200 shadow-sm active:scale-95`（危险态 `text-red-600`） | 40dp 方钮，`card` 底 + `hairline` 边 + `rounded-xl`(12dp) |
+| 3 | **分组标题** | `.settings-section-heading`：12px / 700 / `uppercase` / `letter-spacing .05em` / `#9ca3af`(gray-400) / `mb-4` | 12sp Bold，字距 0.05em，`hairlineStrong`，mb 16dp |
+| 4 | **卡片** | `bg-white rounded-2xl border border-gray-200 shadow-sm mb-6`；折叠容器变体 `bg-white/70 backdrop-blur-sm p-1 rounded-2xl border border-gray-200 shadow-sm mb-4 overflow-hidden` | `card` 底 + `hairline` 边 + `rounded-2xl`(16dp) + shadow-sm；折叠容器内边距 4dp |
+| 5 | **折叠行** | `w-full flex justify-between items-center px-4 py-3 rounded-xl font-bold`（展开态 `bg-primary-50 text-primary-700`）；左＝图标方块 `p-1.5 rounded-lg mr-3 bg-primary-100 text-primary-600`（内 `w-4 h-4`）；右＝状态文字 `text-xs font-bold text-primary-600` + `w-5 h-5` chevron（展开旋转 180°） | 高 48dp，`rounded-xl`(12dp)，图标方块 28dp `rounded-lg`(8dp) `accentSoft`/`accentButton`，右侧状态 12sp + chevron 20dp |
+| 6 | **折叠面板** | `.settings-collapse`：`grid-template-rows 0fr↔1fr` + `opacity`，`0.36s cubic-bezier(.22,1,.36,1)`；内容 `px-4 pb-4 pt-3 border-t border-gray-100` | `AnimatedVisibility`(展开 360ms `CubicBezierEasing(.22,1,.36,1)`)；内容顶边 `hairline` |
+| 7 | **开关** | `.settings-toggle`：**44×24dp** pill，底 `gray-200`，滑块 20dp 白底 `1px gray-300` 边、位移 2dp；选中底 `primary-600`、滑块 `translateX(100%)`；过渡 `all .2s`；`.settings-toggle--compact` 同形 | 44×24dp 自绘（**不用 Material3 Switch**），滑块 20dp，选中 `accentButton` |
+| 8 | **按钮** | 次级 `inline-flex items-center text-xs px-3 py-1.5 bg-white hover:bg-primary-50 text-primary-700 rounded-lg border border-primary-200 font-medium active:scale-95 shadow-sm`；主按钮 `.modal-primary-button` `primary-600` 底白字 | 高 32dp，`px-12dp`，`rounded-lg`(8dp)，12sp Medium；次级＝`card` 底 + `accentSoft` 边；主＝`accentButton` 底白字 |
+| 9 | **输入框** | `w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl px-4 py-3 text-gray-800 focus:bg-white focus:border-primary-500` | 高 44dp+，`rounded-xl`(12dp)，`surfaceSoft` 底 + 2dp `hairline` 边，聚焦 `accentGraphic` 边 |
+| 10 | **搜索框** | `w-full bg-white/80 border border-gray-200 rounded-2xl pl-10 pr-12 py-2.5 text-sm`（左侧 40dp 图标位） | 高 40dp，`rounded-2xl`(16dp)，前置 16dp 图标 |
+| 11 | **列表行** | 卡片内行 `rounded-xl px-4 py-3`，行间 `divide-y`/`gap-0.5`；主文 `text-sm font-semibold`，副文 `text-xs text-gray-500` | 行高 ≥48dp，`rounded-xl`，主 14sp SemiBold / 副 12sp `mutedSoft` |
+| 12 | **空态** | 图标（`w-8 h-8` `text-gray-300`）+ 主文 `text-sm text-gray-500` + 副文 `text-xs text-gray-400` + 可选动作按钮 | 居中列，间距 8dp |
+| 13 | **状态徽标** | `text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-700`（成功 `bg-green-50 text-green-700` 等） | 12sp，`px-8dp`/`py-2dp`，`rounded-full` |
+| 14 | **分段选择器** | `.segmented-switch`：外框 `rounded-xl bg-gray-100 p-1`，选中滑块 `bg-white shadow-sm`（Luzzy 覆盖为 primary） | 外框 `surfaceSoft` `rounded-xl` p-4dp；滑块 `card` + shadow |
+| 15 | **图标体系** | 全站 24dp 线性 SVG：`stroke-width 2`、`stroke-linecap/linejoin round`、`viewBox 0 0 24 24`；页面图标 `text-primary-600`，次级 `text-gray-400/500` | 24dp Canvas/Path 手绘，线宽 2dp，圆头圆角 |
+
+#### 页面骨架（所有管理页统一）
+
+```
+LedgerPageHeader(icon, title, actions)      // 20sp Bold + 24dp 前置图标 + 右侧图标按钮
+  └ 内容 Column(间距 16dp)
+      ├ LedgerSectionHeading("检索")         // 12sp Bold uppercase
+      ├ LedgerCard { LedgerCollapseRow(...) { 面板 } }
+      ├ LedgerCard { ... }
+      └ LedgerEmptyState(...)
+```
+
+#### 验收方式
+
+1. 组件尺寸单测（开关 44×24、按钮高 32、页面头 48、圆角 8/12/16）；
+2. 真机截图与上游同页并排比对（颜色/间距/圆角/字重）；
+3. `DESIGN.md` 本节即实施清单，**新增组件必须先在此登记**。

@@ -583,22 +583,36 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 
 ---
 
-### 会话 42 · 用户指出 P0：助手页面未贯彻同一设计理念（2026-09-09）
+---
 
-用户原话：「助手页下你的各个页面的组件设计与摆放方式等均只是与其他页相似，而不是做到同一个
-设计理念，你好好看看」。
+### 会话 43 · P0 修复：管理页设计一致性重构（2026-09-09）
 
-**核查结论：成立。** 已按证据逐项比对并记入 `docs/STATUS-v1.5.0-assistant.md` §5.5（P0）。
+**用户反馈**：「助手页下各个页面的组件设计与摆放方式等均只是与其他页相似，而不是做到同一个设计理念」。
 
-**根因**：① `DESIGN.md` §助手原生页 的组件映射表**只覆盖聊天页组件**，管理页零规范；
-② 我临场发明 `PageHeader`/`SectionCard`/`Field`/`ToggleRow`/`EmptyState`/`SearchField` 等组件，
-违反硬性规定 9 第 3 步「禁止临场发明」。
+**调研（真源逐层挖到底）**：
+1. `ext/luzzy-theme.css`（986 行）是 Luzzy 主题层——**只覆盖颜色、不改结构**（文件自述），
+   故设计语言 = 上游 Tailwind 结构 + Luzzy token；
+2. `styles.css` 给出组件规格：`.settings-page-header` / `.settings-toggle` 44×24 /
+   `.settings-collapse` 0.36s cubic-bezier(.22,1,.36,1) / `.settings-section-heading` 12px 700 uppercase；
+3. `index.html` 统计：`settings-toggle` **35 处**、`px-3 py-1.5` 按钮 10 处、`rounded-xl` 78 处、
+   `active:scale-95` 38 处；
+4. 图标：sprite 仅 9 枚，页面图标多为内联 SVG（24dp / stroke 2 / round）。
 
-**最刺眼的偏差**：开关用 Material3 `Switch` 而上游是 `.settings-toggle`（44×24dp pill，全站 35 处）；
-按钮用纯文字链接而上游是 `px-3 py-1.5` 白底描边按钮（10 处）；页面头无图标；卡片无「外卡+内行」两层；
-无 `settings-collapse` 折叠范式；无 `.settings-section-heading` 分组层级；图标体系几乎缺失。
+**根因（两条）**：① DESIGN.md 只规范聊天页组件，管理页零规范；② 实现层临场发明组件。
 
-**待办（用户确认后执行）**：先补 `DESIGN.md` 管理页组件规范（逐项引上游真源）→ 建 `ui/component/ledger/`
-组件库 → 六个管理页全部改用它 → 同步更新 DESIGN.md 的信息架构（右侧抽屉已过时，现为 RP 侧栏子项组）。
+**修复**：
+1. DESIGN.md 新增「管理页组件规范」（换算基线 + 15 组件逐项上游出处 + 页面骨架 + 验收方式）；
+2. 新建 `ui/component/ledger/`：`Ledger` token / `LedgerIcons`（19 枚，路径取自上游 SVG）
+   / 13 个组件；
+3. 八个页面改用该库；删除全部临场组件；
+4. 新增 `card` token（上游 `bg-white`），修正此前「用边框色当卡片填充」的偏差；
+5. `LedgerTokensTest` 8 项规格锁定断言。
 
-**本次未改动任何代码**（只记录）。
+**决策记录**：
+- **D28 组件规格以「上游类名 + 像素」为准**：Compose 不发明样式，只做「结构复制 + token 取色」；
+  新增组件必须先在 DESIGN.md 登记。
+- **D29 图标语义就近映射**：助手管理页是新增页面，无对应上游图标 → 取上游已有图标按语义就近映射
+  （记忆=灯泡、技能=书本、MCP=数据库、工作区=列表、终端=代码），**不自行绘制新形状**。
+
+**验证**：331 tests / 0 failed（新增 8 项规格锁定）；`assembleDebug` 通过。
+**待办**：真机视觉比对（设备 2026-09-09 10:5x 断开，需重新连接后与上游同页并排截图）。

@@ -34,7 +34,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.luzzymeow.luzzyrp.assistant.ui.component.PageHeader
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.Ledger
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerButton
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIcons
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerPageHeader
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerSegmented
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerStatusPill
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerType
 import com.luzzymeow.luzzyrp.assistant.ui.terminal.TerminalLine
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyShapes
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
@@ -68,69 +75,56 @@ fun TerminalScreen(
         if (lines.isNotEmpty()) listState.animateScrollToItem(lines.lastIndex)
     }
 
-    Column(modifier = modifier.fillMaxSize().background(colors.canvas)) {
-        PageHeader(
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.canvas)
+            .padding(horizontal = Ledger.PagePadding),
+    ) {
+        LedgerPageHeader(
+            icon = LedgerIcons.Terminal,
             title = "终端",
-            subtitle = modeLabel + (lastExitCode?.let { " · 上次退出码 $it" } ?: ""),
             onBack = onBack,
-            action = {
-                Text(
-                    text = "清屏",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.muted,
-                    modifier = Modifier.clickable(onClick = onClear).padding(8.dp),
-                )
+            actions = {
+                LedgerStatusPill(modeLabel + (lastExitCode?.let { " · 退出码 $it" } ?: ""))
+                LedgerButton(text = "清屏", onClick = onClear)
             },
         )
+        Spacer(Modifier.height(Ledger.PageHeaderGap))
 
-        // 模式切换（宿主 / 沙盒）
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            listOf("host" to "宿主", "sandbox" to "沙盒").forEach { (id, label) ->
-                val selected = mode == id
-                Box(
-                    modifier = Modifier
-                        .clip(LuzzyShapes.pill)
-                        .background(if (selected) colors.accentSoft else colors.surfaceSoft)
-                        .clickable(enabled = !installing) { onSetMode(id) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) colors.accentDeep else colors.muted,
-                    )
-                }
-            }
+            LedgerSegmented(
+                options = listOf("host" to "宿主", "sandbox" to "沙盒"),
+                selected = mode,
+                onSelect = { if (!installing) onSetMode(it) },
+            )
             if (installing) {
                 Text(
                     text = installProgress ?: "安装中…",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = LedgerType.caption,
                     color = colors.accentGraphic,
                 )
             }
         }
-        Spacer(Modifier.size(8.dp))
+        Spacer(Modifier.height(Ledger.CardGap))
 
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .clip(LuzzyShapes.card)
-                .background(colors.surfaceSoft)
-                .border(1.dp, colors.hairline, LuzzyShapes.card)
+                .clip(RoundedCornerShape(Ledger.RadiusLg))
+                .background(colors.card)
+                .border(1.dp, colors.hairline, RoundedCornerShape(Ledger.RadiusLg))
                 .padding(12.dp),
         ) {
             if (lines.isEmpty()) {
                 Text(
                     text = banner,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = LedgerType.caption,
                     fontFamily = FontFamily.Monospace,
                     color = colors.mutedSoft,
                 )
@@ -140,14 +134,14 @@ fun TerminalScreen(
                     when (line) {
                         is TerminalLine.Command -> Text(
                             text = "$ " + line.text,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = LedgerType.caption,
                             fontFamily = FontFamily.Monospace,
                             color = colors.accentDeep,
                         )
 
                         is TerminalLine.Output -> Text(
                             text = line.text,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = LedgerType.caption,
                             fontFamily = FontFamily.Monospace,
                             color = if (line.isError) colors.error else colors.body,
                         )

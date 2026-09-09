@@ -49,6 +49,8 @@ fun SettingsScreen(
     onMemoryMode: (String) -> Unit,
     onSearchProvider: (String) -> Unit = {},
     onSearxngUrl: (String) -> Unit = {},
+    onTavilyKey: (String) -> Unit = {},
+    onBraveKey: (String) -> Unit = {},
     onSaveSearch: () -> Unit = {},
     onTogglePreview: () -> Unit,
     onSave: () -> Unit,
@@ -179,6 +181,23 @@ fun SettingsScreen(
                         color = colors.mutedSoft,
                     )
                 }
+                Text(
+                    text = "API Key（加密存储，保存后不回显）",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.muted,
+                )
+                Field(
+                    if (state.tavilyKeySet) "Tavily API Key（已配置，留空则不改动）" else "Tavily API Key",
+                    state.tavilyKey,
+                    onTavilyKey,
+                    singleLine = true,
+                )
+                Field(
+                    if (state.braveKeySet) "Brave API Key（已配置，留空则不改动）" else "Brave API Key",
+                    state.braveKey,
+                    onBraveKey,
+                    singleLine = true,
+                )
                 Text(
                     text = "保存搜索设置",
                     style = MaterialTheme.typography.labelMedium,

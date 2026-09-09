@@ -55,8 +55,10 @@ import com.luzzymeow.luzzyrp.assistant.runtime.terminal.SandboxCodeRunner
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidCalendarPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidClipboardPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidDeviceInfoProvider
+import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.BraveProvider
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.DuckDuckGoProvider
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.SearXngProvider
+import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.TavilyProvider
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.SystemClockProvider
 import java.io.File
 import kotlinx.serialization.json.Json
@@ -104,6 +106,12 @@ class AssistantRuntime(
 
 
     val workspaceManager: WorkspaceManager = WorkspaceManager(context)
+
+    /** 密钥加密存储（AndroidKeyStore AES-GCM；PLAN §13.2：密钥不进 DataStore/Room/日志）。 */
+    val secretStore: com.luzzymeow.luzzyrp.assistant.data.prefs.SecretStore =
+        com.luzzymeow.luzzyrp.assistant.runtime.prefs.KeystoreSecretStore(
+            File(File(context.filesDir, "assistant"), "secrets.json"),
+        )
 
     /** proot 沙盒运行时（随包内置 proot + Alpine rootfs；首次使用释放，PLAN §10.2）。 */
     val prootRuntime: ProotRuntime = ProotRuntime(context)
@@ -179,11 +187,15 @@ class AssistantRuntime(
                 WebFetchTool(),
                 WebSearchTool(
                     providersProvider = {
-                        listOf(DuckDuckGoProvider()) + listOfNotNull(
-                            currentSearxngUrl()?.takeIf { it.isNotBlank() }?.let { SearXngProvider(it) },
-                        )
+                        buildList {
+                            add(DuckDuckGoProvider())
+                            currentSearxngUrl()?.takeIf { it.isNotBlank() }?.let { add(SearXngProvider(it)) }
+                            if (hasSecret(TavilyProvider.KEY_SECRET)) add(TavilyProvider(secretStore))
+                            if (hasSecret(BraveProvider.KEY_SECRET)) add(BraveProvider(secretStore))
+                        }
                     },
                     defaultProviderIdProvider = { currentSearchProvider() },
+                    knownProviderIds = listOf("duckduckgo", "searxng", "tavily", "brave"),
                 ),
                 WorkspaceListTool(),
                 WorkspaceReadTool(),
@@ -348,6 +360,14 @@ class AssistantRuntime(
         override val workspace: WorkspaceAccess = workspaceAccessFor(assistantId)
         override val cancelled = cancelled
         override val log: (String) -> Unit = onLog
+    }
+
+    /** 密钥是否存在（**只返回布尔**，不回显内容）。 */
+    suspend fun hasSecret(key: String): Boolean =
+        runCatching { !secretStore.get(key).isNullOrBlank() }.getOrDefault(false)
+
+    suspend fun putSecret(key: String, value: String) {
+        if (value.isBlank()) secretStore.remove(key) else secretStore.put(key, value)
     }
 
     /** 搜索设置读写（设置页用；非密钥）。 */

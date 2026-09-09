@@ -308,6 +308,8 @@ private fun AssistantRoot(onExit: () -> Unit) {
                         onMemoryMode = settingsVm::updateMemoryMode,
                         onSearchProvider = settingsVm::updateSearchProvider,
                         onSearxngUrl = settingsVm::updateSearxngUrl,
+                        onTavilyKey = settingsVm::updateTavilyKey,
+                        onBraveKey = settingsVm::updateBraveKey,
                         onSaveSearch = settingsVm::saveSearchSettings,
                         onTogglePreview = settingsVm::togglePreview,
                         onSave = settingsVm::save,

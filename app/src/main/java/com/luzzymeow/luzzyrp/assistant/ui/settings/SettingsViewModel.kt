@@ -95,6 +95,8 @@ class SettingsViewModel(
             loading = false,
             searchProvider = runCatching { runtime.currentSearchProviderId() }.getOrNull() ?: "duckduckgo",
             searxngUrl = runCatching { runtime.currentSearxngUrlValue() }.getOrNull().orEmpty(),
+            tavilyKeySet = runCatching { runtime.hasSecret("search_tavily_api_key") }.getOrDefault(false),
+            braveKeySet = runCatching { runtime.hasSecret("search_brave_api_key") }.getOrDefault(false),
         )
     }
 
@@ -110,6 +112,8 @@ class SettingsViewModel(
     fun updateMemoryThreshold(value: Float) = _state.value.let { _state.value = it.copy(memoryThreshold = value) }
     fun updateSearchProvider(value: String) = _state.value.let { _state.value = it.copy(searchProvider = value) }
     fun updateSearxngUrl(value: String) = _state.value.let { _state.value = it.copy(searxngUrl = value) }
+    fun updateTavilyKey(value: String) = _state.value.let { _state.value = it.copy(tavilyKey = value) }
+    fun updateBraveKey(value: String) = _state.value.let { _state.value = it.copy(braveKey = value) }
 
     /** 保存搜索设置（非密钥，直接写 DataStore）。 */
     fun saveSearchSettings() {
@@ -118,7 +122,18 @@ class SettingsViewModel(
             runCatching {
                 runtime.setSearchProviderId(current.searchProvider)
                 runtime.setSearxngUrlValue(current.searxngUrl)
-            }.onSuccess { _state.value = current.copy(message = "搜索设置已保存") }
+                // 密钥走加密存储；空串 = 清除
+                if (current.tavilyKey.isNotEmpty()) runtime.putSecret("search_tavily_api_key", current.tavilyKey.trim())
+                if (current.braveKey.isNotEmpty()) runtime.putSecret("search_brave_api_key", current.braveKey.trim())
+            }.onSuccess {
+                _state.value = current.copy(
+                    message = "搜索设置已保存",
+                    tavilyKey = "",
+                    braveKey = "",
+                    tavilyKeySet = runCatching { runtime.hasSecret("search_tavily_api_key") }.getOrDefault(false),
+                    braveKeySet = runCatching { runtime.hasSecret("search_brave_api_key") }.getOrDefault(false),
+                )
+            }
                 .onFailure { _state.value = current.copy(message = "保存失败：${it.message}") }
         }
     }
@@ -227,4 +242,9 @@ data class SettingsState(
     val auditEntries: List<AuditRow> = emptyList(),
     val searchProvider: String = "duckduckgo",
     val searxngUrl: String = "",
+    /** 输入框内容（保存后清空，**不回显已存密钥**）。 */
+    val tavilyKey: String = "",
+    val braveKey: String = "",
+    val tavilyKeySet: Boolean = false,
+    val braveKeySet: Boolean = false,
 )

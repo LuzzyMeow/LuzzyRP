@@ -162,3 +162,115 @@ object DuckDuckGoLiteParser {
         .replace(Regex("\\s+"), " ")
         .trim()
 }
+
+/**
+ * Tavily（需 API Key；Key 由 [SecretStore] 提供，**只进请求体，不落日志**）。
+ *
+ * 文档：`POST https://api.tavily.com/search`，body `{api_key, query, max_results}`，
+ * 响应 `{results:[{title,url,content}]}`。
+ */
+class TavilyProvider(
+    private val secretStore: com.luzzymeow.luzzyrp.assistant.data.prefs.SecretStore,
+    private val http: OkHttpClient = client(),
+) : SearchProvider {
+
+    override val id = "tavily"
+    override val displayName = "Tavily"
+    override fun isConfigured() = true // 真实可用性在 search() 时按 Key 是否存在判定
+
+    override suspend fun search(query: String, maxResults: Int): List<SearchResult> = withContext(Dispatchers.IO) {
+        val apiKey = secretStore.get(KEY_SECRET)?.takeIf { it.isNotBlank() }
+            ?: throw SearchException("未配置 Tavily API Key（请在设置页填入）")
+        val payload = buildJsonObject {
+            put("api_key", apiKey)
+            put("query", query)
+            put("max_results", maxResults)
+            put("search_depth", "basic")
+        }.toString()
+        val request = Request.Builder()
+            .url(ENDPOINT)
+            .header("Content-Type", "application/json")
+            .post(payload.toRequestBody(JSON_MEDIA))
+            .build()
+        val text = try {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw SearchException("HTTP ${response.code}")
+                response.body?.string().orEmpty()
+            }
+        } catch (e: SearchException) {
+            throw e
+        } catch (e: IOException) {
+            throw SearchException("网络错误：${e.message ?: e.javaClass.simpleName}", e)
+        }
+        val root = runCatching { JsonLenient.json.parseToJsonElement(text) as? JsonObject }.getOrNull()
+            ?: throw SearchException("响应不是合法 JSON")
+        (root["results"] as? JsonArray).orEmpty().take(maxResults).mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val url = obj["url"]?.jsonPrimitive?.content ?: return@mapNotNull null
+            SearchResult(
+                title = obj["title"]?.jsonPrimitive?.content.orEmpty(),
+                url = url,
+                snippet = obj["content"]?.jsonPrimitive?.content.orEmpty(),
+            )
+        }
+    }
+
+    companion object {
+        const val ENDPOINT = "https://api.tavily.com/search"
+        const val KEY_SECRET = "search_tavily_api_key"
+    }
+}
+
+/**
+ * Brave Search（需 API Key；`X-Subscription-Token` 头，**不落日志**）。
+ *
+ * 文档：`GET https://api.search.brave.com/res/v1/web/search`，响应 `{web:{results:[…]}}`。
+ */
+class BraveProvider(
+    private val secretStore: com.luzzymeow.luzzyrp.assistant.data.prefs.SecretStore,
+    private val http: OkHttpClient = client(),
+) : SearchProvider {
+
+    override val id = "brave"
+    override val displayName = "Brave Search"
+    override fun isConfigured() = true
+
+    override suspend fun search(query: String, maxResults: Int): List<SearchResult> = withContext(Dispatchers.IO) {
+        val apiKey = secretStore.get(KEY_SECRET)?.takeIf { it.isNotBlank() }
+            ?: throw SearchException("未配置 Brave API Key（请在设置页填入）")
+        val endpoint = "$ENDPOINT?q=" + URLEncoder.encode(query, "UTF-8") + "&count=" + maxResults.coerceIn(1, 20)
+        val request = Request.Builder()
+            .url(endpoint)
+            .header("Accept", "application/json")
+            .header("X-Subscription-Token", apiKey)
+            .get()
+            .build()
+        val text = try {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw SearchException("HTTP ${response.code}")
+                response.body?.string().orEmpty()
+            }
+        } catch (e: SearchException) {
+            throw e
+        } catch (e: IOException) {
+            throw SearchException("网络错误：${e.message ?: e.javaClass.simpleName}", e)
+        }
+        val root = runCatching { JsonLenient.json.parseToJsonElement(text) as? JsonObject }.getOrNull()
+            ?: throw SearchException("响应不是合法 JSON")
+        val web = root["web"] as? JsonObject
+        (web?.get("results") as? JsonArray).orEmpty().take(maxResults).mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val url = obj["url"]?.jsonPrimitive?.content ?: return@mapNotNull null
+            SearchResult(
+                title = obj["title"]?.jsonPrimitive?.content.orEmpty(),
+                url = url,
+                snippet = obj["description"]?.jsonPrimitive?.content.orEmpty(),
+            )
+        }
+    }
+
+    companion object {
+        const val ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
+        const val KEY_SECRET = "search_brave_api_key"
+    }
+}

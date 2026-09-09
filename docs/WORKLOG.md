@@ -2635,3 +2635,31 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 **验证**：284 tests / 0 failed；`assembleDebug` 通过（APK 78MB）。
 **待真机验证**：沙盒首次释放（约 4MB 解压）、`apk add python3`、`python3 script.py`
 ——这三步只能实机确认（本机为 Windows，无法执行 aarch64 二进制）。
+
+---
+
+### 会话 36 · W2 P3/P4 收尾：stdio MCP + 上下文压缩（2026-09-09）
+
+**完成项**：
+1. **stdio MCP**：`StdioTransport` 抽象（可单测）+ `ProcessStdioTransport`（后台线程读 stdout、
+   stderr 抽干）+ `McpStdioClient`（initialize / tools/list / tools/call）；
+   `McpToolAdapter` 重构为传输无关（`call` 回调 + http/stdio 工厂），`McpRepository` 接入
+   proot 沙盒 spawn 并缓存会话。
+2. **上下文压缩**：`LlmSummarizer` 复用当前助手请求模板生成旧轮摘要，失败退化截断。
+
+**决策记录**：
+- **D22 stdio 传输抽象**：把进程 I/O 抽到 `StdioTransport` 接口——协议层逻辑用**内存假传输**
+  单测（9 项），不再依赖 shell 脚本做测试夹具（会话 36 曾因此浪费大量时间排查）。
+- **D23 摘要复用模板**：摘要不新增供应商配置，复用「当前激活助手」的请求模板；摘要请求
+  不带工具、温度 0，避免模型在摘要时调工具。
+
+**踩坑（值得记）**：Kotlin 原始字符串里的 `\n` 是字面量；用 Python 脚本改写 Kotlin 源码时
+反斜杠会被吞，需用 `chr(92)` 构造；测试夹具用 shell 脚本时，`sh` 的 `case` 与参数展开
+在 Windows 上易出问题——**能用内存假实现就别起进程**。
+
+**验证**：299 tests / 0 failed；`assembleDebug` 通过。
+
+**遗留 / 下一步**：
+- **P4 剩余**：`web_search` 多引擎（无 Key 引擎需选型，涉 ToS）；`send_to_rp_chat` 预留工具；
+  技能 URL 导入；屏幕自动化（T3，本版不做）。
+- **真机验收**（唯一阻塞项）：沙盒释放 + `apk add python3`、流式渲染、审批弹窗、重启恢复。

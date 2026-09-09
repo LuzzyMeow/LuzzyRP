@@ -451,6 +451,8 @@ Luzzy.copyToClipboard = function (text) {
 | **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
 | **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |
 | **Android 无 `Process.toHandle()/ProcessHandle`**（会话 29 实证） | 无法枚举孙进程；`sh -c "sleep 30"` 只杀 shell 时，若用阻塞 `readText()` 排空会一直等到孙进程结束（超时形同失效）。改用**非阻塞 `available()` 轮询 + 有界排空** |
+| **AGP 会解压 `.gz` 资产并去掉后缀**（会话 37 实证） | 源码树 `assets/**/rootfs.tar.gz` 在 APK 内变成 `rootfs.tar`（未压缩 tar，扩展名被去掉）。运行时读资产要**两种名字都试 + 按 magic bytes 判断**，否则真机「资产缺失」 |
+| **Compose 编译器 mapping 生产者类路径版本漂移**（会话 37 实证） | AGP 9 内置 Kotlin 与项目 Kotlin 版本不一致时，`produce*ComposeMapping` 会去解析内置版本的 `compose-group-mapping`，离线环境解析失败并被 Gradle 报成「配置缓存序列化错误」误导排查。用 `resolutionStrategy` 钉到项目 Kotlin 版本 |
 
 ---
 

@@ -2663,3 +2663,33 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 - **P4 剩余**：`web_search` 多引擎（无 Key 引擎需选型，涉 ToS）；`send_to_rp_chat` 预留工具；
   技能 URL 导入；屏幕自动化（T3，本版不做）。
 - **真机验收**（唯一阻塞项）：沙盒释放 + `apk add python3`、流式渲染、审批弹窗、重启恢复。
+
+---
+
+### 会话 37 · W2 P4 补齐 + 发版自检（2026-09-09）
+
+**完成项**：
+1. **`web_search`**：`SearchProvider` 端口 + `WebSearchTool`（T0）；DuckDuckGo Lite（无 Key 默认，
+   HTML 宽容解析）+ SearXNG（自填实例，走 SsrfGuard）；DataStore 新增 `search_provider` /
+   `searxng_url`；设置页「联网搜索」卡。
+2. **`send_to_rp_chat`**（预留，T2 默认关）：`RpChatPort` 端口，未接线返回「未启用」。
+3. **技能 URL 导入**：协议白名单 + SSRF + 256KB 上限；技能页「＋ 链接导入」弹窗。
+4. **release 构建修复**（阻断性）：`composeMappingProducerClasspath` 版本钉到项目 Kotlin。
+5. **APK 资产名修复**（真机阻断性）：AGP 解压 `.gz` 资产并去掉后缀。
+
+**决策记录**：
+- **D24 搜索提供方**：默认 DuckDuckGo（无 Key，公共端点可能限流）；推荐用户配 SearXNG 自建实例。
+  **需 API Key 的提供方（Tavily/Brave/Exa）暂不实现**——密钥应走加密存储，`SecretStore` 目前是接口占位。
+- **D25 预留工具诚实降级**：`send_to_rp_chat` 未接线时明确返回「未启用」，不静默成功。
+
+**发版自检（硬性规定 8）**：
+| 项 | 结果 |
+|----|------|
+| 单 APK | `app/build/outputs/apk/release/app-release.apk`（42.9MB），产物目录只有一个 |
+| 签名一致 | `apksigner verify --print-certs` → CN=LuzzyRP，SHA-256 `ed78235d…ffb1` = keystore 证书指纹 |
+| 资产 | APK 内含沙盒 8 项（proot / 2×.so / rootfs.tar / GPL 文件）+ 8 枚字体 |
+| 配置缓存 | 修复后 `assembleRelease` 含配置缓存也通过 |
+
+**验证**：318 tests / 0 failed；`assembleRelease` / `assembleDebug` 通过。
+
+**遗留**：真机验收（沙盒释放、`apk add python3`、流式渲染、审批弹窗、重启恢复）——adb 仍无设备。

@@ -28,42 +28,56 @@
     const ENTRY_CLASS = 'sidebar-nav-button flex items-center rounded-xl transition-all duration-200 ' +
         'font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full px-3 py-2.5';
 
-    // ---- 助手子项组（用户 2026-09-09 指定：菜单栏归 LuzzyRP，其下「助手」展开子项） ----
+    // ---- 助手可折叠组（用户 2026-09-09 指定：与「在线」「高级」完全同款） ----
     const GROUP_ID = 'luzzy-assistant-group';
-    const SUB_STYLE_ID = 'luzzy-assistant-style';
+    const PANEL_ID = 'luzzy-assistant-panel';
+    const STYLE_ID = 'luzzy-assistant-style';
 
-    /** 子项 → 原生路由（与 AssistantRoute 对应；`conversations` 含助手切换）。 */
+    // 触发按钮图标（铅笔线稿，与旧入口一致）
+    const TRIGGER_ICON = '<svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" ' +
+        'd="M16.86 4.49l1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L6.83 19.82a4.5 4.5 0 0 1-1.9 1.13l-2.68.8.8-2.69a4.5 4.5 0 0 1 1.13-1.9L16.86 4.49z"/>' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 6.5l2.5 2.5"/></svg>';
+
+    // 与上游「在线」「高级」同款 chevron（展开旋转 90°）
+    const CHEVRON = '<svg class="advanced-nav-chevron ml-auto w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+
+    /** 子项：label + 原生路由 + 图标 path（全部取自上游 index.html 的 SVG）。 */
     const SUB_ENTRIES = [
-        { label: '会话', route: 'conversations' },
-        { label: '记忆', route: 'memory' },
-        { label: '技能', route: 'skills' },
-        { label: 'MCP', route: 'mcp' },
-        { label: '工作区', route: 'workspace' },
-        { label: '终端', route: 'terminal' },
-        { label: '设置', route: 'settings' }
+        { label: '对话', route: '', icon: 'M16.86 4.49l1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L6.83 19.82a4.5 4.5 0 0 1-1.9 1.13l-2.68.8.8-2.69a4.5 4.5 0 0 1 1.13-1.9L16.86 4.49z' },
+        { label: '会话', route: 'conversations', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+        { label: '记忆', route: 'memory', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
+        { label: '技能', route: 'skills', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
+        { label: 'MCP', route: 'mcp', icon: 'M4 7c0 1.1 3.58 2 8 2s8-.9 8-2m-16 0c0-1.1 3.58-2 8-2s8 .9 8 2m-16 0v5c0 1.1 3.58 2 8 2s8-.9 8-2V7m-16 5v5c0 1.1 3.58 2 8 2s8-.9 8-2v-5' },
+        { label: '工作区', route: 'workspace', icon: 'M4 7h16M4 12h10M4 17h7' },
+        { label: '终端', route: 'terminal', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
+        { label: '设置', route: 'settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }
     ];
 
     /**
-     * 子项样式：沿用侧栏 token（gray-600 → gray-900，圆角 12px），
-     * 左侧一条 hairline 竖线作为「卷宗」式层级标记（DESIGN.md：手作记号，不用色块）。
+     * 子项样式统一（用户 2026-09-09 指定）：
+     * 「在线」「高级」展开的子项改用**助手子项的样式与尺寸**——13px、7px/10px 内边距、
+     * 10px 圆角、16px 图标，外层加一条 hairline 竖线作层级标记（亮/暗双模式）。
      */
     const SUB_CSS = [
-        '#' + GROUP_ID + ' .lz-sub { margin: 2px 0 2px 14px; padding-left: 10px;',
+        '.sidebar-nav .advanced-nav-list { margin: 2px 0 2px 14px; padding-left: 10px;',
         '  border-left: 1px solid rgba(0,0,0,.08); display: flex; flex-direction: column; gap: 1px; }',
-        '#' + GROUP_ID + ' .lz-sub-item { display: flex; align-items: center; width: 100%;',
-        '  padding: 7px 10px; border-radius: 10px; font-size: 13px; line-height: 1.2;',
-        '  color: #6b7280; text-align: left; transition: background-color .18s ease, color .18s ease; }',
-        '#' + GROUP_ID + ' .lz-sub-item:hover { background: rgba(0,0,0,.04); color: #111827; }',
-        '#' + GROUP_ID + ' .lz-sub-item:active { background: rgba(0,0,0,.06); }',
-        'html[data-mode="dark"] #' + GROUP_ID + ' .lz-sub { border-left-color: rgba(255,255,255,.12); }',
-        'html[data-mode="dark"] #' + GROUP_ID + ' .lz-sub-item { color: #9ca3af; }',
-        'html[data-mode="dark"] #' + GROUP_ID + ' .lz-sub-item:hover { background: rgba(255,255,255,.06); color: #f3f4f6; }'
+        '.sidebar-nav .advanced-nav-item { min-height: 0; padding: 7px 10px; border-radius: 10px;',
+        '  font-size: 13px; line-height: 1.2; color: #6b7280; text-align: left;',
+        '  transition: background-color .18s ease, color .18s ease; }',
+        '.sidebar-nav .advanced-nav-item svg { width: 16px; height: 16px; margin-right: 8px; }',
+        '.sidebar-nav .advanced-nav-item:hover { background: rgba(0,0,0,.04); color: #111827; }',
+        '.sidebar-nav .advanced-nav-item:active { background: rgba(0,0,0,.06); }',
+        'html[data-mode="dark"] .sidebar-nav .advanced-nav-list { border-left-color: rgba(255,255,255,.12); }',
+        'html[data-mode="dark"] .sidebar-nav .advanced-nav-item { color: #9ca3af; }',
+        'html[data-mode="dark"] .sidebar-nav .advanced-nav-item:hover { background: rgba(255,255,255,.06); color: #f3f4f6; }'
     ].join('\n');
 
     function ensureStyle() {
-        if (document.getElementById(SUB_STYLE_ID)) return;
+        if (document.getElementById(STYLE_ID)) return;
         const style = document.createElement('style');
-        style.id = SUB_STYLE_ID;
+        style.id = STYLE_ID;
         style.textContent = SUB_CSS;
         document.head.appendChild(style);
     }
@@ -78,27 +92,6 @@
         else if (typeof Luzzy.openAssistant === 'function') Luzzy.openAssistant();
     }
 
-    function buildGroup() {
-        const group = document.createElement('div');
-        group.id = GROUP_ID;
-        const sub = document.createElement('div');
-        sub.className = 'lz-sub';
-        SUB_ENTRIES.forEach(function (entry) {
-            const item = document.createElement('button');
-            item.type = 'button';
-            item.className = 'lz-sub-item';
-            item.textContent = entry.label;
-            item.addEventListener('click', function (ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
-                openRoute(entry.route);
-            });
-            sub.appendChild(item);
-        });
-        group.appendChild(sub);
-        return group;
-    }
-
     function findAnchor() {
         // 底部簇锚点：文本为「外观」的侧栏按钮（patch 019 重排后：外观 → 设置 → 关于）
         const nav = document.querySelector('.sidebar-nav');
@@ -110,59 +103,87 @@
         return anchor ? { nav: nav, anchor: anchor } : null;
     }
 
-    function buildEntry() {
-        const btn = document.createElement('button');
-        btn.id = ENTRY_ID;
-        btn.type = 'button';
-        btn.title = '助手';
-        btn.setAttribute('aria-label', '助手');
-        btn.className = ENTRY_CLASS;
-        btn.innerHTML = ICON_SVG + '<span class="whitespace-nowrap overflow-hidden">助手</span>';
-        btn.addEventListener('click', function (ev) {
+    /** 构建「助手」可折叠组（结构与上游 .advanced-nav 完全一致）。 */
+    function buildGroup() {
+        const wrap = document.createElement('div');
+        wrap.id = GROUP_ID;
+        wrap.className = 'advanced-nav';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.title = '助手';
+        trigger.setAttribute('aria-controls', PANEL_ID);
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.className = 'sidebar-nav-button advanced-nav-trigger flex items-center rounded-xl ' +
+            'transition-all duration-200 font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 ' +
+            'w-full px-3 py-2.5';
+        trigger.innerHTML = TRIGGER_ICON +
+            '<span class="whitespace-nowrap overflow-hidden">助手</span>' + CHEVRON;
+
+        const panel = document.createElement('div');
+        panel.id = PANEL_ID;
+        panel.className = 'advanced-nav-panel';
+        panel.setAttribute('aria-hidden', 'true');
+        panel.setAttribute('inert', '');
+        const inner = document.createElement('div');
+        inner.className = 'advanced-nav-panel-inner';
+        const list = document.createElement('div');
+        list.className = 'advanced-nav-list';
+
+        SUB_ENTRIES.forEach(function (entry) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.title = entry.label;
+            item.className = 'sidebar-nav-button advanced-nav-item transition-all duration-200';
+            item.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="' + entry.icon + '"></path></svg>' +
+                '<span>' + entry.label + '</span>';
+            item.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                openRoute(entry.route);
+            });
+            list.appendChild(item);
+        });
+
+        inner.appendChild(list);
+        panel.appendChild(inner);
+        wrap.appendChild(trigger);
+        wrap.appendChild(panel);
+
+        trigger.addEventListener('click', function (ev) {
             ev.preventDefault();
             ev.stopPropagation();
-            if (typeof Luzzy.openAssistant === 'function') {
-                Luzzy.openAssistant();
-            } else {
-                // 扩展层未加载桥接封装时的兜底（正常不会发生：luzzy-bridge.js 先于本文件）
-                const raw = window.LuzzyBridge;
-                if (raw && typeof raw.openAssistant === 'function') raw.openAssistant();
-            }
+            const open = wrap.classList.toggle('is-open');
+            trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+            if (open) panel.removeAttribute('inert');
+            else panel.setAttribute('inert', '');
         });
-        return btn;
+        return wrap;
     }
 
-    /** 注入（幂等）。返回是否处于「已注入」状态。 */
+    /** 注入（幂等）：把「助手」组放到「外观」之前。 */
     function inject() {
-        const existing = document.getElementById(ENTRY_ID);
-        const group = document.getElementById(GROUP_ID);
+        // 旧版独立入口（如已注入）→ 移除
+        const legacy = document.getElementById(ENTRY_ID);
+        if (legacy) legacy.remove();
+
         const spot = findAnchor();
+        const group = document.getElementById(GROUP_ID);
         if (!spot) {
-            if (existing) existing.remove();
             if (group) group.remove();
             return false;
         }
         ensureStyle();
-
-        if (existing && existing.parentElement === spot.nav) {
-            // 位置漂移（上游重排）→ 校正到锚点之前
-            if (existing.nextElementSibling !== spot.anchor) {
-                spot.nav.insertBefore(existing, spot.anchor);
+        if (group && group.parentElement === spot.nav) {
+            if (group.nextElementSibling !== spot.anchor) {
+                spot.nav.insertBefore(group, spot.anchor);
             }
-        } else {
-            if (existing) existing.remove();
-            spot.nav.insertBefore(buildEntry(), spot.anchor);
-        }
-
-        // 子项组紧随「助手」按钮之后（Vue 重渲染会整段移除 → 这里重建）
-        const entry = document.getElementById(ENTRY_ID);
-        if (group && group.previousElementSibling === entry && group.parentElement === spot.nav) {
             return true;
         }
         if (group) group.remove();
-        if (entry && entry.parentElement === spot.nav) {
-            entry.insertAdjacentElement('afterend', buildGroup());
-        }
+        spot.nav.insertBefore(buildGroup(), spot.anchor);
         return true;
     }
 
@@ -219,8 +240,11 @@
 
     // ---- 显隐回调（原生 → JS）：可在此暂停/恢复轮询等 ----
     Luzzy.onAssistantVisibilityChanged = function (visible) {
-        const btn = document.getElementById(ENTRY_ID);
-        if (btn) btn.classList.toggle('bg-gray-50', !!visible);
+        const trigger = document.querySelector('#' + GROUP_ID + ' .advanced-nav-trigger');
+        if (trigger) {
+            trigger.classList.toggle('bg-primary-50', !!visible);
+            trigger.classList.toggle('text-primary-700', !!visible);
+        }
         // 助手可见时同步一次配置（用户可能刚在设置页改过供应商）
         if (visible) pushConfig();
     };

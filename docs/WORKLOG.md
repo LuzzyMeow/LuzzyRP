@@ -585,20 +585,23 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 
 ---
 
-### 会话 45 · 图标渲染缺陷修复（2026-09-09 18:0x，用户指出）
+### 会话 46 · 侧栏「助手」折叠组 + 子项样式统一（2026-09-09 18:0x）
 
-**用户反馈**：「为什么你所有的圆形图标都是半圆状的啊」+「你能不能直接复用原项目已经画过的图标」。
+**用户要求**（原话）：「完全对齐如「在线」和「高级」这种可展开和收起式的选项，让助手下方的各个功能页
+可折叠收纳，并且把「在线」和「高级」所展开的预设 世界书等子项，改 ui 成助手下方的子项的样式和大小」。
 
-**根因**：上游 SVG 的弧线命令使用**紧凑标志位**写法（`a3 3 0 11-6 0`、`a2 2 0 016 0`），
-Compose 的 `addPathNodes` 会把 `11` / `016` 当成一个数字 → 圆心/圆环被画成**半圆**、齿轮变花形
-（放大截图实证：齿轮中心是「碗形」）。
+**实现（全在扩展层，未改上游文件）**：
+1. 上游折叠机制取自 `ui-components.js` + `styles.css`：`.advanced-nav`（`.is-open` 时
+   `grid-template-rows 0fr→1fr` + `opacity`，0.32s `cubic-bezier(.22,1,.36,1)`）+
+   `.advanced-nav-trigger`（chevron `rotate(90deg)`）；
+2. `luzzy-assistant.js` 的「助手」入口由单按钮改为**同款折叠组**（trigger + panel + list），
+   新增子项「对话」（触发按钮现在只负责展开收起，首页入口下移到子项）；
+3. 注入 CSS 把**三组子项统一**为助手子项规格：`.sidebar-nav .advanced-nav-list`（左移 14px +
+   10px 缩进 + hairline 竖线）与 `.sidebar-nav .advanced-nav-item`（13px / 7px·10px / 10px 圆角 /
+   16px 图标），亮暗双模式；
+4. 助手可见时触发按钮高亮（`bg-primary-50 text-primary-700`，与上游激活组同款）。
 
-**修复（按用户指示：直接复用原项目图标）**：
-1. 把上游 `index.html` 的 20 条 SVG `d` 路径落成 `res/drawable/ic_lz_*.xml`（VectorDrawable，
-   24dp 视口 / stroke 2 / round cap+join），由**系统 SVG 解析器**渲染；
-2. 生成时**显式分隔弧线标志位**（`M 15 12 a 3 3 0 1 1 -6 0 3 3 0 0 1 6 0 z`），几何与上游一致；
-3. `LedgerIcons` 由 `ImageVector` 改为 `@DrawableRes Int`，组件改用 `painterResource`；
-4. 真机验证：设置页齿轮/滑块/放大镜/代码/信息圆**全部正常**。
+**真机验证**（截图逐项确认）：三组均可用 chevron 展开/收起；助手子项 8 项与「在线」3 项、
+「高级」4 项**样式尺寸完全一致**（13px + 16px 图标 + hairline 竖线 + 组尾发丝线）。
 
 **验证**：331 tests / 0 failed；`assembleDebug` 通过；门禁 86 PASS / 0 FAIL。
-**坑已入档**：AGENTS §7 新增「Compose addPathNodes 误读紧凑弧线标志位」。

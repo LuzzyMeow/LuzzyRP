@@ -31,72 +31,18 @@ class GlobalShellRunner(
 
     override val mode: String = MODE_HOST
 
-    override suspend fun run(command: String, timeoutMs: Long): ShellResult = withContext(Dispatchers.IO) {
+    override suspend fun run(command: String, timeoutMs: Long): ShellResult {
         HardlineGuard.reasonOf(command)?.let { reason ->
-            return@withContext ShellResult(exitCode = 126, output = "已拦截：$reason")
+            return ShellResult(exitCode = 126, output = "已拦截：$reason")
         }
-        workingDir.mkdirs()
-        val process = try {
-            ProcessBuilder(shellPath, "-c", command)
-                .directory(workingDir)
-                .redirectErrorStream(true)
-                .start()
-        } catch (e: Exception) {
-            return@withContext ShellResult(-1, "无法启动 shell：${e.message ?: e.javaClass.simpleName}")
-        }
-
-        val buffer = StringBuilder()
-        var truncated = false
-        var timedOut = false
-        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
-
-        try {
-            process.inputStream.use { stream ->
-                val chunk = ByteArray(4096)
-                // 非阻塞轮询：只在 available()>0 时读，避免 readText() 因孙进程持有管道而永久阻塞
-                while (true) {
-                    val available = stream.available()
-                    if (available > 0) {
-                        val read = stream.read(chunk, 0, minOf(chunk.size, available))
-                        if (read > 0) {
-                            val remaining = maxOutputChars - buffer.length
-                            if (remaining <= 0) {
-                                truncated = true
-                            } else {
-                                val take = minOf(read, remaining)
-                                buffer.append(String(chunk, 0, take, Charsets.UTF_8))
-                                if (take < read) truncated = true
-                            }
-                        }
-                        continue
-                    }
-                    if (!process.isAlive) break
-                    if (System.nanoTime() > deadline) {
-                        killTree(process)
-                        timedOut = true
-                        break
-                    }
-                    Thread.sleep(15)
-                }
-                // 终止后的有界排空（500ms 上限，防止孙进程继续持有管道时卡死）
-                val drainDeadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(500)
-                while (stream.available() > 0 && System.nanoTime() < drainDeadline) {
-                    val read = stream.read(chunk, 0, minOf(chunk.size, stream.available()))
-                    if (read <= 0) break
-                    val remaining = maxOutputChars - buffer.length
-                    if (remaining <= 0) { truncated = true; continue }
-                    val take = minOf(read, remaining)
-                    buffer.append(String(chunk, 0, take, Charsets.UTF_8))
-                    if (take < read) truncated = true
-                }
-            }
-            val exit = if (process.isAlive) -1 else runCatching { process.exitValue() }.getOrDefault(-1)
-            if (timedOut) buffer.append("\n[超时 ${timeoutMs}ms，已终止进程]")
-            val overflowPath = if (truncated) spill(buffer.toString(), command) else null
-            ShellResult(exit, buffer.toString(), overflowPath)
-        } finally {
-            if (process.isAlive) killTree(process)
-        }
+        return ProcessRunner.run(
+            command = listOf(shellPath, "-c", command),
+            workingDir = workingDir,
+            timeoutMs = timeoutMs,
+            maxOutputChars = maxOutputChars,
+            overflowDir = overflowDir,
+            overflowLabel = "command: ${command.take(200)}",
+        )
     }
 
     /**

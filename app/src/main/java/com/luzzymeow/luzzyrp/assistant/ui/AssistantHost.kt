@@ -274,11 +274,15 @@ private fun AssistantRoot(onExit: () -> Unit) {
                     TerminalScreen(
                         lines = termState.lines,
                         running = termState.running,
+                        mode = termState.mode,
                         modeLabel = termState.modeLabel,
                         banner = termState.banner,
                         lastExitCode = termState.lastExitCode,
+                        installing = termState.installing,
+                        installProgress = termState.installProgress,
                         onRun = termVm::run,
                         onClear = termVm::clear,
+                        onSetMode = termVm::setMode,
                         onBack = { route = AssistantRoute.ChatList },
                     )
                 }

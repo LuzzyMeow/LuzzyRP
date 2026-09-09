@@ -48,6 +48,8 @@ import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WorkspaceWriteTool
 import com.luzzymeow.luzzyrp.assistant.runtime.memory.EmbeddingConfig
 import com.luzzymeow.luzzyrp.assistant.runtime.memory.RoomMemoryStore
 import com.luzzymeow.luzzyrp.assistant.runtime.terminal.GlobalShellRunner
+import com.luzzymeow.luzzyrp.assistant.runtime.terminal.ProotRuntime
+import com.luzzymeow.luzzyrp.assistant.runtime.terminal.SandboxCodeRunner
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidCalendarPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidClipboardPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidDeviceInfoProvider
@@ -98,6 +100,9 @@ class AssistantRuntime(
 
 
     val workspaceManager: WorkspaceManager = WorkspaceManager(context)
+
+    /** proot 沙盒运行时（随包内置 proot + Alpine rootfs；首次使用释放，PLAN §10.2）。 */
+    val prootRuntime: ProotRuntime = ProotRuntime(context)
 
     val memoryStore: RoomMemoryStore = RoomMemoryStore(
         dao = database.memoryDao(),
@@ -177,11 +182,32 @@ class AssistantRuntime(
     /** 某助手工作区内的宿主 shell（终端页直接使用；工作目录 = 该助手 files/）。 */
     suspend fun shellRunnerFor(assistantId: String): ShellRunner = shellRunnerFactory(workspaceManager.filesDir(assistantId))
 
-    /** 为某助手装配终端/代码执行工具（依赖其工作区目录）。 */
+    /** 沙盒 shell（工作区 bind 到容器 /workspace；未安装时返回明确错误）。 */
+    suspend fun sandboxShellFor(assistantId: String): ShellRunner = object : ShellRunner {
+        override val mode = ProotRuntime.MODE_SANDBOX
+        override suspend fun run(command: String, timeoutMs: Long): com.luzzymeow.luzzyrp.assistant.domain.tool.ShellResult =
+            prootRuntime.runInWorkspace(workspaceManager.filesDir(assistantId), command, timeoutMs)
+    }
+
+    /**
+     * 为某助手装配终端/代码执行工具（依赖其工作区目录）。
+     *
+     * 沙盒可用时：`terminal_run` 走 proot（真 Linux，可 apk add），`run_code` 走沙盒解释器；
+     * 否则退回宿主 shell，`run_code` 明确报「需沙盒」。
+     */
     suspend fun registerExecToolsFor(assistantId: String) {
         val filesDir = workspaceManager.filesDir(assistantId)
-        registry.register(TerminalRunTool(shellRunnerFactory(filesDir)))
-        codeRunnerFactory?.let { registry.register(RunCodeTool(it(filesDir))) }
+        val sandboxReady = prootRuntime.isInstalled()
+        registry.register(
+            TerminalRunTool(
+                if (sandboxReady) sandboxShellFor(assistantId) else shellRunnerFactory(filesDir),
+            )
+        )
+        val codeRunner = when {
+            sandboxReady -> SandboxCodeRunner(prootRuntime, filesDir)
+            else -> codeRunnerFactory?.invoke(filesDir)
+        }
+        codeRunner?.let { registry.register(RunCodeTool(it)) }
     }
 
     // ------------------------------------------------------------------

@@ -48,11 +48,15 @@ import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 fun TerminalScreen(
     lines: List<TerminalLine>,
     running: Boolean,
+    mode: String,
     modeLabel: String,
     banner: String,
     lastExitCode: Int?,
+    installing: Boolean = false,
+    installProgress: String? = null,
     onRun: (String) -> Unit,
     onClear: () -> Unit,
+    onSetMode: (String) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,6 +82,40 @@ fun TerminalScreen(
                 )
             },
         )
+
+        // 模式切换（宿主 / 沙盒）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            listOf("host" to "宿主", "sandbox" to "沙盒").forEach { (id, label) ->
+                val selected = mode == id
+                Box(
+                    modifier = Modifier
+                        .clip(LuzzyShapes.pill)
+                        .background(if (selected) colors.accentSoft else colors.surfaceSoft)
+                        .clickable(enabled = !installing) { onSetMode(id) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) colors.accentDeep else colors.muted,
+                    )
+                }
+            }
+            if (installing) {
+                Text(
+                    text = installProgress ?: "安装中…",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.accentGraphic,
+                )
+            }
+        }
+        Spacer(Modifier.size(8.dp))
 
         Column(
             modifier = Modifier

@@ -28,10 +28,41 @@ class TerminalViewModel(
 
     init {
         viewModelScope.launch {
-            val mode = runCatching { runtime.shellRunnerFor(assistantId).mode }.getOrDefault("host")
+            val sandboxStatus = runtime.prootRuntime.status()
             _state.value = _state.value.copy(
-                modeLabel = if (mode == "sandbox") "沙盒（proot）" else "宿主（App 权限）",
+                sandboxStatus = sandboxStatus,
                 banner = "LuzzyRP 终端 · 工作目录 = 工作区 files/ · 危险命令将被无条件拦截",
+            )
+        }
+    }
+
+    /** 切换模式（`host` / `sandbox`）。沙盒首次切换会释放 rootfs（带进度）。 */
+    fun setMode(mode: String) {
+        if (_state.value.running || _state.value.installing) return
+        _state.value = _state.value.copy(
+            mode = mode,
+            modeLabel = if (mode == "sandbox") "沙盒（proot 真 Linux）" else "宿主（App 权限）",
+        )
+        if (mode == "sandbox") ensureSandbox()
+    }
+
+    /** 安装 / 校验沙盒（幂等）。 */
+    fun ensureSandbox() {
+        if (_state.value.installing) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(installing = true, installProgress = "检查沙盒资产…")
+            val error = runtime.prootRuntime.ensureInstalled { progress ->
+                _state.value = _state.value.copy(installProgress = progress)
+            }
+            _state.value = _state.value.copy(
+                installing = false,
+                installProgress = null,
+                sandboxStatus = runtime.prootRuntime.status(),
+                lines = _state.value.lines + if (error == null) {
+                    listOf(TerminalLine.Output("沙盒已就绪（Alpine 3.20.3 / proot 5.1.107）。可执行 apk add python3。", isError = false))
+                } else {
+                    listOf(TerminalLine.Output("沙盒安装失败：$error", isError = true))
+                },
             )
         }
     }
@@ -52,7 +83,12 @@ class TerminalViewModel(
             running = true,
         )
         viewModelScope.launch {
-            val result = runCatching { runtime.shellRunnerFor(assistantId).run(text, DEFAULT_TIMEOUT_MS) }
+            val runner = if (_state.value.mode == "sandbox") {
+                runtime.sandboxShellFor(assistantId)
+            } else {
+                runtime.shellRunnerFor(assistantId)
+            }
+            val result = runCatching { runner.run(text, DEFAULT_TIMEOUT_MS) }
             _state.value = result.fold(
                 onSuccess = { r ->
                     val suffix = r.truncatedToPath?.let { "\n（输出过长，已落盘：$it）" } ?: ""
@@ -85,9 +121,14 @@ class TerminalViewModel(
 data class TerminalState(
     val lines: List<TerminalLine> = emptyList(),
     val running: Boolean = false,
+    /** `host` | `sandbox` */
+    val mode: String = "host",
     val modeLabel: String = "宿主（App 权限）",
     val banner: String = "",
     val lastExitCode: Int? = null,
+    val installing: Boolean = false,
+    val installProgress: String? = null,
+    val sandboxStatus: String = "未安装",
 )
 
 sealed interface TerminalLine {

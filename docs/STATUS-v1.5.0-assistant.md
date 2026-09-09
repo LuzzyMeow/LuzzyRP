@@ -124,6 +124,57 @@ W1（上游同步 1.9.3）与 W2 P0–P4（助手原生 Agent 全部功能）**�
 - 未 push（领先 39 个提交）；未发版；`versionName` 未 bump；
 - `docs/PLAN-v1.5.0-assistant.md` 的部分验收条款尚未在真机勾选。
 
+
+### 5.5 【P0 · 用户 2026-09-09 指出】助手页面未贯彻同一设计理念
+
+> **用户原话**：「我发现了一个很严重的问题，那就是助手页下你的各个页面的组件设计与摆放方式等
+> 均只是与其他页相似，而不是做到同一个设计理念，你好好看看」
+
+**结论：用户判断成立。** 助手管理页的组件是「照着上游的样子另起一套」，不是「同一套设计语言」。
+
+#### 根因（两条，缺一不可）
+
+1. **设计契约缺页级规范**：`DESIGN.md` §助手原生页 的「组件映射」表**只覆盖聊天页组件**
+   （AI/用户气泡、思考卡、工具卡、步骤组、输入岛、记忆行），**管理页（记忆/技能/MCP/工作区/终端/设置）
+   **零规范**——没有页面头、卡片、分组、开关、按钮、空态、搜索框的任何规格。
+2. **我方临场发明组件**：`PageHeader` / `SectionCard` / `Field` / `ToggleRow` / `EmptyState` /
+   `SearchField` / `MemoryCard` / `MemoryModeBar` 等均为我自行决定字号、间距、圆角与控件形态，
+   **违反硬性规定 9 第 3 步「禁止临场发明」**。
+
+#### 逐项比对（左=上游 LuzzyRP 真源，右=助手现状）
+
+| 设计元素 | 上游（真源，含证据） | 助手现状 | 差距 |
+|----------|----------------------|----------|------|
+| 页面标题 | `settings-page-header`：`h2 text-xl/2xl font-bold text-gray-800` + **前置图标**（`w-6/7` SVG，`text-primary-600`）+ `title-extra` 徽标 | `PageHeader`：`titleLarge` + 副标题文字，**无图标** | 缺图标、字号体系不同、上游无副标题位 |
+| 页面动作按钮 | `p-2.5 bg-white text-{c}-600 rounded-xl border border-gray-200 shadow-sm active:scale-95`（实心白卡按钮，带图标） | 纯文字链接（`＋ 添加` / `＋ 链接导入` / `保存搜索设置` / `清空审计`） | **控件形态完全不同** |
+| 卡片 | 外卡 `bg-white/70 backdrop-blur-sm p-1 rounded-2xl border shadow-sm` + 内行 `rounded-xl`（index.html 出现 6 / 9 次） | `SectionCard`：`surfaceSoft` 实底 + 内容直铺，**无内外两层** | 结构层次不同 |
+| 折叠范式 | `settings-collapse`（`grid-template-rows 0fr↔1fr` + `opacity`，0.36s `cubic-bezier(.22,1,.36,1)`）+ `settings-collapse-trigger`（**图标方块** `p-1.5 rounded-lg bg-{c}-100` + 标题 + 状态文字 + chevron） | **完全没有折叠**，页面全平铺 | 缺一整套交互范式 |
+| 分组标题 | `.settings-section-heading`：12px / 700 / `uppercase` / `letter-spacing .05em` / gray-400 | **无此层级** | 缺信息层级 |
+| 开关 | 自定义 `.settings-toggle`（2.75rem×1.5rem = 44×24dp pill，**index.html 使用 35 处**）+ `.settings-toggle--compact` | Material3 `Switch`（默认形态/尺寸，仅改色） | **控件不是同一个** |
+| 按钮 | `inline-flex items-center text-xs px-3 py-1.5 bg-white rounded-lg border border-primary-200 shadow-sm active:scale-95`（10 处） | 文字链接 / 自定 pill | 不同 |
+| 图标体系 | 全站 24px 线性 SVG（`stroke-width 2`），页面/分组/按钮均有图标 | 仅手绘汉堡/齿轮/chevron，**其余页面无图标** | 严重缺失 |
+| 空态 | 图标 + 主文案 + 副文案（+ 动作按钮） | 自绘 `EmptyState`（圆形占位 + 文案） | 不同 |
+| 搜索框 | 上游统一输入样式（`px-3 py-1.5` 系） | 自绘 `SearchField` | 需对齐 |
+
+#### 附带问题
+
+- `DESIGN.md` §助手原生页「信息架构」仍写「二级收进**右侧抽屉**」——**已过时**（现为 RP 侧栏「助手」子项组）。
+- 该章「布局与密度」表也未覆盖管理页（只有会话行/记忆行/气泡/输入岛）。
+
+#### 修复方向（待用户确认后再动手）
+
+1. **先补设计契约**：在 `DESIGN.md` §助手原生页 增补「管理页组件规范」（页面头/分组标题/卡片/折叠行/
+   开关/按钮/空态/搜索框/列表行/图标体系），规格**逐项取自上游真源**（`settings-page-header`、
+   `.settings-toggle`、`.settings-collapse`、`.settings-section-heading`、`px-3 py-1.5` 按钮）。
+2. **建一套 Compose 组件库**（`ui/component/ledger/`）：`LedgerPageHeader`、`LedgerCard`、
+   `LedgerCollapseRow`、`LedgerToggle`、`LedgerButton`、`LedgerEmptyState`、`LedgerSearchField`、
+   `LedgerSectionHeading`、`LedgerIcon`（24px 线性图标集）。
+3. **六个管理页全部改用这套组件**，删除 `PageHeader`/`SectionCard`/`Field`/`ToggleRow` 等临场组件。
+4. **同步更新 DESIGN.md** 的信息架构（右侧抽屉 → RP 侧栏子项组）与布局密度表。
+
+**门控**：属「视觉产出」，须走硬性规定 9。因是**对齐既有真源**（非新风格探索），
+按豁免情形 2（已选定方向后的迭代）落档即可；但组件规格必须逐项引用上游真源，不得再自行发明。
+
 ---
 
 ## 6. 真机验收完成度

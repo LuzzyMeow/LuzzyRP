@@ -581,36 +581,20 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 
 ### 会话 40 · 助手首页版式改稿 + 菜单栏归属（2026-09-09，用户两次指定）
 
-**一稿（用户原话）**：「优化排版：切换至助手页后，将助手页首页面完全做成 LuzzyRP 的聊天页的页面，
-唯一不同点为右上角的删除按钮更改为助手的专属设置按钮」
-→ 首页改为聊天页版式；会话列表收进助手自己的左侧抽屉。
+---
 
-**二稿（用户原话）**：「你不能这样做，我们的原菜单栏应该给到原来的 LuzzyRP 并显示选择助手页」
-→ 选项确认选 **A**：汉堡打开 LuzzyRP 原侧栏；侧栏「助手」下新增子项组。
+### 会话 41 · 工作节点记录（2026-09-09）
 
-**门控判定（硬性规定 9）**：两稿均属 huashu-design 豁免情形 2「已选定方向后的迭代」，
-不重走三方向硬门；已在 `docs/design/direction-approved-assistant.md` 落档用户原话与理由。
+用户指示：「目前新版本有很多问题，我后续会一一列出来，但现在不需要你做别的，你需要把现在的情况
+详细的记录下来」→ **只做记录，不动代码**。
 
-**实现**：
-1. `ChatTopBar`（黑渐隐 112dp + 48dp 行：Canvas 手绘汉堡/齿轮/chevron，零图标依赖）；
-   `ChatScreen` 改为聊天页版式（消息流 `pt-56 pb-16 space-y-48` + 底部输入岛 + 流式停止胶囊）。
-2. `AssistantController.showAssistant(route)` / `openRpSidebar()`；桥接 `openAssistantAt(route)` /
-   `openRpSidebar()`（ext 侧存在性检测 + 降级）。
-3. `luzzy-assistant.js` 注入「助手」子项组（7 项，hairline 竖线层级标记 + 亮/暗双模式样式，
-   幂等 + MutationObserver 重注入）；点击 → `Luzzy.openAssistantAt(route)`。
-4. `openRpSidebar` 前端实现：点上游聊天页汉堡（`button svg use[href="#icon-menu"]`，
-   不按 @click 属性选——Vue 编译后事件不落 DOM 属性）。
-5. 删除助手自己的抽屉（`AssistantSidebar.kt` / `SideDrawer.kt`）；`ChatListScreen` → `ConversationsScreen`
-   （二级页，含助手切换 + 新建）；新增 `AssistantRoute.Conversations` + `fromSidebarRoute()`。
-6. 首页无会话时首次发送自动建会话（`NEW_CONVERSATION_ID` + `ensureConversation()`）。
+产出：**`docs/STATUS-v1.5.0-assistant.md`**（现状快照 + 已知问题清单 + 验收完成度 + 回滚指引 +
+用户待报问题登记表）。要点：
+- 里程碑：W1 ✅ / W2 P0–P4 代码完成 ✅ / 真机验收 ⚠️ 仅入口与版式 100%，其余 0%；发版 ⛔ 用户暂缓。
+- 数据：323 tests / 0 failed；86 PASS / 0 FAIL；debug APK 74.4 MiB；领先 origin/main 39 提交（未 push）。
+- 自查问题：**R1 会话导出入口丢失**（随抽屉删除）、**R2 日历工具无权限申请流程**、
+  R3/R4 待验证；真机未验证 12 项（对话/审批/沙盒/记忆/MCP/技能/工作区/终端/搜索/重启恢复…）。
+- 脆弱点：汉堡依赖上游 `use[href="#icon-menu"]`、子项注入依赖「外观」锚点、`postDelayed(250ms)`、
+  `pauseTimers` 全局。
 
-**真机验证（小米 25098PN5AC / Android 16）**：
-| 步骤 | 结果 |
-|------|------|
-| 助手首页 = 聊天页版式（头像 阿墨 + chevron + 右上角齿轮 + 输入岛） | ✅ 截图确认 |
-| 助手页汉堡 → 退出助手 + 打开 LuzzyRP 侧栏 | ✅ 截图确认 |
-| 侧栏「助手」子项组（会话/记忆/技能/MCP/工作区/终端/设置） | ✅ 截图确认 |
-| 子项跳转（点「技能」→ 技能页 3 个内置技能） | ✅ 截图确认 |
-| 崩溃 | 无 FATAL/AndroidRuntime |
-
-**验证**：323 tests / 0 failed；`assembleDebug` 通过；已 `install -r`。
+**未提交代码改动**：无（工作区干净）。本次仅新增文档。

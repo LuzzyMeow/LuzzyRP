@@ -38,7 +38,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyColors
@@ -86,7 +87,7 @@ private fun Modifier.ledgerShadow(shape: androidx.compose.ui.graphics.Shape) =
  */
 @Composable
 fun LedgerPageHeader(
-    icon: ImageVector,
+    @DrawableRes icon: Int,
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
@@ -109,12 +110,17 @@ fun LedgerPageHeader(
                     .clickable(interactionSource = interaction, indication = null, onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(LedgerIcons.ChevronLeft, contentDescription = "返回", tint = colors.muted, modifier = Modifier.size(Ledger.IconSize))
+                Icon(
+                    painter = painterResource(LedgerIcons.ChevronLeft),
+                    contentDescription = "返回",
+                    tint = colors.muted,
+                    modifier = Modifier.size(Ledger.IconSize),
+                )
             }
             Spacer(Modifier.width(12.dp))
         }
         Icon(
-            imageVector = icon,
+            painter = painterResource(icon),
             contentDescription = null,
             tint = colors.accentButton,
             modifier = Modifier.size(Ledger.IconSize),
@@ -178,7 +184,7 @@ fun LedgerCard(
 
 @Composable
 fun LedgerCollapseCard(
-    icon: ImageVector,
+    @DrawableRes icon: Int,
     title: String,
     expanded: Boolean,
     onToggle: () -> Unit,
@@ -216,7 +222,7 @@ fun LedgerCollapseCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = icon,
+                    painter = painterResource(icon),
                     contentDescription = null,
                     tint = if (expanded) colors.accentButton else colors.muted,
                     modifier = Modifier.size(Ledger.IconSizeSm),
@@ -236,7 +242,7 @@ fun LedgerCollapseCard(
                 Spacer(Modifier.width(12.dp))
             }
             Icon(
-                imageVector = LedgerIcons.ChevronDown,
+                painter = painterResource(LedgerIcons.ChevronDown),
                 contentDescription = if (expanded) "收起" else "展开",
                 tint = colors.muted,
                 modifier = Modifier
@@ -350,7 +356,7 @@ fun LedgerButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
+    @DrawableRes icon: Int? = null,
     tone: LedgerButtonTone = LedgerButtonTone.Secondary,
     enabled: Boolean = true,
 ) {
@@ -385,7 +391,7 @@ fun LedgerButton(
     ) {
         if (icon != null) {
             Icon(
-                imageVector = icon,
+                painter = painterResource(icon),
                 contentDescription = null,
                 tint = if (enabled) contentColor else colors.mutedSoft,
                 modifier = Modifier.size(14.dp),
@@ -402,7 +408,7 @@ fun LedgerButton(
 /** 图标按钮（`p-2.5 bg-white rounded-xl border shadow-sm`）。 */
 @Composable
 fun LedgerIconButton(
-    icon: ImageVector,
+    @DrawableRes icon: Int,
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -421,7 +427,7 @@ fun LedgerIconButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(icon),
             contentDescription = contentDescription,
             tint = tint ?: colors.muted,
             modifier = Modifier.size(Ledger.IconSizeMd),
@@ -487,7 +493,7 @@ fun LedgerSearchField(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            imageVector = LedgerIcons.Search,
+            painter = painterResource(LedgerIcons.Search),
             contentDescription = null,
             tint = colors.mutedSoft,
             modifier = Modifier.size(Ledger.IconSizeSm),
@@ -561,7 +567,7 @@ fun LedgerEmptyState(
     title: String,
     hint: String,
     modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
+    @DrawableRes icon: Int? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
@@ -573,7 +579,7 @@ fun LedgerEmptyState(
     ) {
         if (icon != null) {
             Icon(
-                imageVector = icon,
+                painter = painterResource(icon),
                 contentDescription = null,
                 tint = colors.hairlineStrong,
                 modifier = Modifier.size(32.dp),

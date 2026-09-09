@@ -2,6 +2,7 @@ package com.luzzymeow.luzzyrp.assistant.ui.component.ledger
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -71,9 +72,7 @@ class LedgerTokensTest {
             LedgerIcons.Info, LedgerIcons.Warning, LedgerIcons.ChevronLeft, LedgerIcons.ChevronDown,
         )
         assertEquals(19, icons.size)
-        icons.forEach { icon ->
-            assertEquals(24.dp, icon.defaultWidth)
-            assertEquals(24f, icon.defaultWidth.value, 0f)
-        }
+        // 图标是 VectorDrawable 资源 id（复用上游 SVG），非零即有效
+        icons.forEach { id -> assertTrue("drawable id 应为非零", id != 0) }
     }
 }

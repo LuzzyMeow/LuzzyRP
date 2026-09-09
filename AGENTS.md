@@ -451,6 +451,7 @@ Luzzy.copyToClipboard = function (text) {
 | **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
 | **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |
 | **Android 无 `Process.toHandle()/ProcessHandle`**（会话 29 实证） | 无法枚举孙进程；`sh -c "sleep 30"` 只杀 shell 时，若用阻塞 `readText()` 排空会一直等到孙进程结束（超时形同失效）。改用**非阻塞 `available()` 轮询 + 有界排空** |
+| **Compose `addPathNodes` 误读「紧凑弧线标志位」**（会话 45 实证） | 上游 SVG 写法 `a3 3 0 11-6 0`（标志位 `1 1` 紧邻）会被解析成一个数 → 圆被画成**半圆**、齿轮变花形。**不要用 `ImageVector.Builder + addPathNodes` 复刻上游 SVG**：改为 `res/drawable/ic_*.xml`（VectorDrawable，系统解析器）+ **显式分隔标志位**，用 `painterResource` 渲染 |
 | **AGP 会解压 `.gz` 资产并去掉后缀**（会话 37 实证） | 源码树 `assets/**/rootfs.tar.gz` 在 APK 内变成 `rootfs.tar`（未压缩 tar，扩展名被去掉）。运行时读资产要**两种名字都试 + 按 magic bytes 判断**，否则真机「资产缺失」 |
 | **Compose 编译器 mapping 生产者类路径版本漂移**（会话 37 实证） | AGP 9 内置 Kotlin 与项目 Kotlin 版本不一致时，`produce*ComposeMapping` 会去解析内置版本的 `compose-group-mapping`，离线环境解析失败并被 Gradle 报成「配置缓存序列化错误」误导排查。用 `resolutionStrategy` 钉到项目 Kotlin 版本 |
 
@@ -595,31 +596,3 @@ Luzzy.copyToClipboard = function (text) {
 - **真机 exec-out 管道损坏 PNG**：用设备侧 `screencap -p /sdcard/x.png` + `adb pull`
   （Git Bash 需 `MSYS_NO_PATHCONV=1` 防止 /sdcard 被改写）；
 - **正则 div 计数不可作为 HTML 结构依据**：结构判定用 parse5/jsdom 真实解析器
-  （/tmp/domdiff/analyze.js 思路可复刻：树级对比 management-view 链与 body 子级）；
-- **Vue production 编译丢弃注释**：v-else-if 链后的注释不隔断链，普通元素紧跟会被
-  吸收进条件链（管理卡教训）；transition 弹窗必须放在「视图区之外」的文档尾部；
-- **CDP element.click() 对部分 Vue 合成事件无效**：关键导航用 UI Automator 真实触摸
-  （模拟器截图为 900×2000、实机 1080×2400，tap 坐标按 ×1.2 换算或用 uiautomator dump 取 bounds）；
-- entities 生成须 `--ignore-cr-at-eol`、应用须 `--ignore-whitespace`（CRLF/LF 混用坑）。
-
-### 主题系统架构速览（改主题必读）
-
-- 驱动：`data-theme`（classic/luzzy）+ `data-mode`（light/dark）双属性（app.js watch，immediate）；
-- **patch 018 起 head 内联脚本先按 localStorage 快照（luzzy-ext.js MutationObserver 维护）
-  设置双属性，luzzy-theme.css 已移入 head（document.write 注入，块内必须自带 `<script>`
-  开标签）**——开屏首帧即正确主题色；
-- 变量：luzzy-theme.css 定义 `--tw-gray-*` / `--tw-primary-*` / `--tw-blue-*` /
-  `--tw-indigo-*` 为 RGB 三元组（classic=上游原值，luzzy 亮/暗两套，blue/indigo=primary
-  同值即收编）；引用走 patch 008 v4 色板 `rgb(var(--tw-*) / <alpha-value>)`；
-- 统一雾纸玻璃：`--luzzy-glass-alpha` 0.74 / `--luzzy-glass-blur` 18px 单点变量；
-- 品牌色规则（DESIGN.md Colors 章）：禁新增裸 blue/indigo/violet 色相类；
-  上游遗留蓝由 luzzy-theme.css 在 `:root[data-theme="luzzy"]` 内收编（classic 零影响）。
-
-## 8. 交接清单（Agent 结束会话前）
-
-- [ ] WORKLOG 追加本次会话「完成 / 决策 / 遗留 / 下一步」；
-- [ ] CHANGELOG 已同步（如有版本/功能变更）；
-- [ ] 未登记的上游文件改动 = 0（指纹比对）；
-- [ ] 新增 patch 已编号登记；
-- [ ] 若涉及发版：**单 APK**（`app-release.apk` 一个）+ **签名与上一版一致**（apksigner 指纹核对，§3.4）；
-- [ ] 遗留项明确记录，不留给下一个 Agent 猜。

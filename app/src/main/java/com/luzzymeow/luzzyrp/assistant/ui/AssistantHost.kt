@@ -1,5 +1,7 @@
 package com.luzzymeow.luzzyrp.assistant.ui
 
+import android.content.Context
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -9,76 +11,88 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import android.content.Context
-import android.content.Intent
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import com.luzzymeow.luzzyrp.assistant.runtime.AssistantRuntime
 import com.luzzymeow.luzzyrp.assistant.runtime.AssistantRuntimeProvider
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantChatViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.chat.AssistantListViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.mcp.McpViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.memory.MemoryViewModel
-import com.luzzymeow.luzzyrp.assistant.ui.screen.McpScreen
-import com.luzzymeow.luzzyrp.assistant.ui.screen.SettingsScreen
-import com.luzzymeow.luzzyrp.assistant.ui.screen.TerminalScreen
-import com.luzzymeow.luzzyrp.assistant.ui.settings.SettingsViewModel
-import com.luzzymeow.luzzyrp.assistant.ui.screen.WorkspaceScreen
-import com.luzzymeow.luzzyrp.assistant.ui.terminal.TerminalViewModel
-import com.luzzymeow.luzzyrp.assistant.ui.workspace.WorkspaceViewModel
-import com.luzzymeow.luzzyrp.assistant.ui.screen.SkillsScreen
-import com.luzzymeow.luzzyrp.assistant.ui.skill.SkillsViewModel
-import com.luzzymeow.luzzyrp.assistant.ui.component.SideDrawerContent
-import com.luzzymeow.luzzyrp.assistant.ui.model.SampleData
+import com.luzzymeow.luzzyrp.assistant.ui.model.AssistantUi
+import com.luzzymeow.luzzyrp.assistant.ui.model.ConversationUi
 import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
-import com.luzzymeow.luzzyrp.assistant.ui.screen.ChatListScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.ChatScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.ConversationsScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.McpScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.MemoryScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.SettingsScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.SkillsScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.TerminalScreen
+import com.luzzymeow.luzzyrp.assistant.ui.screen.WorkspaceScreen
+import com.luzzymeow.luzzyrp.assistant.ui.settings.SettingsViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.skill.SkillsViewModel
+import com.luzzymeow.luzzyrp.assistant.ui.terminal.TerminalViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyAssistantTheme
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyMotion
+import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
+import com.luzzymeow.luzzyrp.assistant.ui.workspace.WorkspaceViewModel
 
 /**
  * 助手原生页根组件（v1.5.0，方向 A · 卷宗）。
  *
  * 宿主形态：同 Activity 原生覆盖层（PLAN §3.1，用户已选 D1-B）——由 MainActivity 懒创建
- * `ComposeView` 承载，WebView 保持存活。
+ * ComposeView 承载，WebView 保持存活。
  *
- * 导航（方向 A）：**无一级导航**，会话列表即家；记忆/技能/MCP/工作区/终端/设置收进右侧抽屉。
- * 转场：内容右移 12dp + 淡入 200ms / 返回 140ms（DESIGN.md 动效纪律）。
- *
- * 数据：P0 用 [SampleData] 驱动骨架；P1 起由 ViewModel 把 Room 实体映射为同构 UI 模型，
- * 本文件签名不变。
+ * 导航（用户 2026-09-09 改稿）：**首页 = LuzzyRP 聊天页版式**（深色渐隐顶栏 + 消息流 + 输入岛），
+ * 顶栏右上角为助手专属设置按钮（上游同位置是「清空聊天」）；会话列表 / 助手切换 / 功能入口
+ * 收进左侧抽屉。转场：内容右移 12dp + 淡入 200ms / 返回 140ms（DESIGN.md 动效纪律）。
  */
 @Composable
 fun AssistantApp(
     darkTheme: Boolean,
+    /** RP 侧栏「助手」子项传入的初始页面（空串 = 首页聊天页版式）。 */
+    initialRoute: String = "",
     onExit: () -> Unit,
+    /** 首页左上角汉堡 → 回到 LuzzyRP 原侧栏（用户 2026-09-09 指定）。 */
+    onOpenRpSidebar: () -> Unit = onExit,
 ) {
     LuzzyAssistantTheme(darkTheme = darkTheme) {
-        AssistantRoot(onExit = onExit)
+        AssistantRoot(
+            initialRoute = initialRoute,
+            onExit = onExit,
+            onOpenRpSidebar = onOpenRpSidebar,
+        )
     }
 }
 
 @Composable
-private fun AssistantRoot(onExit: () -> Unit) {
-    var route by remember { mutableStateOf<AssistantRoute>(AssistantRoute.ChatList) }
-    var drawerOpen by remember { mutableStateOf(false) }
+private fun AssistantRoot(
+    initialRoute: String,
+    onExit: () -> Unit,
+    onOpenRpSidebar: () -> Unit,
+) {
+    // 首页 = 聊天页版式（用户 2026-09-09 改稿）；会话/管理页入口在 LuzzyRP 原侧栏的「助手」子项组。
+    var route by remember { mutableStateOf<AssistantRoute>(AssistantRoute.fromSidebarRoute(initialRoute)) }
+    // 侧栏子项再次进入时切换页面（覆盖层复用同一 ComposeView）
+    LaunchedEffect(initialRoute) {
+        val target = AssistantRoute.fromSidebarRoute(initialRoute)
+        if (target != AssistantRoute.ChatList) route = target
+    }
 
     val context = LocalContext.current
     val runtime = remember(context) { AssistantRuntimeProvider.get(context) }
@@ -92,13 +106,18 @@ private fun AssistantRoot(onExit: () -> Unit) {
     val selectedAssistant = assistants.firstOrNull { it.id == listState.selectedId }
     val conversations = listState.conversations
 
-    // 返回键优先级：抽屉 → 二级页 → 退出助手层（PLAN §2.3）
-    BackHandler(enabled = true) {
-        when {
-            drawerOpen -> drawerOpen = false
-            route != AssistantRoute.ChatList -> route = AssistantRoute.ChatList
-            else -> onExit()
+    // 首页承载的会话：加载完成后固定一次（避免流式过程中因列表刷新而重建 ViewModel）
+    var homeConversationId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(listState.loading, conversations.firstOrNull()?.id) {
+        if (homeConversationId == null && !listState.loading) {
+            homeConversationId = conversations.firstOrNull()?.id
+                ?: AssistantChatViewModel.NEW_CONVERSATION_ID
         }
+    }
+
+    // 返回键优先级：二级页 → 退出助手层（PLAN §2.3）
+    BackHandler(enabled = true) {
+        if (route != AssistantRoute.ChatList) route = AssistantRoute.ChatList else onExit()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -120,67 +139,47 @@ private fun AssistantRoot(onExit: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
         ) { current ->
             when (current) {
-                AssistantRoute.ChatList -> ChatListScreen(
+                AssistantRoute.ChatList -> {
+                    val targetId = homeConversationId
+                    if (targetId == null) {
+                        Box(modifier = Modifier.fillMaxSize().background(LuzzyTheme.colors.canvas))
+                    } else {
+                        ChatPane(
+                            runtime = runtime,
+                            assistant = selectedAssistant,
+                            conversationId = targetId,
+                            conversation = conversations.firstOrNull { it.id == targetId },
+                            onOpenRpSidebar = onOpenRpSidebar,
+                            onOpenConversations = { route = AssistantRoute.Conversations },
+                            onOpenSettings = { route = AssistantRoute.Settings },
+                            onConversationResolved = { homeConversationId = it },
+                        )
+                    }
+                }
+
+                is AssistantRoute.Chat -> ChatPane(
+                    runtime = runtime,
+                    assistant = selectedAssistant,
+                    conversationId = current.conversationId,
+                    conversation = conversations.firstOrNull { it.id == current.conversationId },
+                    onOpenRpSidebar = onOpenRpSidebar,
+                    onOpenConversations = { route = AssistantRoute.Conversations },
+                    onOpenSettings = { route = AssistantRoute.Settings },
+                    onConversationResolved = { homeConversationId = it },
+                )
+
+                AssistantRoute.Conversations -> ConversationsScreen(
                     assistants = assistants,
                     selectedAssistant = selectedAssistant,
                     conversations = conversations,
                     onSelectAssistant = listVm::select,
                     onOpenManager = { route = AssistantRoute.AssistantManager },
-                    onOpenConversation = { route = AssistantRoute.Chat(it) },
-                    onOpenDrawer = { drawerOpen = true },
-                    onNewConversation = { listVm.createConversation { id -> route = AssistantRoute.Chat(id) } },
+                    onOpenConversation = { id -> route = AssistantRoute.Chat(id) },
+                    onNewConversation = {
+                        listVm.createConversation { id -> route = AssistantRoute.Chat(id) }
+                    },
+                    onBack = { route = AssistantRoute.ChatList },
                 )
-
-                is AssistantRoute.Chat -> {
-                    val chatFactory = remember(runtime, current.conversationId) {
-                        viewModelFactory {
-                            initializer {
-                                AssistantChatViewModel(
-                                    runtime = runtime,
-                                    assistantId = selectedAssistant?.id.orEmpty(),
-                                    conversationId = current.conversationId,
-                                    assistantName = selectedAssistant?.name ?: "助手",
-                                    systemPrompt = "",
-                                    workspacePath = "files/",
-                                )
-                            }
-                        }
-                    }
-                    val chatVm: AssistantChatViewModel = viewModel(
-                        key = "chat-${current.conversationId}",
-                        factory = chatFactory,
-                    )
-                    val chatState by chatVm.state.collectAsStateWithLifecycle()
-                    val scope = rememberCoroutineScope()
-                    ChatScreen(
-                        assistant = selectedAssistant,
-                        conversation = conversations.firstOrNull { it.id == current.conversationId },
-                        messages = chatState.messages,
-                        streaming = chatState.streaming,
-                        pendingApproval = chatState.pendingApproval,
-                        pendingQuestion = chatState.pendingQuestion,
-                        error = chatState.error,
-                        onBack = { route = AssistantRoute.ChatList },
-                        onOpenDrawer = { drawerOpen = true },
-                        onSend = chatVm::send,
-                        onStop = chatVm::stop,
-                        onApprove = chatVm::approve,
-                        onDeny = chatVm::deny,
-                        onAnswer = chatVm::answer,
-                        onDismissError = chatVm::dismissError,
-                        onExport = { asJson ->
-                            scope.launch {
-                                val text = runCatching {
-                                    runtime.repository.exportConversation(current.conversationId, asJson)
-                                }.getOrDefault("")
-                                if (text.isNotBlank()) {
-                                    val name = if (asJson) "conversation.json" else "conversation.md"
-                                    shareText(context, name, text)
-                                }
-                            }
-                        },
-                    )
-                }
 
                 AssistantRoute.AssistantManager -> AssistantManagerScreen(
                     assistants = assistants,
@@ -325,41 +324,60 @@ private fun AssistantRoot(onExit: () -> Unit) {
             }
         }
 
-        // 抽屉（右滑 12dp + 淡入 200ms / 关闭 140ms）
-        if (drawerOpen) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.28f))
-                    .clickable { drawerOpen = false }
-            )
-            AnimatedContent(
-                targetState = drawerOpen,
-                transitionSpec = {
-                    slideInHorizontally(
-                        animationSpec = tween(LuzzyMotion.ENTER_MS, easing = LuzzyMotion.EaseOut),
-                        initialOffsetX = { it / 8 },
-                    ) + fadeIn(tween(LuzzyMotion.ENTER_MS, easing = LuzzyMotion.EaseOut)) togetherWith
-                        slideOutHorizontally(
-                            animationSpec = tween(LuzzyMotion.EXIT_MS, easing = LuzzyMotion.EaseOut),
-                            targetOffsetX = { it / 8 },
-                        ) + fadeOut(tween(LuzzyMotion.EXIT_MS, easing = LuzzyMotion.EaseOut))
-                },
-                label = "assistant-drawer",
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxWidth(),
-            ) { visible ->
-                if (visible) {
-                    SideDrawerContent(
-                        entries = AssistantRoute.drawerEntries,
-                        assistantName = selectedAssistant?.name ?: "助手",
-                        modelLabel = selectedAssistant?.modelLabel ?: "未配置模型",
-                        onSelect = { entry -> route = entry.route },
-                        onClose = { drawerOpen = false },
-                    )
-                }
+    }
+}
+
+/** 聊天面板（首页与具体会话共用，避免两处重复）。 */
+@Composable
+private fun ChatPane(
+    runtime: AssistantRuntime,
+    assistant: AssistantUi?,
+    conversationId: String,
+    conversation: ConversationUi?,
+    onOpenRpSidebar: () -> Unit,
+    onOpenConversations: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onConversationResolved: (String) -> Unit,
+) {
+    val chatFactory = remember(runtime, conversationId) {
+        viewModelFactory {
+            initializer {
+                AssistantChatViewModel(
+                    runtime = runtime,
+                    assistantId = assistant?.id.orEmpty(),
+                    conversationId = conversationId,
+                    assistantName = assistant?.name ?: "助手",
+                    systemPrompt = "",
+                    workspacePath = "files/",
+                    onConversationResolved = onConversationResolved,
+                )
             }
         }
     }
+    val chatVm: AssistantChatViewModel = viewModel(
+        key = "chat-$conversationId",
+        factory = chatFactory,
+    )
+    val chatState by chatVm.state.collectAsStateWithLifecycle()
+
+    ChatScreen(
+        assistant = assistant,
+        conversation = conversation,
+        messages = chatState.messages,
+        streaming = chatState.streaming,
+        pendingApproval = chatState.pendingApproval,
+        pendingQuestion = chatState.pendingQuestion,
+        error = chatState.error,
+        onOpenSidebar = onOpenRpSidebar,
+        onOpenSettings = onOpenSettings,
+        onOpenConversationInfo = onOpenConversations,
+        onSend = chatVm::send,
+        onStop = chatVm::stop,
+        onApprove = chatVm::approve,
+        onDeny = chatVm::deny,
+        onAnswer = chatVm::answer,
+        onDismissError = chatVm::dismissError,
+    )
 }
 
 /** 系统分享（导出会话：写工作区 + 分享给任意应用，用户可另存）。 */
@@ -370,5 +388,7 @@ private fun shareText(context: Context, fileName: String, text: String) {
         putExtra(Intent.EXTRA_TEXT, text)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    runCatching { context.startActivity(Intent.createChooser(intent, "导出会话").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    runCatching {
+        context.startActivity(Intent.createChooser(intent, "导出会话").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 }

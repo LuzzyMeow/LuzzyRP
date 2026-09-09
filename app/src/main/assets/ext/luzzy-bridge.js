@@ -97,6 +97,51 @@
         return false;
     };
 
+    /**
+     * 侧栏「助手」子项入口 → 按指定页面打开助手（PLAN §3.3）。
+     *
+     * @param {string} route conversations / memory / skills / mcp / workspace / terminal / settings
+     */
+    Luzzy.openAssistantAt = function (route) {
+        if (bridge && typeof bridge.openAssistantAt === 'function') {
+            try {
+                bridge.openAssistantAt(String(route || ''));
+                return true;
+            } catch (e) { /* fall through */ }
+        }
+        // 旧版原生侧没有 openAssistantAt → 退回首页入口
+        if (bridge && typeof bridge.openAssistant === 'function') {
+            try {
+                bridge.openAssistant();
+                return true;
+            } catch (e) { /* fall through */ }
+        }
+        Luzzy.toast('助手页需要在 LuzzyRP 应用内使用');
+        return false;
+    };
+
+    /**
+     * 助手页左上角汉堡 → 回到 LuzzyRP 原侧栏（用户 2026-09-09 指定）。
+     *
+     * 由原生侧调用：先隐藏助手覆盖层，再执行本函数打开侧栏。
+     */
+    Luzzy.openRpSidebar = function () {
+        try {
+            if (!document.querySelector('.sidebar-nav')) return false;
+            // 上游聊天页汉堡按钮内含 <use href="#icon-menu">；点它即 toggleMobileMenu 展开侧栏。
+            // （不按 @click 属性选——Vue 编译后事件绑定不落在 DOM 属性上）
+            var icon = document.querySelector('button svg use[href="#icon-menu"]');
+            var toggle = icon && icon.closest ? icon.closest('button') : null;
+            if (toggle && typeof toggle.click === 'function') {
+                toggle.click();
+                return true;
+            }
+            return false;
+        } catch (e) {
+            return false;
+        }
+    };
+
     /** 助手覆盖层是否可见（原生未接线时恒 false）。 */
     Luzzy.isAssistantVisible = function () {
         try {

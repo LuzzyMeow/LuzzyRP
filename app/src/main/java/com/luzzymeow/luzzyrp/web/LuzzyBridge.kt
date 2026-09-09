@@ -119,10 +119,30 @@ class LuzzyBridge(
     // 调用点见 assets/ext/luzzy-assistant.js。新增方法按 AGENTS §5.4 流程登记 CHANGELOG。
     // ------------------------------------------------------------------
 
-    /** 侧栏「助手」入口：显示原生助手覆盖层。未接线时静默（前端有降级提示）。 */
+    /** 侧栏「助手」入口：显示原生助手覆盖层首页。未接线时静默（前端有降级提示）。 */
     @JavascriptInterface
     fun openAssistant() {
-        assistantController?.showAssistant()
+        assistantController?.showAssistant("")
+    }
+
+    /**
+     * 侧栏「助手」子项入口：按指定页面打开助手（PLAN §3.3）。
+     *
+     * @param route `conversations` / `memory` / `skills` / `mcp` / `workspace` / `terminal` /
+     *   `settings`；未知值回退首页。
+     */
+    @JavascriptInterface
+    fun openAssistantAt(route: String) {
+        assistantController?.showAssistant(route)
+    }
+
+    /**
+     * 助手页左上角汉堡 → 回到 **LuzzyRP 原侧栏**（用户 2026-09-09 指定）。
+     * 原生侧：隐藏助手覆盖层后调用 `window.Luzzy.openRpSidebar()`。
+     */
+    @JavascriptInterface
+    fun openRpSidebar() {
+        assistantController?.openRpSidebar()
     }
 
     /** 助手覆盖层当前是否可见（前端可据此暂停/恢复轮询等）。 */

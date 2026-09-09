@@ -33,24 +33,24 @@ import com.luzzymeow.luzzyrp.assistant.ui.component.EmptyState
 import com.luzzymeow.luzzyrp.assistant.ui.component.SearchField
 import com.luzzymeow.luzzyrp.assistant.ui.model.AssistantUi
 import com.luzzymeow.luzzyrp.assistant.ui.model.ConversationUi
-import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyShapes
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 
 /**
- * 家 · 会话列表（方向 A §1.1：会话即家，无一级导航）。
+ * 会话列表（含助手切换 + 新建）。
  *
- * 三段：顶栏（助手名 + ⋯ 开抽屉）→ 头像条 + 检索 → 按日期分组的会话流。
+ * 入口：LuzzyRP 侧栏「助手 → 会话」（用户 2026-09-09 指定：菜单栏归 LuzzyRP）。
+ * 三段：顶栏（助手名 + 新建 + 返回）→ 头像条（切换助手）→ 检索 + 按日期分组的会话流。
  */
 @Composable
-fun ChatListScreen(
+fun ConversationsScreen(
     assistants: List<AssistantUi>,
     selectedAssistant: AssistantUi?,
     conversations: List<ConversationUi>,
     onSelectAssistant: (String) -> Unit,
     onOpenManager: () -> Unit,
     onOpenConversation: (String) -> Unit,
-    onOpenDrawer: () -> Unit,
     onNewConversation: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -62,14 +62,24 @@ fun ChatListScreen(
     val grouped = remember(filtered) { filtered.groupBy { it.group } }
 
     Column(modifier = modifier.fillMaxSize().background(colors.canvas)) {
-        // 顶栏
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(colors.surfaceSoft)
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("‹", style = MaterialTheme.typography.titleLarge, color = colors.body)
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = selectedAssistant?.name ?: "助手",
@@ -90,16 +100,6 @@ fun ChatListScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text("+", style = MaterialTheme.typography.titleLarge, color = colors.accentButton)
-            }
-            Spacer(Modifier.size(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onOpenDrawer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("⋯", style = MaterialTheme.typography.titleLarge, color = colors.muted)
             }
         }
 
@@ -137,71 +137,6 @@ fun ChatListScreen(
                     }
                 }
                 item { Spacer(Modifier.height(16.dp)) }
-            }
-        }
-    }
-}
-
-/** 全部助手管理页（方向 A：顶栏头像条 `+` 进入）。 */
-@Composable
-fun AssistantManagerScreen(
-    assistants: List<AssistantUi>,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = LuzzyTheme.colors
-    Column(modifier = modifier.fillMaxSize().background(colors.canvas)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "‹",
-                style = MaterialTheme.typography.headlineSmall,
-                color = colors.body,
-                modifier = Modifier.clickable(onClick = onBack),
-            )
-            Text("全部助手", style = MaterialTheme.typography.titleLarge, color = colors.ink)
-        }
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-            items(assistants, key = { it.id }) { assistant ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clip(LuzzyShapes.card)
-                        .background(colors.surfaceSoft)
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(colors.surfaceCard),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(assistant.initial, style = MaterialTheme.typography.titleMedium, color = colors.body)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(assistant.name, style = MaterialTheme.typography.bodyLarge, color = colors.ink)
-                        Text(
-                            text = assistant.lastTitle ?: "暂无会话",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.muted,
-                        )
-                    }
-                    Text(
-                        text = assistant.modelLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.mutedSoft,
-                    )
-                }
             }
         }
     }

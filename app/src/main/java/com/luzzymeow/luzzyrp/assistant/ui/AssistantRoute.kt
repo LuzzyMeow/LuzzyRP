@@ -1,26 +1,29 @@
 package com.luzzymeow.luzzyrp.assistant.ui
 
 /**
- * 助手层导航状态（方向 A · 卷宗）。
+ * 助手层导航状态（方向 A · 卷宗；2026-09-09 按用户要求改稿）。
  *
- * 方向 A **没有全局导航栏**：会话列表就是「家」；记忆 / 技能 / MCP / 工作区 / 终端 / 设置
- * 收进右侧抽屉（2 跳）。故本状态机只有两级：
- * `ChatList ⇄ Chat`（一级）、`ChatList/Chat → Drawer → 各管理页`（二级）。
+ * **首页 = LuzzyRP 聊天页版式**（深色渐隐顶栏 + 消息流 + 输入岛），顶栏右上角为助手设置按钮；
+ * 会话列表 / 助手切换 / 管理页入口**全部在 LuzzyRP 原侧栏**的「助手」子项组里
+ * （用户 2026-09-09 指定：菜单栏归 LuzzyRP）。助手页左上角汉堡 = 回到 LuzzyRP 侧栏。
  *
  * 用密封类 + 栈式返回，不引入 Navigation 库——页面数量少、转场统一（右移 12dp + 淡入 200ms），
  * 手写更可控且零额外依赖。
  */
 sealed interface AssistantRoute {
-    /** 家：会话列表（首屏）。 */
+    /** 家：聊天页版式（承载最近一条会话；无会话时首次发送自动新建）。 */
     data object ChatList : AssistantRoute
 
-    /** 会话页。 */
+    /** 指定会话的聊天页。 */
     data class Chat(val conversationId: String) : AssistantRoute
 
-    /** 全部助手管理页（顶栏头像条 `+` 进入）。 */
+    /** 会话列表（含助手切换 + 新建）；侧栏「会话」子项入口。 */
+    data object Conversations : AssistantRoute
+
+    /** 全部助手管理页。 */
     data object AssistantManager : AssistantRoute
 
-    /** 抽屉二级页。 */
+    /** 侧栏「助手」子项二级页。 */
     data object Memory : AssistantRoute
     data object Skills : AssistantRoute
     data object Mcp : AssistantRoute
@@ -28,18 +31,17 @@ sealed interface AssistantRoute {
     data object Terminal : AssistantRoute
     data object Settings : AssistantRoute
 
-    /** 抽屉项 → 路由（null 表示尚未实现的管理页）。 */
     companion object {
-        val drawerEntries: List<DrawerEntry> = listOf(
-            DrawerEntry("记忆", Memory),
-            DrawerEntry("技能", Skills),
-            DrawerEntry("MCP", Mcp),
-            DrawerEntry("工作区", Workspace),
-            DrawerEntry("终端", Terminal),
-            DrawerEntry("设置", Settings),
-        )
+        /** RP 侧栏子项路由名 → 助手路由（空串 = 首页）。 */
+        fun fromSidebarRoute(route: String): AssistantRoute = when (route.trim().lowercase()) {
+            "conversations" -> Conversations
+            "memory" -> Memory
+            "skills" -> Skills
+            "mcp" -> Mcp
+            "workspace" -> Workspace
+            "terminal" -> Terminal
+            "settings" -> Settings
+            else -> ChatList
+        }
     }
 }
-
-/** 抽屉条目（名称 + 目标路由）。 */
-data class DrawerEntry(val label: String, val route: AssistantRoute)

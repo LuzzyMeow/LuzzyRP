@@ -53,6 +53,9 @@ class MainActivity : ComponentActivity(), AssistantController {
     /** 主题模式变化需触发重组——用 Compose 的 MutableState 桥接。 */
     private var darkThemeState by mutableStateOf(false)
 
+    /** 助手初始页面（RP 侧栏「助手」子项传入；空串 = 首页聊天页版式）。 */
+    private var assistantRouteState by mutableStateOf("")
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,12 +148,18 @@ class MainActivity : ComponentActivity(), AssistantController {
      * WebView 不销毁、不暂停（状态不丢）。
      * 注意：桥接方法从 WebView 的 JS 线程调用，视图操作必须切主线程。
      */
-    override fun showAssistant() {
+    override fun showAssistant(route: String) {
+        assistantRouteState = route
         runOnUiThread {
             val view = assistantView ?: ComposeView(this).also { created ->
                 created.setContent {
                     val dark = darkThemeState
-                    AssistantApp(darkTheme = dark, onExit = ::hideAssistant)
+                    AssistantApp(
+                        darkTheme = dark,
+                        initialRoute = assistantRouteState,
+                        onExit = ::hideAssistant,
+                        onOpenRpSidebar = ::openRpSidebar,
+                    )
                 }
                 root.addView(
                     created,
@@ -185,6 +194,27 @@ class MainActivity : ComponentActivity(), AssistantController {
             webView.onResume()
             webView.visibility = View.VISIBLE
             notifyAssistantVisibility(false)
+        }
+    }
+
+    /**
+     * 助手页左上角汉堡 → 隐藏助手 + 打开 LuzzyRP 原侧栏（用户 2026-09-09 指定）。
+     *
+     * 先恢复 WebView（`hideAssistant` 内已做），再等一帧后调用前端封装
+     * `window.Luzzy.openRpSidebar()`——WebView 刚 resume 时 Vue 尚未完成布局，
+     * 立即点击汉堡可能点空，故延迟 250ms。
+     */
+    override fun openRpSidebar() {
+        runOnUiThread {
+            hideAssistant()
+            webView.postDelayed({
+                runCatching {
+                    webView.evaluateJavascript(
+                        "window.Luzzy && window.Luzzy.openRpSidebar && window.Luzzy.openRpSidebar();",
+                        null,
+                    )
+                }
+            }, 250)
         }
     }
 

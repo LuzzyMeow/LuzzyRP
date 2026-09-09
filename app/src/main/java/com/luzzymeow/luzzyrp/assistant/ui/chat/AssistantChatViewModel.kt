@@ -38,11 +38,19 @@ import kotlinx.coroutines.launch
 class AssistantChatViewModel(
     private val runtime: AssistantRuntime,
     private val assistantId: String,
-    private val conversationId: String,
+    conversationId: String,
     private val assistantName: String,
     private val systemPrompt: String,
     private val workspacePath: String,
+    /** 首页无会话时首次发送会新建会话，通过此回调通知宿主更新路由。 */
+    private val onConversationResolved: (String) -> Unit = {},
 ) : ViewModel() {
+
+    /**
+     * 当前会话 id。等于 [NEW_CONVERSATION_ID] 时表示「首页尚未有会话」，
+     * 首次发送前由 [ensureConversation] 落库并回填。
+     */
+    private var conversationId: String = conversationId
 
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
@@ -107,6 +115,8 @@ class AssistantChatViewModel(
         )
         cancelled = false
         runJob = viewModelScope.launch {
+            // 首页可能还没有会话（NEW_CONVERSATION_ID）——先建会话再落库
+            ensureConversation()
             // 先落库（用户消息 + 自动标题），再跑循环——保证崩溃也能恢复
             runCatching {
                 runtime.repository.appendMessage(
@@ -168,6 +178,18 @@ class AssistantChatViewModel(
     // ------------------------------------------------------------------
     // 内部
     // ------------------------------------------------------------------
+
+    /**
+     * 首页无会话时（[NEW_CONVERSATION_ID]）先落库建会话，再继续发送。
+     *
+     * 失败（数据库异常）时保持原状——后续 appendMessage 会失败并在 UI 报错，不静默丢消息。
+     */
+    private suspend fun ensureConversation() {
+        if (conversationId.isNotBlank() && conversationId != NEW_CONVERSATION_ID) return
+        val created = runCatching { runtime.repository.createConversation(assistantId) }.getOrNull() ?: return
+        conversationId = created.id
+        runCatching { onConversationResolved(created.id) }
+    }
 
     private suspend fun startRunInternal(userInput: String) {
         val request = runtime.resolveRequestById(assistantId)
@@ -298,6 +320,11 @@ class AssistantChatViewModel(
         val finalText = textBuffer.toString()
         if (finalText.isNotBlank()) history += LlmMessage(role = LlmRole.ASSISTANT, content = finalText)
         _state.value = _state.value.copy(streaming = false)
+    }
+
+    companion object {
+        /** 首页尚未有会话时的占位 id（首次发送时落库替换）。 */
+        const val NEW_CONVERSATION_ID: String = "__new__"
     }
 
     private suspend fun awaitApproval(call: ToolCall): Boolean {

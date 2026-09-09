@@ -38,6 +38,7 @@ import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.MemoryWriteTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.RunCodeTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.TerminalRunTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WebFetchTool
+import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WebSearchTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WorkspaceDeleteTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WorkspaceListTool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.builtin.WorkspaceMkdirTool
@@ -53,6 +54,8 @@ import com.luzzymeow.luzzyrp.assistant.runtime.terminal.SandboxCodeRunner
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidCalendarPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidClipboardPort
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.AndroidDeviceInfoProvider
+import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.DuckDuckGoProvider
+import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.SearXngProvider
 import com.luzzymeow.luzzyrp.assistant.runtime.toolimpl.SystemClockProvider
 import java.io.File
 import kotlinx.serialization.json.Json
@@ -173,6 +176,14 @@ class AssistantRuntime(
                 ClipboardReadTool(clipboard),
                 ClipboardWriteTool(clipboard),
                 WebFetchTool(),
+                WebSearchTool(
+                    providersProvider = {
+                        listOf(DuckDuckGoProvider()) + listOfNotNull(
+                            currentSearxngUrl()?.takeIf { it.isNotBlank() }?.let { SearXngProvider(it) },
+                        )
+                    },
+                    defaultProviderIdProvider = { currentSearchProvider() },
+                ),
                 WorkspaceListTool(),
                 WorkspaceReadTool(),
                 WorkspaceWriteTool(),
@@ -334,6 +345,29 @@ class AssistantRuntime(
         override val workspace: WorkspaceAccess = workspaceAccessFor(assistantId)
         override val cancelled = cancelled
         override val log: (String) -> Unit = onLog
+    }
+
+    /** 搜索设置读写（设置页用；非密钥）。 */
+    suspend fun currentSearchProviderId(): String = currentSearchProvider()
+
+    suspend fun currentSearxngUrlValue(): String? = currentSearxngUrl()
+
+    suspend fun setSearchProviderId(id: String) = prefs.setSearchProvider(id)
+
+    suspend fun setSearxngUrlValue(url: String) = prefs.setSearxngUrl(url)
+
+    /** 当前搜索提供方 id（DataStore）。 */
+    private suspend fun currentSearchProvider(): String =
+        runCatching { firstOf(prefs.searchProvider) }.getOrNull() ?: AssistantPrefs.DEFAULT_SEARCH_PROVIDER
+
+    /** 当前 SearXNG 实例地址（空 = 未配置）。 */
+    private suspend fun currentSearxngUrl(): String? =
+        runCatching { firstOf(prefs.searxngUrl) }.getOrNull()
+
+    private suspend fun <T> firstOf(flow: kotlinx.coroutines.flow.Flow<T>): T? {
+        var value: T? = null
+        flow.collect { value = it; return@collect }
+        return value
     }
 
     /** 诊断日志（**白名单**：禁止写入密钥/文件内容；只写事件名与长度）。 */

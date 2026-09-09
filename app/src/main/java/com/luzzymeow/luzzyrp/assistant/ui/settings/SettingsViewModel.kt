@@ -93,6 +93,8 @@ class SettingsViewModel(
             embeddingModelRef = entity?.embeddingModelRef.orEmpty(),
             hasWebConfig = config != null,
             loading = false,
+            searchProvider = runCatching { runtime.currentSearchProviderId() }.getOrNull() ?: "duckduckgo",
+            searxngUrl = runCatching { runtime.currentSearxngUrlValue() }.getOrNull().orEmpty(),
         )
     }
 
@@ -106,6 +108,20 @@ class SettingsViewModel(
     fun updateMemoryMode(value: String) = _state.value.let { _state.value = it.copy(memoryMode = value) }
     fun updateMemoryTopK(value: Int) = _state.value.let { _state.value = it.copy(memoryTopK = value) }
     fun updateMemoryThreshold(value: Float) = _state.value.let { _state.value = it.copy(memoryThreshold = value) }
+    fun updateSearchProvider(value: String) = _state.value.let { _state.value = it.copy(searchProvider = value) }
+    fun updateSearxngUrl(value: String) = _state.value.let { _state.value = it.copy(searxngUrl = value) }
+
+    /** 保存搜索设置（非密钥，直接写 DataStore）。 */
+    fun saveSearchSettings() {
+        val current = _state.value
+        viewModelScope.launch {
+            runCatching {
+                runtime.setSearchProviderId(current.searchProvider)
+                runtime.setSearxngUrlValue(current.searxngUrl)
+            }.onSuccess { _state.value = current.copy(message = "搜索设置已保存") }
+                .onFailure { _state.value = current.copy(message = "保存失败：${it.message}") }
+        }
+    }
 
     /** 保存（即时生效：会话内切换模型只影响后续轮次，PLAN §11.1）。 */
     fun save() {
@@ -209,4 +225,6 @@ data class SettingsState(
     val showPreview: Boolean = false,
     val previewText: String = "",
     val auditEntries: List<AuditRow> = emptyList(),
+    val searchProvider: String = "duckduckgo",
+    val searxngUrl: String = "",
 )

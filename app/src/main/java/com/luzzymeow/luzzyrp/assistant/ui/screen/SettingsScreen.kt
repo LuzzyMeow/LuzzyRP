@@ -47,6 +47,9 @@ fun SettingsScreen(
     onMaxTokens: (String) -> Unit,
     onExtraBody: (String) -> Unit,
     onMemoryMode: (String) -> Unit,
+    onSearchProvider: (String) -> Unit = {},
+    onSearxngUrl: (String) -> Unit = {},
+    onSaveSearch: () -> Unit = {},
     onTogglePreview: () -> Unit,
     onSave: () -> Unit,
     onDismissMessage: () -> Unit,
@@ -145,6 +148,43 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            SectionCard("联网搜索") {
+                Text("搜索提供方", style = MaterialTheme.typography.labelMedium, color = colors.muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("duckduckgo" to "DuckDuckGo", "searxng" to "SearXNG").forEach { (id, label) ->
+                        val selected = state.searchProvider == id
+                        Box(
+                            modifier = Modifier
+                                .clip(LuzzyShapes.pill)
+                                .background(if (selected) colors.accentSoft else colors.surfaceCard)
+                                .clickable { onSearchProvider(id) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (selected) colors.accentDeep else colors.muted,
+                            )
+                        }
+                    }
+                }
+                if (state.searchProvider == "searxng") {
+                    Field("SearXNG 实例地址（需开启 format=json）", state.searxngUrl, onSearxngUrl, singleLine = true)
+                } else {
+                    Text(
+                        text = "DuckDuckGo 无需配置（公共端点，可能被限流）",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.mutedSoft,
+                    )
+                }
+                Text(
+                    text = "保存搜索设置",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.accentButton,
+                    modifier = Modifier.clickable(onClick = onSaveSearch),
+                )
             }
 
             SectionCard("请求体扩展") {

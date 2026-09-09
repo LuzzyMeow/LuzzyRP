@@ -27,6 +27,8 @@ private val PREF_TERMINAL_SCROLLBACK_LINES = intPreferencesKey(AssistantPrefs.KE
 private val PREF_TERMINAL_CURSOR_STYLE = stringPreferencesKey(AssistantPrefs.KEY_TERMINAL_CURSOR_STYLE)
 private val PREF_MCP_TIMEOUT_MS = longPreferencesKey(AssistantPrefs.KEY_MCP_TIMEOUT_MS)
 private val PREF_MCP_MAX_RETRIES = intPreferencesKey(AssistantPrefs.KEY_MCP_MAX_RETRIES)
+private val PREF_SEARCH_PROVIDER = stringPreferencesKey(AssistantPrefs.KEY_SEARCH_PROVIDER)
+private val PREF_SEARXNG_URL = stringPreferencesKey(AssistantPrefs.KEY_SEARXNG_URL)
 
 /**
  * 助手偏好（Preferences DataStore，PLAN §4.3）。
@@ -157,6 +159,21 @@ class AssistantPrefs internal constructor(private val store: DataStore<Preferenc
 
     val mcpMaxRetries: Flow<Int> = store.data.map { prefs -> prefs[PREF_MCP_MAX_RETRIES] ?: DEFAULT_MCP_MAX_RETRIES }
 
+    /** 搜索提供方 id（`duckduckgo` 默认 / `searxng`）。 */
+    val searchProvider: Flow<String> =
+        store.data.map { prefs -> prefs[PREF_SEARCH_PROVIDER] ?: DEFAULT_SEARCH_PROVIDER }
+
+    suspend fun setSearchProvider(providerId: String) {
+        store.edit { prefs -> prefs[PREF_SEARCH_PROVIDER] = providerId }
+    }
+
+    /** SearXNG 实例地址（非密钥，明文存储）。 */
+    val searxngUrl: Flow<String> = store.data.map { prefs -> prefs[PREF_SEARXNG_URL].orEmpty() }
+
+    suspend fun setSearxngUrl(url: String) {
+        store.edit { prefs -> prefs[PREF_SEARXNG_URL] = url.trim() }
+    }
+
     suspend fun setMcpMaxRetries(retries: Int) {
         require(retries in 0..MAX_MCP_MAX_RETRIES) { "MCP 重试次数超出范围: " + retries }
         store.edit { prefs -> prefs[PREF_MCP_MAX_RETRIES] = retries }
@@ -192,6 +209,11 @@ class AssistantPrefs internal constructor(private val store: DataStore<Preferenc
         const val KEY_TERMINAL_CURSOR_STYLE: String = "terminal_cursor_style"
         const val KEY_MCP_TIMEOUT_MS: String = "mcp_timeout_ms"
         const val KEY_MCP_MAX_RETRIES: String = "mcp_max_retries"
+        const val KEY_SEARCH_PROVIDER: String = "search_provider"
+        const val KEY_SEARXNG_URL: String = "searxng_url"
+
+        /** 默认搜索提供方（无 Key 引擎）。 */
+        const val DEFAULT_SEARCH_PROVIDER: String = "duckduckgo"
         const val TOOL_SWITCH_KEY_PREFIX: String = "tool_global_switch_"
 
         const val DEFAULT_THEME_MODE: String = "system"

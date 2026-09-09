@@ -90,6 +90,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `docs/WORKLOG.md` | 工作日志 | 每次会话追加「日期 / 完成 / 决策 / 遗留 / 下一步」 |
 | `docs/archive/` | 归档（旧工程备份等） | gitignore，仅本地 |
 | `rp-hub-reference/` | 上游参考克隆 | 保留 upstream remote；**只读参考，不直接改** |
+| `app/src/main/assets/assistant/` | 助手模块资产（字体 TTF / 内置技能 / **沙盒资产**） | 沙盒含 **GPL-2.0 的 proot 二进制**：来源与源码获取途径见 `sandbox/SOURCES.md`，许可全文 `sandbox/LICENSE-proot-GPL-2.0.txt`；**升级 proot/rootfs 时必须同步 `manifest.json` 与 `ProotRuntime.ASSET_VERSION`**（版本不匹配会触发重装） |
 
 ---
 

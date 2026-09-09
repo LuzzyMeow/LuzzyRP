@@ -2606,3 +2606,32 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 
 **结论**：沙盒落地需要「proot 二进制 + 2 个 .so + rootfs」随包内置，涉及
 **新增第三方二进制依赖 + GPL 合规 + APK 体积**，按交接规范 §8 属「必须停下来问」的情形。
+
+---
+
+### 会话 35 · W2 P3 收尾：proot 沙盒落地（2026-09-09）
+
+**用户决策**：proot 沙盒方案选 **A · 随包内置**（含 GPL-2.0 义务与 +约 5MB 体积）。
+
+**资产落地**（`app/src/main/assets/assistant/sandbox/`，4.1MB）：
+- `proot` 5.1.107.92 + `proot-loader`（Termux 打包版）；
+- `libtalloc.so.2` 2.4.3 + `libandroid-shmem.so` 0.7（proot 的两个 DT_NEEDED 依赖，
+  依赖链止于 Android 系统 `libc`/`liblog`）；
+- `rootfs.tar.gz`（Alpine minirootfs 3.20.3 aarch64，3.9MB 压缩）；
+- `SOURCES.md` + `LICENSE-proot-GPL-2.0.txt` + `manifest.json`（SHA-256 与版本）。
+
+**实现**：`TarExtractor`（零依赖 tar 解包 + tar-slip 防护）、`ProcessRunner`（执行内核抽取，
+宿主/沙盒共用）、`ProotRuntime`（释放 + 启动命令）、`SandboxCodeRunner`（run_code 走沙盒解释器）、
+终端页宿主/沙盒切换 + 释放进度。
+
+**决策记录**：
+- **D19 GPL 合规**：proot 以**未修改二进制**再分发，仓库内附 GPL-2.0 全文与 `SOURCES.md`
+  （上游仓库 / 发行包 / 书面索取三条源码获取途径）；proot 与本项目代码各自独立。
+- **D20 解释器按需安装**：最小 rootfs **不预装** node/python3，缺失时工具返回
+  「请先 apk add python3」——符合 PLAN §10.2 的体积决策。
+- **D21 工作区绑定**：沙盒把该助手的 `files/` bind 到容器 `/workspace` 并设为 cwd，
+  容器外不可见（隔离由 proot 提供）。
+
+**验证**：284 tests / 0 failed；`assembleDebug` 通过（APK 78MB）。
+**待真机验证**：沙盒首次释放（约 4MB 解压）、`apk add python3`、`python3 script.py`
+——这三步只能实机确认（本机为 Windows，无法执行 aarch64 二进制）。

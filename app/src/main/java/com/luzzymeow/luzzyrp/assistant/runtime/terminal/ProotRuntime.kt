@@ -141,12 +141,41 @@ class ProotRuntime(
         if (executable) target.setExecutable(true, true)
     }
 
+    /**
+     * 解压 rootfs。
+     *
+     * ⚠️ **AGP 行为**：asset 目录里名为 `rootfs.tar.gz` 的文件，在 APK 里会被 AGP 的
+     * asset 合并任务**自动解压并去掉 `.gz` 后缀**（变成 `rootfs.tar`，因为 APK 自身会压缩）。
+     * 因此这里两种名字都试，并按**magic bytes**（`1f 8b`）判断是否需要 GZIP 解包——
+     * 兼容「源码树直读（.gz）」与「APK 内（.tar）」两种情形。
+     */
     private fun extractRootfs() {
-        context.assets.open("$ASSET_DIR/rootfs.tar.gz").use { raw ->
-            GZIPInputStream(raw, 64 * 1024).use { gz ->
-                TarExtractor.extract(gz, rootfsDir)
+        val raw = openRootfsAsset()
+        raw.use { stream ->
+            if (isGzip(stream)) {
+                GZIPInputStream(stream, 64 * 1024).use { gz -> TarExtractor.extract(gz, rootfsDir) }
+            } else {
+                TarExtractor.extract(stream, rootfsDir)
             }
         }
+    }
+
+    private fun openRootfsAsset(): java.io.BufferedInputStream {
+        var lastError: Exception? = null
+        for (name in ROOTFS_ASSET_NAMES) {
+            runCatching { context.assets.open("$ASSET_DIR/$name") }
+                .onSuccess { return java.io.BufferedInputStream(it, 64 * 1024) }
+                .onFailure { lastError = it as? Exception }
+        }
+        throw IllegalStateException("rootfs 资产缺失（${ROOTFS_ASSET_NAMES.joinToString(" / ")}）", lastError)
+    }
+
+    private fun isGzip(input: java.io.BufferedInputStream): Boolean {
+        input.mark(2)
+        val first = input.read()
+        val second = input.read()
+        input.reset()
+        return first == 0x1f && second == 0x8b
     }
 
     /** 诊断用（不含敏感信息）。 */
@@ -169,6 +198,9 @@ class ProotRuntime(
     companion object {
         const val MODE_SANDBOX: String = "sandbox"
         const val ASSET_DIR: String = "assistant/sandbox"
+
+        /** rootfs 资产候选名（AGP 会把 `.tar.gz` 解压成 `.tar`，见 [extractRootfs]）。 */
+        private val ROOTFS_ASSET_NAMES = listOf("rootfs.tar.gz", "rootfs.tar")
         const val SANDBOX_DIR: String = "assistant/sandbox"
 
         /** 资产版本（与 `assets/assistant/sandbox/manifest.json` 保持一致；变更即触发重装）。 */

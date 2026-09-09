@@ -117,6 +117,21 @@ class TarExtractorTest {
     }
 
     @Test
+    fun `gzip 包装的 tar 也能解出（APK 内 rootfs 走这条路径）`() {
+        val content = "root:x:0:0".toByteArray()
+        val tar = tarOf(Triple(header("etc/passwd", content.size.toLong(), '0'), content, content.size.toLong()))
+        val gz = ByteArrayOutputStream().apply {
+            java.util.zip.GZIPOutputStream(this).use { it.write(tar) }
+        }.toByteArray()
+        // magic bytes 1f 8b 判定为 gzip
+        assertEquals(0x1f, gz[0].toInt() and 0xFF)
+        assertEquals(0x8b, gz[1].toInt() and 0xFF)
+        val target = folder.newFolder("rootfs-gz")
+        java.util.zip.GZIPInputStream(ByteArrayInputStream(gz)).use { TarExtractor.extract(it, target) }
+        assertEquals("root:x:0:0", File(target, "etc/passwd").readText())
+    }
+
+    @Test
     fun `proot 启动命令包含 bind 与工作区 cwd`() {
         val cmd = ProotCommand.build(
             prootBin = File("/data/app/proot"),

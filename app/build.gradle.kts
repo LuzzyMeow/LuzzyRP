@@ -150,6 +150,21 @@ dependencies {
     testImplementation(libs.junit)
 }
 
+// [v1.5.0] Compose 编译器「mapping 生产者」类路径版本对齐：
+// AGP 9.2.1 内置 Kotlin 2.2.10，而项目 Kotlin/Compose 插件用 2.4.0，
+// 该任务会去解析 org.jetbrains.kotlin:compose-group-mapping:2.2.10（本地缓存无此版本、
+// 且离线构建不可下载）→ 统一钉到项目 Kotlin 版本，避免 release 构建因解析失败中断。
+configurations.configureEach {
+    if (name.contains("composeMappingProducerClasspath")) {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin" && requested.name == "compose-group-mapping") {
+                useVersion(libs.versions.kotlin.get())
+                because("对齐项目 Kotlin 版本，避免离线环境解析不到 AGP 内置 Kotlin 对应版本")
+            }
+        }
+    }
+}
+
 // [v1.5.0 助手] Room schema 导出（迁移审计用；目录入库，便于版本 diff）
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")

@@ -1,5 +1,7 @@
 package com.luzzymeow.luzzyrp.assistant.ui.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * 助手层 UI 模型（方向 A · 卷宗）。
  *
@@ -7,6 +9,7 @@ package com.luzzymeow.luzzyrp.assistant.ui.model
  * Composable 只认这里的字段（便于 Preview 与单测）。
  */
 
+@Immutable
 data class AssistantUi(
     val id: String,
     val name: String,
@@ -18,6 +21,7 @@ data class AssistantUi(
     val unread: Boolean = false,
 )
 
+@Immutable
 data class ConversationUi(
     val id: String,
     val assistantId: String,
@@ -31,6 +35,7 @@ data class ConversationUi(
 /** 消息角色（渲染分支用）。 */
 enum class MessageRoleUi { USER, ASSISTANT, SYSTEM }
 
+@Immutable
 data class MessageUi(
     val id: String,
     val role: MessageRoleUi,
@@ -44,10 +49,12 @@ data class MessageUi(
     val streaming: Boolean = false,
 )
 
+@Immutable
 data class ThinkingUi(val summary: String, val fullText: String, val durationLabel: String)
 
 enum class ToolStatusUi { WAITING_APPROVAL, RUNNING, SUCCESS, FAILED }
 
+@Immutable
 data class ToolCardUi(
     val name: String,
     val argsSummary: String,
@@ -56,14 +63,17 @@ data class ToolCardUi(
     val resultPreview: String? = null,
 )
 
+@Immutable
 data class StepGroupUi(
     val stepCount: Int,
     val totalDurationLabel: String,
     val steps: List<StepUi>,
 )
 
+@Immutable
 data class StepUi(val name: String, val detail: String, val ok: Boolean)
 
+@Immutable
 data class MemoryUi(
     val id: String,
     val typeLabel: String,

@@ -6,6 +6,7 @@ import com.luzzymeow.luzzyrp.assistant.data.db.AssistantDatabase
 import com.luzzymeow.luzzyrp.assistant.data.db.AssistantDatabaseProvider
 import com.luzzymeow.luzzyrp.assistant.data.db.entity.AssistantEntity
 import com.luzzymeow.luzzyrp.assistant.data.prefs.AssistantPrefs
+import kotlinx.coroutines.flow.first
 import com.luzzymeow.luzzyrp.assistant.data.workspace.WorkspaceManager
 import com.luzzymeow.luzzyrp.assistant.domain.llm.LlmRequest
 import com.luzzymeow.luzzyrp.assistant.domain.llm.LlmTransport
@@ -387,22 +388,23 @@ class AssistantRuntime(
     private suspend fun currentSearxngUrl(): String? =
         runCatching { firstOf(prefs.searxngUrl) }.getOrNull()
 
-    private suspend fun <T> firstOf(flow: kotlinx.coroutines.flow.Flow<T>): T? {
-        var value: T? = null
-        flow.collect { value = it; return@collect }
-        return value
-    }
+    /**
+     * 取 DataStore Flow 的**当前值**。
+     *
+     * ⚠️ 必须用 `first()`——DataStore 的 flow 是**无限流**（每次变更都重发），
+     * `collect { … }` 永远不会返回，会导致整个 Agent 循环挂死（会话 39 修复）。
+     */
+    private suspend fun <T> firstOf(flow: kotlinx.coroutines.flow.Flow<T>): T? =
+        runCatching { flow.first() }.getOrNull()
 
     /** 诊断日志（**白名单**：禁止写入密钥/文件内容；只写事件名与长度）。 */
     private fun log(message: String) {
         // 交由宿主（MainActivity / 诊断页）接管；默认丢弃，避免日志泄漏
     }
 
-    private suspend fun firstOrNull(flow: kotlinx.coroutines.flow.Flow<String?>): String? {
-        var result: String? = null
-        flow.collect { result = it; return@collect }
-        return result
-    }
+    /** 同上：DataStore Flow 取当前值必须用 `first()`（见 [firstOf]）。 */
+    private suspend fun firstOrNull(flow: kotlinx.coroutines.flow.Flow<String?>): String? =
+        runCatching { flow.first() }.getOrNull()
 
     private fun splitModelRef(ref: String): Pair<String, String> {
         val idx = ref.indexOf("::")

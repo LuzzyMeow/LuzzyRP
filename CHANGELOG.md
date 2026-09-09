@@ -141,7 +141,16 @@
   - 搜索提供方补齐 **Tavily**（Key 在请求体）与 **Brave**（`X-Subscription-Token` 头），
     Key 只从加密存储取；设置页新增两个 Key 输入框（保存后不回显）。
   - **验证**：全仓 **323 项单测 / 0 失败**；真机（小米 25098PN5AC / Android 16）debug 包
-    `install -r` 成功、冷启动「开卷」开屏正常、logcat 无崩溃。
+    `install -r` 成功、冷启动「开卷」开屏正常、logcat 无崩溃。- **「助手」真机反馈修复（用户实测：助手页帧率明显低于其他页）**：
+  - **阻塞性缺陷**：`AssistantRuntime` 取 DataStore 当前值用了 `flow.collect{}`——DataStore 是
+    **无限流**，collect 永不返回，会**让首轮对话直接挂死**。已改为 `flow.first()`。
+  - **帧率**：助手覆盖层显示时**暂停 WebView**（`INVISIBLE` + `onPause` + `pauseTimers`），
+    不再与 Compose 争抢合成器；关闭时原样恢复（不销毁、状态不丢）。
+  - **重组开销**：UI 模型与状态类加 `@Immutable`（Compose 可跳过未变项）；主题的
+    Typography/Shapes 改为 `remember`（原先每次重组新建对象会让整棵子树失效）；
+    ViewModel 工厂 `remember` 复用。
+  - **流式节流**：文本/思考增量按 **100ms** 合并刷新（PLAN §11.2），工具状态跃迁与收尾
+    强制刷新——此前每个 token 都重建消息列表并触发全列表重组。
 
 **同步（上游 1.9.3 · 已完成）**
 - **上游新版本 RP-Hub 1.9.3 已合并**（公告 id `10207`，更新时间 09/08 15:30；基线 `d2f2625` → `4aef0bb`，

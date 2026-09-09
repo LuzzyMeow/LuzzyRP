@@ -82,9 +82,10 @@ private fun AssistantRoot(onExit: () -> Unit) {
 
     val context = LocalContext.current
     val runtime = remember(context) { AssistantRuntimeProvider.get(context) }
-    val listVm: AssistantListViewModel = viewModel(
-        factory = viewModelFactory { initializer { AssistantListViewModel(runtime) } },
-    )
+    val listFactory = remember(runtime) {
+        viewModelFactory { initializer { AssistantListViewModel(runtime) } }
+    }
+    val listVm: AssistantListViewModel = viewModel(factory = listFactory)
     val listState by listVm.state.collectAsStateWithLifecycle()
 
     val assistants = listState.assistants
@@ -131,9 +132,8 @@ private fun AssistantRoot(onExit: () -> Unit) {
                 )
 
                 is AssistantRoute.Chat -> {
-                    val chatVm: AssistantChatViewModel = viewModel(
-                        key = "chat-${current.conversationId}",
-                        factory = viewModelFactory {
+                    val chatFactory = remember(runtime, current.conversationId) {
+                        viewModelFactory {
                             initializer {
                                 AssistantChatViewModel(
                                     runtime = runtime,
@@ -144,7 +144,11 @@ private fun AssistantRoot(onExit: () -> Unit) {
                                     workspacePath = "files/",
                                 )
                             }
-                        },
+                        }
+                    }
+                    val chatVm: AssistantChatViewModel = viewModel(
+                        key = "chat-${current.conversationId}",
+                        factory = chatFactory,
                     )
                     val chatState by chatVm.state.collectAsStateWithLifecycle()
                     val scope = rememberCoroutineScope()

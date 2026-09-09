@@ -285,11 +285,15 @@ fun LuzzyAssistantTheme(
             FontFamily.SansSerif,
         )
     }
+    // Typography/Shapes 必须 remember：否则每次主题重组都新建对象，
+    // MaterialTheme 的 CompositionLocal 值变化会让整棵子树失效（实测卡顿来源之一）。
+    val typography = remember(displayFamily, bodyFamily) { luzzyTypography(displayFamily, bodyFamily) }
+    val shapes = remember { luzzyShapes() }
     CompositionLocalProvider(LocalLuzzyColors provides colors) {
         MaterialTheme(
             colorScheme = scheme,
-            typography = luzzyTypography(displayFamily, bodyFamily),
-            shapes = luzzyShapes(),
+            typography = typography,
+            shapes = shapes,
             content = content,
         )
     }

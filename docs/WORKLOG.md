@@ -2721,3 +2721,33 @@ W1 已完成并提交（`acf9cff6`），patch 040 前置条件满足（本阶段
 
 **待用户手动验收清单**（详见交接消息）：助手入口 → 覆盖层显隐 → 返回键 → 会话与流式 →
 审批弹窗 → 重启恢复 → 沙盒释放与 `apk add python3` → 记忆/技能/MCP/工作区/终端/设置六页。
+
+---
+
+### 会话 39 · 真机反馈修复：助手页卡顿 + 一处阻塞性缺陷（2026-09-09）
+
+**用户真机反馈**：「帧率太低，其他页面切换有动画很顺，助手页很卡」。
+
+**排查与修复**：
+1. **【阻塞性】DataStore 无限流被 `collect` 卡死**：`AssistantRuntime.firstOf` / `firstOrNull`
+   用 `flow.collect { … }` 取「当前值」——DataStore 的 flow 每次变更都重发、**永不完成**，
+   于是 `activeAssistantId()` 永不返回，而它被 `ContextBuilder` 的记忆召回与摘要模板调用，
+   **首轮对话会直接挂死**（会话 38 引入）。改为 `flow.first()`。
+2. **WebView 与 Compose 争抢合成器**：助手覆盖层显示时 WebView 仍在后台重绘（Vue 应用有
+   动画/定时器），两层全屏表面同时合成 → 帧率明显下降。改为显示时
+   `INVISIBLE + onPause + pauseTimers`，关闭时恢复（不销毁、状态不丢）。
+3. **重组开销**：
+   - UI 模型（`AssistantUi` / `ConversationUi` / `MessageUi` / `ThinkingUi` / `ToolCardUi` /
+     `StepGroupUi` / `StepUi` / `MemoryUi`）与 `ChatUiState` 等加 `@Immutable`，
+     让 Compose 能跳过未变项；
+   - 主题的 `Typography` / `Shapes` 改 `remember`（原先每次重组新建对象 → MaterialTheme 的
+     CompositionLocal 值变化 → 整棵子树失效）；
+   - `viewModelFactory` 用 `remember` 复用。
+4. **流式渲染节流 100ms**（PLAN §11.2 要求，此前未实现）：文本/思考增量合并刷新，
+   工具状态跃迁与收尾强制刷新；此前每个 token 都重建消息列表并触发全列表重组。
+
+**验证**：323 tests / 0 failed；`assembleDebug` 通过；已 `install -r` 到真机（保留用户数据）。
+**待用户复测**：助手页滑动/切换帧率、首轮对话是否正常（此前会被缺陷卡死）。
+
+**注**：用户当前测试的是 **debug 包**（无 R8/优化），帧率天然低于正式包；
+正式包（`assembleRelease`）会明显更顺。

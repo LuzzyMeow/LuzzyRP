@@ -165,6 +165,12 @@ class MainActivity : ComponentActivity(), AssistantController {
             if (!assistantVisible) {
                 view.visibility = View.VISIBLE
                 assistantVisible = true
+                // 助手覆盖层全屏显示时，WebView 仍在后台重绘（Vue 应用有动画/定时器），
+                // 与 Compose 争抢合成器 → 帧率明显下降。这里把它停绘+暂停定时器，
+                // 关闭时原样恢复（**不销毁、状态不丢**）。
+                webView.visibility = View.INVISIBLE
+                webView.onPause()
+                webView.pauseTimers()
                 notifyAssistantVisibility(true)
             }
         }
@@ -175,6 +181,9 @@ class MainActivity : ComponentActivity(), AssistantController {
             if (!assistantVisible) return@runOnUiThread
             assistantView?.visibility = View.GONE
             assistantVisible = false
+            webView.resumeTimers()
+            webView.onResume()
+            webView.visibility = View.VISIBLE
             notifyAssistantVisibility(false)
         }
     }

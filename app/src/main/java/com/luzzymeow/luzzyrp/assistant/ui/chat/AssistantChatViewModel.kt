@@ -60,6 +60,9 @@ class AssistantChatViewModel(
     private var approvalDeferred: CompletableDeferred<Boolean>? = null
     private var pendingApprovalCall: ToolCall? = null
 
+    /** 流式渲染节流（PLAN §11.2：文本/思考/工具进度统一 100ms 节流增量）。 */
+    private var lastFlushAtMillis: Long = 0L
+
     init {
         viewModelScope.launch { restoreHistory() }
     }
@@ -228,7 +231,7 @@ class AssistantChatViewModel(
                         status = ToolStatusUi.RUNNING,
                         durationLabel = null,
                     )
-                    refreshStreaming(streamingId, textBuffer, reasoningBuffer, toolCards, steps)
+                    refreshStreaming(streamingId, textBuffer, reasoningBuffer, toolCards, steps, force = true)
                 }
 
                 is AgentEvent.ToolCallApproval -> Unit // 审批卡由 ApprovalProvider 推
@@ -257,7 +260,7 @@ class AssistantChatViewModel(
                             ok = event.result !is ToolResult.Error,
                         )
                     }
-                    refreshStreaming(streamingId, textBuffer, reasoningBuffer, toolCards, steps)
+                    refreshStreaming(streamingId, textBuffer, reasoningBuffer, toolCards, steps, force = true)
                 }
 
                 is AgentEvent.AwaitingUserInput -> {
@@ -307,13 +310,24 @@ class AssistantChatViewModel(
         return deferred.await()
     }
 
+    /**
+     * 刷新流式消息。
+     *
+     * [force] = true 时绕过节流（状态跃迁：工具开始/结束、收尾），
+     * 否则按 [RENDER_THROTTLE_MS] 丢弃中间帧——流式 token 频率远高于屏幕刷新率，
+     * 每次都重建消息列表会让整棵 UI 子树重组（真机实测卡顿）。
+     */
     private fun refreshStreaming(
         id: String,
         text: StringBuilder,
         reasoning: StringBuilder,
         tools: List<ToolCardUi>,
         steps: List<StepUi>,
+        force: Boolean = false,
     ) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastFlushAtMillis < RENDER_THROTTLE_MS) return
+        lastFlushAtMillis = now
         val stepGroup = if (steps.size >= 3) {
             StepGroupUi(stepCount = steps.size, totalDurationLabel = "—", steps = steps.toList())
         } else {
@@ -353,6 +367,10 @@ class AssistantChatViewModel(
 }
 
 /** 会话页 UI 状态。 */
+/** 流式渲染节流间隔（PLAN §11.2）。 */
+const val RENDER_THROTTLE_MS: Long = 100L
+
+@androidx.compose.runtime.Immutable
 data class ChatUiState(
     val messages: List<MessageUi> = emptyList(),
     val streaming: Boolean = false,
@@ -362,8 +380,10 @@ data class ChatUiState(
     val usage: Pair<Int, Int>? = null,
 )
 
+@androidx.compose.runtime.Immutable
 data class PendingApproval(val toolName: String, val argsJson: String)
 
+@androidx.compose.runtime.Immutable
 data class PendingQuestion(
     val question: String,
     val options: List<String>,

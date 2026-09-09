@@ -134,7 +134,14 @@ class AssistantRuntime(
                 MemoryItem(id = it.id, content = it.content, type = it.type, score = it.similarity?.toDouble())
             }
         },
-        summarizer = null,
+        summarizer = LlmSummarizer(
+            transport = transport,
+            templateProvider = {
+                // 复用当前激活助手的请求模板（只读 Web 端配置，不新增密钥落盘）
+                val activeId = activeAssistantId()
+                activeId?.let { resolveRequestById(it) }
+            },
+        ),
     )
 
     val loop: AgentLoop = AgentLoop(

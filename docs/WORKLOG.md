@@ -602,3 +602,79 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 同时在 **AGENTS.md 顶部加接手指针**（指向本交接档），确保新 Agent 第一眼看到。
 
 **未改动任何代码**；工作区在本次记录前即为干净。
+
+---
+
+## 2026-09-10 · 会话 48：真机体验包切换到 release + 侧栏折叠动效掉帧治理
+
+**用户两条指令**：① 删掉手机上的 debug 版、改装 GitHub 的标准 release，**以后用户都先一步
+体验与用户相同的 APK 作为最后的人工真机测试**；② 解决侧边菜单栏多级抽屉菜单项打开时动画
+不流畅、帧数没达到手机刷新率的问题。
+
+### 一、真机体验包切换（指令 ①）
+
+**先澄清三件事实**（避免误操作）：① GitHub 最新 Release 仍是 **v1.4.0**（tag `ac0d5957`），
+**不含助手任何代码**（46 个提交未 push）；② 手机只装了 `com.luzzymeow.luzzyrp.debug`
+（数据目录 ≈51MB，含真实数据），release 与 debug 是**两个应用 ID**，删 debug = 真删；
+③ release 是 R8 混淆 + 不可调试构建、**从未真机跑过**——装上去会失去 CDP / `run-as` 诊断通道。
+用户拍板：**用当前 main 构建的 release 签名包** + **直接卸载 debug（不备份）** + **给 release 开
+WebView 调试开关**。
+
+**执行**：`WebViewSetup` 加 `WebView.setWebContentsDebuggingEnabled(true)`（release 同样生效，
+理由与代价写入代码注释 + AGENTS §6.1）→ `assembleRelease`（40.93MB）→
+`apksigner verify --print-certs` = **CN=LuzzyRP / SHA-256 `ed78235d…dfb1`**（与已发布版本同钥）→
+`adb uninstall com.luzzymeow.luzzyrp.debug` → `adb install -r app-release.apk`（1.4.0 / vc12）→
+冒烟：启动 ✓ 侧栏三组齐全 ✓ 资产重解压触发 ✓ **CDP 在 release 包上打通** ✓
+（`webview_devtools_remote_<pid>` + `adb forward` + `/json` 正常返回）。
+
+**纪律落档**：AGENTS §6.1 新增「真机体验包纪律」五条（含真机 CDP 上手法与两条 PowerShell 注意）；
+§7 坑表「混用 debug / release 包」条目改写。
+
+### 二、侧栏折叠动效掉帧治理（指令 ②）
+
+**诊断（全程实测量化，不猜）**：
+
+| 手段 | 读数 | 结论 |
+|------|------|------|
+| `dumpsys display` | renderFrameRate 120Hz | 屏幕 120Hz |
+| 页内 rAF 采样（CDP） | 全场景 avg 8.3ms / p95 8.4 / **零帧 >16.7ms** | **主线程不是瓶颈** |
+| `Performance.getMetrics` 增量 | Layout 0.27ms + RecalcStyle 0.75ms + Paint 0.6ms / 帧 | 同上 |
+| CDP 帧事件追踪 | `BeginFrame` 间隔 P50 **8.32ms**；单次展开 34 DrawFrame / **5 DroppedFrame** | 确有掉帧 |
+| `dumpsys gfxinfo` | UI 中位 10ms、**GPU 中位 5ms**、95 分位 10~14ms | **GPU 栅格 > 8.33ms 预算** |
+
+**定位**：折叠是 `grid-template-rows` 布局动画，逐帧重栅格不可免；主线程仅 ~1.6ms/帧，
+**瓶颈是 GPU 栅格约 5ms/帧（DPR 3.25）超过 120Hz 的 8.33ms 预算**，超额帧落到下一 vsync。
+对照：纯合成动画（抽屉滑入）只掉 2 帧/次。
+
+**修复**（`ext/luzzy-theme.css` 扩展层直改，**零上游改动、无新 patch**）：`.advanced-nav-panel`
+从上游 `0.32s cubic-bezier(.22,1,.36,1)` 收敛到**本项目 DESIGN.md 令牌：进入 200ms /
+退出 140ms / `cubic-bezier(0.23,1,0.32,1)`**，chevron 同拍。
+
+**验证**（同场交替 A/B）：动画帧数 38 → 24；单次展开掉帧 ~1.4 → ~0.8（一轮 19/20 → 8/8）。
+**诚实结论：掉帧率仍约 2~4%，本改动不消除它**（GPU 地板限制）；收益是「暴露在预算外的帧数」
+与总顿挫时长等比下降，且该时长本就是本项目令牌规定的值（原 0.32s 是上游值）。
+
+**负面结论（已实测排除，勿重复尝试）**：
+1. `.advanced-nav-panel-inner` / `.advanced-nav-list` 加 `will-change: transform` 促独立合成层
+   → 成对交替无收益（28 vs 28），且与 patch 034 的常驻层教训相悖；
+2. `.advanced-nav-panel{contain:paint}` → 首测似 −64%（14→5），**成对交替复测反向**
+   （无 17 / 有 26）→ 判定噪声，**不采纳**；
+3. 纯淡入（去高度动画）可再降，但破坏「下拉展开」视觉语义 → 不采纳。
+
+**门禁**：`testDebugUnitTest` **331 用例 / 0 失败 / 0 错误**；`verify-markers` **86 PASS / 0 FAIL**；
+release 构建通过、装机冒烟通过、侧栏展开态截图确认渲染正确。
+
+### 踩坑（已入 AGENTS §7）
+
+- **小样本掉帧对比不可信**：同一变体三轮测出 14 / 5 / 10，真机帧率受热与后台影响极大；
+  **必须成对交替测量（A/B/A/B 紧邻交替）**——本次差点把 `contain:paint` 的噪声当收益采纳；
+- PowerShell 里 `MSYS_NO_PATHCONV=1 <cmd>` 是 Git Bash 语法 → `CommandNotFoundException`；
+- `$PID` 是 PowerShell 只读自动变量，不可用作变量名。
+
+### 遗留
+
+1. 掉帧率 2~4% 的 GPU 地板未消除——进一步需把展开改成**纯合成 FLIP**（按行 transform 位移），
+   工作量大且仍受地板限制，**待用户决定是否值得**；
+2. 用户真实数据已随 debug 卸载清空，**长会话/重页面场景的性能表现无法在本机复现**；
+3. `assembleDebug` 仍可用但**不再用于真机**（见 AGENTS §6.1）。
+

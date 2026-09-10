@@ -662,6 +662,39 @@
         color 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* —— 侧栏折叠组（在线 / 高级 / 助手）—— 用户 2026-09-10 报告「动画不流畅、跑不满刷新率」。
+ * 上游 .advanced-nav-panel 为 0.32s cubic-bezier(.22,1,.36,1)，非本项目令牌。
+ * 真机实测（小米 25098PN5AC / 120Hz / CDP 帧事件追踪 + dumpsys gfxinfo）：
+ *   主线程不是瓶颈（每帧 layout 0.27ms + recalc 0.75ms + paint 0.6ms，rAF 稳定 8.3ms），
+ *   瓶颈是 GPU 栅格 ~5ms/帧 > 120Hz 的 8.33ms 预算 → 超额帧落到下一 vsync。
+ *   折叠为 grid-template-rows 布局动画，逐帧重栅格不可免；收敛窗口即等比减少越预算帧：
+ *   动画帧数 38 → 24，单次展开掉帧 ~1.4 → ~0.8（同场交替 A/B 两轮：19/20 → 8/8）。
+ *   掉帧率仍约 2~4%（GPU 地板限制，本改动不消除它）。
+ * 试探已实测排除（成对交替测量无收益，勿再引入）：面板内层/子项列表 will-change 促独立层、
+ *   .advanced-nav-panel{contain:paint}（首测似 −64%，复测反向，判定为噪声）。
+ * 视觉语言不变——同一 ease-out 族，仅时长收敛到令牌。
+ * 进出时长分离写法：基态＝退出 140ms，.is-open＝进入 200ms。 */
+:root[data-theme="luzzy"] .advanced-nav-panel {
+    transition:
+        grid-template-rows 140ms cubic-bezier(0.23, 1, 0.32, 1),
+        opacity 140ms ease;
+}
+
+:root[data-theme="luzzy"] .advanced-nav.is-open .advanced-nav-panel {
+    transition:
+        grid-template-rows 200ms cubic-bezier(0.23, 1, 0.32, 1),
+        opacity 200ms ease;
+}
+
+/* chevron 与面板同拍（上游 0.28s 同步收敛） */
+:root[data-theme="luzzy"] .advanced-nav-trigger .advanced-nav-chevron {
+    transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:root[data-theme="luzzy"] .advanced-nav.is-open .advanced-nav-trigger .advanced-nav-chevron {
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
     :root[data-theme="luzzy"] body,
     :root[data-theme="luzzy"] body * {

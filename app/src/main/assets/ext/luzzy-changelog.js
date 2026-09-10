@@ -250,6 +250,30 @@
   条目；README「开发者须知」的最近 PLAN 指向同步为 v1.4.0。
 - **\`tools/gen-changelog.mjs\` 徽章状态分支（工具层）**：CHANGELOG 顶部章节状态为「开发中」时
   生成琥珀色 \`开发中·未发布\` 徽章，避免开发中版本被无条件标成绿色「正式版·可游玩」。
+- **真机体验包改用 release 构建（用户指示，2026-09-10）**：用户日常真机由 debug 包改为
+  **release 签名包**（\`com.luzzymeow.luzzyrp\`，与最终分发件同物），此后每个版本由用户
+  先体验该 APK 作**最后一道人工真机测试**；原 debug 包已从设备卸载（其数据随之清空）。
+  配套：\`WebViewSetup\` **显式开启 WebView 内容调试**（\`setWebContentsDebuggingEnabled(true)\`，
+  release 同样生效）——release 不可调试会使 CDP 排查通道整体失效（帧率/布局/脚本耗时无从测量）；
+  代价为可连 adb 的电脑可检查页面内容，本应用仅侧载分发，接受该代价。另：\`adb\` 传
+  \`MSYS_NO_PATHCONV=1\` 前缀是 Git Bash 用法，**PowerShell 下不需要也不生效**（会话 48 踩坑）。
+- **侧栏折叠组动效对齐设计令牌（120Hz 掉帧窗口减半）**：用户报告「侧边菜单栏多级抽屉菜单项
+  打开时动画不流畅、帧数没达到手机刷新率」。真机量化（小米 25098PN5AC / 120Hz / CDP 帧事件
+  追踪 + \`dumpsys gfxinfo\`）：**主线程不是瓶颈**（每帧 layout 0.27ms + recalc 0.75ms +
+  paint 0.6ms，rAF 稳定 8.3ms，\`BeginFrame\` 间隔 P50 8.32ms）；瓶颈是 **GPU 栅格约 5ms/帧
+  > 120Hz 的 8.33ms 预算**（\`gfxinfo\` GPU 中位 5ms、95 分位 10~14ms），超额帧落到下一 vsync
+  → 观感上的顿挫。修复：\`ext/luzzy-theme.css\` 把 \`.advanced-nav-panel\` 从上游
+  \`0.32s cubic-bezier(.22,1,.36,1)\` 收敛到本项目令牌 **进入 200ms / 退出 140ms /
+  \`cubic-bezier(0.23,1,0.32,1)\`**（chevron 同拍）——动画窗口 38 帧 → 24 帧，单次展开掉帧
+  绝对数由 **~1.4 降至 ~0.8**（同场交替 A/B 两轮：19/20 → 8/8）。**掉帧率仍约 2~4%，本改动
+  不消除它**（受 GPU 栅格地板限制）；收益是「暴露在预算外的帧数」与总顿挫时长等比下降，
+  且时长本就是本项目令牌规定的值。
+  **负面结论（已实测排除，勿重复尝试）**：①\`.advanced-nav-panel-inner\` / \`.advanced-nav-list\`
+  加 \`will-change: transform\` 促独立合成层——成对交替测量无收益（28 vs 28），且与 patch 034
+  的常驻层教训相悖；②\`.advanced-nav-panel{contain:paint}\` 首测似有 −64%（14→5），**成对交替
+  复测反向**（无 17 / 有 26）——判定为噪声，不采纳；③纯淡入（去掉高度动画）虽可再降，但会
+  破坏「下拉展开」视觉语义，未采纳。**零上游改动、无新 patch**。
+
 
 **注意事项**
 - 本轮**未改任何上游文件**（\`assets/rphub/\` 零改动），无新 patch、无指纹表变更；

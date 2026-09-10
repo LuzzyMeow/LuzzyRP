@@ -1,6 +1,6 @@
 # v1.5.0「助手」工作节点与交接档
 
-> **最近更新**：2026-09-09 18:10（会话 46 结束）
+> **最近更新**：2026-09-10 17:30（会话 48 结束）
 > **用途**：**上下文重置后的接手入口**。新 Agent 读完本档即可继续工作，无需回溯对话历史。
 > **工作模式**：用户**一点一点提问题**，我一点一点改——**每次只改用户当前指定的那一处**，
 >   不顺手改别的；改完立刻装机 + 截图验证 + 提交。
@@ -11,8 +11,13 @@
 
 W1（上游同步 RP-Hub 1.9.3）与 W2 P0–P4（助手原生 Agent 全部功能）**代码已完成**；
 当前处于**用户真机逐项验收 + 增量优化**阶段：用户实测反馈 → 我定点修复 → 真机截图确认 → 提交。
-**331 项单测 / 0 失败**、门禁 **86 PASS / 0 FAIL**、assembleDebug 通过。
+**331 项单测 / 0 失败**、门禁 **86 PASS / 0 FAIL**、`assembleRelease` 通过。
 **发版被用户明确暂缓**（手动验收通过后再发）。
+
+**2026-09-10 两处口径变更（重要）**：
+1. **真机体验包改为 release 签名包**（不再是 debug）——用户此后**先一步体验与用户相同的
+   APK**，作为发布前的最后一道人工真机测试；手机上的 debug 包已卸载、其数据已清空。
+2. **release 构建已开启 WebView 内容调试**（`WebViewSetup`），真机 CDP 诊断通道保留。
 
 ---
 
@@ -21,8 +26,9 @@ W1（上游同步 RP-Hub 1.9.3）与 W2 P0–P4（助手原生 Agent 全部功�
 构建 + 装机（设备：小米 `25098PN5AC` / Android 16 / 序列号 `df97f3c4`）：
 
     cd /d/.NekoTool/LuzzyRP
-    ./gradlew :app:assembleDebug
-    adb -s df97f3c4 install -r app/build/outputs/apk/debug/app-debug.apk   # -r 保留用户数据
+    ./gradlew :app:assembleRelease                                    # 真机用 release，不再用 debug
+    adb -s df97f3c4 install -r app/build/outputs/apk/release/app-release.apk   # 同签名覆盖，数据保留
+    apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk  # 期望 CN=LuzzyRP
 
 回归自检（每次改动后必跑）：
 
@@ -30,29 +36,39 @@ W1（上游同步 RP-Hub 1.9.3）与 W2 P0–P4（助手原生 Agent 全部功�
     powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-markers.ps1 # 期望 86 PASS / 0 FAIL
     node tools/desktop-smoke.cjs                                                # 上游桌面冒烟（需先起 Chrome 远程调试）
 
+**真机 CDP（帧率/布局/脚本耗时定量排查的唯一通道）**：
+
+    adb -s df97f3c4 shell "cat /proc/net/unix | grep webview_devtools"   # socket 名内含 pid
+    adb -s df97f3c4 forward tcp:9222 localabstract:webview_devtools_remote_<pid>
+    # 然后 http://127.0.0.1:9222/json 取 webSocketDebuggerUrl
+    # 帧率：dumpsys gfxinfo com.luzzymeow.luzzyrp reset → 触发交互 → dumpsys gfxinfo com.luzzymeow.luzzyrp
+
 **真机操作要点（血泪经验）**：
 - 通知横幅会**顶掉状态栏高度**，坐标每次可能不同 → **先 screencap 看当前画面，再按截图坐标 tap**；
 - 侧栏 y 坐标随「在线/高级/助手」展开状态变化，不要用记忆中的坐标；
-- 截图必须带 `MSYS_NO_PATHCONV=1`，否则路径被 Git Bash 转换：
-  `MSYS_NO_PATHCONV=1 adb -s df97f3c4 shell screencap -p /sdcard/x.png` +
-  `MSYS_NO_PATHCONV=1 adb -s df97f3c4 pull /sdcard/x.png D:/Temp/x.png`
+- **PowerShell 下不要写 `MSYS_NO_PATHCONV=1 <cmd>`**（那是 Git Bash 语法，会报
+  `CommandNotFoundException`）；`$PID` 是 PowerShell 只读变量，不可用作变量名；
+- 截图：`adb -s df97f3c4 shell screencap -p /sdcard/x.png` + `adb pull /sdcard/x.png D:/Temp/x.png`
+  （`D:\Temp` 需已存在）；
+- **改资产后 APK 重装会触发资产重解压 → 页面回到开屏**：开屏按钮是 `.lsp-dive-btn`
+  （`.click()` 可关，但**开屏层在时会遮挡测量**，做帧率实验前务必先关掉）。
 
 **参考克隆**：`rp-hub-reference/`（上游 1.9.3，锚定 `4aef0bb`）——查上游实现用。
 
 ---
 
-## 3. 当前数据快照（核实于 2026-09-09 18:10）
+## 3. 当前数据快照（核实于 2026-09-10 17:30）
 
 | 项 | 值 |
 |----|-----|
-| 分支 | `main`，**领先 `origin/main` 45 个提交（未 push）** |
-| 工作区 | **干净**（无未提交改动） |
-| 最新提交 | `bf7e0cf1` 侧栏「助手」改为可折叠组 + 三组子项样式统一 |
-| 单测 | **331 / 0 失败**（33 个测试类） |
+| 分支 | `main`，领先 `origin/main` 48 个提交（未 push） |
+| 工作区 | 见最近提交（会话 48 改动已提交） |
+| 单测 | **331 / 0 失败**（34 个测试类） |
 | 门禁 | **86 PASS / 0 FAIL** |
-| debug APK | 78,827,296 B（≈75 MiB） |
-| 设备端版本 | `1.4.0-debug`（**版本号在发版时才 bump 到 1.5.0**） |
-| 助手源码 | ~121 文件 / 15.6k 行 |
+| release APK | **40.93 MB**（R8 混淆 + 资源压缩） |
+| 设备端版本 | `1.4.0`（**release 签名包**；版本号在发版时才 bump 到 1.5.0） |
+| 助手源码 | ~122 文件 / 15.6k 行 |
+
 
 **最近 8 个提交**：
 
@@ -163,7 +179,7 @@ ToggleRow/EmptyState/SearchField/MemoryCard/ConversationRow/SideDrawer）+ 新�
 **修复**：上游 SVG 的 d → res/drawable/ic_lz_*.xml（VectorDrawable，系统解析器）+ **显式分隔标志位**
 （M 15 12 a 3 3 0 1 1 -6 0 3 3 0 0 1 6 0 z）+ painterResource 渲染。
 
-### 会话 46 · 侧栏「助手」折叠组 + 子项样式统一（bf7e0cf1）— **最新**
+### 会话 46 · 侧栏「助手」折叠组 + 子项样式统一（bf7e0cf1）
 
 **用户要求**：「完全对齐如「在线」和「高级」这种可展开和收起式的选项，让助手下方的各个功能页可折叠收纳，
 并且把「在线」和「高级」所展开的预设 世界书等子项，改 ui 成助手下方的子项的样式和大小」。
@@ -179,6 +195,30 @@ ToggleRow/EmptyState/SearchField/MemoryCard/ConversationRow/SideDrawer）+ 新�
 
 **真机截图确认**：三组均可展开/收起，子项样式尺寸完全一致。
 
+### 会话 48 · 真机体验包切 release + 侧栏折叠动效掉帧治理（2026-09-10）— **最新**
+
+**用户两条指令**：① 卸载 debug 版、改装标准 release，**以后用户先一步体验与用户相同的 APK**
+作为最后的人工真机测试；② 解决侧栏多级抽屉菜单项展开动画不流畅、跑不满刷新率。
+
+**① 真机体验包切换**：三条事实先澄清（GitHub 最新 Release 是 v1.4.0 **不含助手**；debug/release
+是两个应用 ID、删 debug = 真删 ≈51MB 真实数据；release 是 R8 + 不可调试、从未真机跑过）→
+用户拍板「用当前 main 构建的 release 包」+「直接卸载 debug（不备份）」+「给 release 开 WebView 调试」。
+执行：`WebViewSetup` 加 `setWebContentsDebuggingEnabled(true)` → `assembleRelease`（40.93MB）→
+签名 **CN=LuzzyRP / SHA-256 `ed78235d…dfb1`** → 卸载 debug → `install -r` release → 冒烟通过
+（**CDP 在 release 上打通**）。纪律写入 AGENTS §6.1/§7。
+
+**② 动效掉帧治理（诊断 → 修复 → 复测）**：
+- **诊断**：主线程不是瓶颈（每帧 layout 0.27ms + recalc 0.75ms + paint 0.6ms，rAF 稳定 8.3ms，
+  `BeginFrame` P50 8.32ms）；**瓶颈是 GPU 栅格 ~5ms/帧 > 120Hz 的 8.33ms 预算**（gfxinfo GPU 中位 5ms、
+  95 分位 10~14ms），超额帧落到下一 vsync。
+- **修复**：`ext/luzzy-theme.css` 把 `.advanced-nav-panel` 从上游 `0.32s cubic-bezier(.22,1,.36,1)`
+  收敛到本项目令牌 **进入 200ms / 退出 140ms / `cubic-bezier(0.23,1,0.32,1)`**（chevron 同拍）。
+- **复测**：动画帧数 38 → 24，单次展开掉帧 ~1.4 → ~0.8（同场交替 A/B 19/20 → 8/8）。
+  **掉帧率仍约 2~4%，本改动不消除**（GPU 地板）。
+- **被实测排除**：独立合成层（`will-change`）、`contain: paint`（首测 −64% 系噪声，配对复测反向）、
+  纯淡入（破坏展开语义）。
+- **踩坑**：小样本掉帧对比不可信，**必须成对交替测量**（同变体三轮测出 14/5/10）。
+
 ---
 
 ## 7. 已知问题 / 待办
@@ -191,6 +231,7 @@ ToggleRow/EmptyState/SearchField/MemoryCard/ConversationRow/SideDrawer）+ 新�
 | R2 | **日历工具无运行时权限申请流程**：calendar_read/write 只做权限检查，App 内无申请入口 → 必然报「未授予权限」 | **未修** |
 | R3 | 首页会话 id 在列表加载后固定一次；若该会话在 Web 端被删，首页行为未验证 | 待验证 |
 | R4 | ensureConversation() 失败静默返回 | 待验证 |
+| R5 | **侧栏折叠动画存在 GPU 栅格地板**：DPR 3.25 下每帧栅格 ~5ms，逼近 120Hz 的 8.33ms 预算，掉帧率约 2~4%（会话 48 实测）。已把时长收敛到设计令牌把绝对掉帧数减半；**进一步下降需 FLIP 级改造**（按行 transform 位移替代高度动画），工作量大且仍受地板限制 | **待用户决定** |
 
 ### 7.2 真机未验证的功能（**问题最可能藏在这里**）
 
@@ -296,5 +337,7 @@ ToggleRow/EmptyState/SearchField/MemoryCard/ConversationRow/SideDrawer）+ 新�
 | 4 | 助手各页组件只是「相似」而非同一设计理念 | 设计契约补全 + ledger 组件库 + 八页改造 | ✅ | 8311eaca 等 |
 | 5 | 圆形图标全是半圆状；应直接复用原项目图标 | 改 VectorDrawable + 弧线标志位分隔 | ✅ | 6006eb98 |
 | 6 | 侧栏「助手」应做成「在线/高级」式折叠；在线/高级子项改用助手子项样式 | 已实现 | ✅ | bf7e0cf1 |
-| 7 | （待用户提出下一处） | — | — | — |
+| 7 | 侧栏多级抽屉菜单项展开动画不流畅、跑不满刷新率 | 诊断到 GPU 栅格瓶颈；折叠时长收敛到设计令牌（200/140ms），掉帧绝对数减半 | ✅ | 会话 48 |
+| 8 | 卸载 debug 版、改装 release；以后用户先一步体验相同 APK 作最后人工真机测试 | 已切换（release 签名包 + WebView 调试开启），纪律写入 AGENTS §6.1 | ✅ | 会话 48 |
+| 9 | （待用户提出下一处） | — | — | — |
 

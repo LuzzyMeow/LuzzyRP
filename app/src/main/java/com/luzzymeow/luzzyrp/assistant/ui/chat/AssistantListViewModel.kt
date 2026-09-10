@@ -18,8 +18,9 @@ import kotlinx.coroutines.launch
 /**
  * 会话列表（家）状态（P2：接真实 Room 数据）。
  *
- * 首次进入若无助手 → 自动建一个默认助手（[AssistantRepository.ensureDefaultAssistant]），
- * 避免「空列表 + 无处可去」；会话按日期分组（今天 / 昨天 / 7 天内 / 本月 / 更早）。
+ * [用户 2026-09-10] **不再自动创建内置预设助手**（原内置「阿墨」已删除）——零助手时由
+ * UI 空态引导新建（[createAssistant]），避免"删了预设却无处可去"。
+ * 会话按日期分组（今天 / 昨天 / 7 天内 / 本月 / 更早）。
  */
 class AssistantListViewModel(private val runtime: AssistantRuntime) : ViewModel() {
 
@@ -32,10 +33,8 @@ class AssistantListViewModel(private val runtime: AssistantRuntime) : ViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            val default = runCatching { runtime.repository.ensureDefaultAssistant() }.getOrNull()
             val assistants = runCatching { runtime.repository.assistants() }.getOrDefault(emptyList())
             val selected = _state.value.selectedId?.takeIf { id -> assistants.any { it.id == id } }
-                ?: default?.id
                 ?: assistants.firstOrNull()?.id
             val conversations = selected?.let { id ->
                 runCatching { runtime.repository.conversations(id) }.getOrDefault(emptyList())
@@ -66,6 +65,17 @@ class AssistantListViewModel(private val runtime: AssistantRuntime) : ViewModel(
     fun createAssistant(name: String) {
         viewModelScope.launch {
             runCatching { runtime.repository.createAssistant(name) }
+            refresh()
+        }
+    }
+
+    /** 删除助手及其从属数据；若删的是当前选中项，refresh() 会自动回落到列表首个或空态。 */
+    fun deleteAssistant(assistantId: String) {
+        viewModelScope.launch {
+            runCatching { runtime.repository.deleteAssistant(assistantId) }
+            if (_state.value.selectedId == assistantId) {
+                _state.value = _state.value.copy(selectedId = null)
+            }
             refresh()
         }
     }

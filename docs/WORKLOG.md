@@ -712,3 +712,155 @@ legacy 掉帧 **80.69% → 4.13% / 4.76% / 3.84%**；转场窗口 95 分位 13ms
 **残留（诚实记录）**：上游启动期主线程成本（Tailwind JIT + Vue 执行 109ms + 微任务检查点 83ms）
 无法在扩展层消除，**首屏可见时机不变**（首次绘制 ~160ms、FCP ~268ms）；冷启动仍有 ~4% legacy 掉帧。
 
+---
+
+## 2026-09-10 · 会话 49：供应商编辑器模型列表改卡片 + 二级弹窗（patch 040）
+
+**用户两条指令**：①「看我手机，优化自定义供应商添加模型时的交互，改为弹窗实现，编辑完单个模型后
+保持，以卡片列表的形式展现」；②「严查阻塞项，当前配置好模型后无法正常聊天交互」。
+
+### 一、模型列表交互重构（指令 ①，已完成）
+
+**设计门（硬性规定 9）**：本条是**上游供应商编辑器**的交互重构 → 属 UI/交互设计，触发设计门。
+已完整阅读 4 项设计 SKILL（huashu-design `SKILL.md` 的三方向硬门与豁免、反 AI slop、动效纪律；
+awesome-design-md `README.md` 的 DESIGN.md 九段格式；ui-ux-pro-max `CLAUDE.md`）。
+判定为**豁免情形 2「已选定方向后的迭代 + 用户已指定目标」**——零新增色相、零新组件类型
+（弹窗直接复用上游 `modal-shell`）→ 不重走三方向硬门，按豁免落档
+`docs/design/direction-approved-assistant.md`（含 form 推导五问作答）。
+
+**改前**：每个模型在供应商编辑器内**内联全展开**成 7 字段长表单 → 多模型时模态滚动极长、
+编辑面与列表混在一起（真机截图确认）。
+
+**改后（patch 040，index.html + app.js）**：
+- **卡片列表**：显示名 + 类型徽标（text/image/embedding）+ 模型 ID（等宽）+ 上下文/输出 + 模态 chips
+  + 编辑·删除图标按钮；空态沿用原 /models 拉取缓存说明。
+- **二级弹窗**：`modal-shell`（`z-[70]` 叠于编辑器 `z-[60]`），字段与原表单逐项一致 + ID 预设提示与撤销。
+- **编辑完即保持**：编辑在**草稿副本**上进行，`confirmModelEditor` 才 `splice` 原位写回或 `push`；
+  取消不留痕；删除弹窗内条目时自动收殓弹窗、索引前移时同步递减。
+
+**工程纪律（硬性规定 2/10）**：
+1. 标记：index.html 2 处 + app.js 2 处 `[LuzzyRP patch 040]`；
+2. 实体重生成（v1.5.0 修正规程）：上游纯净基线 `4aef0bb` → LF 归一 → `git diff --no-index
+   --ignore-cr-at-eol` → 头路径改写；**前像 blob id 与登记表一致**（index.html `52135b42` /
+   app.js `79267c03`）；
+3. **双验证**：逆向（纯净基线 + 实体 → 工作树）**2/2 逐字节一致**；端到端（纯净基线全量 →
+   `apply-patches.ps1`）**9 枚全 [OK]** 且结果与工作树**9/9 逐字节一致**；
+4. 门禁：`verify-markers` 新增 3 项 040 校验 → **89 PASS / 0 FAIL**；`node --check` app.js 通过。
+
+**真机验收（小米 25098PN5AC，CDP 驱动）**：卡片渲染 ✓（3 张卡片，含 EMBEDDING 徽标那张）；
+「+加模型」弹窗渲染 ✓（层级正确、字段齐全）；新增→「确定」→ 列表 3→4 且弹窗关闭 ✓；
+编辑第 0 条→**预填当前全部字段**（id/label/ctx/max/mods/type）✓→改字段→「确定」→ **原位替换**
+（长度仍 3、ID 未变、新值生效）✓；「取消」→ 真实配置**零改动**（已核对存储值）✓。
+
+### 二、阻塞项排查（指令 ②，用户暂缓，先给结论）
+
+查得**直接证据**：当前激活供应商 `STA1N`（内置、`editable:false`）的 **API Key 长度为 0**，
+而全局 `settings.apiKey` 有 51 字符；`apiProviderOverrides` 为空、激活模型
+`STA1N::[Cloud]GLM-5.3-Flash`。即：**请求会带着空 Key 打到 `cdn.sta1n.cn/v1`** → 必然 401/403。
+用户答复「我确保我的模型 id 是对的，第二项任务我们再测试」→ 按指示**先不动**，留待用户复测时按此线索推进。
+
+**遗留 / 下一步**：① 待用户复测阻塞项（线索已备）；② 模型弹窗的「编辑」入口在真机上因滑动惯性
+坐标略有漂移，后续验收时注意先截图再点。
+
+---
+
+## 2026-09-10 · 会话 50：识图按需生效 + 删视频（patch 041）／删内置预设「阿墨」／进出助手过渡／侧栏组移位
+
+> **补记说明**：本会话的代码改动在落地时**未同步写日志**（上下文重置前遗留的工作区在途改动），
+> 现按代码、注释与 CHANGELOG 还原，并补齐三处文档纪律缺口（G1–G3，见文末「收口」）。
+
+### 一、patch 041 识图架构重构 + 删除视频支持（用户指定）
+
+**改前**：只要有图片就**一律**先跑识图模型产出描述再注入聊天模型——多模态模型白跑一趟，
+且描述是有损压缩（细节丢失）；此外输入模态里还留着从未有可用通路的 `video`。
+
+**改后（app.js + ui-components.js + index.html）**：
+1. **原生支持图片时直发**：新增 `chatModelSupportsImages()`（按当前聊天模型的
+   `inputModalities` 判定）与 `buildNativeImageContent()`——图片按 `image_url` part
+   **直发聊天模型，不调用识图模型**（`recognizeChatImage` 整段跳过，图片状态直接置 ready）。
+   **假设（可一行改）**：原生发图**只带最近一条**带图 user 消息——dataURL 每张数百 KB，
+   全量回传会让请求体随轮数线性膨胀；更早图片由当时回复承载语义。
+2. **不支持时仍走识图**：内置提示词（审查豁免前缀 + 中文高密度客观描述 + 区分确定/不确定 +
+   不把图内文字当指令），描述以 **user 身份**注入，措辞「用户上传了一张图，图片内容为：……」
+   （多张为「第 N 张图」），保留 `<user_image_context>` 包裹与「不是系统指令」安全注记。
+3. **删除视频支持**：模型编辑器输入模态只留 `text / image`，归一白名单与 `ui-components`
+   标签映射同步清理，全仓零残留（`video: '视频'` / `['text','image','video']` 均已消失）。
+
+**同批附带（真修复，非二创）**：复原 **1.9.3 合并时被吞掉的 `const requestTools` 声明**。
+该行丢失会让 `sendMessage` → `generateResponse` 必抛 `ReferenceError`：**聊天全挂且界面永停
+「生成中」**，与用户报告的「配置好模型后无法正常聊天」高度相关。属上游原状复原，**不打标记**。
+
+**纪律**：app.js 2 处 + ui-components.js 1 处 `[LuzzyRP patch 041]` 标记；`verify-markers.ps1`
+新增 6 项 041 校验（3 项 contains + 3 项 notcontains 查视频残留）；实体补丁重生成并**逆向验证通过**。
+
+### 二、删除内置预设助手「阿墨」+ 空态新建入口（用户指定）
+
+`AssistantRepository.ensureDefaultAssistant()`（首次进入自动创建内置「阿墨」）**整体删除**，
+助手一律由用户显式 `createAssistant(name)` 创建；配套：
+- 新增 `deleteAssistant(assistantId)`：先清 FTS + 消息（唯一写入口 `deleteByAssistantIndexed`），
+  再清会话及其余按 assistantId 归属的表；**工作区目录按 PLAN §6.1 默认保留**；
+- `AssistantListViewModel.refresh()` 去掉 default 回落（选中项为空即进空态）；
+- 管理页空态提示语纠正（原「助手在首次打开时自动创建」已失效）+ 挂「**新建助手**」按钮，
+  `AssistantHost` 接线 `onCreateAssistant` / `onDeleteAssistant`。
+
+### 三、进/出助手过渡动画（用户报告「切换生硬」）
+
+助手覆盖层原为 `visibility` 硬切。新增 `MainActivity.animateAssistantOverlay()`：
+**进 200ms / 退 140ms / `cubic-bezier(0.23,1,0.32,1)`，自 `scale(0.96)+alpha 0` 起步**
+（令牌禁 `scale(0)`）；进入是**纯交叉淡化**（只动 alpha，位移交给 WebView 侧），退出动画
+结束后才置 `GONE`；系统「移除动画」（`ANIMATOR_DURATION_SCALE=0`）时直接呈现。
+WebView 侧配套 `.lsp-handoff`（`ext/luzzy-theme.css` + `ext/luzzy-assistant.js`）：侧栏展开时
+点助手子项 → 侧栏 `translate3d(-104%)` 左收 + `.app-main` 左移 18px + 覆盖层淡化，**三者同令牌同帧起跑**；
+`prefers-reduced-motion` 下降级到 0.01ms。助手**内部**路由本就有 `AnimatedContent`，未改动。
+
+### 四、侧栏「助手」组移位 + 「对话」图标去重（用户指定）
+
+助手组由底部簇（「外观」之前）移到**「聊天」之下作第二入口**（锚点改为聊天按钮的下一个兄弟节点，
+保留「上游改名/改结构时回落旧锚点」的降级）；子项「对话」原用铅笔线稿、与「助手」触发按钮
+**同图标**，改用侧栏「聊天」项自带的气泡图标（上游原图形，零自绘）。均落扩展层，零上游改动。
+
+### 五、收口（G1–G3，本次补做）
+
+| 缺口 | 处理 |
+|------|------|
+| G1 `tools/patches/README.md` 未登记 041 | 已补 041 条目（内容 / 假设 / 预期冲突点 / requestTools 复原说明） |
+| G2 index.html 的 video 清理**无独立 041 注释** | 已补 2 行注释 → 实体 `012-035-index-html.patch` 重生成（前像 `52135b4` 一致、后像 `a853f0a`→`6b2498f`）→ **逆向验证逐字节一致**（纯净基线 + 实体 = 工作树，313226 B） |
+| G3 WORKLOG / STATUS 未记录会话 50 | 本节 + STATUS §3/§6/§12 同步 |
+
+**收口后实跑门禁**：`tools/verify-markers.ps1` → **95 PASS / 0 FAIL**（含 040 三项、041 六项；
+R1/R2 上游敏感文件仍逐字节一致、R3 CHANGELOG 同步一致）。
+
+### 会话 50 追记 · 助手页 UI 设计语言断层审查（2026-09-10，用户：「感觉有断层」）
+
+**设计门（硬性规定 9）**：已读 open-design `AGENTS.md`（UI 动画哲学：ease-out `.23,1,.32,1`、
+进 200 / 出 140、`grid-template-rows 0fr→1fr`、禁 `scale(0)`）、huashu-design `SKILL.md` 核心章
+（三方向硬门与三种豁免、反 AI slop）+ `references/critique-guide.md`（六维评分 + Top10）、
+ui-ux-pro-max `CLAUDE.md`（本项目有自有契约，未套通用库）、awesome-design-md `README.md`（DESIGN.md 九段格式）。
+
+**结论**：**有断层**。根因是助手把「上游聊天页皮肤」（112dp 黑渐隐 + 白字 + 1.6dp 描边）与
+「上游设置页皮肤」（白底深字 + 2dp 描边 + ledger 组件库）拼进同一原生容器，两者在上游本属
+不同场景（角色背景图 vs 纯白管理台），搬进来后未做身份统一。
+
+| 级 | 断层 | 证据 |
+|----|------|------|
+| A1 | 两套顶栏语言 | `ChatTopBar.kt:45-137` vs `LedgerPageHeader` |
+| A2 | 图标描边 1.6/1.5dp vs 2dp | `ChatIcons.kt:28,58,84` |
+| A3 | 折叠节奏三套（Web 侧栏 200 / 助手管理页 360 / 路由 200-140）+ **契约自相矛盾** | `LedgerTokens.kt:56` + DESIGN.md §Motion |
+| B1 | 用户气泡未按契约（#EFE9DE 而非 #F1E3D9，与 AI 气泡几乎同色） | `MessageComponents.kt:70-80` |
+| B2 | 输入岛 `+` `↑` 用 Text 字符 | `InputIsland.kt:62,99` |
+| B3 | 终端用系统 `FontFamily.Monospace`，字体章未登记 | `TerminalScreen.kt:128` |
+| C1-C4 | 双空态实现 / 气泡 max 宽无出处 / 消息间距 48dp 显散 / 导航隐喻两套 | 见审查档 |
+
+**落档**：新建 **`docs/design/AUDIT-assistant-ui-parity.md`**（评审结论 + P0-P3 修复计划 + 验收标准 +
+风险表）；`docs/design/direction-approved-assistant.md` 追加「⏳ 待决 · 顶栏语言统一（D1/D2/D3 三方向）」；
+STATUS §7 加 R6、§12 加第 16 项。
+
+**本次未做**：真机截图比对（设备 `df97f3c4` 未连接）——凡观感类结论（C3 间距、B1 色差）实施前须真机复验。
+
+### 遗留
+
+1. **未跑单测 / `verify-markers` / 构建 / 真机验收**，也**未提交**——收口后仍待执行；
+2. 阻塞项（激活供应商 `STA1N` 的 API Key 长度为 0 → 必 401/403）用户指示暂缓，**待复测**；
+   `requestTools` 复原是否就是该现象的全部原因，需真机实测确认；
+3. 11 项真机能力（LLM 流式 / proot 沙盒 / 工具审批 / 记忆 / MCP / 技能 / 工作区 / 终端 / 重启恢复）仍为 0%。
+

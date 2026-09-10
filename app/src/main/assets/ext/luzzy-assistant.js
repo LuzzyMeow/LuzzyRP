@@ -45,7 +45,9 @@
 
     /** 子项：label + 原生路由 + 图标 path（全部取自上游 index.html 的 SVG）。 */
     const SUB_ENTRIES = [
-        { label: '对话', route: '', icon: 'M16.86 4.49l1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L6.83 19.82a4.5 4.5 0 0 1-1.9 1.13l-2.68.8.8-2.69a4.5 4.5 0 0 1 1.13-1.9L16.86 4.49z' },
+        // [用户 2026-09-10] 「对话」原用铅笔线稿，与「助手」触发按钮图标重复 → 改用侧栏
+        // 「聊天」项自带的气泡图标（上游原图形，语义即「对话」，零自绘）
+        { label: '对话', route: '', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
         { label: '会话', route: 'conversations', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
         { label: '记忆', route: 'memory', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
         { label: '技能', route: 'skills', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
@@ -82,25 +84,56 @@
         document.head.appendChild(style);
     }
 
+    /* 协同转场（用户 2026-09-10 指定）：侧栏展开时点助手子项 → 侧栏左收 + 页面左移 +
+       助手覆盖层交叉淡化，三者同令牌（200ms / cubic-bezier(.23,1,.32,1)）同帧起跑。
+       原生覆盖层由 Luzzy.openAssistantAt 触发（MainActivity 用同一令牌做 alpha 0→1），
+       此处只负责 WebView 侧的两条位移，并在动画结束（= 覆盖层刚好 100%）后收尾。 */
+    const HANDOFF_MS = 200;
+
+    function withDrawerHandoff(open) {
+        const sidebar = document.querySelector('.app-sidebar');
+        const overlay = document.querySelector('.mobile-overlay');
+        const drawerOpen = !!sidebar && sidebar.classList.contains('mobile-sidebar-open');
+        if (!drawerOpen) { open(); return; }
+        const root = document.documentElement;
+        root.classList.add('lsp-handoff');
+        open(); // 与侧栏收起同帧：覆盖层同步淡化，形成交叉淡化
+        setTimeout(function () {
+            if (sidebar) sidebar.classList.remove('mobile-sidebar-open');
+            if (overlay) overlay.classList.remove('mobile-sidebar-open');
+            root.classList.remove('lsp-handoff');
+        }, HANDOFF_MS);
+    }
+
     function openRoute(route) {
-        if (typeof Luzzy.openAssistantAt === 'function') {
-            Luzzy.openAssistantAt(route);
-            return;
-        }
-        const raw = window.LuzzyBridge;
-        if (raw && typeof raw.openAssistantAt === 'function') raw.openAssistantAt(route);
-        else if (typeof Luzzy.openAssistant === 'function') Luzzy.openAssistant();
+        withDrawerHandoff(function () {
+            if (typeof Luzzy.openAssistantAt === 'function') {
+                Luzzy.openAssistantAt(route);
+                return;
+            }
+            const raw = window.LuzzyBridge;
+            if (raw && typeof raw.openAssistantAt === 'function') raw.openAssistantAt(route);
+            else if (typeof Luzzy.openAssistant === 'function') Luzzy.openAssistant();
+        });
     }
 
     function findAnchor() {
-        // 底部簇锚点：文本为「外观」的侧栏按钮（patch 019 重排后：外观 → 设置 → 关于）
+        // [用户 2026-09-10] 「助手」改挂「聊天」之下（第二入口）：锚点 = 聊天按钮的下一个
+        // 兄弟节点（inject 用 insertBefore，故组落在锚点之前 = 紧随聊天）。
         const nav = document.querySelector('.sidebar-nav');
         if (!nav) return null;
         const buttons = Array.from(nav.querySelectorAll('button.sidebar-nav-button'));
-        const anchor = buttons.find(function (b) {
+        const chat = buttons.find(function (b) {
+            return (b.textContent || '').trim() === '聊天';
+        });
+        if (chat) {
+            return { nav: chat.parentElement || nav, anchor: chat.nextElementSibling };
+        }
+        // 降级：上游若改掉「聊天」文案/结构，仍按旧锚点（外观）挂底部簇，避免入口整体消失
+        const fallback = buttons.find(function (b) {
             return (b.textContent || '').trim() === '外观';
         });
-        return anchor ? { nav: nav, anchor: anchor } : null;
+        return fallback ? { nav: nav, anchor: fallback } : null;
     }
 
     /** 构建「助手」可折叠组（结构与上游 .advanced-nav 完全一致）。 */

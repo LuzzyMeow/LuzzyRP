@@ -793,6 +793,30 @@
 
 @keyframes lspGateIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* —— 侧栏 → 助手 协同转场（用户 2026-09-10 指定）——
+ * 场景：处于其他页面且**侧栏展开**时，点击助手任意子项。三件事同时起跑、同时结束：
+ *   ① 侧栏向左收起（translate3d -104%）；
+ *   ② 页面主体同步左移一小段（跟随感，非整屏位移）；
+ *   ③ 助手原生覆盖层交叉淡化（0 → 100%，见 MainActivity.animateAssistantOverlay）。
+ * 时长/曲线一律用 DESIGN.md 进入令牌 **200ms / cubic-bezier(0.23,1,0.32,1)**——原生侧同一令牌，
+ * 故两块渲染面虽不同源，视觉上仍是一条线。`.lsp-handoff` 由 ext/luzzy-assistant.js 加/撤。 */
+html.lsp-handoff .app-sidebar {
+    transform: translate3d(-104%, 0, 0) !important;
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1) !important;
+}
+
+html.lsp-handoff .app-main {
+    transform: translate3d(-18px, 0, 0);
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.lsp-handoff .app-sidebar,
+    html.lsp-handoff .app-main {
+        transition-duration: 0.01ms !important;
+    }
+}
+
 /* —— 开屏期遮挡渲染抑制（用户 2026-09-10 报告「开屏最开始卡一下」，纯 CSS 开关）——
  * 真机**冷启动**实测（dumpsys gfxinfo，5s 窗口）：663 帧 / legacy 掉帧 80.69% /
  * UI 帧时中位 **17ms（≈60fps，没跑满 120Hz）** / GPU 90 分位 15ms——启动期 GPU 瞬时

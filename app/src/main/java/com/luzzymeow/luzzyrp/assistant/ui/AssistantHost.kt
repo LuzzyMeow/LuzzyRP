@@ -184,6 +184,9 @@ private fun AssistantRoot(
                 AssistantRoute.AssistantManager -> AssistantManagerScreen(
                     assistants = assistants,
                     onBack = { route = AssistantRoute.ChatList },
+                    // [用户 2026-09-10] 空态「新建助手」入口（内置预设助手「阿墨」已删除）
+                    onCreateAssistant = { listVm.createAssistant("新助手") },
+                    onDeleteAssistant = { id -> listVm.deleteAssistant(id) },
                 )
 
                 AssistantRoute.Memory -> {

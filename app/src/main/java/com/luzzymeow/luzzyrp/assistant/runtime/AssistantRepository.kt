@@ -36,34 +36,24 @@ class AssistantRepository(private val database: AssistantDatabase) {
 
     suspend fun assistants(): List<AssistantEntity> = assistantDao.getAll()
 
-    /** 首次进入且一个助手都没有时，创建一个默认助手（否则 UI 无处可去）。 */
-    suspend fun ensureDefaultAssistant(): AssistantEntity {
-        val existing = assistantDao.getAll()
-        if (existing.isNotEmpty()) return existing.first()
-        val ts = now()
-        val entity = AssistantEntity(
-            id = UUID.randomUUID().toString(),
-            name = "阿墨",
-            avatarPath = null,
-            systemPrompt = DEFAULT_SYSTEM_PROMPT,
-            providerId = null,
-            modelId = null,
-            temperature = null,
-            topP = null,
-            maxTokens = null,
-            extraBodyJson = null,
-            paramsJson = null,
-            memoryMode = AssistantEntity.MEMORY_MODE_HYBRID,
-            embeddingModelRef = null,
-            memoryTopK = 8,
-            memoryThreshold = 0.35f,
-            workspaceMode = AssistantEntity.WORKSPACE_MODE_HOST,
-            createdAt = ts,
-            updatedAt = ts,
-            sortOrder = 0,
-        )
-        assistantDao.upsert(entity)
-        return entity
+    // [用户 2026-09-10] 原 `ensureDefaultAssistant()`（首次进入自动创建内置预设助手「阿墨」）
+    // 已删除：内置预设不再是产品行为，零助手由 UI 空态 + 「新建助手」入口承接。
+    // 助手一律经 createAssistant(name) 由用户显式创建。
+
+    /**
+     * 删除助手及其全部从属数据（用户 2026-09-10 起需要——内置预设已移除，助手必须可自管）。
+     *
+     * 顺序：先清 FTS + 消息（[MessageDao.deleteByAssistantIndexed] 是唯一写入口），再清会话与
+     * 其余按 assistantId 归属的表；工作区目录按 PLAN §6.1 **默认保留**，不在此处删除。
+     */
+    suspend fun deleteAssistant(assistantId: String) {
+        messageDao.deleteByAssistantIndexed(assistantId)
+        conversationDao.deleteByAssistant(assistantId)
+        database.memoryDao().deleteByAssistant(assistantId)
+        database.mcpBindingDao().deleteByAssistant(assistantId)
+        database.skillBindingDao().deleteByAssistant(assistantId)
+        database.toolAuditDao().clearByAssistant(assistantId)
+        assistantDao.deleteById(assistantId)
     }
 
     suspend fun createAssistant(name: String): AssistantEntity {

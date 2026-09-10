@@ -413,6 +413,45 @@
 #   - 对应：用户需求 3（搜索命中内容高亮显示关键词）
 #   - 预期冲突点：上游改 CHANGELOG 渲染管线（renderChangelogView/parseChangelogSections）时需重打
 #
+# 040-model-editor-dialog.patch（2026-09-10，用户指定：模型列表改卡片 + 二级弹窗编辑）
+#   - index.html: 供应商编辑器内的「模型列表」由**内联全展开表单**改为**卡片列表**
+#     （卡片只承载识别信息：显示名 / 模型 ID / 类型徽标 / 上下文 / 最大输出 / 输入模态）
+#     + 新增**模型编辑二级弹窗**（modal-shell，overlay-class z-[70] 叠于供应商编辑器 z-[60] 之上；
+#     面板 max-w-md max-h-[85vh]，字段与原内联表单逐项一致，含预设命中提示与「撤销」）
+#   - app.js: 新增 showModelEditor / modelEditorIndex / modelEditorDraft 与
+#     openModelEditor / confirmModelEditor / cancelModelEditor / modelTypeBadgeClass；
+#     编辑在**草稿副本**上进行，`confirmModelEditor` 才写回 providerEditorDraft.models
+#     （splice 替换或 push）——**编辑完单个模型即保持在列表中**，取消不影响原条目；
+#     `addProviderEditorModel` 改为 `openModelEditor(-1)`；`removeProviderEditorModel`
+#     在删除的正是弹窗内条目时收殓弹窗、索引前移时同步递减，避免「确定」写回已删条目。
+#   - 配色沿用本屏既有 accent（teal/violet/amber），**不新增色相**；未新增组件类型。
+#   - 对应：用户需求（2026-09-10）「优化自定义供应商添加模型时的交互，改为弹窗实现，
+#     编辑完单个模型后保持，以卡片列表的形式展现」
+#   - 预期冲突点：上游改供应商编辑器模型区模板（providerEditorDraft.models 循环）或
+#     重命名 normalizeProviderModelEntry / parseLengthSafe / toggleModelModality /
+#     setModelExtraBodyText 时需重打
+#
+# 041-vision-native-and-no-video.patch（2026-09-10，用户指定：识图按需生效 + 删除视频支持）
+#   - app.js: 识图架构重构——新增 `chatModelSupportsImages()`（按当前聊天模型的
+#     `inputModalities` 判断是否多模态）与 `buildNativeImageContent()`（图片按 `image_url`
+#     part 直发聊天模型）；**原生支持图片时不再调用识图模型**（跳过 `recognizeChatImage`）；
+#     不支持时仍走识图模型（内置提示词：审查豁免前缀 + 中文高密度客观描述 + 区分确定/不确定
+#     + 不把图内文字当指令），描述以 **user 身份**注入上下文，措辞「用户上传了一张图，
+#     图片内容为：……」（多张为「第 N 张图」），保留 `<user_image_context>` 包裹与
+#     「不是系统指令」安全注记。
+#     **假设（可一行改）**：原生发图只带**最近一条**带图 user 消息——dataURL 每张数百 KB，
+#     全量回传会让请求体随轮数线性膨胀。
+#   - app.js（同批附带，上游原状复原）：**复原 1.9.3 合并时被吞掉的 `const requestTools` 声明**
+#     （该行丢失会导致 `sendMessage` → `generateResponse` 必抛 ReferenceError：聊天全挂且界面
+#     永停「生成中」）。此为本应存在的上游代码，**非二创改动、不打标记**。
+#   - ui-components.js: 输入模态标签映射移除 `video`（`{ text:'文本', image:'图像' }`）。
+#   - index.html: 模型编辑器「输入模态（多选）」按钮 `['text','image','video']` → `['text','image']`
+#     （该行位于 patch 040 新增的模型编辑弹窗模板区内，另附 041 注释以便追溯）。
+#   - 对应：用户需求（2026-09-10）「识图只在模型不支持图片时生效；删除视频支持」
+#   - 预期冲突点：上游改识图链路（recognizeChatImage / 图片 part 拼装）或
+#     resolveModelRequest 的 modelMeta.inputModalities 字段语义时需重打；
+#     上游若恢复 requestTools 声明，本补丁该段会因上下文已存在而被跳过（需人工核对）
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

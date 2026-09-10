@@ -891,7 +891,7 @@
                 if (model.type === 'embedding') parts.push('嵌入');
                 else {
                     const mods = Array.isArray(model.inputModalities) ? model.inputModalities : ['text'];
-                    const modLabel = { text: '文本', image: '图像', video: '视频' };
+                    const modLabel = { text: '文本', image: '图像' }; // [LuzzyRP patch 041] 移除视频模态
                     parts.push(mods.map(m => modLabel[m] || m).join('+'));
                 }
                 if (model.maxOutput) parts.push(`输出${formatLen(model.maxOutput)}`);

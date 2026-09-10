@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.Ledger
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerCard
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerEmptyState
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIconButton
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIcons
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerPageHeader
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerStatusPill
@@ -38,6 +39,8 @@ import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 fun AssistantManagerScreen(
     assistants: List<AssistantUi>,
     onBack: () -> Unit,
+    onCreateAssistant: () -> Unit,
+    onDeleteAssistant: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -56,10 +59,14 @@ fun AssistantManagerScreen(
         Spacer(Modifier.height(Ledger.PageHeaderGap))
 
         if (assistants.isEmpty()) {
+            // [用户 2026-09-10] 内置预设助手已删除 → 空态改为可操作入口（原提示「首次打开时
+            // 自动创建」已失效）。命名沿用用户设置的默认名，创建后可在助手设置里改。
             LedgerEmptyState(
                 icon = LedgerIcons.Assistants,
                 title = "还没有助手",
-                hint = "助手在首次打开时自动创建。",
+                hint = "新建一个助手后即可开始对话；模型与提示词可在助手设置里调整。",
+                actionLabel = "新建助手",
+                onAction = onCreateAssistant,
             )
         } else {
             LazyColumn(
@@ -93,6 +100,11 @@ fun AssistantManagerScreen(
                                 )
                             }
                             LedgerStatusPill(assistant.modelLabel)
+                            LedgerIconButton(
+                                icon = LedgerIcons.Trash,
+                                contentDescription = "删除助手",
+                                onClick = { onDeleteAssistant(assistant.id) },
+                            )
                         }
                     }
                 }

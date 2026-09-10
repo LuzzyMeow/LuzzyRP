@@ -5,8 +5,10 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.PathInterpolator
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -37,6 +39,12 @@ import java.io.File
  * - **v1.5.0**：承载「助手」原生覆盖层（ComposeView 懒创建，WebView 保持存活）。
  */
 class MainActivity : ComponentActivity(), AssistantController {
+
+    /** 助手覆盖层过渡时长（DESIGN.md Motion 令牌：进 200ms / 退 140ms）。 */
+    private companion object {
+        const val ENTER_DURATION_MS = 200L
+        const val EXIT_DURATION_MS = 140L
+    }
 
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
@@ -174,6 +182,10 @@ class MainActivity : ComponentActivity(), AssistantController {
             if (!assistantVisible) {
                 view.visibility = View.VISIBLE
                 assistantVisible = true
+                // [用户 2026-09-10] 进/出助手原为硬切（visibility 直翻）体感生硬 → 加过渡。
+                // 令牌取自 DESIGN.md Motion：进 200ms / 退 140ms / cubic-bezier(0.23,1,0.32,1)，
+                // 自 scale(0.96)+alpha 0 起步（**禁 scale(0) 起步**）；系统关动画时直接呈现。
+                animateAssistantOverlay(view, entering = true)
                 // 助手覆盖层全屏显示时，WebView 仍在后台重绘（Vue 应用有动画/定时器），
                 // 与 Compose 争抢合成器 → 帧率明显下降。这里把它停绘+暂停定时器，
                 // 关闭时原样恢复（**不销毁、状态不丢**）。
@@ -188,13 +200,51 @@ class MainActivity : ComponentActivity(), AssistantController {
     override fun hideAssistant() {
         runOnUiThread {
             if (!assistantVisible) return@runOnUiThread
-            assistantView?.visibility = View.GONE
+            // 退出过渡 140ms（令牌）；收尾再置 GONE，避免退场动画被立刻掐断
+            assistantView?.let { view ->
+                animateAssistantOverlay(view, entering = false) { view.visibility = View.GONE }
+            } ?: run { assistantView?.visibility = View.GONE }
             assistantVisible = false
             webView.resumeTimers()
             webView.onResume()
             webView.visibility = View.VISIBLE
             notifyAssistantVisibility(false)
         }
+    }
+
+    /**
+     * 助手覆盖层进/出过渡（DESIGN.md Motion 令牌）。
+     *
+     * 进：200ms / 退：140ms / `cubic-bezier(0.23,1,0.32,1)`；自 `scale(0.96)+alpha 0` 起步
+     * （令牌禁止 `scale(0)` 起步）。系统「移除动画」（ANIMATOR_DURATION_SCALE=0）时直接呈现。
+     * 不改变既有的 WebView 停绘策略——过渡只负责视觉衔接。
+     */
+    private fun animateAssistantOverlay(view: View, entering: Boolean, onEnd: (() -> Unit)? = null) {
+        val reduced = runCatching {
+            Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE) == 0f
+        }.getOrDefault(false)
+        if (reduced) {
+            view.alpha = 1f
+            view.scaleX = 1f
+            view.scaleY = 1f
+            onEnd?.invoke()
+            return
+        }
+        if (entering) {
+            // 进入＝纯交叉淡化（只动 alpha）：位移由 WebView 侧承担（侧栏左收 + .app-main 左移，
+            // 见 ext/luzzy-theme.css 的 .lsp-handoff），两边同时位移会在视觉上互相打架。
+            view.alpha = 0f
+            view.scaleX = 1f
+            view.scaleY = 1f
+        }
+        view.animate()
+            .alpha(if (entering) 1f else 0f)
+            .scaleX(1f)
+            .scaleY(if (entering) 1f else 0.96f)
+            .setDuration(if (entering) ENTER_DURATION_MS else EXIT_DURATION_MS)
+            .setInterpolator(PathInterpolator(0.23f, 1f, 0.32f, 1f))
+            .withEndAction { onEnd?.invoke() }
+            .start()
     }
 
     /**

@@ -1,5 +1,5 @@
 diff --git a/assets/js/ui-components.js b/assets/js/ui-components.js
-index e9a992b..c411ae7 100644
+index e9a992b..05474a6 100644
 --- a/assets/js/ui-components.js
 +++ b/assets/js/ui-components.js
 @@ -350,9 +350,10 @@
@@ -84,7 +84,7 @@ index e9a992b..c411ae7 100644
 +                if (model.type === 'embedding') parts.push('嵌入');
 +                else {
 +                    const mods = Array.isArray(model.inputModalities) ? model.inputModalities : ['text'];
-+                    const modLabel = { text: '文本', image: '图像', video: '视频' };
++                    const modLabel = { text: '文本', image: '图像' }; // [LuzzyRP patch 041] 移除视频模态
 +                    parts.push(mods.map(m => modLabel[m] || m).join('+'));
 +                }
 +                if (model.maxOutput) parts.push(`输出${formatLen(model.maxOutput)}`);

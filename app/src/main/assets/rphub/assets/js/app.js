@@ -751,7 +751,7 @@ const app = createApp({
         // 模型条目归一：{id 请求id, label 显示id, contextLength, maxOutput, inputModalities[], type, extraBody}
         const normalizeProviderModelEntry = (entry) => {
             const modalities = Array.isArray(entry?.inputModalities)
-                ? entry.inputModalities.map(m => String(m)).filter(m => ['text', 'image', 'video'].includes(m)) : [];
+                ? entry.inputModalities.map(m => String(m)).filter(m => ['text', 'image'].includes(m)) : [];
             if (!modalities.includes('text')) modalities.unshift('text');
             const type = ['text', 'image', 'embedding'].includes(entry?.type) ? entry.type : 'text';
             const extraBody = (entry?.extraBody && typeof entry.extraBody === 'object' && !Array.isArray(entry.extraBody))
@@ -4568,13 +4568,58 @@ const app = createApp({
             providerEditorPresetNotice.value = '';
             providerEditorPresetModel.value = null;
         };
-        const addProviderEditorModel = () => {
+        /* [LuzzyRP patch 040] 模型编辑二级弹窗（用户 2026-09-10 指定：加/改模型走弹窗、
+           编辑完即保持、列表以卡片呈现）。编辑在**草稿副本**上进行，点「确定」才写回模型
+           列表——取消不影响原条目；确定后立即保持在列表中，逐条累积编辑不再互相覆盖。 */
+        const showModelEditor = ref(false);
+        const modelEditorIndex = ref(-1); // -1 = 新增
+        const modelEditorDraft = ref(null);
+        const openModelEditor = (index) => {
             if (!providerEditorDraft.value) return;
-            providerEditorDraft.value.models.push(normalizeProviderModelEntry({ id: '', label: '', inputModalities: ['text'], type: 'text' }));
+            const list = providerEditorDraft.value.models || [];
+            const editing = Number.isInteger(index) && index >= 0 && !!list[index];
+            modelEditorDraft.value = editing
+                ? normalizeProviderModelEntry(JSON.parse(JSON.stringify(list[index])))
+                : normalizeProviderModelEntry({ id: '', label: '', inputModalities: ['text'], type: 'text' });
+            modelEditorIndex.value = editing ? index : -1;
+            providerEditorPresetNotice.value = '';
+            providerEditorPresetModel.value = null;
+            showModelEditor.value = true;
         };
+        const confirmModelEditor = () => {
+            const list = providerEditorDraft.value && providerEditorDraft.value.models;
+            if (!list || !modelEditorDraft.value) return;
+            const entry = normalizeProviderModelEntry(modelEditorDraft.value);
+            if (modelEditorIndex.value >= 0 && list[modelEditorIndex.value]) list.splice(modelEditorIndex.value, 1, entry);
+            else list.push(entry);
+            showModelEditor.value = false;
+            modelEditorDraft.value = null;
+            modelEditorIndex.value = -1;
+            providerEditorPresetNotice.value = '';
+            providerEditorPresetModel.value = null;
+        };
+        const cancelModelEditor = () => {
+            showModelEditor.value = false;
+            modelEditorDraft.value = null;
+            modelEditorIndex.value = -1;
+            providerEditorPresetNotice.value = '';
+            providerEditorPresetModel.value = null;
+        };
+        // 卡片徽标配色沿用本屏既有 accent（text=teal / image=violet / embedding=amber），不新增色相
+        const modelTypeBadgeClass = (type) => {
+            if (type === 'image') return 'bg-violet-50 text-violet-600';
+            if (type === 'embedding') return 'bg-amber-50 text-amber-700';
+            return 'bg-teal-50 text-teal-700';
+        };
+        const addProviderEditorModel = () => { openModelEditor(-1); };
         const removeProviderEditorModel = (index) => {
             if (!providerEditorDraft.value) return;
             providerEditorDraft.value.models.splice(index, 1);
+            // 删掉的正是弹窗里正在编辑的那条 → 收殓弹窗，避免「确定」写回已删条目
+            if (showModelEditor.value) {
+                if (modelEditorIndex.value === index) cancelModelEditor();
+                else if (modelEditorIndex.value > index) modelEditorIndex.value -= 1;
+            }
             providerEditorPresetNotice.value = '';
             providerEditorPresetModel.value = null;
         };
@@ -5006,13 +5051,66 @@ const app = createApp({
         };
 
         const MAX_CHAT_IMAGES = 3;
+        /* [LuzzyRP patch 041] 识图架构（用户 2026-09-10 指定）：
+           ① 当前聊天模型**原生支持图片**（多模态）时：图片按 image_url part 直发聊天模型，
+              **不调用识图模型**；
+           ② 不支持时：先用识图模型（内置提示词）产出中文客观描述，再把描述以 **user 身份**
+              注入聊天模型上下文（「用户上传了一张图，图片内容为……」）。
+           假设（可一行改）：原生发图**只带最近一条**带图 user 消息——dataURL 每张约数百 KB，
+           若每轮回传全部历史图片，请求体会按轮数线性膨胀；更早的图片由当时的回复承载语义。 */
+        const chatModelSupportsImages = () => {
+            const meta = resolveModelRequest(settings.model)?.modelMeta;
+            return Array.isArray(meta?.inputModalities) && meta.inputModalities.includes('image');
+        };
+        const collectMessageImages = (message) => {
+            const sourceMessages = Array.isArray(message?._sourceIndexes) && message._sourceIndexes.length > 0
+                ? message._sourceIndexes.map(index => chatHistory.value[index]).filter(source => source?.role === 'user')
+                : [message];
+            return sourceMessages
+                .flatMap(source => Array.isArray(source?.imageAttachments) ? source.imageAttachments : [])
+                .filter(image => image?.dataUrl);
+        };
+        // 最近一条带图 user 消息在 chatHistory 中的下标（原生发图只带这一条）
+        const latestImageUserHistoryIndex = () => {
+            for (let i = chatHistory.value.length - 1; i >= 0; i--) {
+                const source = chatHistory.value[i];
+                if (source?.role === 'user'
+                    && Array.isArray(source.imageAttachments)
+                    && source.imageAttachments.some(image => image?.dataUrl)) return i;
+            }
+            return -1;
+        };
+        /** 多模态模型的原生发图：命中「最近一条带图 user 消息」时把 content 升级为 parts 数组，
+            否则返回 null（调用方回落到纯文本，行为与改造前一致）。 */
+        const buildNativeImageContent = (message, textContent) => {
+            if (!chatModelSupportsImages()) return null;
+            const latestIndex = latestImageUserHistoryIndex();
+            if (latestIndex < 0) return null;
+            const indexes = Array.isArray(message?._sourceIndexes) && message._sourceIndexes.length > 0
+                ? message._sourceIndexes : null;
+            if (indexes && !indexes.includes(latestIndex)) return null;
+            if (!indexes && message !== chatHistory.value[latestIndex]) return null;
+            const images = collectMessageImages(message);
+            if (images.length === 0) return null;
+            const text = String(textContent || '').trim();
+            return [
+                ...(text ? [{ type: 'text', text }] : []),
+                ...images.map(image => ({ type: 'image_url', image_url: { url: image.dataUrl, detail: 'high' } }))
+            ];
+        };
         const getMessageImageDescriptionText = (message) => {
             const sourceMessages = Array.isArray(message?._sourceIndexes) && message._sourceIndexes.length > 0
                 ? message._sourceIndexes.map(index => chatHistory.value[index]).filter(source => source?.role === 'user')
                 : [message];
-            const descriptions = sourceMessages
-                .flatMap(source => Array.isArray(source?.imageAttachments) ? source.imageAttachments : [])
-                .map((image, index) => image?.description?.trim() ? `图片 ${index + 1}：${image.description.trim()}` : '')
+            const all = sourceMessages
+                .flatMap(source => Array.isArray(source?.imageAttachments) ? source.imageAttachments : []);
+            const total = all.length;
+            const descriptions = all
+                .map((image, index) => image?.description?.trim()
+                    ? (total > 1
+                        ? `用户上传了第 ${index + 1} 张图，图片内容为：${image.description.trim()}`
+                        : `用户上传了一张图，图片内容为：${image.description.trim()}`)
+                    : '')
                 .filter(Boolean);
             if (descriptions.length === 0) return '';
             return [
@@ -5128,6 +5226,11 @@ const app = createApp({
                 slotsTransferred = true;
                 if (selectionEpoch !== chatImageSelectionEpoch) return;
                 pendingChatImages.value.push(...images);
+                // [LuzzyRP patch 041] 聊天模型原生支持图片 → 跳过识图模型（图片直发，不产出描述）
+                if (chatModelSupportsImages()) {
+                    images.forEach(image => { image.status = 'ready'; });
+                    return;
+                }
                 const results = await Promise.all(images.map(recognizeChatImage));
                 if (results.some(result => !result)) showToast('部分图片识别失败，请移除后重新选择', 'error');
             } catch (error) {
@@ -5853,6 +5956,11 @@ const app = createApp({
             // [LuzzyRP patch 015] 聊天主模型走多商路由（provider/protocol 供请求分派与用量记录）
             const requestModelResolved = resolveModelRequest(settings.model);
             const requestModel = requestModelResolved.model;
+            // [合并缺陷复原 · 2026-09-10] 上游此处紧随一行 requestTools 声明；1.9.3 三方合并 /
+            // patch 015 改写 requestModel 时被整行吞掉 → sendMessage → generateResponse 必抛
+            // ReferenceError: requestTools is not defined（且 isGenerating 已置位、异常未被捕获，
+            // 界面永久停在「生成中」，既无回复也无报错）。本行为**上游原状复原**，非二创改动，无 patch 标记。
+            const requestTools = activeToolDepth < ACTIVE_TOOL_MAX_AUTO_CONTINUE ? getEnabledActiveTools() : [];
 
             if (!currentCharacter.value) {
                 showToast('请先选择一个角色', 'error');
@@ -6214,7 +6322,7 @@ const app = createApp({
                     return {
                         role: m.role === 'user' ? 'user' : 'assistant',
                         name: m.name || (m.role === 'user' ? user.name : currentCharacter.value.name),
-                        content: cleanContent,
+                        content: buildNativeImageContent(m, cleanContent) || cleanContent,
                         _sourceIndexes: sourceIndexes,
                         _contextFloor: m._contextFloor,
                         _preventContextMerge: m._preventContextMerge === true
@@ -10891,6 +10999,7 @@ const app = createApp({
             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel, // [LuzzyRP patch 012]
             user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
             showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
+            showModelEditor, modelEditorIndex, modelEditorDraft, openModelEditor, confirmModelEditor, cancelModelEditor, modelTypeBadgeClass, // [LuzzyRP patch 040]
             providerModelCount, providerIconInputEl, providerIconCrop, providerEditorIconPreview, providerIconPick, providerIconClear, providerIconFileChosen, providerIconBoxDown, providerIconCropCancel, providerIconCropConfirm, // [LuzzyRP patch 035]
             editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
             activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,

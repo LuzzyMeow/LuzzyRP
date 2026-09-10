@@ -90,6 +90,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `docs/HANDOFF-v1.5.0-execution.md` | 给执行 Agent 的交接提示词 | 派发任务时整段复制；含必读清单、红线、UI 设计 SKILL 门、验收标准 |
 | `docs/RELEASE-KEY.md` | 签名密钥说明（口令/别名/有效期） | **已 gitignore，仅本地**；密钥库与口令严禁入库（§3.4） |
 | `docs/design/` | 设计存档（spec-v2 合同 / boards-v2 三方向板 / direction-approved-v2 / 验证截图） | 设计演进按硬性规定 9 流程 |
+| **`docs/design/AUDIT-assistant-ui-parity.md`** | **助手页 UI 设计语言断层审查档 + 修复计划（P0 契约自洽 / P1 机械对齐 / P2 顶栏统一 / P3 验收）** | 改助手 UI 前先读；P2 属新视觉决策，**必须走三方向硬门**（方向板待出，见 `direction-approved-assistant.md` 末节） |
 | `docs/WORKLOG.md` | 工作日志 | 每次会话追加「日期 / 完成 / 决策 / 遗留 / 下一步」 |
 | `docs/archive/` | 归档（旧工程备份等） | gitignore，仅本地 |
 | `rp-hub-reference/` | 上游参考克隆 | 保留 upstream remote；**只读参考，不直接改** |
@@ -268,7 +269,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-039，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-040，详见 `tools/patches/README.md`）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -311,6 +312,8 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | 037 | ui-components.js + runtime-services.js + index.html + app.js | 用量页时间范围筛选整链下线（右上角「更多」下拉 全部/24小时/7天/30天 与折线图「日/周/月」粒度冲突；保留折线图粒度 + 类型筛选；v1.4.0） |
 | 038 | ui-components.js | 版本更新公告品牌化：弹窗标题「网站公告」→「LuzzyRP」+ 底部同步来源注释「同步更新上游节点…」（v1.4.0） |
 | 039 | app.js + ext/luzzy-theme.css | 关于页 CHANGELOG 关键词检索高亮：命中内容关键词包 `<mark>`（文本节点级遍历/跳过 script-style/大小写不敏感/正则转义）+ `--luzzy-mark` token（DESIGN.md highlight #F5D9A8；v1.4.0） |
+| 040 | index.html + app.js | 供应商编辑器「模型列表」改**卡片列表 + 二级弹窗编辑**（用户 2026-09-10 指定）：卡片只承载识别信息（显示名/模型 ID/类型徽标/上下文/最大输出/输入模态）+ 编辑·删除按钮；新增模型编辑弹窗（复用上游 `modal-shell`，`z-[70]` 叠于供应商编辑器 `z-[60]`）；编辑在**草稿副本**上进行、`confirmModelEditor` 才原位写回 → **编辑完单个模型即保持**，取消不影响原条目；`addProviderEditorModel` 改为开弹窗，删除时同步收殓弹窗/递减索引。配色沿用本屏既有 accent（teal/violet/amber），零新增色相（v1.5.0）。另含：模型级自定义请求体改多行输入框（提示文字完整换行）、「+ 加键值」按钮扁平化（去边框白底） |
+| 041 | app.js + ui-components.js + index.html | **识图架构重构 + 删除视频支持**（用户 2026-09-10 指定）：① 聊天模型原生支持图片时图片按 `image_url` part 直发、**不调用识图模型**（`buildNativeImageContent`，只带最近一条带图 user 消息）；② 不支持时先走识图模型（内置提示词）再以 **user 身份**注入「用户上传了一张图，图片内容为：…」（保留 `<user_image_context>` 与安全注记）；③ 输入模态只留 text/image（模型编辑器按钮、归一白名单、`ui-components` 标签映射同步清理）。另：**复原 1.9.3 合并吞掉的 `const requestTools` 声明**（该行丢失导致 `sendMessage`→`generateResponse` 必抛 ReferenceError、聊天全挂且界面永停「生成中」；属上游原状复原，非二创、无标记）（v1.5.0） |
 
 **新增 patch 的规则**：
 
@@ -505,8 +508,9 @@ Luzzy.copyToClipboard = function (text) {
   一键导入需联网实测（iframe 与 `RPH_FORUM_*` 桥已就位）；开屏动画 / 剧情面板时机 / 沉浸模式
   宽度需真机目测。
 - **W2 待办**：按 `docs/PLAN-v1.5.0-assistant.md` §16 执行 P0→P4；**进入界面实现前必须走
-  硬性规定 9 设计门**（读 4 项设计 SKILL → 三方向硬门 → 用户选定 → 写入 `DESIGN.md`）；
-  侧栏入口 patch 040 **必须在 W1 之后生成**（前置条件已满足）。
+  硬性规定 9 设计门**（读 4 项设计 SKILL → 三方向硬门 → 用户选定 → 写入 `DESIGN.md`）。
+  侧栏入口最终改为扩展层 DOM 注入（`ext/luzzy-assistant.js`），**未占用 patch 040**；
+  patch 040 已用于供应商编辑器模型列表的卡片化 + 二级弹窗（2026-09-10）。
 - **发布纪律（长期，见 §3.4）**：**只构建/发布一个 APK**（`app-release.apk`，ABI 拆分保持
   关闭、禁止恢复）；**每次发布必须保持同一应用签名**（`keystore/luzzy-release.keystore`，
   发布前 `apksigner verify --print-certs` 核对指纹与上一版一致，`keystore.properties` 缺失

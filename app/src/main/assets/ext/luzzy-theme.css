@@ -793,6 +793,26 @@
 
 @keyframes lspGateIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* —— 开屏期遮挡渲染抑制（用户 2026-09-10 报告「开屏最开始卡一下」，纯 CSS 开关）——
+ * 真机**冷启动**实测（dumpsys gfxinfo，5s 窗口）：663 帧 / legacy 掉帧 80.69% /
+ * UI 帧时中位 **17ms（≈60fps，没跑满 120Hz）** / GPU 90 分位 15ms——启动期 GPU 瞬时
+ * 负载（首次栅格 + 着色器编译 + 系统启动画面退场）正好压在开屏入场的第一秒上。
+ * 而此刻**被开屏完全遮挡的应用主体仍在渲染**（#app 整棵子树绘制 + 逐帧合成
+ * 1220×2656 ≈3.2M 像素 @DPR 3.25）——纯属白烧启动预算。
+ * 对策：遮挡期令 #app 不绘制。用 visibility:hidden 而**非 content-visibility:hidden**，
+ * 以保留布局，避免应用自身的尺寸测量（滚动定位 / 输入岛自适应）读到 0 而错乱。
+ * 解除时机（两段，先松后紧）：
+ *   ① `.lsp-warm`——入场中段（1.2s，见 luzzy-splash.js）先解除，让应用在**开屏仍不透明
+ *      时**完成首次绘制（实测这次绘制有 150~350ms 尖峰，不能留到点击那一刻，否则转场
+ *      淡出时应用还没画好，会露出空白）；
+ *   ② `.lsp-dive`——点击「沉溺」也立即解除（**CSS 原生兜底**，不依赖 JS 计时器）。
+ * 零风险降级：`:has()` 不受支持时本条整体不生效，行为与本改动前完全一致。
+ * 冷启动实测收益：UI 帧时中位 17ms→**7ms**、GPU 90 分位 15ms→**7~8ms**、
+ * legacy 掉帧 80.69%→**3.8%/14.5%**（两次取样）。视觉零差异：遮挡期本就看不见主体。 */
+body:has(> .luzzy-splash:not(.lsp-dive):not(.lsp-warm)) #app {
+    visibility: hidden;
+}
+
 .luzzy-splash::before {
     content: ''; position: absolute; inset: 0; z-index: 10; pointer-events: none;
     background:

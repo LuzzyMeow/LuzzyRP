@@ -3,6 +3,9 @@
 > 本文件是**后续开发 / 更新 / 维护 Agent 的强制工作指南**。
 > 任何 Agent 接手本仓库任务前，必须完整阅读本文件与 [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md)，并遵守其中的全部纪律。
 > 违反硬性规定任何一条即为不合格交付。
+> **接手 v1.5.0「助手」相关任务时**：先读 [`docs/STATUS-v1.5.0-assistant.md`](docs/STATUS-v1.5.0-assistant.md)
+> ——它是**上下文重置后的交接入口**（现状快照 / 代码地图 / 设计契约与组件库 / 已知问题 / 决策记录 /
+> 踩坑表 / 工作约定 / 用户待报问题登记）。改助手 UI 前另须读 `DESIGN.md`「助手原生页」章。
 
 ---
 
@@ -591,8 +594,3 @@ Luzzy.copyToClipboard = function (text) {
 
 - **~~改 assets 不 bump EXTRACT_VERSION~~（v1.2.3 起资产签名自动比对，零手动）；会话 20 曾三踩此坑（EXTRACT 25 消费后连续改 assets 未 bump），促成了根治方案落地；**
 - **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
-  git 视作 -text 不做 eol 转换）——对该文件的编辑要么用字节级脚本按锚点插入，
-  要么编辑后核对 `git diff --numstat` 是否出现整文件伪 diff；
-- **真机 exec-out 管道损坏 PNG**：用设备侧 `screencap -p /sdcard/x.png` + `adb pull`
-  （Git Bash 需 `MSYS_NO_PATHCONV=1` 防止 /sdcard 被改写）；
-- **正则 div 计数不可作为 HTML 结构依据**：结构判定用 parse5/jsdom 真实解析器

@@ -1,252 +1,300 @@
-# v1.5.0「助手」现状记录（工作节点快照）
+# v1.5.0「助手」工作节点与交接档
 
-> **记录时间**：2026-09-09 10:15（会话 40 结束）
-> **记录原因**：用户指示「目前新版本有很多问题，我后续会一一列出来；现在只需把情况详细记录下来」。
-> **本档性质**：**现状快照 + 已知问题清单**，不是计划文档。用户后续列出的问题请追加到本文末尾
-> 「§9 用户待报问题」一节，逐条处理并在此标记状态。
+> **最近更新**：2026-09-09 18:10（会话 46 结束）
+> **用途**：**上下文重置后的接手入口**。新 Agent 读完本档即可继续工作，无需回溯对话历史。
+> **工作模式**：用户**一点一点提问题**，我一点一点改——**每次只改用户当前指定的那一处**，
+>   不顺手改别的；改完立刻装机 + 截图验证 + 提交。
 
 ---
 
 ## 1. 一句话现状
 
-W1（上游同步 1.9.3）与 W2 P0–P4（助手原生 Agent 全部功能）**代码已完成并通过 323 项单测 + 86 项门禁**，
-但**真机验收只完成了极小一部分**（入口/版式/侧栏跳转），核心链路（LLM 对话、沙盒、工具审批、
-记忆/MCP/技能/工作区）**尚未在真机验证**；用户已实测发现「助手页帧率低」与「菜单栏归属不对」
-两类问题，前者已修、后者已按其指定方案重做，均**待用户复测确认**。
-
-**发版状态**：用户明确指示 **不准发版 release**（手动验收通过后再发）。
+W1（上游同步 RP-Hub 1.9.3）与 W2 P0–P4（助手原生 Agent 全部功能）**代码已完成**；
+当前处于**用户真机逐项验收 + 增量优化**阶段：用户实测反馈 → 我定点修复 → 真机截图确认 → 提交。
+**331 项单测 / 0 失败**、门禁 **86 PASS / 0 FAIL**、assembleDebug 通过。
+**发版被用户明确暂缓**（手动验收通过后再发）。
 
 ---
 
-## 2. 里程碑快照
+## 2. 环境与快速上手
 
-| 阶段 | 状态 | 关键提交 |
-|------|------|----------|
-| W0 计划与调研 | ✅ 完成 | `22c3c428` |
-| W1 上游同步 RP-Hub 1.9.3（U1–U12） | ✅ 完成（实体 9/9 逆向+端到端双验证，门禁全绿） | `acf9cff6` / `bcec1885` |
-| W2 P0 骨架与链路 | ✅ 完成 | `1c9586e4` |
-| W2 P1 最小可用 Agent | ✅ 完成 | `2f55ae9c` |
-| W2 P2 记忆/技能/MCP/历史检索 | ✅ 完成 | `599fcefe`…`6b2236eb` |
-| W2 P3 工作区/终端/proot 沙盒 | ✅ 代码完成（**沙盒未真机验证**） | `f5d79db8` / `826efa21` |
-| W2 P4 增强（三协议/日历/审计/stdio MCP/压缩/搜索/加密存储） | ✅ 代码完成（**多数未真机验证**） | `e24271b3`…`4721c2c4` |
-| 真机验收 | ⚠️ **进行中，问题较多** | — |
-| 发版 | ⛔ **用户暂缓** | — |
+构建 + 装机（设备：小米 `25098PN5AC` / Android 16 / 序列号 `df97f3c4`）：
+
+    cd /d/.NekoTool/LuzzyRP
+    ./gradlew :app:assembleDebug
+    adb -s df97f3c4 install -r app/build/outputs/apk/debug/app-debug.apk   # -r 保留用户数据
+
+回归自检（每次改动后必跑）：
+
+    ./gradlew :app:testDebugUnitTest                                            # 期望 331 tests / 0 failed
+    powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-markers.ps1 # 期望 86 PASS / 0 FAIL
+    node tools/desktop-smoke.cjs                                                # 上游桌面冒烟（需先起 Chrome 远程调试）
+
+**真机操作要点（血泪经验）**：
+- 通知横幅会**顶掉状态栏高度**，坐标每次可能不同 → **先 screencap 看当前画面，再按截图坐标 tap**；
+- 侧栏 y 坐标随「在线/高级/助手」展开状态变化，不要用记忆中的坐标；
+- 截图必须带 `MSYS_NO_PATHCONV=1`，否则路径被 Git Bash 转换：
+  `MSYS_NO_PATHCONV=1 adb -s df97f3c4 shell screencap -p /sdcard/x.png` +
+  `MSYS_NO_PATHCONV=1 adb -s df97f3c4 pull /sdcard/x.png D:/Temp/x.png`
+
+**参考克隆**：`rp-hub-reference/`（上游 1.9.3，锚定 `4aef0bb`）——查上游实现用。
 
 ---
 
-## 3. 代码与构建数据（核实于 2026-09-09 10:15）
+## 3. 当前数据快照（核实于 2026-09-09 18:10）
 
 | 项 | 值 |
 |----|-----|
-| 助手 Kotlin 源文件 | 121 个 / 15,639 行 |
-| 单测 | **323 项 / 0 失败**（33 个测试类；测试源码 34 个文件） |
-| `verify-markers.ps1` | **86 PASS / 0 FAIL** |
-| debug APK | 78,009,461 B（≈74.4 MiB），构建时间 10:11 |
-| release APK | 42,913,403 B，构建时间 09:35（**未发版**） |
-| 设备端版本 | `1.4.0-debug`（versionCode 12）——**版本号在发版时才 bump 到 1.5.0** |
-| 真机 | 小米 `25098PN5AC` / Android 16 / `df97f3c4`（已 `install -r`，保留用户数据） |
-| git | `main` 领先 `origin/main` **39 个提交**（**未 push**） |
-| 工作区 | 干净（无未提交改动） |
+| 分支 | `main`，**领先 `origin/main` 45 个提交（未 push）** |
+| 工作区 | **干净**（无未提交改动） |
+| 最新提交 | `bf7e0cf1` 侧栏「助手」改为可折叠组 + 三组子项样式统一 |
+| 单测 | **331 / 0 失败**（33 个测试类） |
+| 门禁 | **86 PASS / 0 FAIL** |
+| debug APK | 78,827,296 B（≈75 MiB） |
+| 设备端版本 | `1.4.0-debug`（**版本号在发版时才 bump 到 1.5.0**） |
+| 助手源码 | ~121 文件 / 15.6k 行 |
+
+**最近 8 个提交**：
+
+| 提交 | 内容 |
+|------|------|
+| `bf7e0cf1` | 侧栏「助手」改可折叠组 + 「在线/高级」子项统一为助手子项样式 |
+| `6006eb98` | 图标渲染修复（复用原项目 SVG → VectorDrawable，弧线标志位分隔） |
+| `c1adf223` | 真机比对两处对齐（参数图标 / 页面级保存按钮形态） |
+| `8311eaca` | **P0 修复**：管理页设计一致性重构（ledger 组件库 + 设计契约补全） |
+| `d86d39f9` | 记录 P0（助手页面未贯彻同一设计理念） |
+| `b297c821` | 工作节点记录（现状快照） |
+| `fe3e7d3f` | 助手首页改聊天页版式 + 菜单栏归 LuzzyRP |
+| `c752fc43` | 卡顿修复 + DataStore 无限流卡死首轮对话 |
 
 ---
 
-## 4. 最近两个会话的改动（会话 39–40，均未 push）
 
-### 会话 39 · 卡顿修复（`c752fc43`）
+## 4. 架构与代码地图（助手部分）
 
-1. **【阻塞性】** `AssistantRuntime.firstOf/firstOrNull` 取 DataStore 当前值误用
-   `flow.collect{}`——DataStore 是无限流，`collect` 永不返回，而它被 `ContextBuilder` 的
-   记忆召回与摘要模板调用 → **首轮对话会直接挂死**。已改为 `flow.first()`。
-2. **帧率**（用户实测反馈）：助手覆盖层显示时暂停 WebView（`INVISIBLE + onPause + pauseTimers`）；
-   UI 模型与状态类加 `@Immutable`；主题 `Typography/Shapes` 改 `remember`；
-   流式渲染 **100ms 节流**（PLAN §11.2，此前漏实现）。
-
-### 会话 40 · 版式改稿（`fe3e7d3f`，用户两次指定）
-
-**一稿**（用户原话）：「将助手页首页面完全做成 LuzzyRP 的聊天页的页面，唯一不同点为右上角的
-删除按钮更改为助手的专属设置按钮」→ 已实现：
-- `ChatTopBar`：112dp 黑渐隐层 + 48dp 行（汉堡 + 头像 + 名称 + chevron）+ 右上角设置按钮；
-  图标全部 **Canvas 手绘**（项目无 material-icons 依赖）。
-- `ChatScreen` 重写为聊天页版式（消息流 + 底部输入岛 + 流式停止胶囊 + 空态）。
-
-**二稿**（用户原话）：「你不能这样做，我们的原菜单栏应该给到原来的 LuzzyRP 并显示选择助手页」
-→ 用户选定 **方案 A**，已实现：
-- 助手页汉堡 = **退出助手 + 打开 LuzzyRP 原侧栏**；
-- LuzzyRP 侧栏「助手」下新增子项组：**会话 / 记忆 / 技能 / MCP / 工作区 / 终端 / 设置**；
-- 助手不再有自己的抽屉；会话列表退化为二级页 `ConversationsScreen`；
-- 桥接新增 `openAssistantAt(route)` / `openRpSidebar()`。
-
-**真机已确认（截图）**：首页版式 ✅ / 汉堡回侧栏 ✅ / 侧栏子项组 ✅ / 子项跳转（技能页）✅ / 无崩溃 ✅。
+    app/src/main/java/com/luzzymeow/luzzyrp/
+    ├─ MainActivity.kt                  宿主：ComposeView 懒创建覆盖层；助手可见时暂停 WebView
+    ├─ web/LuzzyBridge.kt               JS ↔ 原生桥（openAssistant / openAssistantAt / openRpSidebar / setAssistantConfig）
+    ├─ assistant/
+    │  ├─ AssistantController.kt        宿主控制接口（showAssistant(route) / hideAssistant / openRpSidebar / setThemeMode）
+    │  ├─ domain/                       纯逻辑（不依赖 Android）
+    │  │  ├─ tool/                      Tool/Schema/Ports/ToolRegistry/ApprovalGate/HardlineGuard/SsrfGuard/AuditSink
+    │  │  ├─ tool/builtin/              内置工具（WebSearch/Calendar/SendToRpChat/RunCode/Terminal/Memory…）
+    │  │  ├─ loop/                      AgentEvent / AgentLoop / BudgetGuard
+    │  │  ├─ llm/                       OpenAI / Anthropic / Gemini 三协议 + RoutingTransport + SSE
+    │  │  ├─ prompt/ContextBuilder.kt   系统提示词 + 记忆召回 + 技能注入（DataStore 取值必须用 flow.first()）
+    │  │  └─ memory/ skill/ mcp/        向量检索 / 技能加载 / MCP（HTTP+stdio）
+    │  ├─ data/                         Room 十表 + DAO（CJK bigram 检索）+ DataStore + SecretStore 接口
+    │  ├─ runtime/                      接线层：AssistantRuntime / 各 Repository / proot 沙盒 / 加密存储
+    │  └─ ui/
+    │     ├─ AssistantHost.kt           根组件 + 路由 + 侧栏子项路由映射（fromSidebarRoute）
+    │     ├─ AssistantRoute.kt          路由密封类
+    │     ├─ component/ledger/          ★「卷宗」组件库（见 §5）——所有管理页必须用它
+    │     ├─ component/                 ChatTopBar / ChatIcons / MessageComponents / InputIsland / AssistantAvatarStrip
+    │     └─ screen/                    9 个页面：ChatScreen / ConversationsScreen / MemoryScreen / SkillsScreen /
+    │                                   McpScreen / WorkspaceScreen / TerminalScreen / SettingsScreen / AssistantManagerScreen
+    app/src/main/assets/
+    ├─ rphub/                           ★上游 1.9.3 文件（只经 tools/patches 改，禁止直接编辑）
+    └─ ext/                             ★扩展层（我们的代码）
+       ├─ luzzy-assistant.js            「助手」侧栏折叠组注入 + 配置推送 + 主题联动
+       ├─ luzzy-bridge.js               桥接封装（存在性检测 + 降级）
+       ├─ luzzy-theme.css               ★Luzzy 主题层（986 行，只覆盖颜色、不改结构——设计真源之一）
+       ├─ luzzy-ext.js / luzzy-changelog.js / luzzy-splash.js
+       └─ assistant/                    字体 TTF（8 枚 21MB）+ 技能 md + proot 沙盒资产（4.1MB，GPL）
 
 ---
 
-## 5. 已知问题与风险（我方自查，**待用户补充与确认**）
+## 5. 设计契约与「卷宗」组件库（**改 UI 前必读**）
 
-### 5.1 功能缺口 / 回退（**我引入的，需优先处理**）
+### 5.1 设计语言的三个真源
 
-| # | 问题 | 影响 | 状态 |
-|---|------|------|------|
-| R1 | **会话导出入口丢失**：原在助手右侧抽屉的「导出」（MD/JSON）随抽屉删除后无新入口 | 无法导出会话 | 待修 |
-| R2 | **日历工具无法授权**：`calendar_read/write` 只做了权限检查，**未实现运行时权限申请流程** | 工具必然返回「未授予权限，请去系统设置授权」，但 App 内无申请入口 | 待修 |
-| R3 | 首页会话 id 在列表加载后**固定一次**；若该会话在 Web 端被删除，首页可能空/异常 | 未验证 | 待验证 |
-| R4 | `ensureConversation()` 失败时静默返回（后续 appendMessage 会报错） | 未验证实际表现 | 待验证 |
+| 层 | 文件 | 作用 |
+|----|------|------|
+| 主题层 | assets/ext/luzzy-theme.css | **只覆盖颜色**（文件自述「只覆盖视觉，不改结构」） |
+| 组件层 | assets/rphub/assets/css/styles.css | 组件规格（.settings-page-header / .settings-toggle 44×24 / .settings-collapse 0.36s / .advanced-nav 等） |
+| 结构层 | assets/rphub/assets/js/ui-components.js + index.html | Vue 模板结构（侧栏、卡片、折叠行…） |
 
-### 5.2 真机未验证的验收项（**问题最可能藏在这里**）
+**结论：助手原生页 = 上游结构（Tailwind 类逐项复制）+ Luzzy token 取色。不发明组件。**
+
+### 5.2 契约位置
+
+DESIGN.md →「助手原生页（v1.5.0 · Compose 原生 UI）」章，含：
+- 换算基线（**1 CSS px = 1 dp = 1 sp**）；
+- **管理页组件规范**：15 个组件逐项标注上游类名与像素（页面头 48dp / 卡片 rounded-2xl + hairline +
+  shadow-sm / 折叠行 图标方块 28dp + 状态文字 + chevron / 开关 **44×24dp** / 按钮高 32dp / 圆角 8·12·16 …）；
+- **新增组件必须先在此登记再实现**（硬性规定 9 第 3 步）。
+
+### 5.3 组件库 ui/component/ledger/
+
+| 文件 | 内容 |
+|------|------|
+| LedgerTokens.kt | Ledger（尺寸常量）+ LedgerType（字级）——**全部取自上游 Tailwind 类** |
+| LedgerIcons.kt | 20 枚图标 = @DrawableRes Int（指向 res/drawable/ic_lz_*.xml，**复用上游 SVG**） |
+| LedgerComponents.kt | LedgerPageHeader / LedgerCard / LedgerCollapseCard / LedgerToggle / LedgerToggleRow / LedgerButton / LedgerIconButton / LedgerTextField / LedgerSearchField / LedgerListRow / LedgerEmptyState / LedgerStatusPill / LedgerSegmented |
+
+**主题新增 token**：LuzzyColors.card（上游 bg-white：亮 #FFFFFF / 暗 #201E1B）——
+**卡片填充必须用 card**，surfaceCard（#EFE9DE）是上游的**边框色**，别再用错。
+
+**规格锁定测试**：LedgerTokensTest（8 项）——改规格必须先改 DESIGN.md，否则测试失败。
+
+---
+
+
+## 6. 最近工作节点（会话 43–46，全部已完成并提交）
+
+### 会话 43 · 【P0】管理页设计一致性重构（8311eaca）
+
+**用户反馈**：「助手页下各个页面的组件设计与摆放方式等均只是与其他页相似，而不是做到同一个设计理念」。
+**根因**：① DESIGN.md 只规范了聊天页组件，管理页零规范；② 实现层临场发明组件（违反硬性规定 9 第 3 步）。
+**修复**：补设计契约 + 建 ledger 组件库 + 八个页面全部改用 + 删除临场组件（PageHeader/SectionCard/Field/
+ToggleRow/EmptyState/SearchField/MemoryCard/ConversationRow/SideDrawer）+ 新增 card token。
+
+### 会话 44 · 真机视觉比对（c1adf223）
+
+装机后与上游「用量统计」「记忆系统」逐项核对：页面头 / 白卡 / 折叠行 / 输入面 / 分段控件 / 空态**均已同构**。
+比对后修两处：「参数」卡改用上游调节（sliders）图标；页面级「保存」改为上游白底描边按钮形态
+（实心主按钮仅用于弹窗 CTA，与 .modal-primary-button 语义一致）。
+
+### 会话 45 · 图标渲染修复（6006eb98）
+
+**用户反馈**：「为什么你所有的圆形图标都是半圆状的啊」+「你能不能直接复用原项目已经画过的图标」。
+**根因**：上游 SVG 用**紧凑弧线标志位**（a3 3 0 11-6 0），Compose 的 addPathNodes 把 11 当成一个数字
+→ 圆心画成半圆、齿轮变花形。
+**修复**：上游 SVG 的 d → res/drawable/ic_lz_*.xml（VectorDrawable，系统解析器）+ **显式分隔标志位**
+（M 15 12 a 3 3 0 1 1 -6 0 3 3 0 0 1 6 0 z）+ painterResource 渲染。
+
+### 会话 46 · 侧栏「助手」折叠组 + 子项样式统一（bf7e0cf1）— **最新**
+
+**用户要求**：「完全对齐如「在线」和「高级」这种可展开和收起式的选项，让助手下方的各个功能页可折叠收纳，
+并且把「在线」和「高级」所展开的预设 世界书等子项，改 ui 成助手下方的子项的样式和大小」。
+
+**实现**（全在 assets/ext/luzzy-assistant.js，未改上游文件）：
+1. 复用上游折叠机制 .advanced-nav + .advanced-nav-trigger（chevron rotate(90deg)）+
+   grid-template-rows 0fr↔1fr 0.32s cubic-bezier(.22,1,.36,1)；
+2. 「助手」由单按钮改为**同款折叠组**，子项 8 个：**对话**（新增，打开首页）/ 会话 / 记忆 / 技能 /
+   MCP / 工作区 / 终端 / 设置（触发按钮现在只负责展开收起，故首页入口下移为「对话」）；
+3. 注入 CSS 统一**三组子项**规格：13px / 7px·10px 内边距 / 10px 圆角 / 16px 图标 / 左侧 hairline 竖线
+   （亮暗双模式）——「在线」的 3 项与「高级」的 4 项现在与助手子项完全一致；
+4. 助手可见时触发按钮高亮（bg-primary-50 text-primary-700，与上游激活组同款）。
+
+**真机截图确认**：三组均可展开/收起，子项样式尺寸完全一致。
+
+---
+
+## 7. 已知问题 / 待办
+
+### 7.1 我方自查的功能缺口（**优先级高**）
+
+| # | 问题 | 状态 |
+|---|------|------|
+| R1 | **会话导出入口丢失**：原在助手抽屉的「导出」随抽屉删除后无新入口 | **未修** |
+| R2 | **日历工具无运行时权限申请流程**：calendar_read/write 只做权限检查，App 内无申请入口 → 必然报「未授予权限」 | **未修** |
+| R3 | 首页会话 id 在列表加载后固定一次；若该会话在 Web 端被删，首页行为未验证 | 待验证 |
+| R4 | ensureConversation() 失败静默返回 | 待验证 |
+
+### 7.2 真机未验证的功能（**问题最可能藏在这里**）
 
 | 项 | 状态 |
 |----|------|
-| **LLM 对话 / 流式渲染** | ❌ 未验证。**实测现象**：助手设置页显示「尚未读取到 Web 端供应商配置」——需确认 `pushConfig` 是否生效、Web 端是否已配置供应商 |
-| **proot 沙盒**（首次释放 → `apk add python3` → `python3 -c print`） | ❌ 未验证（P3 关键验收项） |
-| 工具调用 + **审批弹窗**（允许一次/本会话/拒绝） | ❌ 未验证 |
-| `ask_user` 澄清卡 | ❌ 未验证 |
-| 记忆写入 / 召回（含中文 bigram 检索） | ❌ 未验证 |
+| **LLM 对话 / 流式渲染** | ❌ 未验证。**实测现象**：助手设置页显示「尚未读取到 Web 端供应商配置」——需确认 pushConfig 是否生效 |
+| **proot 沙盒**（释放 → apk add python3 → 跑脚本） | ❌ 未验证 |
+| 工具调用 + 审批弹窗（允许一次/本会话/拒绝） | ❌ 未验证 |
+| ask_user 澄清卡 | ❌ 未验证 |
+| 记忆写入 / 召回（中文 bigram 检索） | ❌ 未验证 |
 | MCP（HTTP / SSE / stdio）连接与调用 | ❌ 未验证 |
-| 技能生效（内置 3 个 + URL 导入） | ❌ 未验证（页面渲染已确认） |
+| 技能生效（内置 3 个 + URL 导入） | ❌ 未验证 |
 | 工作区读写 / 预览 / 配额 | ❌ 未验证 |
 | 终端宿主模式 / 危险命令拦截 | ❌ 未验证 |
 | 联网搜索（DuckDuckGo / SearXNG / Tavily / Brave） | ❌ 未验证 |
 | 重启恢复（杀进程后会话与消息是否还在） | ❌ 未验证 |
-| 断网 / 超时 / 错误提示 | ❌ 未验证 |
 
-### 5.3 技术风险（脆弱点）
+### 7.3 脆弱点（改上游结构会失效）
 
-| # | 风险 | 触发条件 | 现有降级 |
-|---|------|----------|----------|
-| T1 | 助手页汉堡依赖上游 DOM 选择器 `button svg use[href="#icon-menu"]` | 上游改聊天页顶栏结构 | 返回 false 静默（汉堡点了没反应） |
-| T2 | 侧栏「助手」子项注入依赖 `.sidebar-nav` 与「外观」锚点 | 上游改侧栏结构 | 不注入（入口消失，主流程不阻断） |
-| T3 | `openRpSidebar` 用 `postDelayed(250ms)` 等 WebView 恢复 | 低端机可能过短/过长 | 无 |
-| T4 | `webView.pauseTimers()` 是**全局**开关 | 未来若引入第二个 WebView | 无（当前单 WebView） |
-| T5 | 流式节流固定 100ms，未做自适应 | 极慢设备可能仍卡 | 无 |
-| T6 | 助手页与 Web 端共享主题快照（`data-mode`） | 用户中途切换主题 | 已联动 |
-
-### 5.4 工程纪律项（未完成但非缺陷）
-
-- 未 push（领先 39 个提交）；未发版；`versionName` 未 bump；
-- `docs/PLAN-v1.5.0-assistant.md` 的部分验收条款尚未在真机勾选。
-
-
-### 5.5 【P0 · 已修复 2026-09-09 · 待真机视觉比对】助手页面未贯彻同一设计理念
-
-> **用户原话**：「我发现了一个很严重的问题，那就是助手页下你的各个页面的组件设计与摆放方式等
-> 均只是与其他页相似，而不是做到同一个设计理念，你好好看看」
-
-**结论：用户判断成立。** 助手管理页的组件是「照着上游的样子另起一套」，不是「同一套设计语言」。
-
-#### 根因（两条，缺一不可）
-
-1. **设计契约缺页级规范**：`DESIGN.md` §助手原生页 的「组件映射」表**只覆盖聊天页组件**
-   （AI/用户气泡、思考卡、工具卡、步骤组、输入岛、记忆行），**管理页（记忆/技能/MCP/工作区/终端/设置）
-   **零规范**——没有页面头、卡片、分组、开关、按钮、空态、搜索框的任何规格。
-2. **我方临场发明组件**：`PageHeader` / `SectionCard` / `Field` / `ToggleRow` / `EmptyState` /
-   `SearchField` / `MemoryCard` / `MemoryModeBar` 等均为我自行决定字号、间距、圆角与控件形态，
-   **违反硬性规定 9 第 3 步「禁止临场发明」**。
-
-#### 逐项比对（左=上游 LuzzyRP 真源，右=助手现状）
-
-| 设计元素 | 上游（真源，含证据） | 助手现状 | 差距 |
-|----------|----------------------|----------|------|
-| 页面标题 | `settings-page-header`：`h2 text-xl/2xl font-bold text-gray-800` + **前置图标**（`w-6/7` SVG，`text-primary-600`）+ `title-extra` 徽标 | `PageHeader`：`titleLarge` + 副标题文字，**无图标** | 缺图标、字号体系不同、上游无副标题位 |
-| 页面动作按钮 | `p-2.5 bg-white text-{c}-600 rounded-xl border border-gray-200 shadow-sm active:scale-95`（实心白卡按钮，带图标） | 纯文字链接（`＋ 添加` / `＋ 链接导入` / `保存搜索设置` / `清空审计`） | **控件形态完全不同** |
-| 卡片 | 外卡 `bg-white/70 backdrop-blur-sm p-1 rounded-2xl border shadow-sm` + 内行 `rounded-xl`（index.html 出现 6 / 9 次） | `SectionCard`：`surfaceSoft` 实底 + 内容直铺，**无内外两层** | 结构层次不同 |
-| 折叠范式 | `settings-collapse`（`grid-template-rows 0fr↔1fr` + `opacity`，0.36s `cubic-bezier(.22,1,.36,1)`）+ `settings-collapse-trigger`（**图标方块** `p-1.5 rounded-lg bg-{c}-100` + 标题 + 状态文字 + chevron） | **完全没有折叠**，页面全平铺 | 缺一整套交互范式 |
-| 分组标题 | `.settings-section-heading`：12px / 700 / `uppercase` / `letter-spacing .05em` / gray-400 | **无此层级** | 缺信息层级 |
-| 开关 | 自定义 `.settings-toggle`（2.75rem×1.5rem = 44×24dp pill，**index.html 使用 35 处**）+ `.settings-toggle--compact` | Material3 `Switch`（默认形态/尺寸，仅改色） | **控件不是同一个** |
-| 按钮 | `inline-flex items-center text-xs px-3 py-1.5 bg-white rounded-lg border border-primary-200 shadow-sm active:scale-95`（10 处） | 文字链接 / 自定 pill | 不同 |
-| 图标体系 | 全站 24px 线性 SVG（`stroke-width 2`），页面/分组/按钮均有图标 | 仅手绘汉堡/齿轮/chevron，**其余页面无图标** | 严重缺失 |
-| 空态 | 图标 + 主文案 + 副文案（+ 动作按钮） | 自绘 `EmptyState`（圆形占位 + 文案） | 不同 |
-| 搜索框 | 上游统一输入样式（`px-3 py-1.5` 系） | 自绘 `SearchField` | 需对齐 |
-
-#### 附带问题
-
-- `DESIGN.md` §助手原生页「信息架构」仍写「二级收进**右侧抽屉**」——**已过时**（现为 RP 侧栏「助手」子项组）。
-- 该章「布局与密度」表也未覆盖管理页（只有会话行/记忆行/气泡/输入岛）。
-
-#### 修复进度（2026-09-09 已实施）
-
-1. ✅ DESIGN.md 增补「管理页组件规范」（15 组件逐项上游出处）
-2. ✅ 新建 `ui/component/ledger/` 组件库（Ledger token + 19 图标 + 13 组件）
-3. ✅ 八页全部改用该库，临场组件全部删除
-4. ✅ 新增 `card` token；修正「边框色当卡片填充」偏差
-5. ✅ 真机视觉比对（2026-09-09 17:5x，设备重连后）：**会话 / 记忆 / 设置**三页与上游
-   同页（用量统计 / 记忆系统）逐项核对——页面头（珊瑚图标 + 20sp Bold + 白色圆角图标按钮）、
-   白卡（rounded-2xl + hairline + shadow-sm）、折叠行（图标方块 + 标题 + 状态文字 + chevron）、
-   输入面（surface-soft + 2dp hairline）、分段控件、空态，**均已同构**；比对后另修两处：
-   参数卡改用上游调节图标、页面级「保存」改为上游白底描边按钮形态。
-   ⏳ 未逐页比对：MCP / 工作区 / 终端（复用同一组件库）。
-
-#### 原修复方向（留档）
-
-1. **先补设计契约**：在 `DESIGN.md` §助手原生页 增补「管理页组件规范」（页面头/分组标题/卡片/折叠行/
-   开关/按钮/空态/搜索框/列表行/图标体系），规格**逐项取自上游真源**（`settings-page-header`、
-   `.settings-toggle`、`.settings-collapse`、`.settings-section-heading`、`px-3 py-1.5` 按钮）。
-2. **建一套 Compose 组件库**（`ui/component/ledger/`）：`LedgerPageHeader`、`LedgerCard`、
-   `LedgerCollapseRow`、`LedgerToggle`、`LedgerButton`、`LedgerEmptyState`、`LedgerSearchField`、
-   `LedgerSectionHeading`、`LedgerIcon`（24px 线性图标集）。
-3. **六个管理页全部改用这套组件**，删除 `PageHeader`/`SectionCard`/`Field`/`ToggleRow` 等临场组件。
-4. **同步更新 DESIGN.md** 的信息架构（右侧抽屉 → RP 侧栏子项组）与布局密度表。
-
-**门控**：属「视觉产出」，须走硬性规定 9。因是**对齐既有真源**（非新风格探索），
-按豁免情形 2（已选定方向后的迭代）落档即可；但组件规格必须逐项引用上游真源，不得再自行发明。
+| # | 风险 | 现有降级 |
+|---|------|----------|
+| T1 | 助手页汉堡依赖上游选择器 button svg use[href="#icon-menu"] | 返回 false 静默（汉堡无反应） |
+| T2 | 侧栏「助手」组注入依赖 .sidebar-nav 与「外观」锚点 | 不注入（入口消失，主流程不阻断） |
+| T3 | openRpSidebar 用 postDelayed(250ms) 等 WebView 恢复 | 无 |
+| T4 | webView.pauseTimers() 是全局开关 | 无（当前单 WebView） |
+| T5 | 流式节流固定 100ms | 无 |
 
 ---
 
-## 6. 真机验收完成度
 
-```
-入口与版式    ██████████ 100%  （侧栏入口 / 首页版式 / 汉堡回侧栏 / 子项组 / 子项跳转）
-会话与对话    ░░░░░░░░░░   0%  （未验证，且疑似供应商配置未推送）
-工具与审批    ░░░░░░░░░░   0%
-沙盒与终端    ░░░░░░░░░░   0%
-记忆/技能/MCP ░░░░░░░░░░   0%
-工作区        ░░░░░░░░░░   0%
-重启恢复      ░░░░░░░░░░   0%
-```
+## 8. 真机验收进度
+
+    入口与版式      ████████░░  ~85%  （侧栏入口/折叠组/首页版式/汉堡回侧栏/子项跳转/三页视觉比对）
+    管理页视觉      ████████░░  ~80%  （会话/记忆/设置已比对；MCP/工作区/终端未逐页比对）
+    会话与对话      ░░░░░░░░░░    0%  （未验证，且疑似供应商配置未推送）
+    工具与审批      ░░░░░░░░░░    0%
+    沙盒与终端      ░░░░░░░░░░    0%
+    记忆/技能/MCP   ░░░░░░░░░░    0%
+    工作区          ░░░░░░░░░░    0%
+    重启恢复        ░░░░░░░░░░    0%
 
 ---
 
-## 7. 复现与回滚指引
+## 9. 决策记录（累计）
 
-**复现当前构建**：
-```bash
-cd /d/.NekoTool/LuzzyRP
-./gradlew :app:assembleDebug
-adb -s df97f3c4 install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-**回归自检**：
-```bash
-./gradlew :app:testDebugUnitTest          # 期望 323 tests / 0 failed
-powershell -File tools/verify-markers.ps1  # 期望 86 PASS / 0 FAIL
-```
-
-**回滚到「改稿前」的助手版式**（会话 38 末尾状态）：
-```bash
-git revert --no-commit fe3e7d3f 80e6b53a   # 撤销两次改稿
-```
-
-**关键回滚点**：
-| 提交 | 说明 |
+| 编号 | 决策 |
 |------|------|
-| `fe3e7d3f` | 首页聊天页版式 + 菜单栏归 LuzzyRP（**本轮最大改动**） |
-| `c752fc43` | 卡顿修复 + DataStore 无限流修复（**建议保留**） |
-| `4721c2c4` | 加密存储 + Key 类搜索 |
-| `826efa21` | proot 沙盒资产 |
+| D1 | 上游同步用三方合并而非「覆盖后重放」（等价性已证明） |
+| D2 | 实体补丁 worktree 用 CRLF，blob 用 LF |
+| D3/D3b | 中文检索用 bigram + LIKE 兜底；标题单独走 LIKE 通道 |
+| D5 | 审批默认拒绝（硬性要求 11） |
+| D16 | 审计参数**只记键名与长度**（不回显值） |
+| D17 | Gemini 用 x-goog-api-key 头而非 ?key=（密钥不入 URL） |
+| D18 | 未知协议回退 OpenAI 兼容并记日志 |
+| D19 | proot 以**未修改二进制**再分发 + SOURCES.md 三条源码获取途径（GPL 合规） |
+| D20 | 最小 rootfs **不预装** node/python，缺失时提示 apk add |
+| D22 | stdio 传输抽象化，协议层用内存假传输单测 |
+| D23 | 摘要复用当前助手请求模板（不新增供应商配置） |
+| D24 | 搜索默认 DuckDuckGo（无 Key）；Key 类 Key 走加密存储 |
+| D26 | 自实现 Keystore AES-GCM（不用已停维护的 security-crypto） |
+| D27 | 密钥**只写不读回**（设置页不回显） |
+| **D28** | **组件规格以「上游类名 + 像素」为准；Compose 不发明样式，新增组件先在 DESIGN.md 登记** |
+| **D29** | **图标语义就近映射上游已有图标，不自行绘制新形状** |
 
 ---
 
-## 8. 处理约定（与用户商定）
+## 10. 踩坑表（新增项已入 AGENTS.md §7）
 
-1. 用户后续**逐条列出问题**，本档 §9 逐条登记（编号 / 现象 / 复现 / 状态 / 修复提交）。
-2. **不发版**：发版仅在用户手动验收通过后按 AGENTS §3.4 流程执行。
-3. 涉及页面布局/视觉的改动仍走硬性规定 9（本次两稿均按「已选定方向后的迭代」豁免并在
-   `docs/design/direction-approved-assistant.md` 落档）。
+| 坑 | 结论 |
+|----|------|
+| Android 无 ProcessHandle | 子进程排空必须非阻塞轮询 |
+| **AGP 会解压 .gz 资产并去掉后缀** | 读资产要两种名字都试 + magic bytes 判断 |
+| **Compose addPathNodes 误读紧凑弧线标志位** | 上游 SVG 不要用 ImageVector 复刻 → 改用 VectorDrawable |
+| Compose 编译器 mapping 类路径版本漂移 | resolutionStrategy 钉到项目 Kotlin 版本 |
+| **DataStore flow 是无限流** | 取当前值必须 flow.first()，collect{} 会永久挂起 |
+| PowerShell 文本管道丢尾换行 | 用 cmd 重定向读原始字节 |
+| Kotlin 原始字符串里的 \n 是字面量 | 用 Python 改 Kotlin 源码时反斜杠会被吞，需 chr(92) |
+| **shell heredoc > ~170 行会被截断** | 大文件用 write 工具或分块写 |
+| **Python 正则 (.*?) 在长文本上灾难性回溯** | 会卡死终端；逐项处理，别整文件正则 |
 
 ---
 
-## 9. 用户待报问题（占位）
+## 11. 工作约定（用户已明确）
 
-> 用户列出的问题请逐条追加到下方表格；处理后在「状态」列标记 ✅ 并附修复提交。
+1. **一点一点来**：用户提一处，我改一处；不顺手改别的、不擅自扩大范围。
+2. **不发版 release**：用户手动验收通过后再发；发版走 AGENTS §3.4。
+3. **改 UI = 走设计门**（硬性规定 9）：先读 4 项设计 SKILL；若是「已选定方向后的迭代」
+   （用户的定点改稿）按豁免情形 2 落档到 docs/design/direction-approved-assistant.md 即可，
+   但**规格必须引上游真源，不得再自行发明**。
+4. 每阶段更新 CHANGELOG.md + docs/WORKLOG.md（硬性规定）。
+5. **禁止直接编辑 assets/rphub/**：上游文件只能经 tools/patches/ 注册补丁修改；
+   我们的东西一律放 assets/ext/ 或 app/src/main/java/.../assistant/。
 
-| # | 问题（用户原话） | 复现步骤 | 状态 | 修复提交 |
-|---|------------------|----------|------|----------|
-| — | （待用户列出） | — | — | — |
+---
+
+## 12. 用户待报问题登记
+
+| # | 问题（用户原话摘要） | 处理 | 状态 | 提交 |
+|---|----------------------|------|------|------|
+| 1 | 助手页帧率太低，很卡 | 修 WebView 争抢 + @Immutable + remember + 100ms 节流；并修掉 DataStore 无限流阻塞缺陷 | ✅ | c752fc43 |
+| 2 | 助手首页应做成 LuzzyRP 聊天页版式，右上角改设置按钮 | 已实现 | ✅ | fe3e7d3f |
+| 3 | 原菜单栏应归 LuzzyRP；助手不再有独立抽屉 | 已实现（方案 A） | ✅ | fe3e7d3f |
+| 4 | 助手各页组件只是「相似」而非同一设计理念 | 设计契约补全 + ledger 组件库 + 八页改造 | ✅ | 8311eaca 等 |
+| 5 | 圆形图标全是半圆状；应直接复用原项目图标 | 改 VectorDrawable + 弧线标志位分隔 | ✅ | 6006eb98 |
+| 6 | 侧栏「助手」应做成「在线/高级」式折叠；在线/高级子项改用助手子项样式 | 已实现 | ✅ | bf7e0cf1 |
+| 7 | （待用户提出下一处） | — | — | — |
+

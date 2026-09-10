@@ -471,6 +471,8 @@ Luzzy.copyToClipboard = function (text) {
 | **~~改 assets 不 bump EXTRACT_VERSION = 白改~~（v1.2.3 已根治）** | 构建期 assetSignature（文件数+大小+mtime）注入 BuildConfig.ASSET_SIGNATURE，AssetExtractor 启动比对签名自动重解压——改资产零手动操作；若签名粒度漏检（同 mtime/size 改写）仍可手动 bump 兜底 |
 | **`git apply` 在仓库内按「仓库根」解析 patch 路径**（会话 25 实证） | 从嵌套目录执行时路径不匹配会**静默跳过**（返回 0 且不改文件）——「返回 0 但行未插入」的假象来源。验证/重放脚本一律在**仓库外**目录执行，或从仓库根配 `--directory=<仓库相对路径>` |
 | **PowerShell `$ErrorActionPreference='Stop'` 下原生命令 stderr 会中断脚本**（会话 25 实证） | `git apply` 的 trailing-whitespace 告警写 stderr 即触发终止错误（表现为脚本跑到第 N 条莫名中断）。调用原生工具前临时置 `'Continue'` 并把 stderr 落盘，仅在退出码非 0 时读取 |
+| **接手「被中断的在途改动」时，文档描述的状态不可信**（会话 51 实证） | 上一手在 21:16–21:22 被中断，工作区留下 8 文件改动 + 3 未跟踪文件，其中 **① 删组件时误删仍在使用的 import（`ChatTopBar` 的 `Column`）② 规格测试仍断言已删除的符号（`Ledger.CollapseDurationMs`）**——两处当时都不可编译，而文档只说「未跑单测/未提交」。**接手第一件事是编译 + 单测判定断点**（`git status` 看改动面、`grep` 查被删符号的悬空引用），别照文档猜进度 |
+| **PowerShell `Out-File -Encoding utf8` 给文本加 BOM**（会话 51 实证） | 用它写 `git commit -F` 的消息文件时，**BOM 会混进 commit subject**（`git log` 里显示为 `fix(v1.5.0)`）。改用编辑工具写消息文件（无 BOM），已提交的用 `git commit --amend -F`（**未 push 才可 amend**） |
 | **实体前像 = 上游纯净基线**（会话 25 修正） | 实体段必须先于字符串块重放（否则前像失配）；前像判定用实体头 `index <pre>` 的 LF 归一 blob id，勿用指纹表（CRLF 工作树哈希）比对覆盖态 |
 | **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
 | **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |

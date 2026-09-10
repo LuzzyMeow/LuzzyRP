@@ -9,6 +9,11 @@
     <!-- 导出下载（DownloadManager 写入外部下载目录；API 29+ 走 SAF 无需此权限） -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- 助手「日历读写」工具（calendar_read / calendar_write）：运行时权限，**未声明则永远无法授予**。
+         2026-09-11 静态审查修复——此前只在代码里检查权限却没在清单声明，且 App 内也没有申请流程，
+         该工具必然失败。授权入口：助手设置页 → 工具开关 → 日历权限 → 授予。 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <application
         android:allowBackup="true"

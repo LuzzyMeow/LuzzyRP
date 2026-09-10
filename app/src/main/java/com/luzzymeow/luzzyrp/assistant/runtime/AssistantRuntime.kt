@@ -6,7 +6,12 @@ import com.luzzymeow.luzzyrp.assistant.data.db.AssistantDatabase
 import com.luzzymeow.luzzyrp.assistant.data.db.AssistantDatabaseProvider
 import com.luzzymeow.luzzyrp.assistant.data.db.entity.AssistantEntity
 import com.luzzymeow.luzzyrp.assistant.data.prefs.AssistantPrefs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import com.luzzymeow.luzzyrp.assistant.data.workspace.WorkspaceManager
 import com.luzzymeow.luzzyrp.assistant.domain.llm.LlmRequest
 import com.luzzymeow.luzzyrp.assistant.domain.llm.LlmTransport
@@ -20,6 +25,7 @@ import com.luzzymeow.luzzyrp.assistant.domain.prompt.MemoryProvider
 import com.luzzymeow.luzzyrp.assistant.domain.tool.ApprovalGate
 import com.luzzymeow.luzzyrp.assistant.domain.tool.CodeRunner
 import com.luzzymeow.luzzyrp.assistant.domain.tool.ShellRunner
+import com.luzzymeow.luzzyrp.assistant.domain.tool.Tool
 import com.luzzymeow.luzzyrp.assistant.domain.tool.ToolContext
 import com.luzzymeow.luzzyrp.assistant.domain.tool.ToolRegistry
 import com.luzzymeow.luzzyrp.assistant.domain.tool.WorkspaceAccess
@@ -90,6 +96,13 @@ class AssistantRuntime(
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+    /**
+     * 运行时级协程作用域：常驻的跟随任务（工具开关快照）挂在这里。
+     *
+     * 用 `SupervisorJob + Default`：单条跟随流失败不应拖垮整表，也不占主线程。
+     */
+    private val runtimeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     /** 工具开关的内存快照（DataStore 异步 → 审批门需要同步判定）。 */
     @Volatile
     private var toolSwitches: Map<String, Boolean> = emptyMap()
@@ -98,6 +111,60 @@ class AssistantRuntime(
         globalSwitch = { name -> toolSwitches[name] },
         policy = ApprovalGate.POLICY_PER_CALL,
     )
+
+    /** 工具开关跟随任务的句柄（幂等：只装一次）。 */
+    private var toolSwitchJob: Job? = null
+
+    init {
+        // [2026-09-11 静态审查修复] 此前**没有任何地方**往 toolSwitches 写过值——审批门的
+        // globalSwitch 永远返回 null，于是永远取 tier 默认值（T2/T3 全关），用户即便在设置页
+        // 打开了开关也不会生效。这里在运行时构造时挂上跟随任务，让内存快照跟随 DataStore。
+        observeToolSwitches(runtimeScope)
+    }
+
+    // ------------------------------------------------------------------
+    // 工具开关（DataStore ⇄ 内存快照）
+    // ------------------------------------------------------------------
+
+    /**
+     * 让内存快照跟随 DataStore（幂等）。
+     *
+     * 审批门是**同步**判定（[ApprovalGate.isEnabled]），DataStore 却是异步流，故把显式开关收敛成
+     * 一份 `@Volatile` 快照。由 `init` 自动调用一次。
+     */
+    fun observeToolSwitches(scope: CoroutineScope) {
+        if (toolSwitchJob != null) return
+        toolSwitchJob = scope.launch {
+            prefs.observeExplicitToolSwitches().collect { explicit -> toolSwitches = explicit }
+        }
+    }
+
+    /**
+     * 内置（非 MCP）工具清单——助手设置页「工具开关」用。
+     *
+     * **默认关闭的（T2/T3）排在前面**：它们是「需用户显式开启」那一档，用户进这一屏就是来开它们的。
+     * MCP 工具不在其列（在 MCP 页按服务器管）。
+     */
+    fun builtinTools(): List<Tool> = registry.all()
+        .filterNot { it.name.startsWith(AssistantPrefs.MCP_TOOL_NAME_PREFIX) }
+        .sortedWith(compareBy({ it.tier.defaultEnabled }, { it.name }))
+
+    /** 某工具当前是否启用（显式开关优先，否则取 tier 默认）。 */
+    fun isToolEnabled(tool: Tool): Boolean = approvalGate.isEnabled(tool)
+
+    /**
+     * 一次性读取**显式**开关（DataStore 直读，不经内存快照）。
+     *
+     * UI 保存后回读必须走这条：内存快照是异步跟随的，写完立刻读快照可能读到旧值，
+     * 界面就会「点了没反应」。DataStore 自身读写一致，故设置页以它为真相。
+     */
+    suspend fun explicitToolSwitches(): Map<String, Boolean> =
+        runCatching { prefs.observeExplicitToolSwitches().first() }.getOrDefault(emptyMap())
+
+    /** 写入工具开关（真相在 DataStore，内存快照由 [observeToolSwitches] 跟随）。 */
+    suspend fun setToolEnabled(toolName: String, enabled: Boolean) {
+        prefs.setToolGlobalSwitch(toolName, enabled)
+    }
 
     /** 数据仓库（P2 持久化：会话/消息/检索/导出）。 */
     val repository: AssistantRepository = AssistantRepository(database)

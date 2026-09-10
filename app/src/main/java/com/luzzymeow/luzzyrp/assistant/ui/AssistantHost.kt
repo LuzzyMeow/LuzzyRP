@@ -317,6 +317,7 @@ private fun AssistantRoot(
                         onTavilyKey = settingsVm::updateTavilyKey,
                         onBraveKey = settingsVm::updateBraveKey,
                         onSaveSearch = settingsVm::saveSearchSettings,
+                        onToggleTool = settingsVm::setToolEnabled,
                         onTogglePreview = settingsVm::togglePreview,
                         onSave = settingsVm::save,
                         onDismissMessage = settingsVm::dismissMessage,

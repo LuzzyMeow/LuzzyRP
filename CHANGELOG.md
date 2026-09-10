@@ -425,6 +425,27 @@
     通过；`node tools/page-handoff-test.cjs` **pass（0 失败、0 异常）**。**真机手感（120Hz 下的跟手度）
     待用户装机确认**。
 
+**修复**
+- **工具开关链路整条是死的（全面静态审查发现，2026-09-11）**：`ApprovalGate` 的 KDoc 与
+  `PLAN §12.1` 都写着「T2/T3 默认关闭，**需用户在设置里逐项开启**」，但实现侧**三处全缺**：
+  ① `AssistantRuntime.toolSwitches`（喂给审批门的内存快照）**从未被赋值**；
+  ② `AssistantPrefs.setToolGlobalSwitch`（写开关）**没有任何调用点**；③ 助手设置页**没有开关 UI**。
+  后果：`globalSwitch` 恒返回 `null` → 永远取 tier 默认值 → **日历读写 / 发到 RP 会话 / 终端 /
+  截屏 / 点击 / 短信 / 通讯录共 8 类工具永远开不了**（交互死路）。
+  修复：① 运行时构造时挂 `observeToolSwitches()`，内存快照跟随 DataStore；
+  ② 助手设置页新增「**工具开关**」卡片（`LedgerCollapseCard` + `LedgerToggleRow`；清单直接来自
+  `registry`——**UI 不硬编码**，默认关的排前并分组标注「需手动开启（默认关闭）」/「默认开启（可关闭）」）；
+  ③ 保存后**直读 DataStore 回读**（`explicitToolSwitches()`），避免内存快照异步跟随造成的
+  「点了没反应」；④ 新增单测锁定契约「显式开关覆盖 tier 默认值（两个方向都要生效）」。
+- **日历工具必然失败（同批发现）**：代码里检查 `READ_CALENDAR` / `WRITE_CALENDAR`，但**清单里从未
+  声明**这两项权限、App 内也没有申请流程——未声明的运行时权限**永远无法授予**，该工具 100% 报错。
+  修复：清单补声明 + 助手设置页在开启日历工具时就地给出「**日历权限**」行（状态 + 「授予」按钮，
+  走 `ActivityResultContracts.RequestMultiplePermissions`）+ 权限异常文案改为**可执行**
+  （写明 App 内入口与系统设置路径）。
+- **助手设置页「未读取到 Web 端配置」是死路（同批发现）**：只有三个字的裸状态、没有任何出路
+  （用户 2026-09-10 实测反馈过这一现象）。修复：状态文字改「未同步」，卡片内补一行可执行说明
+  （去哪儿配、返回助手会自动同步、助手不重复存 Key）；配色沿用既有 token（亮色 `accentDeep` /
+  暗色 `warning`——亮色下不用 `warning` 是**为了对比度**，amber 压白卡不足 4.5:1）。
 
 **注意事项**
 - 本轮**未改任何上游文件**（`assets/rphub/` 零改动），无新 patch、无指纹表变更；

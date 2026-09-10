@@ -1,5 +1,7 @@
 package com.luzzymeow.luzzyrp.assistant.ui.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -22,8 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.Ledger
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerButton
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerButtonTone
@@ -36,6 +43,7 @@ import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerSearchField
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerSegmented
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerStatusPill
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerTextField
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerToggleRow
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerType
 import com.luzzymeow.luzzyrp.assistant.ui.settings.AuditRow
 import com.luzzymeow.luzzyrp.assistant.ui.settings.SettingsState
@@ -64,6 +72,7 @@ fun SettingsScreen(
     onTavilyKey: (String) -> Unit = {},
     onBraveKey: (String) -> Unit = {},
     onSaveSearch: () -> Unit = {},
+    onToggleTool: (String, Boolean) -> Unit = { _, _ -> },
     onTogglePreview: () -> Unit,
     onSave: () -> Unit,
     onDismissMessage: () -> Unit,
@@ -75,9 +84,22 @@ fun SettingsScreen(
     var openPrompt by remember { mutableStateOf(true) }
     var openParams by remember { mutableStateOf(false) }
     var openSearch by remember { mutableStateOf(false) }
+    var openTools by remember { mutableStateOf(false) }
     var openExtra by remember { mutableStateOf(false) }
     var openAudit by remember { mutableStateOf(false) }
     var openPreview by remember { mutableStateOf(false) }
+
+    // 日历权限（运行时权限）：状态在 UI 侧查（VM 不该持有 Activity Context），
+    // 授权对话框用 ActivityResult 契约发起——这是 App 内**唯一**能拿到日历权限的入口
+    // （此前既没声明权限、也没有申请流程，calendar_read/write 必然失败：2026-09-11 静态审查修复）。
+    val context = LocalContext.current
+    fun calendarGranted(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) ==
+            PackageManager.PERMISSION_GRANTED
+    var calendarOk by remember { mutableStateOf(calendarGranted()) }
+    val calendarLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result -> calendarOk = result.values.any { it } || calendarGranted() }
 
     Column(
         modifier = modifier
@@ -122,8 +144,18 @@ fun SettingsScreen(
                 title = "提示词与模型",
                 expanded = openPrompt,
                 onToggle = { openPrompt = !openPrompt },
-                statusText = if (state.hasWebConfig) "Web 端配置" else "未读取到",
+                statusText = if (state.hasWebConfig) "Web 端配置" else "未同步",
             ) {
+                // 未同步时给出**可执行**说明（用户 2026-09-10 实测反馈过「尚未读取到 Web 端供应商配置」，
+                // 当时只有状态文字、没有出路：2026-09-11 静态审查补成可执行提示）。
+                if (!state.hasWebConfig) {
+                    Text(
+                        text = "尚未读取到 Web 端供应商配置：请到 LuzzyRP「设置 → 供应商」配置并选用模型，" +
+                            "回到助手时会自动同步（助手不重复保存 Key）。",
+                        style = LedgerType.caption,
+                        color = if (colors.isDark) colors.warning else colors.accentDeep,
+                    )
+                }
                 LabeledField("助手名称", state.name, onName, singleLine = true)
                 LabeledField("系统提示词", state.systemPrompt, onPrompt, minHeight = 120.dp)
                 if (state.availableModels.isNotEmpty()) {
@@ -149,8 +181,7 @@ fun SettingsScreen(
                 expanded = openParams,
                 onToggle = { openParams = !openParams },
                 statusText = "T ${state.temperature}",
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ) {                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(modifier = Modifier.weight(1f)) {
                         LabeledField("temperature", state.temperature, onTemperature, singleLine = true)
                     }
@@ -205,6 +236,78 @@ fun SettingsScreen(
                     singleLine = true,
                 )
                 LedgerButton(text = "保存搜索设置", onClick = onSaveSearch)
+            }
+
+            // 工具开关（2026-09-11 静态审查补齐）：T2/T3 档默认关闭，契约上「需用户在设置里逐项
+            // 开启」（ApprovalGate 文档 / PLAN §12.1），但此前**既无开关 UI、也无开关写入**——
+            // 日历/终端/截屏/短信/发到 RP 会话等 8 类工具永远开不了，属交互死路。
+            LedgerCollapseCard(
+                icon = LedgerIcons.Workspace,
+                title = "工具开关",
+                expanded = openTools,
+                onToggle = { openTools = !openTools },
+                statusText = "${state.tools.count { it.enabled }}/${state.tools.size} 开",
+            ) {
+                Text(
+                    text = "默认关闭的工具需在此逐项开启；开启后每次调用仍会弹审批卡（安全兜底不变）。",
+                    style = LedgerType.caption,
+                    color = colors.mutedSoft,
+                )
+                // 分两组呈现：用户进这一屏多半是为了开「默认关」那批，先给它们，再给可关的常开项。
+                val offTools = state.tools.filter { it.defaultOff }
+                val onTools = state.tools.filterNot { it.defaultOff }
+                if (offTools.isNotEmpty()) {
+                    Text("需手动开启（默认关）", style = LedgerType.caption, color = colors.muted)
+                    offTools.forEach { tool ->
+                        LedgerToggleRow(
+                            label = tool.label,
+                            checked = tool.enabled,
+                            onCheckedChange = { onToggleTool(tool.name, it) },
+                            hint = tool.hint,
+                        )
+                    }
+                }
+                if (onTools.isNotEmpty()) {
+                    Text("默认开启（可关闭）", style = LedgerType.caption, color = colors.muted)
+                    onTools.forEach { tool ->
+                        LedgerToggleRow(
+                            label = tool.label,
+                            checked = tool.enabled,
+                            onCheckedChange = { onToggleTool(tool.name, it) },
+                            hint = tool.hint,
+                        )
+                    }
+                }
+                // 日历工具需要运行时权限：本地没声明过权限就永远失败，故开启后在此就地授予。
+                val calendarOn = state.tools.any { it.name.startsWith("calendar_") && it.enabled }
+                if (calendarOn) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = Ledger.ListRowMinHeight),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("日历权限", style = LedgerType.label, color = colors.body)
+                            Text(
+                                text = if (calendarOk) "已授予" else "未授予——未授予时日历工具必然失败",
+                                style = LedgerType.caption,
+                                color = if (calendarOk) colors.success else colors.warning,
+                            )
+                        }
+                        if (!calendarOk) {
+                            LedgerButton(
+                                text = "授予",
+                                onClick = {
+                                    calendarLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.READ_CALENDAR,
+                                            Manifest.permission.WRITE_CALENDAR,
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
             }
 
             LedgerCollapseCard(

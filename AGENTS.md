@@ -477,6 +477,7 @@ Luzzy.copyToClipboard = function (text) {
 | **扩展层认「当前页」必须用集合差分，不要用启发式猜**（会话 53 实证，真机出过 bug） | `.app-main` 里不止有页面：扩展层自己注入的 `.lsp-fab-row`（关于页置顶 FAB）是**恒可见**的兄弟节点。用「第一个可见子元素」判定 → 收尾时把 chrome 当成当前页 → 旧页的行内 `display:none` 没还原 → **聊天页永久盖在管理页上**（用户真机「切了几次就出bug」）。正解：点击前记 `before`、下一帧取 `after`，**新页 = after − before / 旧页 = before − after / 恒可见 chrome = before ∩ after**（天然排除）——不依赖类名与高度，上游以后再加常驻元素也不受影响。回归门禁 `tools/page-handoff-test.cjs` |
 | **headless Chrome 默认 `prefers-reduced-motion: reduce`**（会话 53 实证） | 桌面 CDP 测试里所有 CSS 动画/过渡都被压成 0.01ms——**测时间线等于测空气**（本测试第一版曾出现「50ms 内全部到位」的假绿）。必须先 `Emulation.setEmulatedMedia({features:[{name:'prefers-reduced-motion', value:'no-preference'}]})` 关掉该模拟 |
 | **「共终止」要用「最后一次变化」判定，不要用阈值** | ease-out 曲线下各属性到达某阈值（如位移 90%、透明度 98%）的时刻天然不同，用阈值判「同时结束」会误判。改为采样时间线后取**每个信号最后一次变化的时刻**再互比（阈值给 2 帧 + 8ms） |
+| **契约文档写了、实现没接**（会话 54 静态审查实证） | `ApprovalGate` 的 KDoc 与 PLAN §12.1 都写「T2/T3 默认关闭，**需用户在设置里逐项开启**」，而实现侧**三处全缺**：内存快照无 hydration、setter 零调用点、设置页无开关 UI → **8 类工具（日历/终端/截屏/短信/通讯录/发到 RP 会话…）成为交互死路**，且不报错、不崩溃，看日志永远正常。**审查纪律**：顺着「文档承诺」逐条做**三段对账**（契约 → 调用点 → UI 入口），缺一段就是死路；只跑测试/只看有没有异常查不出这类问题 |
 | **实体前像 = 上游纯净基线**（会话 25 修正） | 实体段必须先于字符串块重放（否则前像失配）；前像判定用实体头 `index <pre>` 的 LF 归一 blob id，勿用指纹表（CRLF 工作树哈希）比对覆盖态 |
 | **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
 | **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |

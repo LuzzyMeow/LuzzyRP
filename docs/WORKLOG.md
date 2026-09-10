@@ -1065,4 +1065,66 @@ chrome 当成当前页 → 旧页 `display:none` 没还原 → 两页叠加。
 3. 旧页快照层的 `z-index: 2` 低于上游弹窗层（z-50+）：若正好在弹窗打开时换页，快照层会压在
    弹窗之下——实际场景罕见（弹窗打开时不会换页），暂不处理，已在此登记。
 
+---
+
+## 2026-09-11 · 会话 54：全面静态审查（交互设计逻辑 + 视觉呈现）+ 三处修复
+
+> **用户指令**：「当本次工作完成之后，再进行一遍全面的静态审查和修复，尤其是在用户交互页面
+> 设计逻辑上和视觉呈现上的优化，然后撰写文档」。审查方法：顺着**文档与代码里的「承诺」逐条
+> 找实现**（契约 → 调用点 → UI 入口三段对账），再对新增 UI 跑设计 SKILL 的五维 critique。
+
+### 一、审查发现（按严重度）
+
+| # | 发现 | 证据 | 处置 |
+|---|------|------|------|
+| **1** | **工具开关链路整条是死的**——`ApprovalGate` KDoc 与 PLAN §12.1 都写「T2/T3 默认关闭，**需用户在设置里逐项开启**」，但：① `AssistantRuntime.toolSwitches` **从未被赋值**（审批门 `globalSwitch` 恒返回 null → 永远取 tier 默认）；② `setToolGlobalSwitch` **零调用点**；③ **没有开关 UI**。→ 日历读写 / 发到 RP 会话 / 终端 / 截屏 / 点击 / 短信 / 通讯录 **共 8 类工具永远开不了** | `git grep 'toolSwitches = '`（零命中）、`git grep setToolGlobalSwitch`（仅定义处）、设置页 6 个区块无工具开关 | **已修**（下节） |
+| **2** | **日历工具 100% 失败**——代码检查 `READ_CALENDAR`/`WRITE_CALENDAR`，但**清单里没声明**这两项权限、也没有申请流程；未声明的运行时权限**永远无法授予** | `AndroidManifest.xml` 只有 INTERNET / ACCESS_NETWORK_STATE / WRITE_EXTERNAL_STORAGE | **已修**（下节） |
+| **3** | **「未读取到 Web 端配置」是死路**——助手设置页只有三字状态，无出路（用户 2026-09-10 实测反馈过） | `SettingsScreen.kt` 原 `statusText = "未读取到"` | **已修**（下节） |
+| 4 | 会话导出入口仍缺失（原在助手抽屉，抽屉删除后无新入口） | STATUS §7.1 R1 | **未修**（属「恢复一个功能」，需新桥接方法 + SAF 导出 + 设计决策，**待用户拍板是否要**） |
+| 5 | 助手聊天页「汉堡 → RP 侧栏」与管理页「返回箭头 → 回首页」是两套导航隐喻 | 审查档 C4 | **判为可接受**（Android 常规：主页前导动作是抽屉、子页前导动作是返回），不改，登记判定 |
+| 6 | 旧页快照层 `z-index: 2` 低于上游弹窗层 | 会话 53 遗留 | 保留（弹窗打开时不会换页），已在会话 53 登记 |
+
+### 二、修复落地
+
+1. **工具开关链路打通**（`AssistantRuntime` / `SettingsViewModel` / `SettingsScreen` / `AssistantHost`）：
+   - 运行时构造时挂 `observeToolSwitches(scope)`（新增运行级 `CoroutineScope(SupervisorJob + Default)`），
+     内存快照跟随 DataStore（幂等，只装一次）；
+   - `builtinTools()` 清单**直接来自 registry**（UI 不硬编码），默认关的排前；
+   - 设置页新增「工具开关」卡片：分组（「需手动开启（默认关闭）」/「默认开启（可关闭）」）+
+     `LedgerToggleRow` 逐项开关 + 状态文字 `N/M 开`；
+   - 保存后**直读 DataStore 回读**（`explicitToolSwitches()`），避免快照异步跟随造成「点了没反应」；
+   - 新增单测 `ApprovalGateTest.显式开关覆盖 tier 默认值`（两个方向 + 未显式设置回落 tier）。
+2. **日历权限**：清单补 `READ_CALENDAR` / `WRITE_CALENDAR`；设置页在开启日历工具时就地显示
+   「日历权限」行（已授予 / 未授予 + 「授予」按钮，`RequestMultiplePermissions`）；
+   权限异常文案改为可执行（App 内入口 + 系统设置路径）。
+3. **未同步提示可执行化**：状态文字 `未读取到` → `未同步`；卡片内补说明行（去哪儿配、返回自动同步、
+   助手不重复存 Key）；配色用既有 token，**亮色用 `accentDeep` 而非 `warning`**——amber 压白卡对比度
+   不足 4.5:1。
+
+### 三、交付前五维 critique（硬性规定 9 第 5 步）
+
+| 维度 | 判定 |
+|------|------|
+| 方向 | 设置页新增区块沿用「卷宗」语言（`LedgerCollapseCard` + `LedgerToggleRow` + caption 分组），与其余 6 个区块同构 ✔ |
+| 品牌 | **零新增色相**；提示文字取既有 token（亮 `accentDeep` / 暗 `warning`），并说明为何亮色不用 warning ✔ |
+| 层级 | 分组标题 caption/`muted` → 行标题 `label`/`body` → 说明 caption/`mutedSoft` 三级可比；状态文字与其它卡片同款 ✔ |
+| 动效 | 本轮无新增动效（沿用令牌）✔ |
+| 工程 | 清单真相在 registry、状态真相在 DataStore，**各只有一处**；新增 1 条单测锁契约 ✔ |
+
+### 四、验证
+
+| 项 | 结果 |
+|----|------|
+| `testDebugUnitTest` | **332 / 0 失败**（331 + 新增 1 条契约测试） |
+| `verify-markers` | **95 PASS / 0 FAIL** |
+| `assembleRelease` | 通过 |
+| `tools/page-handoff-test.cjs` | **pass**（转场回归未受影响） |
+
+### 五、遗留
+
+1. **真机未验**（本轮三处修复都需要上机看：工具开关能开、日历授权弹窗、未同步提示）；
+2. 发现 4（会话导出入口）**待用户拍板**是否恢复——它是功能补齐，不是纯修复；
+3. 「工具开关」卡片会列出全部内置工具（24 项）：真机上若觉得太长，可改为「只列默认关的 +
+   折叠显示其余」，一行代码的开关，待用户看后定。
+
 

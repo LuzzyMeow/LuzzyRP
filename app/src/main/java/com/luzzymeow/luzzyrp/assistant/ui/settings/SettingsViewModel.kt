@@ -78,6 +78,21 @@ class SettingsViewModel(
         val models = config?.providers.orEmpty().flatMap { provider ->
             provider.models.map { "${provider.id}::${it}" }
         }.distinct()
+        // 工具开关（2026-09-11 补齐）：registry 是唯一真相，UI 不硬编码清单；
+        // 默认关闭的（T2/T3）已由 runtime.builtinTools() 排在前列。
+        val tools = runCatching {
+            val explicit = runtime.explicitToolSwitches()
+            runtime.builtinTools().map { tool ->
+                ToolSwitchRow(
+                    name = tool.name,
+                    label = toolLabel(tool.name),
+                    hint = tool.description,
+                    // 显式开关优先、否则 tier 默认；直读 DataStore（写完立刻回读不会读到旧值）
+                    enabled = explicit[tool.name] ?: tool.tier.defaultEnabled,
+                    defaultOff = !tool.tier.defaultEnabled,
+                )
+            }
+        }.getOrDefault(emptyList())
         _state.value = SettingsState(
             name = entity?.name.orEmpty(),
             systemPrompt = entity?.systemPrompt.orEmpty(),
@@ -97,6 +112,7 @@ class SettingsViewModel(
             searxngUrl = runCatching { runtime.currentSearxngUrlValue() }.getOrNull().orEmpty(),
             tavilyKeySet = runCatching { runtime.hasSecret("search_tavily_api_key") }.getOrDefault(false),
             braveKeySet = runCatching { runtime.hasSecret("search_brave_api_key") }.getOrDefault(false),
+            tools = tools,
         )
     }
 
@@ -114,6 +130,58 @@ class SettingsViewModel(
     fun updateSearxngUrl(value: String) = _state.value.let { _state.value = it.copy(searxngUrl = value) }
     fun updateTavilyKey(value: String) = _state.value.let { _state.value = it.copy(tavilyKey = value) }
     fun updateBraveKey(value: String) = _state.value.let { _state.value = it.copy(braveKey = value) }
+
+    /**
+     * 开关某个工具（T2/T3 默认关，需用户逐项开启；见 `ApprovalGate` 文档与 PLAN §12.1）。
+     *
+     * 写完重新 [load]：开关的唯一真相在 DataStore，UI 以读回结果为准（不做乐观更新，
+     * 避免写入失败时界面骗人）。
+     */
+    fun setToolEnabled(name: String, enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { runtime.setToolEnabled(name, enabled) }
+                .onSuccess { load() }
+                .onFailure { error -> _state.value = _state.value.copy(message = "工具开关保存失败：${error.message}") }
+        }
+    }
+
+    private companion object {
+        const val AUDIT_LIMIT = 50
+
+        /**
+         * 工具名的中文标签（**显示层映射**；未覆盖的回落到工具名本身）。
+         *
+         * 为什么不放进 domain：工具名是协议标识（写进工具 schema 给模型看），
+         * 中文标签只是这一屏的排版需要，改文案不该动 domain。
+         */
+        fun toolLabel(name: String): String = when (name) {
+            "ask_user" -> "澄清提问"
+            "calendar_read" -> "读日历"
+            "calendar_write" -> "写日历"
+            "clipboard_read" -> "读剪贴板"
+            "clipboard_write" -> "写剪贴板"
+            "get_device_info" -> "设备信息"
+            "get_time" -> "当前时间"
+            "memory_search" -> "记忆检索"
+            "memory_write" -> "记忆写入"
+            "memory_list" -> "记忆列表"
+            "memory_update" -> "记忆更新"
+            "memory_delete" -> "记忆删除"
+            "run_code" -> "运行代码"
+            "send_to_rp_chat" -> "发到 RP 会话"
+            "terminal_run" -> "执行命令"
+            "web_fetch" -> "抓取网页"
+            "web_search" -> "联网搜索"
+            "workspace_read" -> "读工作区"
+            "workspace_write" -> "写工作区"
+            "workspace_list" -> "列工作区"
+            "workspace_mkdir" -> "建目录"
+            "workspace_move" -> "移动文件"
+            "workspace_patch" -> "改文件"
+            "workspace_delete" -> "删文件"
+            else -> name
+        }
+    }
 
     /** 保存搜索设置（非密钥，直接写 DataStore）。 */
     fun saveSearchSettings() {
@@ -203,10 +271,6 @@ class SettingsViewModel(
 
     fun dismissMessage() = _state.value.let { _state.value = it.copy(message = null) }
 
-    companion object {
-        const val AUDIT_LIMIT = 50
-    }
-
     private fun redact(key: String): String =
         if (key.isBlank()) "" else key.take(3) + "***" + key.takeLast(2)
 }
@@ -221,8 +285,7 @@ data class AuditRow(
     val timeLabel: String,
 )
 
-data class SettingsState(
-    val name: String = "",
+data class SettingsState(    val name: String = "",
     val systemPrompt: String = "",
     val modelRef: String = "",
     val availableModels: List<String> = emptyList(),
@@ -247,4 +310,20 @@ data class SettingsState(
     val braveKey: String = "",
     val tavilyKeySet: Boolean = false,
     val braveKeySet: Boolean = false,
+    /** 工具开关清单（内置工具；默认关闭的排在前列）。 */
+    val tools: List<ToolSwitchRow> = emptyList(),
+)
+
+/**
+ * 工具开关的一行。
+ *
+ * [defaultOff] = 该档（T2/T3）默认关闭、**需用户显式开启**（PLAN §12.1）——UI 据此标注，
+ * 让用户明白「不是坏了，是默认关着」。
+ */
+data class ToolSwitchRow(
+    val name: String,
+    val label: String,
+    val hint: String,
+    val enabled: Boolean,
+    val defaultOff: Boolean,
 )

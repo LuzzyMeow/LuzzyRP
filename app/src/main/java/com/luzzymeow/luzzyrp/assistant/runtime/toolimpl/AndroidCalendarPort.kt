@@ -146,7 +146,11 @@ class AndroidCalendarPort(private val context: Context) : CalendarPort {
 
     private fun requirePermission(permission: String, label: String) {
         if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
-            throw CalendarPermissionException("未授予「$label」权限")
+            // 报错要可执行：告诉用户去哪儿授权（App 内入口在助手设置页「工具开关」的「日历权限」行）。
+            throw CalendarPermissionException(
+                "未授予「$label」权限：请在助手设置页 → 工具开关 → 日历权限 点「授予」；" +
+                    "若曾拒绝，请到系统「设置 → 应用 → LuzzyRP → 权限」里允许「日历」。",
+            )
         }
     }
 

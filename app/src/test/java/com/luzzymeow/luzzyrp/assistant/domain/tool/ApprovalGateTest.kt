@@ -86,6 +86,21 @@ class ApprovalGateTest {
     }
 
     @Test
+    fun `显式开关覆盖 tier 默认值`() {
+        // 2026-09-11 静态审查：设置页「工具开关」把用户显式开关写进 DataStore，运行时以 @Volatile
+        // 快照喂给 globalSwitch。这条测试锁定该契约——显式值优先于 tier 默认，**两个方向都要生效**。
+        val t2On = ApprovalGate(globalSwitch = { name -> if (name == deviceTool.name) true else null })
+        assertTrue("显式开启要能覆盖 T2 默认关闭", t2On.isEnabled(deviceTool))
+
+        val t0Off = ApprovalGate(globalSwitch = { name -> if (name == readTool.name) false else null })
+        assertFalse("显式关闭要能覆盖 T0 默认开启", t0Off.isEnabled(readTool))
+
+        val unset = ApprovalGate(globalSwitch = { null })
+        assertTrue(unset.isEnabled(readTool))
+        assertFalse(unset.isEnabled(deviceTool))
+    }
+
+    @Test
     fun `HARDLINE 不受本会话放行影响`() {
         // 审批门只管「是否弹卡」；HARDLINE 在工具实现内无条件拦截（见 HardlineGuardTest）
         val gate = ApprovalGate()

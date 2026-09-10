@@ -914,4 +914,66 @@ STATUS §7 加 R6、§12 加第 16 项。
 3. 阻塞项仍待用户复测（激活供应商 STA1N 的 API Key 长度为 0；`requestTools` 复原是否已根治
    「永停生成中」）。
 
+---
+
+## 2026-09-11 · 会话 52：P2 顶栏语言统一 = 纸面页头（D1，用户免除三方向门）
+
+**用户指令（原话）**：「顶栏语言统一，此任务本次免去三方向」。
+
+### 一、设计门执行记录（硬性规定 9）
+
+**第 1 步·阅读**：完整阅读 4 项 SKILL 主文档——huashu-design `SKILL.md`（三方向硬门 + **唯一豁免
+三条** + 反 AI slop + 检查点/Gate 文件协议）、open-design `AGENTS.md`（UI 动画哲学
+`cubic-bezier(.23,1,.32,1)` / 进 200 出 140 / 禁 `scale(0)`；**新 UI 优先复用共享原语而非自造**；
+DESIGN.md 为品牌契约）、ui-ux-pro-max `CLAUDE.md`、awesome-design-md `README.md`（DESIGN.md 九段格式）。
+
+**第 2 步·三方向硬门 → 用户豁免**：用户明说跳过，属 huashu「唯一豁免」**第 1 条**
+（「用户**本次会话明说**跳过」）→ **不产出 D1/D2/D3 方向板**，由执行方裁定；
+用户原话与豁免依据落档 `docs/design/direction-approved-assistant.md`（Gate 文件协议）。
+
+**裁定：D1 纸面页头**。三条理由：① D2（两侧统一深色）与「暖幕手记/雾纸」表面阶梯气质冲突，
+审查档已判不可取；② **D3 在本实现下无触发场景**——D3 是「纸面页头 + 滚动过一屏浮现 hairline」，
+而页头改为**入流**后消息流不再从其下穿过，该状态没有触发条件，只剩无用逻辑；③ 黑渐隐在助手下
+**没有功能**——上游用它是因为聊天内容压在**角色背景图**上（保证白字可读），助手页背后是纯 canvas。
+
+### 二、落地（原生 Compose，零上游改动、零新 patch）
+
+| 项 | 改前 | 改后 |
+|----|------|------|
+| 页头形态 | **覆盖层**：112dp 黑色渐隐压在消息流之上 | **入流**：48dp 行 + 水平 16dp + 行下 16dp，与八张管理页同骨架 |
+| 表面 / 文字 | canvas 上看不见的渐变 + **白字** | **canvas 底 + 深字**（名称 20sp Bold `body`，会话标题 12sp `mutedSoft`） |
+| 汉堡 | 32dp 圆形点击区 + Canvas 手绘 1.6dp 图标 | 40dp 触控区 + **24dp `LedgerIcons.Menu`**（2dp），`muted` |
+| 头像 | 36dp 半透明白圆 + 白字（为深色渐变而设） | 36dp 圆：`accentSoft` 底 + `accentButton` 字 + `hairline` 边（＝管理页「前置图标」位配色） |
+| chevron | 16dp 手绘 1.6dp，白 62% | 16dp `LedgerIcons.ChevronDown`（2dp），`mutedSoft` |
+| 设置按钮 | 36dp 圆形点击区 + 手绘齿轮 1.5dp，白 78% | **`LedgerIconButton` 40dp 方钮**（`card` 底 + `hairline` 边 + `rounded-xl`，§#2 规格） |
+| 死常量 | `HEADER_GRADIENT_HEIGHT` / `HEADER_ROW_HEIGHT` / `CHAT_CONTENT_TOP_PADDING` | 随黑渐隐一起删除（消息区不再需要 56dp 让位） |
+| 按下反馈 | 聊天页各自为政 | `pressScale`（0.95 / 150ms）由 `private` 改 `internal`，**聊天页与管理页同一定义点** |
+
+**保留的用户指定差异**：头像 + 助手名 + 会话标题（可点开会话信息）+ 右上角「助手设置」
+（上游是「清空聊天」）。**取消的只是上游那层皮肤**。
+
+### 三、验证
+
+| 项 | 命令 | 结果 |
+|----|------|------|
+| 单测 | `./gradlew :app:testDebugUnitTest` | **331 用例 / 0 失败 / 0 错误**（34 类） |
+| 门禁 | `tools/verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch） |
+| 构建 | `./gradlew :app:assembleRelease` | BUILD SUCCESSFUL；单包 `app-release.apk` **40.95 MB** |
+| 签名 | `apksigner verify --print-certs` | **CN=LuzzyRP / `ed78235d…dfb1`**（与上一版一致） |
+| 真机 | `adb devices` | **空** —— 亮/暗双模式的页头观感**未验**，待用户装机 |
+
+### 四、交付前自检（硬性规定 9 第 5 步）
+
+- **五维 critique**：方向＝全 App 同源（卷宗）✓；品牌＝零新增色相，全部既有 token ✓；
+  层级＝20sp Bold 标题 > 12sp 副标题，汉堡 `muted` < 标题 `body` ✓；动效＝无新增动效，
+  点击反馈走既有 `pressScale`（150ms / 0.95，禁 `scale(0)`）✓；工程＝复用 ledger 原语、
+  单一定义点、零新增依赖 ✓。
+- **pro-rules 对照**：触控目标 40dp（＝上游 `p-2.5` 与 §#2 规格；本项目以自有契约为准）。
+
+### 五、遗留
+
+1. **真机观感未验**（执行机无设备）：亮/暗双模式下页头、头像配色、标题层级；
+2. P1-7 的 32dp 间距、P1-3 用户气泡色差同样待真机目测；
+3. 阻塞项（STA1N 空 Key / `requestTools` 复原效果）仍待用户复测。
+
 

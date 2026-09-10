@@ -373,12 +373,18 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 
 | 组件 | 规格 |
 |------|------|
+| **页头** | **管理页 `LedgerPageHeader` 同骨架**（§管理页组件规范 #1）：行高 **48dp**（`h-12`）+ 水平 **16dp**（`.management-view p-4`）+ 行下 **16dp**（`mb-4`）；**canvas 底、无渐变、入流不覆盖消息流**。左＝汉堡（40dp 触控区 + 24dp 图标 `LedgerIcons.Menu`，`muted`）；中＝头像 36dp 圆（`accentSoft` 底 + `accentButton` 字 + `hairline` 边，替管理页的 24dp 前置图标位）+ 名称 **20sp Bold `body`** + 会话标题 **12sp `mutedSoft`** + chevron 16dp `mutedSoft`；右＝**图标按钮 40dp 方钮**（`card` 底 + `hairline` 边 + `rounded-xl`，§#2）。**2026-09-10 P2 顶栏语言统一**：原「112dp 黑渐隐覆盖层 + 白字 + 1.6dp 手绘图标」整体取消（那是上游给压在角色背景图上的聊天页做可读性用的，助手下无图可压） |
 | 用户气泡 | 底 **`#F1E3D9`**（暗色 `#3A2E26`）+ 边框 **coral-300**（暗色同色降饱和）1dp；圆角 **16dp**；内边距 14×10dp；**最大宽 320dp**；右对齐 |
 | AI 气泡 | 底 `surface-soft`（`#F5F0E8`）+ `hairline` 边 1dp；圆角 16dp；内边距 14×10dp；**最大宽 320dp**；左对齐 |
 | 气泡间距 | 同一轮内 8dp；**轮间距 32dp**（原 48dp 系复制上游 `space-y-12`，那是为角色头像留白，助手无头像故收敛）——**待真机目测确认** |
 | 输入岛 | `surface-card` 实底（禁 `backdrop-filter`）+ `hairline` 边；圆角 **22dp**；内边距 start 4 / end 6 / v 6dp；左侧附件 **44dp 触控区 + 24dp 图标**（`LedgerIcons.Plus`）；发送键 **44dp coral 实心圆 + 白色 24dp 图标**（`LedgerIcons.Send`，上游聊天页纸飞机 `w-5 h-5`）；**禁止用 Text 字符代替图标** |
 | 审批卡 / 澄清卡 | `card` 底 + `rounded-2xl` 16dp + 内边距 16dp；主按钮＝coral 实心（**仅弹窗 CTA**），次级＝`card` 底 + `accentSoft` 边；高 32dp |
 | 空态 | **全助手唯一实现**：居中列，间距 8dp；主文 14sp `muted`、副文 12sp `mutedSoft`（**深字**，配 canvas；聊天页顶栏的白字版已删除） |
+
+> **2026-09-10 P2「顶栏语言统一」落地（用户免除三方向门）**：审查档 A1 的两套顶栏语言至此收敛为
+> 一套——聊天页改用**纸面页头**（上表首行），112dp 黑渐隐整体取消。用户原话「顶栏语言统一，
+> 此任务本次免去三方向」，属 huashu-design「唯一豁免」第 1 条（用户本次会话明说跳过），
+> 已落档 `docs/design/direction-approved-assistant.md`；本表即该决策的设计真源。
 
 ### 动效
 

@@ -57,9 +57,13 @@ private val CardShape @Composable get() = RoundedCornerShape(Ledger.RadiusLg)
 private val InnerShape @Composable get() = RoundedCornerShape(Ledger.RadiusMd)
 private val SmallShape @Composable get() = RoundedCornerShape(Ledger.RadiusSm)
 
-/** `active:scale-95`——按下 0.95 缩放（150ms）。 */
+/**
+ * `active:scale-95`——按下 0.95 缩放（150ms）。
+ *
+ * `internal` 而非 `private`：聊天页页头（`ChatTopBar`）复用它，**按下反馈只此一处定义**。
+ */
 @Composable
-private fun Modifier.pressScale(interaction: MutableInteractionSource): Modifier {
+internal fun Modifier.pressScale(interaction: MutableInteractionSource): Modifier {
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.95f else 1f,

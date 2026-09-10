@@ -34,11 +34,11 @@ import com.luzzymeow.luzzyrp.assistant.ui.chat.PendingQuestion
 import com.luzzymeow.luzzyrp.assistant.ui.component.ApprovalDialogContent
 import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_CONTENT_BOTTOM_PADDING
 import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_CONTENT_HORIZONTAL_PADDING
-import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_CONTENT_TOP_PADDING
 import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_MESSAGE_SPACING
 import com.luzzymeow.luzzyrp.assistant.ui.component.ChatTopBar
 import com.luzzymeow.luzzyrp.assistant.ui.component.InputIsland
 import com.luzzymeow.luzzyrp.assistant.ui.component.MessageItem
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.Ledger
 import com.luzzymeow.luzzyrp.assistant.ui.model.AssistantUi
 import com.luzzymeow.luzzyrp.assistant.ui.model.ConversationUi
 import com.luzzymeow.luzzyrp.assistant.ui.model.MessageUi
@@ -48,11 +48,12 @@ import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 /**
  * 助手首页 = **LuzzyRP 聊天页版式**（用户 2026-09-09 指定，方向 A 改稿）。
  *
- * 结构对齐上游 `index.html` 的聊天视图：
- * `h-28` 黑色渐隐顶栏（汉堡 + 头像 + 名称 + chevron）→ 消息流（`px-2 pt-14 space-y-12`）
- * → 底部输入岛；**唯一差异点**：顶栏右上角按钮 = 助手专属设置（上游是「清空聊天」）。
+ * 版式保留用户指定的内容差异：页头（汉堡 + 头像 + 助手名 + 会话标题 + 设置）、消息流、
+ * 底部输入岛。
  *
- * 会话列表与助手切换收进左侧抽屉（汉堡），管理页入口同在抽屉底部——见 `AssistantSidebar`。
+ * **2026-09-10 P2 顶栏语言统一**：页头由「覆盖在消息流之上的 112dp 黑渐隐」改为
+ * **入流的纸面页头**，与八张管理页同骨架（`p-4` 水平 + `h-12` + `mb-4`，见 `ChatTopBar`）；
+ * 壳体/骨架不再是上游聊天页那一套，只有内容差异保留。
  */
 @Composable
 fun ChatScreen(
@@ -83,7 +84,19 @@ fun ChatScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(colors.canvas)) {
-        // 消息区（顶栏以覆盖层形式压在滚动内容之上，与上游一致）
+        // 页头（与管理页同骨架：水平 16dp + h-12 + 下方 16dp）
+        ChatTopBar(
+            title = assistant?.name ?: "助手",
+            subtitle = conversation?.title?.takeIf { it.isNotBlank() && it != "新会话" },
+            avatarText = (assistant?.name ?: "助").take(1),
+            onMenu = onOpenSidebar,
+            onTitleClick = onOpenConversationInfo,
+            onSettings = onOpenSettings,
+            modifier = Modifier.padding(horizontal = Ledger.PagePadding),
+        )
+        Spacer(Modifier.height(Ledger.PageHeaderGap))
+
+        // 消息区
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = listState,
@@ -91,7 +104,6 @@ fun ChatScreen(
                 contentPadding = PaddingValues(
                     start = CHAT_CONTENT_HORIZONTAL_PADDING,
                     end = CHAT_CONTENT_HORIZONTAL_PADDING,
-                    top = CHAT_CONTENT_TOP_PADDING,
                     bottom = CHAT_CONTENT_BOTTOM_PADDING,
                 ),
                 verticalArrangement = Arrangement.spacedBy(CHAT_MESSAGE_SPACING),
@@ -117,16 +129,6 @@ fun ChatScreen(
                     )
                 }
             }
-
-            ChatTopBar(
-                title = assistant?.name ?: "助手",
-                subtitle = conversation?.title?.takeIf { it.isNotBlank() && it != "新会话" },
-                avatarText = (assistant?.name ?: "助").take(1),
-                onMenu = onOpenSidebar,
-                onTitleClick = onOpenConversationInfo,
-                onSettings = onOpenSettings,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
         }
 
         // 底部：错误条 / 澄清卡 / 审批卡 / 输入岛

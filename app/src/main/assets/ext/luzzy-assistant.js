@@ -84,10 +84,13 @@
         document.head.appendChild(style);
     }
 
-    /* 协同转场（用户 2026-09-10 指定）：侧栏展开时点助手子项 → 侧栏左收 + 页面左移 +
-       助手覆盖层交叉淡化，三者同令牌（200ms / cubic-bezier(.23,1,.32,1)）同帧起跑。
-       原生覆盖层由 Luzzy.openAssistantAt 触发（MainActivity 用同一令牌做 alpha 0→1），
-       此处只负责 WebView 侧的两条位移，并在动画结束（= 覆盖层刚好 100%）后收尾。 */
+    /* 协同转场（用户 2026-09-10 指定；2026-09-11 并入「页面交接」统一编排）：
+       侧栏展开时点助手子项 → ① 侧栏左收（`.lsp-handoff` 强制 transform；时长/曲线由
+       ext/luzzy-theme.css 的 --lsp-handoff-ms 令牌统一，与普通换页同一套）；
+       ② 「新页」＝助手原生覆盖层，由 Luzzy.openAssistantAt 触发，自己做 alpha 0→1 交叉淡化
+       （MainActivity.animateAssistantOverlay，同一令牌）；③ 覆盖层淡入期间 WebView 保持绘制
+       （MainActivity 改为过渡结束才停绘），被淡化的旧页才是真的页内容。
+       三件事同帧起跑、同时结束；此处只负责加类与收尾（**不再平移 .app-main**，见 CSS 注释）。 */
     const HANDOFF_MS = 200;
 
     function withDrawerHandoff(open) {

@@ -108,6 +108,157 @@
 })();
 
 // ============================================================
+// [LuzzyRP v1.5.0] 页面交接编排（用户 2026-09-11 指定）
+// 统一「所有页之间」的转场：侧栏左移 + 页内容交叉淡化，两者**同帧起跑、同时结束**
+// （时长/曲线/快照层规则见 ext/luzzy-theme.css 的「页面交接编排」段）。
+//
+// 怎么认出「换了哪两页」——**集合差分，不猜**：
+//   点击前记下 `.app-main` 的可见子元素集合 `before`，下一帧（Vue 已在微任务里重渲染）
+//   再取一次 `after`：
+//     · 新页 = after − before（新变可见的）
+//     · 旧页 = before − after（刚被隐藏的）
+//     · 恒可见的 chrome（扩展层注入的 .lsp-fab-row 等）= before ∩ after → 天然被排除
+//   这样既不依赖类名/高度去「猜」哪个是页面，也不怕上游以后再加常驻 chrome。
+//   首版用「第一个可见子元素」判定，把恒可见的 .lsp-fab-row 当成了页面 → 收尾时算错当前页、
+//   旧页的 display:none 没还原，真机上切几次就出现「聊天页盖在管理页上」（用户 2026-09-11 报告）；
+//   改为差分后，该失效模式从根上不存在（有 tools/page-handoff-test.cjs 守着：连切 10 次断言
+//   「可见页面数 == 1」，并采样时间线断言各要素同时结束）。
+//
+// 旧页处理：只有**仍在文档里**（v-show 保活）才当快照层——清掉它的行内 display:none 让它继续
+// 绘制、只跑 opacity；若它已被 v-if 摘除（isConnected=false），就只做新页淡入，不做任何 display 手术。
+//
+// 只读 DOM、不改上游任何逻辑；任何一步失败都静默降级为「原来的硬切」，不影响主流程。
+// ============================================================
+(function () {
+    'use strict';
+
+    var HANDOFF_MS = 200;   // 与 CSS 的 --lsp-handoff-ms 同值（此处只作兜底清理计时）
+    var MAIN_SELECTOR = '.app-main';
+
+    var ghost = null;       // 旧页（快照层，可能为 null）
+    var incoming = null;    // 新页
+    var chrome = [];        // 本次切换中恒定可见的元素（不会被当成页面）
+    var beforeSet = null;   // 点击前的可见集合
+    var endTimer = 0;
+    var rafId = 0;
+    var tries = 0;
+
+    function mainEl() {
+        return document.querySelector(MAIN_SELECTOR);
+    }
+
+    /** 当前可见的直接子元素（快照，用于差分）。 */
+    function visibleSet(main) {
+        var out = [];
+        if (!main) return out;
+        var kids = main.children;
+        for (var i = 0; i < kids.length; i++) {
+            var el = kids[i];
+            if (el.nodeType !== 1) continue;
+            if (window.getComputedStyle(el).display !== 'none') out.push(el);
+        }
+        return out;
+    }
+
+    function clear() {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+        if (endTimer) { clearTimeout(endTimer); endTimer = 0; }
+        if (ghost) {
+            ghost.classList.remove('lsp-view-out');
+            // 旧页的行内 display 是我们在 play() 里清掉的。收尾时判断它现在到底该不该可见：
+            // 排除「本次切换中恒可见的 chrome」后，若还有别的页面可见 → 旧页不是当前页 → 还原隐藏；
+            // 一个都没有（用户在这 200ms 内又切回了它）→ 它就是当前页，保持可见。
+            var main = mainEl();
+            if (main && ghost.isConnected) {
+                var others = visibleSet(main).filter(function (el) {
+                    return el !== ghost && chrome.indexOf(el) < 0;
+                });
+                if (others.length) ghost.style.display = 'none';
+            }
+        }
+        if (incoming) incoming.classList.remove('lsp-view-in');
+        document.documentElement.classList.remove('lsp-page-handoff');
+        ghost = null;
+        incoming = null;
+        chrome = [];
+        beforeSet = null;
+    }
+
+    function play(prev, next, chromeSet) {
+        clear();
+        ghost = prev;
+        incoming = next;
+        chrome = chromeSet || [];
+        document.documentElement.classList.add('lsp-page-handoff');
+        if (prev) {
+            // 快照层：清掉 v-show 的行内 display:none（**不写死 display**，让它自己的 display 类生效），
+            // 再由 .lsp-view-out 把它绝对定位浮在新页之上；加类即起跑（animation），与侧栏同帧
+            if (prev.isConnected) {
+                prev.style.removeProperty('display');
+                prev.classList.add('lsp-view-out');
+            } else {
+                ghost = null;
+            }
+        }
+        if (next) next.classList.add('lsp-view-in');
+        // 收尾：animation 在**下一帧**才起跑，故清理留 2~3 帧余量，别把最后一帧切掉
+        // （fill:both 已把终态锁住，稍晚清理也不会闪回）
+        endTimer = setTimeout(clear, HANDOFF_MS + 40);
+    }
+
+    function check() {
+        rafId = 0;
+        var main = mainEl();
+        if (!main || !beforeSet) { beforeSet = null; return; }
+        // 助手入口那条自带编排（.lsp-handoff + 原生覆盖层），Web 侧不需要交叉淡化
+        if (document.documentElement.classList.contains('lsp-handoff')) { beforeSet = null; return; }
+        var after = visibleSet(main);
+        var added = after.filter(function (el) { return beforeSet.indexOf(el) < 0; });
+        var gone = beforeSet.filter(function (el) { return after.indexOf(el) < 0; });
+        if (added.length) {
+            var prev = gone.length ? gone[gone.length - 1] : null;
+            var next = added[added.length - 1];
+            var chromeSet = after.filter(function (el) { return beforeSet.indexOf(el) >= 0; });
+            beforeSet = null;
+            play(prev, next, chromeSet);
+            return;
+        }
+        // Vue 也可能把重渲染推后一帧（异步导航）：再等一帧，仍没换页就放弃
+        if (++tries < 2) rafId = requestAnimationFrame(check);
+        else beforeSet = null;
+    }
+
+    function onCapture() {
+        var main = mainEl();
+        if (!main) return;
+        beforeSet = visibleSet(main);
+        tries = 0;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(check);
+    }
+
+    /** 自愈：清掉上一次进程/异常中断可能留下的类。 */
+    function heal() {
+        try {
+            document.documentElement.classList.remove('lsp-page-handoff');
+            var main = mainEl();
+            if (!main) return;
+            var kids = main.children;
+            for (var i = 0; i < kids.length; i++) {
+                var el = kids[i];
+                if (el.nodeType !== 1) continue;
+                el.classList.remove('lsp-view-out');
+                el.classList.remove('lsp-view-in');
+            }
+        } catch (e) { /* 静默 */ }
+    }
+
+    try {
+        heal();
+        document.addEventListener('click', onCapture, true);
+    } catch (e) { /* 静默降级：无交接动画，页面照常硬切 */ }
+})();
+// ============================================================
 // [LuzzyRP v1.5.0] 助手侧栏入口加载器（PLAN §3.3 原型段）
 // 以动态注入方式加载 ext/luzzy-assistant.js，**避免修改上游 index.html**
 // （硬性规定 2/3：上游文件零裸改、扩展层隔离）。

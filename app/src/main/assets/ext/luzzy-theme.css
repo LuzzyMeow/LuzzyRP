@@ -793,27 +793,73 @@
 
 @keyframes lspGateIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* —— 侧栏 → 助手 协同转场（用户 2026-09-10 指定）——
- * 场景：处于其他页面且**侧栏展开**时，点击助手任意子项。三件事同时起跑、同时结束：
- *   ① 侧栏向左收起（translate3d -104%）；
- *   ② 页面主体同步左移一小段（跟随感，非整屏位移）；
- *   ③ 助手原生覆盖层交叉淡化（0 → 100%，见 MainActivity.animateAssistantOverlay）。
- * 时长/曲线一律用 DESIGN.md 进入令牌 **200ms / cubic-bezier(0.23,1,0.32,1)**——原生侧同一令牌，
- * 故两块渲染面虽不同源，视觉上仍是一条线。`.lsp-handoff` 由 ext/luzzy-assistant.js 加/撤。 */
-html.lsp-handoff .app-sidebar {
-    transform: translate3d(-104%, 0, 0) !important;
-    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1) !important;
+/* —— 页面交接编排（用户 2026-09-11 指定：统一「所有页之间」的转场）——
+ * 用户原话：「呼出左侧侧边菜单栏、点击其他页时菜单栏左移，页内容交叉淡化，做好不透明度曲线，
+ *   当菜单栏完全收起动画执行完毕屏幕不可见菜单栏时，淡化效果结束，完全呈现新页」。
+ * 落地要点：
+ *   ① 侧栏左移 / 页内容交叉淡化 **同帧起跑、同时结束**（共用一个时长变量；
+ *      侧栏与遮罩的 0.28s cubic-bezier(.22,.78,.25,1) 是上游值，这里换成本项目令牌）；
+ *   ② 不透明度曲线进出都用 ease-out 令牌（open-design：UI 过渡默认 ease-out、禁 ease-in）；
+ *   ③ 旧页用**原位快照层**（.lsp-view-out，**不是克隆节点**）：它的行内 display:none 由 JS 清掉
+ *      （不写死 display，保住元素自己的 flex/block 类），本层再把它 absolute inset:0 浮在新页之上，
+ *      只跑 opacity——合成层、零重排、无克隆成本，滚动位置也不会丢；
+ *   ④ 新页自 **.35** 淡入而非 0——两页同时半透明会往底色发灰（线性交叉淡化的「灰陷」），
+ *      抬高起点可让亮度手感连续；
+ *   ⑤ 两层都用 **animation 而不是 transition**：类是在视图切换的同一帧加上的，transition 需要
+ *      「前一帧的值」才跑得起来，animation 加类即起跑，才可能与侧栏严格同帧。
+ * 类由 ext/luzzy-ext.js 的页面交接控制器加/撤。 */
+:root {
+    --lsp-handoff-ms: 200ms;
+    --lsp-handoff-ease: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-html.lsp-handoff .app-main {
-    transform: translate3d(-18px, 0, 0);
-    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+:root[data-theme="luzzy"] .app-sidebar {
+    transition: transform var(--lsp-handoff-ms) var(--lsp-handoff-ease) !important;
+}
+
+:root[data-theme="luzzy"] .mobile-overlay {
+    transition:
+        opacity var(--lsp-handoff-ms) var(--lsp-handoff-ease),
+        visibility 0s linear var(--lsp-handoff-ms) !important;
+}
+
+@keyframes lspViewOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes lspViewIn { from { opacity: .35; } to { opacity: 1; } }
+
+html.lsp-page-handoff .app-main > .lsp-view-out {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 2;
+    pointer-events: none !important;
+    animation: lspViewOut var(--lsp-handoff-ms) var(--lsp-handoff-ease) both;
+}
+
+/* 注意：这里**不覆盖 display**——上游 v-show 写的行内 display:none 由 JS 移除（清掉行内值即恢复
+ * 该元素自己的 display 类，聊天页是 flex 列、管理页是块）。若在此强写 display:block!important，
+ * 快照层的内部布局会被压平（flex 子项塌陷），画面在淡出前就变形了。 */
+
+html.lsp-page-handoff .app-main > .lsp-view-in {
+    animation: lspViewIn var(--lsp-handoff-ms) var(--lsp-handoff-ease) both;
+}
+
+/* —— 侧栏 → 助手 入口（用户 2026-09-10 指定，2026-09-11 并入统一编排）——
+ * 同一套编排的助手版：① 侧栏向左收起（下面这条强制 transform；时长/曲线已由上面的令牌统一）；
+ * ② 「新页」＝助手原生覆盖层，它自己做 alpha 0→1 交叉淡化（MainActivity.animateAssistantOverlay，
+ *    同一令牌）；③ 覆盖层淡入期间 **WebView 保持绘制**（MainActivity 改为过渡结束才停绘），
+ *    被淡化的旧页才是真的「页内容」，而不是窗口底色。
+ * **取消 .app-main 平移**：统一编排只保留「侧栏左移」一处位移，页面内容只做淡化，避免两处位移互相打架。
+ * `.lsp-handoff` 由 ext/luzzy-assistant.js 加/撤。 */
+html.lsp-handoff .app-sidebar {
+    transform: translate3d(-104%, 0, 0) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    html.lsp-handoff .app-sidebar,
-    html.lsp-handoff .app-main {
+    :root[data-theme="luzzy"] .app-sidebar,
+    :root[data-theme="luzzy"] .mobile-overlay,
+    html.lsp-page-handoff .app-main > .lsp-view-out,
+    html.lsp-page-handoff .app-main > .lsp-view-in {
         transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
     }
 }
 

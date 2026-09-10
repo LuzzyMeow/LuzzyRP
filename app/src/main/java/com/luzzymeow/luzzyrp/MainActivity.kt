@@ -185,13 +185,12 @@ class MainActivity : ComponentActivity(), AssistantController {
                 // [用户 2026-09-10] 进/出助手原为硬切（visibility 直翻）体感生硬 → 加过渡。
                 // 令牌取自 DESIGN.md Motion：进 200ms / 退 140ms / cubic-bezier(0.23,1,0.32,1)，
                 // 自 scale(0.96)+alpha 0 起步（**禁 scale(0) 起步**）；系统关动画时直接呈现。
-                animateAssistantOverlay(view, entering = true)
-                // 助手覆盖层全屏显示时，WebView 仍在后台重绘（Vue 应用有动画/定时器），
-                // 与 Compose 争抢合成器 → 帧率明显下降。这里把它停绘+暂停定时器，
-                // 关闭时原样恢复（**不销毁、状态不丢**）。
-                webView.visibility = View.INVISIBLE
-                webView.onPause()
-                webView.pauseTimers()
+                //
+                // [用户 2026-09-11「页面交接」统一编排] 覆盖层淡入期间**保留 WebView 绘制**，
+                // 淡入结束才停绘：原实现紧接着置 INVISIBLE，等于把「旧页」瞬间抽走——覆盖层只能
+                // 淡入到窗口底色上（不是交叉淡化），WebView 侧的侧栏左收动画也一并看不见。
+                // 停绘策略本身不变，只是推迟到过渡收尾（200ms，可忽略）。
+                animateAssistantOverlay(view, entering = true) { suspendWebViewForAssistant() }
                 notifyAssistantVisibility(true)
             }
         }
@@ -209,6 +208,23 @@ class MainActivity : ComponentActivity(), AssistantController {
             webView.onResume()
             webView.visibility = View.VISIBLE
             notifyAssistantVisibility(false)
+        }
+    }
+
+    /**
+     * 助手覆盖层完全盖住之后停绘 WebView。
+     *
+     * 助手覆盖层全屏显示时，WebView 若继续重绘（Vue 应用有动画/定时器），会与 Compose 争抢
+     * 合成器 → 帧率明显下降。故停绘 + 暂停定时器，关闭时原样恢复（**不销毁、状态不丢**）。
+     * **调用时机**：覆盖层淡入过渡结束（见 [showAssistant]）——过渡期间必须让旧页可见，
+     * 交叉淡化才有「旧页」可淡。
+     */
+    private fun suspendWebViewForAssistant() {
+        runOnUiThread {
+            if (!assistantVisible) return@runOnUiThread
+            webView.visibility = View.INVISIBLE
+            webView.onPause()
+            webView.pauseTimers()
         }
     }
 
@@ -231,8 +247,9 @@ class MainActivity : ComponentActivity(), AssistantController {
             return
         }
         if (entering) {
-            // 进入＝纯交叉淡化（只动 alpha）：位移由 WebView 侧承担（侧栏左收 + .app-main 左移，
-            // 见 ext/luzzy-theme.css 的 .lsp-handoff），两边同时位移会在视觉上互相打架。
+            // 进入＝纯交叉淡化（只动 alpha）：位移交给 WebView 侧的侧栏左收
+            // （ext/luzzy-theme.css 的 .lsp-handoff），两边同时位移会在视觉上互相打架。
+            // 旧页（WebView）在淡化期间保持绘制，见 showAssistant 的停绘时机。
             view.alpha = 0f
             view.scaleX = 1f
             view.scaleY = 1f

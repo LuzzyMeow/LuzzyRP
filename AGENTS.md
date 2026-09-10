@@ -83,6 +83,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行）；**同时自动同步 README Status 徽章与「当前版本」行**（README 版本说明已收敛至 CHANGELOG，逐版表格移除） |
+| `tools/page-handoff-test.cjs` | **页面交接（转场）回归门禁**（2026-09-11 立） | 桌面 Chromium 同引擎族 + 手机视口：连切 10 次页断言「可见页面数 == 1 / 无残留交接类 / 恒可见 chrome 不被误隐藏」，并采样时间线断言**各要素同时结束**（≤2 帧）与时长落在 200ms 令牌 ±60ms。用法：先起 `chrome --headless=new --remote-debugging-port=9347`，再 `node tools/page-handoff-test.cjs`（退出码 0=全过）。**改 `ext/luzzy-ext.js` 的交接控制器或 `luzzy-theme.css` 的`.lsp-view-*` 规则后必跑** |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.4.0.md` | 最近版本（v1.4.0）实施计划 | 最新版本主文档；历史 PLAN（v1.0.0~v1.2.1）并存备查 |
 | `docs/RESEARCH-assistant-native-agent.md` | 菜单栏「助手」原生页（Kotlin 手机端 Agent）可行性调研 | 调研结论与分阶段路线；实施前先看该文档 + 硬性规定 9 |
@@ -473,6 +474,9 @@ Luzzy.copyToClipboard = function (text) {
 | **PowerShell `$ErrorActionPreference='Stop'` 下原生命令 stderr 会中断脚本**（会话 25 实证） | `git apply` 的 trailing-whitespace 告警写 stderr 即触发终止错误（表现为脚本跑到第 N 条莫名中断）。调用原生工具前临时置 `'Continue'` 并把 stderr 落盘，仅在退出码非 0 时读取 |
 | **接手「被中断的在途改动」时，文档描述的状态不可信**（会话 51 实证） | 上一手在 21:16–21:22 被中断，工作区留下 8 文件改动 + 3 未跟踪文件，其中 **① 删组件时误删仍在使用的 import（`ChatTopBar` 的 `Column`）② 规格测试仍断言已删除的符号（`Ledger.CollapseDurationMs`）**——两处当时都不可编译，而文档只说「未跑单测/未提交」。**接手第一件事是编译 + 单测判定断点**（`git status` 看改动面、`grep` 查被删符号的悬空引用），别照文档猜进度 |
 | **PowerShell `Out-File -Encoding utf8` 给文本加 BOM**（会话 51 实证） | 用它写 `git commit -F` 的消息文件时，**BOM 会混进 commit subject**（`git log` 里显示为 `fix(v1.5.0)`）。改用编辑工具写消息文件（无 BOM），已提交的用 `git commit --amend -F`（**未 push 才可 amend**） |
+| **扩展层认「当前页」必须用集合差分，不要用启发式猜**（会话 53 实证，真机出过 bug） | `.app-main` 里不止有页面：扩展层自己注入的 `.lsp-fab-row`（关于页置顶 FAB）是**恒可见**的兄弟节点。用「第一个可见子元素」判定 → 收尾时把 chrome 当成当前页 → 旧页的行内 `display:none` 没还原 → **聊天页永久盖在管理页上**（用户真机「切了几次就出bug」）。正解：点击前记 `before`、下一帧取 `after`，**新页 = after − before / 旧页 = before − after / 恒可见 chrome = before ∩ after**（天然排除）——不依赖类名与高度，上游以后再加常驻元素也不受影响。回归门禁 `tools/page-handoff-test.cjs` |
+| **headless Chrome 默认 `prefers-reduced-motion: reduce`**（会话 53 实证） | 桌面 CDP 测试里所有 CSS 动画/过渡都被压成 0.01ms——**测时间线等于测空气**（本测试第一版曾出现「50ms 内全部到位」的假绿）。必须先 `Emulation.setEmulatedMedia({features:[{name:'prefers-reduced-motion', value:'no-preference'}]})` 关掉该模拟 |
+| **「共终止」要用「最后一次变化」判定，不要用阈值** | ease-out 曲线下各属性到达某阈值（如位移 90%、透明度 98%）的时刻天然不同，用阈值判「同时结束」会误判。改为采样时间线后取**每个信号最后一次变化的时刻**再互比（阈值给 2 帧 + 8ms） |
 | **实体前像 = 上游纯净基线**（会话 25 修正） | 实体段必须先于字符串块重放（否则前像失配）；前像判定用实体头 `index <pre>` 的 LF 归一 blob id，勿用指纹表（CRLF 工作树哈希）比对覆盖态 |
 | **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
 | **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |

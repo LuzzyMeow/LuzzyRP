@@ -403,11 +403,27 @@ Luzzy.copyToClipboard = function (text) {
 
 > **设备辨别（2026-09-04 用户指示记录）**：真机=**小米，adb 序号 `df97f3c4`**
 > （型号 25098PN5AC / product pandora / Android 16）；多设备并存时一律
-> `adb -s df97f3c4` 显式指定。**重要**：该机日常使用包 = `com.luzzymeow.luzzyrp.debug`
-> （debug 包内有用户真实数据）——真机装新版用 **debug 包 install -r**（数据保留），
-> 勿另装 release 包（会生成第二个空数据 LuzzyRP 造成数据分裂）；release APK 仅作
-> GitHub 分发。MIUI 注意：adb 安装可能弹「USB 安装」确认框需用户在手机上点确认；
+> `adb -s df97f3c4` 显式指定。MIUI 注意：adb 安装可能弹「USB 安装」确认框需用户在手机上点确认；
 > 锁屏状态下 `am start` 可能不置前，先解锁（上滑）再操作。
+>
+> **真机体验包纪律（2026-09-10 用户指示，取代原「日常包 = debug」记录）**：
+> ① 该机日常使用包 = **release 签名包 `com.luzzymeow.luzzyrp`**（与最终分发件**同物**）；
+> ② **不再安装 debug 包**（原 debug 包已卸载、数据随之清空）；真机装新版 = `./gradlew
+> :app:assembleRelease` → `adb -s df97f3c4 install -r app/build/outputs/apk/release/app-release.apk`
+> （同签名同包名覆盖安装，**数据保留**）；
+> ③ **每个版本发布前，由用户先体验该 release APK 作最后一道人工真机测试**，通过后才 push + Release；
+> ④ release 构建已**显式开启 WebView 内容调试**（`WebViewSetup` 内 `setWebContentsDebuggingEnabled(true)`），
+> 以便真机用 CDP 做帧率/布局/脚本耗时的定量排查——代价是连 adb 的电脑可检查页面内容，本应用仅侧载分发，接受该代价；
+> ⑤ 发布前仍须 `apksigner verify --print-certs` 核对指纹（§3.4 步骤 5）。
+>
+> **真机 CDP 快速上手法**：`adb -s df97f3c4 shell "cat /proc/net/unix | grep webview_devtools"`
+> 取 socket 名（内含 pid）→ `adb -s df97f3c4 forward tcp:9222 localabstract:<socket>` →
+> `http://127.0.0.1:9222/json` 取 `webSocketDebuggerUrl`。
+> 帧率量化：`adb shell dumpsys gfxinfo com.luzzymeow.luzzyrp reset` → 触发交互 →
+> `dumpsys gfxinfo com.luzzymeow.luzzyrp`（看 Janky frames / 分位 / GPU 直方图）。
+> **注意**：① 本仓库脚本里的 `MSYS_NO_PATHCONV=1 <cmd>` 是 Git Bash 写法，**PowerShell 下不生效**
+> （会被当成命令名报错）；② `$PID` 是 PowerShell 只读自动变量，勿用作变量名。
+
 
 - 冷启动 / 热启动 / 后台恢复；
 - 对话全流程（配置 API Key → 发送 → 渲染 → 分支）；
@@ -444,7 +460,9 @@ Luzzy.copyToClipboard = function (text) {
 | 删除上游 LICENSE | 二创署名义务，禁止删除/改写 |
 | **换签名 = 老用户装不上**（2026-09-09 立为纪律） | 同包名升级要求签名一致；换密钥库 / `keystore.properties` 缺失回退 debug 签名，都会让老用户 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`（只能卸载重装、数据清空）。发布前必跑 `apksigner verify --print-certs`（§3.4 步骤 5） |
 | **多包产出**（2026-09-09 立为纪律） | ABI 拆分已关闭且禁止恢复；release 只出一个 `app-release.apk`。误开 `splits.abi` 会产出三件套，导致「发哪个包」混乱与 Release 资产冗余 |
-| **混用 debug / release 包** | 两包名不同、数据不互通（§9）；真机验证用 debug `install -r`，release 仅分发 |
+| **混用 debug / release 包**（2026-09-10 口径变更） | 两包名不同、数据不互通（§9）。**现行纪律：真机只用 release 签名包**（与分发件同物），debug 包不再安装——见 §6.1「真机体验包纪律」。切勿再构建/安装 debug 包作日常使用：会生成第二个空数据 LuzzyRP 造成数据分裂 |
+| **PowerShell 里照抄 Git Bash 的 `MSYS_NO_PATHCONV=1 <cmd>`**（会话 48 实证） | 该前缀是 Git Bash 语法，PowerShell 会把它当命令名报 `CommandNotFoundException`；PowerShell 本就无路径转换问题，直接写 `adb shell ...` 即可 |
+| **小样本掉帧对比不可信**（会话 48 实证） | 真机帧率受热/后台影响极大：同一变体三轮测出 14 / 5 / 10 掉帧。**必须成对交替测量（A/B/A/B 紧邻交替）**才算数——曾因此差点把 `contain:paint` 的噪声（14→5）当成 −64% 收益采纳，配对复测反向（无 17 / 有 26） |
 | **Tailwind CDN 不接受 var() 颜色值** | ~~已证伪~~：JIT 接受纯 var()，但见下一行真正的坑 |
 | **主题色板必须用 RGB 三元组 + `<alpha-value>`** | 纯 `var()` 色值下基本工具类正常，但带透明度修饰符的类（`bg-gray-50/60` 等）会**静默回退纯白**（暗色白块根因，不报错难排查）。正确写法：config 用 `rgb(var(--tw-gray-50) / <alpha-value>)` + 变量存三元组如 `250 249 245`（2026-09-01 jsdom+CDP 双实证，见 §9） |
 | **~~改 assets 不 bump EXTRACT_VERSION = 白改~~（v1.2.3 已根治）** | 构建期 assetSignature（文件数+大小+mtime）注入 BuildConfig.ASSET_SIGNATURE，AssetExtractor 启动比对签名自动重解压——改资产零手动操作；若签名粒度漏检（同 mtime/size 改写）仍可手动 bump 兜底 |

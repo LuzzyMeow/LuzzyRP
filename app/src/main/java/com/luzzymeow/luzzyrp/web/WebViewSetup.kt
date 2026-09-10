@@ -17,6 +17,13 @@ object WebViewSetup {
 
     @SuppressLint("SetJavaScriptEnabled")
     fun configure(webView: WebView) {
+        // 真机调试开关（用户 2026-09-09 决策）：release 包同样开启 WebView 内容调试。
+        // 缘由：用户日常真机改为**直接体验 release 签名包**（与最终分发件同物），
+        // release 不可调试会导致 CDP 排查通道整体失效（帧率/布局/脚本耗时只能靠猜）。
+        // 代价：任何能连 adb 的电脑都可检查页面内容——本应用仅侧载分发，接受该代价。
+        // 必须早于任何内容加载调用（本方法在 WebView 创建后、loadUrl 之前执行）。
+        WebView.setWebContentsDebuggingEnabled(true)
+
         val settings: WebSettings = webView.settings
 
         // JS 与存储

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,8 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.Ledger
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIcons
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyShapes
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 
@@ -31,6 +35,9 @@ import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
  *
  * `surface-card` **实底**（禁 backdrop-filter，v1.3.0 性能档位）+ hairline + 22dp 圆角；
  * 左附件图标 44dp 触控区；发送键 = 44dp coral 实心圆。
+ *
+ * 2026-09-10：`+` / `↑` 原为 Text 字符（字形随字体漂移、与全站图标体系不符），
+ * 改用上游 SVG 图标（`LedgerIcons.Plus` / `LedgerIcons.Send`，见审查档 B2）。
  */
 @Composable
 fun InputIsland(
@@ -59,7 +66,12 @@ fun InputIsland(
                 .clickable(onClick = onAttach),
             contentAlignment = Alignment.Center,
         ) {
-            Text("+", style = MaterialTheme.typography.titleLarge, color = colors.muted)
+            Icon(
+                painter = painterResource(LedgerIcons.Plus),
+                contentDescription = "添加附件",
+                tint = colors.muted,
+                modifier = Modifier.size(Ledger.IconSize),
+            )
         }
         Box(
             modifier = Modifier
@@ -96,7 +108,12 @@ fun InputIsland(
                 .clickable(enabled = enabled, onClick = onSend),
             contentAlignment = Alignment.Center,
         ) {
-            Text("↑", style = MaterialTheme.typography.titleLarge, color = Color.White)
+            Icon(
+                painter = painterResource(LedgerIcons.Send),
+                contentDescription = "发送",
+                tint = Color.White,
+                modifier = Modifier.size(Ledger.IconSize),
+            )
         }
     }
 }

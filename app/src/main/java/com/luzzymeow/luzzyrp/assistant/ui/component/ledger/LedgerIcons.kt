@@ -38,4 +38,8 @@ object LedgerIcons {
     @DrawableRes val Warning: Int = R.drawable.ic_lz_warning
     @DrawableRes val ChevronLeft: Int = R.drawable.ic_lz_chevron_left
     @DrawableRes val ChevronDown: Int = R.drawable.ic_lz_chevron_down
+    /** 上游 `#icon-menu`（聊天页汉堡 / 侧栏入口）。 */
+    @DrawableRes val Menu: Int = R.drawable.ic_lz_menu
+    /** 上游聊天页发送按钮图形（纸飞机）。 */
+    @DrawableRes val Send: Int = R.drawable.ic_lz_send
 }

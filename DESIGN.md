@@ -366,6 +366,20 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 | 输入岛 | `surface-card` 实底（**禁 backdrop-filter**，v1.3.0 性能档位） |
 | 记忆行 | 类型标签 + 正文 + `agent/user · 时间` + 相似度条（`primary-500`） |
 
+#### 聊天页组件像素规格（2026-09-10 补登记）
+
+> 上表只有色与结构，缺少可验收的像素值，导致实现层临场取值（用户气泡偏离契约、输入岛用文字字符
+> 当图标、气泡最大宽无出处）。此表为**唯一取值来源**，改值必须先改本表。
+
+| 组件 | 规格 |
+|------|------|
+| 用户气泡 | 底 **`#F1E3D9`**（暗色 `#3A2E26`）+ 边框 **coral-300**（暗色同色降饱和）1dp；圆角 **16dp**；内边距 14×10dp；**最大宽 320dp**；右对齐 |
+| AI 气泡 | 底 `surface-soft`（`#F5F0E8`）+ `hairline` 边 1dp；圆角 16dp；内边距 14×10dp；**最大宽 320dp**；左对齐 |
+| 气泡间距 | 同一轮内 8dp；**轮间距 32dp**（原 48dp 系复制上游 `space-y-12`，那是为角色头像留白，助手无头像故收敛）——**待真机目测确认** |
+| 输入岛 | `surface-card` 实底（禁 `backdrop-filter`）+ `hairline` 边；圆角 **22dp**；内边距 start 4 / end 6 / v 6dp；左侧附件 **44dp 触控区 + 24dp 图标**（`LedgerIcons.Plus`）；发送键 **44dp coral 实心圆 + 白色 24dp 图标**（`LedgerIcons.Send`，上游聊天页纸飞机 `w-5 h-5`）；**禁止用 Text 字符代替图标** |
+| 审批卡 / 澄清卡 | `card` 底 + `rounded-2xl` 16dp + 内边距 16dp；主按钮＝coral 实心（**仅弹窗 CTA**），次级＝`card` 底 + `accentSoft` 边；高 32dp |
+| 空态 | **全助手唯一实现**：居中列，间距 8dp；主文 14sp `muted`、副文 12sp `mutedSoft`（**深字**，配 canvas；聊天页顶栏的白字版已删除） |
+
 ### 动效
 
 进入 200ms / 退出 140ms / `cubic-bezier(0.23,1,0.32,1)`；禁 `scale(0)` 起步（用 `scale(0.96)` + 透明度）；
@@ -379,7 +393,11 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
 - **平台偏差**：Compose 的 `FontFamily` 不做逐字形回退（与 CSS `font-family` 栈语义不同），
   故正文主族取 PuHuiTi 而非 AlibabaSans——观感与 Web 端一致，但拉丁字形来自 PuHuiTi；
 - 转换工具 `tools/assistant-fonts.py`（woff2 → TTF）；**禁止**运行时 CDN（硬性规定 4）；
-- 体积：8 枚 TTF 约 21.2MB（用户 2026-09-09 确认）。
+- 体积：8 枚 TTF 约 21.2MB（用户 2026-09-09 确认）；
+- **等宽（2026-09-10 补登记）**：终端输出、工具名、模型 ID 等「必须逐字符对齐」的场合用
+  `FontFamily.Monospace`（系统 Droid Sans Mono 系）。**假设**：不再单独打包等宽 TTF——
+  等宽仅出现在终端页与少量标识文本，为它再增 ~1-2MB 不划算；若后续终端成为高频页面再议。
+  中文在等宽族下回落系统字体，属**已知且接受**的偏差（终端内容以拉丁命令行为主）。
 
 ### 管理页组件规范（v1.5.0 · 与上游同构）
 
@@ -426,7 +444,7 @@ WebView 视口即设备 dp，故 **1 CSS px = 1 dp = 1 sp**。
 | 3 | **分组标题** | `.settings-section-heading`：12px / 700 / `uppercase` / `letter-spacing .05em` / `#9ca3af`(gray-400) / `mb-4` | 12sp Bold，字距 0.05em，`hairlineStrong`，mb 16dp |
 | 4 | **卡片** | `bg-white rounded-2xl border border-gray-200 shadow-sm mb-6`；折叠容器变体 `bg-white/70 backdrop-blur-sm p-1 rounded-2xl border border-gray-200 shadow-sm mb-4 overflow-hidden` | `card` 底 + `hairline` 边 + `rounded-2xl`(16dp) + shadow-sm；折叠容器内边距 4dp |
 | 5 | **折叠行** | `w-full flex justify-between items-center px-4 py-3 rounded-xl font-bold`（展开态 `bg-primary-50 text-primary-700`）；左＝图标方块 `p-1.5 rounded-lg mr-3 bg-primary-100 text-primary-600`（内 `w-4 h-4`）；右＝状态文字 `text-xs font-bold text-primary-600` + `w-5 h-5` chevron（展开旋转 180°） | 高 48dp，`rounded-xl`(12dp)，图标方块 28dp `rounded-lg`(8dp) `accentSoft`/`accentButton`，右侧状态 12sp + chevron 20dp |
-| 6 | **折叠面板** | `.settings-collapse`：`grid-template-rows 0fr↔1fr` + `opacity`，`0.36s cubic-bezier(.22,1,.36,1)`；内容 `px-4 pb-4 pt-3 border-t border-gray-100` | `AnimatedVisibility`(展开 360ms `CubicBezierEasing(.22,1,.36,1)`)；内容顶边 `hairline` |
+| 6 | **折叠面板** | 上游 `.settings-collapse`：`grid-template-rows 0fr↔1fr` + `opacity`，`0.36s cubic-bezier(.22,1,.36,1)`（**上游值，本项目不采用**）；内容 `px-4 pb-4 pt-3 border-t border-gray-100` | `AnimatedVisibility`(**展开 200ms / 收起 140ms**，`CubicBezierEasing(.23,1,.32,1)`——§Motion 令牌)；内容顶边 `hairline` |
 | 7 | **开关** | `.settings-toggle`：**44×24dp** pill，底 `gray-200`，滑块 20dp 白底 `1px gray-300` 边、位移 2dp；选中底 `primary-600`、滑块 `translateX(100%)`；过渡 `all .2s`；`.settings-toggle--compact` 同形 | 44×24dp 自绘（**不用 Material3 Switch**），滑块 20dp，选中 `accentButton` |
 | 8 | **按钮** | 次级 `inline-flex items-center text-xs px-3 py-1.5 bg-white hover:bg-primary-50 text-primary-700 rounded-lg border border-primary-200 font-medium active:scale-95 shadow-sm`；主按钮 `.modal-primary-button` `primary-600` 底白字 | 高 32dp，`px-12dp`，`rounded-lg`(8dp)，12sp Medium；次级＝`card` 底 + `accentSoft` 边；主＝`accentButton` 底白字 |
 | 9 | **输入框** | `w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl px-4 py-3 text-gray-800 focus:bg-white focus:border-primary-500` | 高 44dp+，`rounded-xl`(12dp)，`surfaceSoft` 底 + 2dp `hairline` 边，聚焦 `accentGraphic` 边 |
@@ -435,7 +453,17 @@ WebView 视口即设备 dp，故 **1 CSS px = 1 dp = 1 sp**。
 | 12 | **空态** | 图标（`w-8 h-8` `text-gray-300`）+ 主文 `text-sm text-gray-500` + 副文 `text-xs text-gray-400` + 可选动作按钮 | 居中列，间距 8dp |
 | 13 | **状态徽标** | `text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-700`（成功 `bg-green-50 text-green-700` 等） | 12sp，`px-8dp`/`py-2dp`，`rounded-full` |
 | 14 | **分段选择器** | `.segmented-switch`：外框 `rounded-xl bg-gray-100 p-1`，选中滑块 `bg-white shadow-sm`（Luzzy 覆盖为 primary） | 外框 `surfaceSoft` `rounded-xl` p-4dp；滑块 `card` + shadow |
-| 15 | **图标体系** | 全站 24dp 线性 SVG：`stroke-width 2`、`stroke-linecap/linejoin round`、`viewBox 0 0 24 24`；页面图标 `text-primary-600`，次级 `text-gray-400/500` | 24dp Canvas/Path 手绘，线宽 2dp，圆头圆角 |
+| 15 | **图标体系** | 全站 24dp 线性 SVG：`stroke-width 2`、`stroke-linecap/linejoin round`、`viewBox 0 0 24 24`；页面图标 `text-primary-600`，次级 `text-gray-400/500` | 24dp 线性图标（**复用上游 SVG `d` 路径 → `res/drawable/ic_lz_*.xml` VectorDrawable**，经 `LedgerIcons` 取用），线宽 2dp，圆头圆角 |
+
+> **2026-09-10 修订（A2/A3 两条）**：
+> ① **2dp 描边适用于全部助手页，含聊天页**；② **折叠时长以 §Motion 令牌为准**：会话 48 实测后已把
+> Web 侧栏折叠从上游 `0.36s cubic-bezier(.22,1,.36,1)` 收敛到 **200/140ms + `.23,1,.32,1`**，
+> 管理页折叠面板（第 6 项）为**追认同值**，消除「Web 侧栏 200ms ／ 助手内 360ms」的节奏分裂。
+> 上游值仅保留在「上游出处」列作对照，**不得再用于实现**。
+>
+> 落地方式（比原计划更彻底）：聊天页原 `ChatIcons.kt`（Canvas 手绘 1.6/1.5dp）**整文件删除**，
+> 顶栏/输入岛一律改用与管理页同一套 `LedgerIcons`（VectorDrawable）——两套描边从**来源上**消灭，
+> 而非逐处改数值。新增图标：`Menu`（上游 `#icon-menu`）、`Send`（上游聊天页发送纸飞机）。
 
 #### 页面骨架（所有管理页统一）
 

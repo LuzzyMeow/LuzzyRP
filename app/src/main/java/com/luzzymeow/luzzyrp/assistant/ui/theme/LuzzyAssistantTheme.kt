@@ -67,6 +67,14 @@ data class LuzzyColors(
     val success: Color,
     val warning: Color,
     val error: Color,
+    /**
+     * 用户气泡底（DESIGN.md §组件映射「用户气泡」）：亮 `#F1E3D9` / 暗 coral-50 `#2E2119`。
+     * 2026-09-10 修正：此前误用 `surfaceCard`（#EFE9DE），与 AI 气泡（`surfaceSoft` #F5F0E8）
+     * 几乎同色 → 身份难辨（审查档 B1）。
+     */
+    val userBubble: Color,
+    /** 用户气泡边（coral-300）：亮 `#E5B099` / 暗 `accentDeep` `#9A6244`。 */
+    val userBubbleEdge: Color,
 ) {
     val isDark: Boolean get() = canvas.luminanceIsDark()
 }
@@ -95,6 +103,8 @@ val LuzzyColorsLight = LuzzyColors(
     success = Color(0xFF5DB872),
     warning = Color(0xFFD4A017),
     error = Color(0xFFC64545),
+    userBubble = Color(0xFFF1E3D9),
+    userBubbleEdge = Color(0xFFE5B099),
 )
 
 /** 暗色（DESIGN.md「Luzzy 暖幕手记 · 暗色」表，v3 层次重调）。 */
@@ -118,6 +128,8 @@ val LuzzyColorsDark = LuzzyColors(
     success = Color(0xFF5DB872),
     warning = Color(0xFFD4A017),
     error = Color(0xFFC64545),
+    userBubble = Color(0xFF2E2119),
+    userBubbleEdge = Color(0xFF9A6244),
 )
 
 /** 动效纪律（DESIGN.md + 硬性规定 9 第 4 步）：进入 200ms / 退出 140ms / ease-out。 */

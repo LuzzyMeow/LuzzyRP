@@ -52,8 +52,14 @@ object Ledger {
     val SearchIconInset = 12.dp
     /** 折叠行 `px-4 py-3`。 */
     val CollapseRowHeight = 48.dp
-    /** 折叠面板展开时长（`.settings-collapse` 0.36s）。 */
-    const val CollapseDurationMs = 360
+    /**
+     * 折叠面板时长（DESIGN.md §Motion 令牌）：**展开 200ms / 收起 140ms**。
+     *
+     * 2026-09-10 修订：原为上游 `.settings-collapse` 的 360ms——与会话 48 已收敛到令牌的
+     * Web 侧栏折叠（200/140）分裂成两种节奏，故追认为令牌值（审查档 A3）。
+     */
+    const val CollapseExpandMs = 200
+    const val CollapseCollapseMs = 140
     /** 列表行最小高度。 */
     val ListRowMinHeight = 48.dp
     /** 分段选择器外框 `p-1`。 */

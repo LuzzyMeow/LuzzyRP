@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.luzzymeow.luzzyrp.assistant.ui.chat.PendingApproval
 import com.luzzymeow.luzzyrp.assistant.ui.chat.PendingQuestion
 import com.luzzymeow.luzzyrp.assistant.ui.component.ApprovalDialogContent
+import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_CONTENT_BOTTOM_PADDING
 import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_CONTENT_HORIZONTAL_PADDING
 import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_CONTENT_TOP_PADDING
 import com.luzzymeow.luzzyrp.assistant.ui.component.CHAT_MESSAGE_SPACING
@@ -91,7 +92,7 @@ fun ChatScreen(
                     start = CHAT_CONTENT_HORIZONTAL_PADDING,
                     end = CHAT_CONTENT_HORIZONTAL_PADDING,
                     top = CHAT_CONTENT_TOP_PADDING,
-                    bottom = 16.dp,
+                    bottom = CHAT_CONTENT_BOTTOM_PADDING,
                 ),
                 verticalArrangement = Arrangement.spacedBy(CHAT_MESSAGE_SPACING),
             ) {

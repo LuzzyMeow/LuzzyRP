@@ -43,6 +43,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyColors
+import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyMotion
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 
 /**
@@ -254,11 +255,16 @@ fun LedgerCollapseCard(
             visible = expanded,
             enter = expandVertically(
                 animationSpec = tween(
-                    Ledger.CollapseDurationMs,
-                    easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f),
+                    Ledger.CollapseExpandMs,
+                    easing = LuzzyMotion.EaseOut,
                 ),
             ),
-            exit = shrinkVertically(animationSpec = tween(200)),
+            exit = shrinkVertically(
+                animationSpec = tween(
+                    Ledger.CollapseCollapseMs,
+                    easing = LuzzyMotion.EaseOut,
+                ),
+            ),
         ) {
             Column(
                 modifier = Modifier

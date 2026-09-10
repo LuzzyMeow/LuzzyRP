@@ -47,6 +47,12 @@ import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyShapes
 import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
 
 /**
+ * 气泡最大宽（DESIGN.md §聊天页组件像素规格）。两侧**同值**——
+ * 此前用户 300 / AI 320 无出处，属临场取值。
+ */
+val CHAT_BUBBLE_MAX_WIDTH = 320.dp
+
+/**
  * 消息区组件（方向 A §1.5）。
  *
  * 三类渲染通道分开：正文气泡 / 思考卡 / 工具卡与步骤组——
@@ -69,10 +75,10 @@ private fun UserBubble(text: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Box(
             modifier = Modifier
-                .widthIn(max = 300.dp)
+                .widthIn(max = CHAT_BUBBLE_MAX_WIDTH)
                 .clip(LuzzyShapes.bubble)
-                .background(colors.surfaceCard)
-                .border(1.dp, colors.accentGraphic.copy(alpha = 0.35f), LuzzyShapes.bubble)
+                .background(colors.userBubble)
+                .border(1.dp, colors.userBubbleEdge, LuzzyShapes.bubble)
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             Text(text = text, style = MaterialTheme.typography.bodyLarge, color = colors.body)
@@ -89,7 +95,7 @@ private fun AssistantMessage(message: MessageUi) {
         if (message.content.isNotEmpty()) {
             Box(
                 modifier = Modifier
-                    .widthIn(max = 320.dp)
+                    .widthIn(max = CHAT_BUBBLE_MAX_WIDTH)
                     .clip(LuzzyShapes.bubble)
                     .background(colors.surfaceSoft)
                     .border(1.dp, colors.hairline, LuzzyShapes.bubble)

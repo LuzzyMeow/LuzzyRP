@@ -52,8 +52,11 @@ class LedgerTokensTest {
     }
 
     @Test
-    fun `折叠面板时长对齐 settings-collapse（0·36s）`() {
-        assertEquals(360, Ledger.CollapseDurationMs)
+    fun `折叠面板时长对齐 §Motion 令牌（展开 200 · 收起 140）`() {
+        // 2026-09-10 修订：原对齐上游 .settings-collapse 的 0.36s，与会话 48 已收敛到令牌的
+        // Web 侧栏折叠（200/140）分裂成两种节奏 → 追认为令牌值（审查档 A3）。
+        assertEquals(200, Ledger.CollapseExpandMs)
+        assertEquals(140, Ledger.CollapseCollapseMs)
     }
 
     @Test
@@ -63,15 +66,17 @@ class LedgerTokensTest {
     }
 
     @Test
-    fun `图标集覆盖管理页所需语义`() {
+    fun `图标集覆盖助手页所需语义`() {
         val icons = listOf(
             LedgerIcons.Conversation, LedgerIcons.Memory, LedgerIcons.Skills, LedgerIcons.Mcp,
             LedgerIcons.Workspace, LedgerIcons.Terminal, LedgerIcons.Settings, LedgerIcons.Assistants,
             LedgerIcons.Plus, LedgerIcons.Trash, LedgerIcons.Search, LedgerIcons.Refresh,
             LedgerIcons.ExternalLink, LedgerIcons.Download, LedgerIcons.Close,
             LedgerIcons.Info, LedgerIcons.Warning, LedgerIcons.ChevronLeft, LedgerIcons.ChevronDown,
+            // 聊天页顶栏/输入岛（2026-09-10 起与 ledger 同源，ChatIcons 已删除）
+            LedgerIcons.Menu, LedgerIcons.Sliders, LedgerIcons.Send,
         )
-        assertEquals(19, icons.size)
+        assertEquals(22, icons.size)
         // 图标是 VectorDrawable 资源 id（复用上游 SVG），非零即有效
         icons.forEach { id -> assertTrue("drawable id 应为非零", id != 0) }
     }

@@ -3,7 +3,6 @@ package com.luzzymeow.luzzyrp.assistant.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIcons
 
 /**
  * 聊天页顶栏（对齐上游 `index.html` 的 Chat Header，用户 2026-09-09 指定）。
@@ -65,16 +67,15 @@ fun ChatTopBar(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 左：汉堡 → 会话/助手抽屉
-            Box(
+            // 左：汉堡 → 会话/助手抽屉（上游 `#icon-menu` 原图形，24dp）
+            Icon(
+                painter = painterResource(LedgerIcons.Menu),
+                contentDescription = "打开侧栏",
+                tint = Color.White.copy(alpha = 0.88f),
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
+                    .size(24.dp)
                     .clickable(onClick = onMenu),
-                contentAlignment = Alignment.Center,
-            ) {
-                MenuIcon(color = Color.White.copy(alpha = 0.88f))
-            }
+            )
 
             // 中：头像 + 名称 + chevron（点击展开会话信息）
             Row(
@@ -117,22 +118,26 @@ fun ChatTopBar(
                         )
                     }
                 }
-                ChevronIcon(
-                    color = Color.White.copy(alpha = 0.62f),
-                    modifier = Modifier.padding(start = 4.dp),
+                // chevron：上游 `w-4 h-4` = 16dp
+                Icon(
+                    painter = painterResource(LedgerIcons.ChevronDown),
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.62f),
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .size(16.dp),
                 )
             }
 
-            // 右：助手专属设置（用户指定的唯一差异点）
-            Box(
+            // 右：助手专属设置（用户指定的唯一差异点；上游清空按钮为 `w-5 h-5` = 20dp）
+            Icon(
+                painter = painterResource(LedgerIcons.Settings),
+                contentDescription = "助手设置",
+                tint = Color.White.copy(alpha = 0.78f),
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
+                    .size(20.dp)
                     .clickable(onClick = onSettings),
-                contentAlignment = Alignment.Center,
-            ) {
-                SettingsIcon(color = Color.White.copy(alpha = 0.78f))
-            }
+            )
         }
     }
 }
@@ -149,18 +154,12 @@ val CHAT_CONTENT_TOP_PADDING = 56.dp
 /** 消息区左右内边距（上游 `px-2` = 8dp）。 */
 val CHAT_CONTENT_HORIZONTAL_PADDING = 8.dp
 
-/** 消息间距（上游 `space-y-12` = 48dp）。 */
-val CHAT_MESSAGE_SPACING = 48.dp
+/**
+ * 消息间距。上游 `space-y-12`(48dp) 是为角色头像/时间留白；**助手气泡无头像**，48dp 显散
+ * → 收敛到 **32dp**（DESIGN.md §聊天页组件像素规格「气泡间距」）。
+ * ⚠ **待真机目测确认**：若仍显松散取 24dp。
+ */
+val CHAT_MESSAGE_SPACING = 32.dp
 
-/** 无消息时的空态提示（上游「未选择角色卡」的等价文案）。 */
-@Composable
-fun ChatEmptyState(title: String, hint: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.92f))
-        Text(hint, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.72f))
-    }
-}
+/** 消息区底部内边距（滚动到底时给输入岛让位）。 */
+val CHAT_CONTENT_BOTTOM_PADDING = 16.dp

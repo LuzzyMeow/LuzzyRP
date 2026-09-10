@@ -864,3 +864,54 @@ STATUS §7 加 R6、§12 加第 16 项。
    `requestTools` 复原是否就是该现象的全部原因，需真机实测确认；
 3. 11 项真机能力（LLM 流式 / proot 沙盒 / 工具审批 / 记忆 / MCP / 技能 / 工作区 / 终端 / 重启恢复）仍为 0%。
 
+---
+
+## 2026-09-11 · 会话 51：助手页 UI 断层修复 P0+P1（接手会话 50 中断的在途改动）
+
+> **接手背景（上下文重置后的续作）**：会话 50 的审查档与修复计划在落地途中被中断。
+> `main` 已提交会话 49/50（`2b85d51d`，patch 040/041 + 删「阿墨」+ 过渡动画 + 侧栏组移位，21 文件），
+> **紧随其后的 P0/P1 改动全部留在工作区未提交**，且其中两处处于**不可编译 / 不可通过**的状态。
+
+### 一、接手盘点（先验证，再动手）
+
+| 项 | 事实 |
+|----|------|
+| HEAD | `2b85d51d`（会话 49+50 已提交，领先 `origin/main` 50 提交） |
+| 在途改动 | 8 文件 +105/−141：`DESIGN.md`、`ChatTopBar.kt`、`MessageComponents.kt`、`LedgerComponents.kt`、`LedgerIcons.kt`、`LedgerTokens.kt`、`LuzzyAssistantTheme.kt`、**删除 `ChatIcons.kt`**；新增 `ic_lz_menu.xml` / `ic_lz_send.xml` / `AUDIT-assistant-ui-parity.md`（均未提交） |
+| 断点位置 | 文件时间戳 21:16–21:22：**P0（契约自洽）已改完**；P1 走到 P1-3 —— **P1-4 只做了一半**（`LedgerIcons.Send` 与 `ic_lz_send.xml` 已建，但 `InputIsland` 仍在用文字字符） |
+| 遗留破绽 | ① `ChatTopBar` 删组件时**误删仍在使用的 `Column` import**（编译必失败）；② `LedgerTokensTest` 仍断言已删除的 `Ledger.CollapseDurationMs`（测试编译必失败）；③ `MessageComponents` 新常量 KDoc 插进 `MessageItem` 的文件级 KDoc 与函数之间（原 KDoc 悬空）；④ `CHAT_CONTENT_BOTTOM_PADDING` 定义后未接线；⑤ `DESIGN.md` 的修订块引用插在组件表第 6、7 行之间，**把 15 行表劈成两张**；⑥ 契约里写了不存在的 `LedgerIcons.ArrowUp` |
+
+### 二、本轮动作
+
+1. **P1-4 输入岛图标（补完上一手未做完的）**：`Text("+")` / `Text("↑")` → `Icon(painterResource(
+   LedgerIcons.Plus / LedgerIcons.Send), 24dp)`（`Ledger.IconSize`），字形不再随字体 / 系统漂移；
+2. **P0-5 规格锁定测试同步**：折叠时长断言 `360` → **展开 200 / 收起 140**；图标集 **19 → 22 枚**
+   （补 `Menu` / `Sliders` / `Send`），测试名改「覆盖助手页所需语义」（不再只管管理页）；
+3. **修复编译阻断**：补回 `ChatTopBar` 的 `Column` import；
+4. **收拾在途改动自身的矛盾**：`MessageComponents` 的 KDoc 归位；`ChatScreen` 底部内边距改用
+   `CHAT_CONTENT_BOTTOM_PADDING`（消灭字面量）；`DESIGN.md` 修订注记移到组件表**之后**并合并；
+   §15 的「24dp Canvas/Path 手绘」改为「复用上游 SVG → VectorDrawable」；`ArrowUp` → `Send`；
+5. **审查档收口**：`AUDIT-assistant-ui-parity.md` 加执行状态与「执行记录」表（含 P1-1 的落地方式
+   比原计划更彻底：不是逐处改描边数值，而是**删掉整个 `ChatIcons.kt`**、聊天页改用与管理页同一套
+   `LedgerIcons`，从来源上消灭两套描边）；CHANGELOG v1.5.0「优化」段登记。
+
+### 三、验证（全部实跑，非推断）
+
+| 项 | 命令 | 结果 |
+|----|------|------|
+| 单测 | `./gradlew :app:testDebugUnitTest` | **331 用例 / 0 失败 / 0 错误**（34 个测试类） |
+| 门禁 | `powershell -File tools/verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch） |
+| 构建 | `./gradlew :app:assembleRelease` | BUILD SUCCESSFUL；release 目录**只有一个** `app-release.apk`（**40.94 MB**） |
+| 签名 | `apksigner verify --print-certs` | **CN=LuzzyRP / SHA-256 `ed78235d…dfb1`**（与上一版一致，符合 §3.4 步骤 5） |
+| 真机 | `adb devices` | **空 —— 本机无设备接入**，装机与并排截图**未做** |
+
+### 四、遗留
+
+1. **真机目测项（无设备，未做）**：P1-7 消息间距 **32dp**（回退候选 24dp）、P1-3 用户气泡
+   `#F1E3D9` 与 AI 气泡 `#F5F0E8` 的色差是否够辨、侧栏 / 助手进出过渡观感；
+2. **P2 顶栏语言统一未动**（A1 断层仍在）：按硬性规定 9 须先出 **D1/D2/D3 三方向板**给用户选，
+   方向板未出 → 等用户指示；
+3. 阻塞项仍待用户复测（激活供应商 STA1N 的 API Key 长度为 0；`requestTools` 复原是否已根治
+   「永停生成中」）。
+
+

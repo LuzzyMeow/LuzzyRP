@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 79267c0..70a179e 100644
+index 79267c0..15e956f 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -2139,7 +2139,7 @@ index 79267c0..70a179e 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4996,14 +6557,74 @@ const app = createApp({
+@@ -4996,14 +6557,85 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -2178,29 +2178,40 @@ index 79267c0..70a179e 100644
 +                        if (!livePending.content || (st && st.hasEl)) return false;
 +                    }
 +                    liveCommitAt = now;
-+                    if (livePending.reasoning) {
-+                        if (!livePending.content) isThinking.value = true;
-+                        appendAssistantText(assistantMessage, 'reasoning', livePending.reasoning);
-+                        livePending.reasoning = '';
-+                    }
-+                    if (livePending.content) {
-+                        appendAssistantText(assistantMessage, 'content', livePending.content);
-+                        livePending.content = '';
-+                        isThinking.value = false;
-+                        collapseNativeReasoning(assistantMessage);
++                    // 先取走再清空：即便下面抛错也不会重复追加（硬性规定 3：扩展层不得阻断主流程）
++                    const reasoningDelta = livePending.reasoning;
++                    const contentDelta = livePending.content;
++                    livePending.reasoning = '';
++                    livePending.content = '';
++                    try {
++                        if (reasoningDelta) {
++                            if (!contentDelta) isThinking.value = true;
++                            appendAssistantText(assistantMessage, 'reasoning', reasoningDelta);
++                        }
++                        if (contentDelta) {
++                            appendAssistantText(assistantMessage, 'content', contentDelta);
++                            isThinking.value = false;
++                            collapseNativeReasoning(assistantMessage);
++                        }
++                    } catch (e) {
++                        /* 活通道只负责「上屏节流」，任何异常都不允许影响生成主流程与收尾 */
 +                    }
 +                    return true;
 +                };
 +                // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏
 +                const feedLivePreview = () => {
-+                    if (!assistantMessage) return;
-+                    const api = liveFeedApi();
-+                    if (!api) return;
-+                    const raw = String(assistantMessage.content || '') + livePending.content;
-+                    if (!raw) return;
-+                    let text = raw;
-+                    try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
-+                    api.feed(text, assistantMessage.role || 'assistant');
++                    try {
++                        if (!assistantMessage) return;
++                        const api = liveFeedApi();
++                        if (!api) return;
++                        const raw = String(assistantMessage.content || '') + livePending.content;
++                        if (!raw) return;
++                        let text = raw;
++                        try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
++                        api.feed(text, assistantMessage.role || 'assistant');
++                    } catch (e) {
++                        /* 同上：上屏失败只影响观感（下一次提交会补上），不得抛出 */
++                    }
 +                };
                  const responseResult = await requestTrackedChatCompletion({
 +                    // [LuzzyRP patch 015/025] 多商路由 + provider 透传
@@ -2214,7 +2225,7 @@ index 79267c0..70a179e 100644
                      messages: apiMessages,
                      replyInTool: isTruncationEnabled.value,
                      tools: buildActiveToolDefinitions(requestTools),
-@@ -5030,18 +6651,21 @@ const app = createApp({
+@@ -5030,18 +6662,21 @@ const app = createApp({
                                  collapseNativeReasoning(assistantMessage);
                              }
                              await nextTick();
@@ -2241,17 +2252,18 @@ index 79267c0..70a179e 100644
                      }
                  }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
                  if (requestSignal.aborted) throw createAbortReason();
-@@ -5105,6 +6729,9 @@ const app = createApp({
+@@ -5105,6 +6740,10 @@ const app = createApp({
                      chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: errorMessage, skipReveal: true });
                  }
              } finally {
 +                // [LuzzyRP patch 044] 流式收尾：把活通道缓冲一次性追平（必须在下面读 content 之前），
 +                // 保证 filterBlockedStyleText / 落库 / 后续所有读 content 的逻辑看到完整正文。
-+                commitLiveDelta(true);
++                // 本身不会抛（内部 try/catch）；此处再兜一层，确保收尾链绝不被节流逻辑打断。
++                try { commitLiveDelta(true); } catch (e) { /* 绝不阻断收尾 */ }
                  if (assistantMessage?.content) {
                      const styleFilterHits = [];
                      assistantMessage.content = filterBlockedStyleText(assistantMessage.content, {
-@@ -5330,12 +6957,20 @@ const app = createApp({
+@@ -5330,12 +6969,20 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -2275,7 +2287,7 @@ index 79267c0..70a179e 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5716,29 +7351,78 @@ const app = createApp({
+@@ -5716,29 +7363,78 @@ const app = createApp({
  
              return fragments;
          };
@@ -2372,7 +2384,7 @@ index 79267c0..70a179e 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5749,6 +7433,18 @@ const app = createApp({
+@@ -5749,6 +7445,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2391,7 +2403,7 @@ index 79267c0..70a179e 100644
              return vectors;
          };
  
-@@ -5780,7 +7476,8 @@ const app = createApp({
+@@ -5780,7 +7488,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -2401,7 +2413,7 @@ index 79267c0..70a179e 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6044,10 +7741,6 @@ const app = createApp({
+@@ -6044,10 +7753,6 @@ const app = createApp({
              return retainedTurns;
          };
  
@@ -2412,7 +2424,7 @@ index 79267c0..70a179e 100644
          const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6083,6 +7776,30 @@ const app = createApp({
+@@ -6083,6 +7788,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -2443,7 +2455,7 @@ index 79267c0..70a179e 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6102,9 +7819,30 @@ const app = createApp({
+@@ -6102,9 +7831,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -2477,7 +2489,7 @@ index 79267c0..70a179e 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6133,16 +7871,15 @@ const app = createApp({
+@@ -6133,16 +7883,15 @@ const app = createApp({
                  return;
              }
  
@@ -2500,7 +2512,7 @@ index 79267c0..70a179e 100644
                  return;
              }
  
-@@ -6159,21 +7896,43 @@ const app = createApp({
+@@ -6159,21 +7908,43 @@ const app = createApp({
              );
  
              try {
@@ -2552,7 +2564,7 @@ index 79267c0..70a179e 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6219,6 +7978,278 @@ const app = createApp({
+@@ -6219,6 +7990,278 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2831,7 +2843,7 @@ index 79267c0..70a179e 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -6269,7 +8300,7 @@ const app = createApp({
+@@ -6269,7 +8312,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -2840,7 +2852,7 @@ index 79267c0..70a179e 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -6673,6 +8704,18 @@ const app = createApp({
+@@ -6673,6 +8716,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2859,7 +2871,7 @@ index 79267c0..70a179e 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -7462,7 +9505,10 @@ const app = createApp({
+@@ -7462,7 +9517,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2871,7 +2883,7 @@ index 79267c0..70a179e 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -8567,10 +10613,13 @@ const app = createApp({
+@@ -8567,10 +10625,13 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2887,7 +2899,7 @@ index 79267c0..70a179e 100644
              fetchQuota(); // Fetch quota after saved settings are loaded
  
              updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载
-@@ -8778,7 +10827,11 @@ const app = createApp({
+@@ -8778,7 +10839,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2900,7 +2912,7 @@ index 79267c0..70a179e 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -8799,9 +10852,7 @@ const app = createApp({
+@@ -8799,9 +10864,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -2911,7 +2923,7 @@ index 79267c0..70a179e 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -8815,8 +10866,7 @@ const app = createApp({
+@@ -8815,8 +10878,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2921,7 +2933,7 @@ index 79267c0..70a179e 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9036,6 +11086,7 @@ const app = createApp({
+@@ -9036,6 +11098,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2929,7 +2941,7 @@ index 79267c0..70a179e 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9048,22 +11099,25 @@ const app = createApp({
+@@ -9048,22 +11111,25 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -2961,7 +2973,7 @@ index 79267c0..70a179e 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9080,6 +11134,14 @@ const app = createApp({
+@@ -9080,6 +11146,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2976,7 +2988,7 @@ index 79267c0..70a179e 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9121,7 +11183,7 @@ const app = createApp({
+@@ -9121,7 +11195,7 @@ const app = createApp({
                  });
              },
              toggleMobileMenu, closeMobileMenu,

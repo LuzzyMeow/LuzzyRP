@@ -6592,29 +6592,40 @@ const app = createApp({
                         if (!livePending.content || (st && st.hasEl)) return false;
                     }
                     liveCommitAt = now;
-                    if (livePending.reasoning) {
-                        if (!livePending.content) isThinking.value = true;
-                        appendAssistantText(assistantMessage, 'reasoning', livePending.reasoning);
-                        livePending.reasoning = '';
-                    }
-                    if (livePending.content) {
-                        appendAssistantText(assistantMessage, 'content', livePending.content);
-                        livePending.content = '';
-                        isThinking.value = false;
-                        collapseNativeReasoning(assistantMessage);
+                    // 先取走再清空：即便下面抛错也不会重复追加（硬性规定 3：扩展层不得阻断主流程）
+                    const reasoningDelta = livePending.reasoning;
+                    const contentDelta = livePending.content;
+                    livePending.reasoning = '';
+                    livePending.content = '';
+                    try {
+                        if (reasoningDelta) {
+                            if (!contentDelta) isThinking.value = true;
+                            appendAssistantText(assistantMessage, 'reasoning', reasoningDelta);
+                        }
+                        if (contentDelta) {
+                            appendAssistantText(assistantMessage, 'content', contentDelta);
+                            isThinking.value = false;
+                            collapseNativeReasoning(assistantMessage);
+                        }
+                    } catch (e) {
+                        /* 活通道只负责「上屏节流」，任何异常都不允许影响生成主流程与收尾 */
                     }
                     return true;
                 };
                 // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏
                 const feedLivePreview = () => {
-                    if (!assistantMessage) return;
-                    const api = liveFeedApi();
-                    if (!api) return;
-                    const raw = String(assistantMessage.content || '') + livePending.content;
-                    if (!raw) return;
-                    let text = raw;
-                    try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
-                    api.feed(text, assistantMessage.role || 'assistant');
+                    try {
+                        if (!assistantMessage) return;
+                        const api = liveFeedApi();
+                        if (!api) return;
+                        const raw = String(assistantMessage.content || '') + livePending.content;
+                        if (!raw) return;
+                        let text = raw;
+                        try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
+                        api.feed(text, assistantMessage.role || 'assistant');
+                    } catch (e) {
+                        /* 同上：上屏失败只影响观感（下一次提交会补上），不得抛出 */
+                    }
                 };
                 const responseResult = await requestTrackedChatCompletion({
                     // [LuzzyRP patch 015/025] 多商路由 + provider 透传
@@ -6731,7 +6742,8 @@ const app = createApp({
             } finally {
                 // [LuzzyRP patch 044] 流式收尾：把活通道缓冲一次性追平（必须在下面读 content 之前），
                 // 保证 filterBlockedStyleText / 落库 / 后续所有读 content 的逻辑看到完整正文。
-                commitLiveDelta(true);
+                // 本身不会抛（内部 try/catch）；此处再兜一层，确保收尾链绝不被节流逻辑打断。
+                try { commitLiveDelta(true); } catch (e) { /* 绝不阻断收尾 */ }
                 if (assistantMessage?.content) {
                     const styleFilterHits = [];
                     assistantMessage.content = filterBlockedStyleText(assistantMessage.content, {

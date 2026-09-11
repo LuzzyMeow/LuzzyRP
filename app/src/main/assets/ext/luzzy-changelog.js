@@ -72,12 +72,31 @@
 - **升级方式：同包名覆盖安装即可，数据完整保留**（IndexedDB / localStorage 结构**一个字段都没动**，
   仍由前端独占）。本版**不需要**任何重新配置，供应商 / 密钥 / 模型仍从原设置读取。
 - **界面样式零改动**（用户明确要求）。
-- 未验证项（**如实标注**）：原生传输需在**真机**上做端到端确认（本机无设备连接，仅完成
-  JVM 单测 + 构建验证）；**Gemini 协议在桌面打桩下不产出回复**（history 只到 user、无错误、
+- **原生传输默认关闭**（\`ENABLED_BY_DEFAULT = false\`），但**桥接链路已在 Android 上验证通过**
+  （见下「验证」）。开启方式：\`localStorage.setItem('luzzy_native_transport','1')\`；
+  若原生出错会**本会话熔断**（后续请求全走 JS）且**首帧失败时静默回落**，用户无感。
+  在用户真机（小米 / MIUI / Android 16）验证通过后，把该常量改为 \`true\` 即为默认开启。
+- 未验证项（**如实标注**）：**用户真机**端到端尚未跑（本机未连该设备）；已用 Android 15（API 35）
+  模拟器完成桥接链路验证。**Gemini 协议在桌面打桩下不产出回复**（history 只到 user、无错误、
   无 JS 异常），倾向判定为**既有问题**（本版改动只会增加保护、不会抑制输出），但**未做
   revert 对照，故不下结论**，待真实 Gemini key 复核。
 - 已知未完成：世界书 / 向量召回的「距尾 depth」插入点（\`at_depth\`）与「纯追加」存在**语义冲突**
   （「距尾 N 轮」本质上不是追加式），需要专门设计，本版**未改**。
+
+**验证**
+- **构建**：\`./gradlew :app:assembleRelease :app:testDebugUnitTest\` → BUILD SUCCESSFUL；
+  单测 **14 类 / 207 用例 / 0 失败 / 0 错误**（其中 22 条走**真 socket**）；
+  另有 17 条**线格式保真**断言（期望值为手写常量串，钉死键序 / 值 / 转义）。
+  **恰好 1 个 APK**：18,495,002 B，\`versionCode 13\` / \`versionName 2.0.0\`，签名 \`CN=LuzzyRP\`。
+- **门禁**：\`tools/verify-markers.ps1\` **151 PASS / 0 FAIL**（4 枚实体按上游纯净基线 \`4aef0bb\`
+  重生成：前像 blob id 一致 + 逆向逐字节一致 + 端到端重放 9/9 \`[OK]\`）；
+  \`tools/prefix-cache-test.cjs\` 8/8 PASS；既有三门禁（stream-render / model-list / page-handoff）全 PASS。
+- **原生传输桥接链路（Android 15 / API 35 模拟器，实测）**：
+  \`chatCapabilities()\` 返回 \`{available:true, protocols:[openai,anthropic,gemini]}\`；
+  \`chatStart\` 返回 jobId 且**事件回传的 jobId 与之逐字节一致**；
+  打桩端点下收到 **\`delta\` → \`usage\` → \`delta\` → \`done\`** 四型事件并拼回完整回复
+  （服务端确认收到 \`POST /v1/chat/completions\`，\`model\`/\`stream\`/\`messages\` 均正确）；
+  不可达端点下收到 \`error\` 终态事件并**静默回落** JS 路径、熔断生效、零 JS 异常。
 
 ### v1.5.0 — 开发中 · 文档定位澄清 × 发布纪律固化 × 同步上游 1.9.3（上游基线 RP-Hub 1.9.2 → 1.9.3）
 

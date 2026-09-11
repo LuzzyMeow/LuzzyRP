@@ -2132,3 +2132,38 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 4. `mockwebserver` 依赖已声明但测试全走自建 `RawSseServer`，**未使用**，可清理。
 5. 签名指纹未与上一版 Release **逐位**比对（手边无旧 APK），只确认是 luzzy 签名（非 debug）。
 6. AGENTS §4.2 表缺 042-046 五行（历史欠账，非本次引入）。
+
+### 会话 62 追记 2 · 原生传输「桥接链路」验证（Android 模拟器，实测）
+
+**背景**：Kotlin 侧此前只有 JVM 单测（207 条、含 22 条真 socket），而**桥接链路**
+（`evaluateJavascript` 实际投递 / JavaBridge 线程 / WebView 生命周期）按定义只能在 Android 上确认。
+本轮发现本机存在 AVD `LuzzyRP_Test`（system-image android-35 / Android 15 / API 35），
+于是把它跑成了验证环境，**把「未验证」变成了「已验证」**。
+
+**方法**：`emulator -avd LuzzyRP_Test -no-window -no-snapshot-save -gpu swiftshader_indirect`
+→ 装 release APK →（宿主起最小 SSE 桩服务，端口 8791）→ `adb forward` 接 WebView 的
+`webview_devtools_remote_<pid>` → 用 CDP 直接驱动 `Luzzy.chatNative` 与 `LuzzyBridge`。
+
+**实测结果（三条，全部通过）**
+
+| # | 验证项 | 结果 |
+|---|---|---|
+| 1 | 桥存在性与能力探测 | `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 三个方法均为 function；`chatCapabilities()` 返回 `{available:true, protocols:["openai","anthropic","gemini"]}`；`chatNative.ready()===true` |
+| 2 | 事件回传（**核心**） | 打桩端点下依次收到 **`delta` → `usage` → `delta` → `done`** 四型事件，拼回完整回复「原生传输链路验证成功。」；服务端确认收到 `POST /v1/chat/completions`，`model`/`stream`/`messages` 均正确。**jobId 逐字节回显**（`chatStart` 返回值 === 事件里的 jobId） |
+| 3 | 失败路径与降级 | 不可达端点下收到 `error` 终态事件（`网络错误（ConnectException）`）→ 未吐任何增量，**静默回落** JS 路径（`resolved:"FALLBACK"`）→ **熔断生效**（`tripped:true`）；全程 **零 JS 异常** |
+
+> **第 2 条同时验证了本轮修掉的那个 bug**：`onEvent` 若仍是「先摘处理器再派发」，
+> 终态 `done` 会被静默丢弃、`eventCount` 会是 0、调用方 Promise 永不 settle。
+> 实测 `done` 送达 = 该修复在真实 Android 运行时上生效。
+
+**过程中的一个方法学坑（值得记）**：targetSdk 37 下**明文 HTTP 被网络策略默认拦截**，
+`http://10.0.2.2:8791` 的请求根本没离开应用（桩服务零命中）。
+为跑通「成功路径」另建了一个**临时 debug 测试包**（仅在清单里加
+`android:usesCleartextTraffic="true"`），**release 产物全程未受影响**；验证后
+**已还原清单**并**卸载该 debug 包**，模拟器上只剩 release 包，工作树干净。
+
+**决策不变**：`ENABLED_BY_DEFAULT` 仍为 **false**。
+理由：桥接链路已在 Android 15 上验证，但**用户的真机是小米 / MIUI / Android 16**，
+而本仓库发版纪律本就要求「先真机回归再发布」；本机未连该设备，故不把未经该设备验证的路径
+设为默认走法（用户要求「无感知升级」）。开启只需一行常量或 `localStorage` 开关，
+真机验证通过后即可翻转。

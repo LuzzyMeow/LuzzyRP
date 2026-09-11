@@ -1331,4 +1331,95 @@ CSS 过渡直接跳到终态。修复：`Luzzy.openRpSidebar()` 把「点上游�
 ② 其余助手能力（LLM/沙盒/工具审批/记忆/MCP/技能/工作区/重启恢复）仍 0% 验证；
 ③ 装机/重启后**开屏是点击门**（`.lsp-dive-btn` ≈610,1284），测助手前先点掉。
 
+---
+
+## 2026-09-11 · 会话 58：**流式输出性能调查**（RP 聊天页 WebView）+ 优化方案
+
+**用户原话**：「实际测试发现 流式输出时 性能损耗太严重 你去调查一下 不丢任何前端部分 能不能优化？
+跑满手机帧率」；经澄清确认：**测的是 RP 聊天页（WebView）**，且**手机先不接**（只做静态调查 + 方案）。
+
+### 一、方法（无真机也能定量：桌面 Chromium 同引擎族 + 应用自身函数）
+
+- 真机断开 → 用 `tools/page-handoff-test.cjs` 同款通道（headless Chrome 9347 + 手机视口 390×844
+  + DPR 3.25）加载 `index.html`；
+- **拿到应用实例**：`#app.__vue_app__._container._vnode.component.proxy`（生产构建下
+  `app._instance` 不挂，必须走容器 vnode）；
+- **注入合成历史**：`proxy.characters.splice(...)` + `proxy.currentCharacterIndex = 0`
+  （`currentCharacter` 是 computed，直接赋值无效——第一版探针就栽在这里：`rows: 0`）
+  + `proxy.chatHistory` 塞 N 条 + `proxy.isGenerating = true`
+  → 模板真的走「流式分支」渲染；
+- **量真实 tick**：`last.content += chunk` → `await $nextTick()` → 强制 layout；
+- **归因**：CDP `Profiler` 采样（80µs）按自耗时聚合。
+- 探针脚本在 `%TEMP%\stream-perf*.cjs`（未入仓库）。
+
+### 二、结论：**单条消息每 tick 全量重渲染**是根因，成本随消息长度线性涨
+
+真实 tick 成本（桌面 Chromium，30 条历史、流式那条在末尾；120Hz 帧预算 = **8.33ms**）：
+
+| 流式消息长度 | JS（含 innerHTML 重建） | layout | **合计** | 对比 120Hz 预算 |
+|---|---|---|---|---|
+| 1 200 字 | 8.0ms | 3.6ms | **11.6ms** | 超 1.4× |
+| 4 000 字 | 14.8ms | 9.9ms | **24.7ms** | 超 3× |
+| 8 000 字 | 23.8ms | 21.1ms | **44.8ms** | 超 **5.4×** |
+
+**每 tick 的调用次数**（真实模板，30 条历史）：`parseCot` **42×**、`processMainContent` **22×**、
+`renderMarkdown` **21×** —— 每 tick 把**整屏可见的每条消息**都重新求值一遍（上游
+`displayedChatMessages` 只切片最后 `chatRenderLimit` 条，所以是「有上限的 O(可见条数)」）。
+
+**CPU 归因**（12 tick 采样，自耗时）：`(program)` 357ms（浏览器原生：innerHTML 解析 + DOM 构建 +
+样式/布局，**最大头**）、本帧 169ms（强制 layout）、`app.js:1435` 51ms
+（**`filterBlockedStyleText` 风格过滤**：一堆正则全量扫文本）、`vue.global.prod.js` 19ms、
+**`tailwind.js` 16.6ms**（JIT 观察 DOM 变更后重扫/重生成 CSS）、GC 13.8ms、
+`parseFromString`+`purify` 17.6ms（**DOMPurify 每次都净化**）、`marked` 6.4ms、`querySelectorAll` 5.9ms。
+
+**微基准**（单函数，纯 JS）：`renderMarkdown`（流式分支 `cache:false`）= **1.73ms@500字 →
+8.80ms@8千字 → 21.6ms@2万字**（≈1.1ms/千字）；缓存命中路径仅 0.06–1.4ms。
+
+**为什么是每 tick 全量**：`index.html` 流式分支把**整段** `msg.content` 过一遍
+`parseCot → processMainContent → renderMarkdown → v-html`，内容每 tick 变 → `v-html` 整段
+innerHTML 重建 → 浏览器重新解析 HTML、重建 DOM、重排整条消息、Tailwind 重扫、GC 跟着来。
+**与消息长度成正比、与新增字数无关** —— 这就是「越写越卡」的原因。
+
+### 三、已排除 / 不成立的猜测
+
+| 猜测 | 实测 |
+|---|---|
+| 三条协议节流不一致（Anthropic/Gemini 未降载） | **否**：`api-utils.js` 三处 flush 都用 `STREAM_RENDER_INTERVAL = 120`（patch 032 已统一） |
+| 每 tick 落库（localStorage 全量写） | **否**：`saveChatHistoryNow` 只在生成结束/编辑等离散点调用，`onDelta` 内没有 |
+| 记忆化 `parseCot/processMainContent/renderMarkdown` 能救 | **只有 ~1.1ms**（44.8→42.7）：JS 管线不是大头，**DOM 重建 + 布局才是** |
+| `contain: layout` 单独能救 | 部分：JS 6.6→5.06（@1200字）、22.3→15.5（@8000字），**layout 几乎不变**（3.5→3.6 / 20.4→20.3） |
+
+### 四、优化方案（**不丢任何前端部分**：Markdown / 正则 / 风格过滤 / DOMPurify / 面板 / 图片全保留）
+
+**A. 主方案 —— 流式消息改「增量渲染」（稳定前缀 + 活动尾部）**（预计 tick 成本 ∝ 新增字数）
+
+1. 扩展层新增 `ext/luzzy-stream.js`：注册一个 Vue 自定义指令 `v-lsp-stream`，`updated` 钩子里做
+   **DOM 级增量补丁**（解析新 HTML 到游离容器 → 与现有 DOM 逐节点比对 → 只改变化的那一段，
+   文本节点用 `node.data = newText` 追加、结构相同则递归、末尾多出的节点才插入）；
+2. 索引流式分支的 `v-html` 换成 `v-lsp-stream`（**登记一枚 patch**，一行 + 标记注释）；
+3. **安全网**：补丁后按「标签序列 + 文本长度」逐节点比对 patched DOM 与新建 DOM，**不一致就退回
+   整段 `innerHTML`**（增量路径只在结果等价时生效）；
+4. 预期：@4000 字从 24.7ms → **~2-4ms**（只重建尾部）；@8000 字同理；**跑满 120Hz 有富余**，
+   届时可把 `STREAM_RENDER_INTERVAL` 从 120ms 降到 60–80ms 让文字更跟手（当前是被成本逼着降频）。
+
+**B. 配套小改（各自独立、可分别验收）**
+
+| # | 改动 | 预期 | 风险 |
+|---|------|------|------|
+| B1 | `filterBlockedStyleText` 前置「触发器词」快速判定：文本里一个触发词都没有就直接返回原文 | 省 ~4.3ms@4000字 | 低（需证明是**必要条件**；否则改用前缀记忆化） |
+| B2 | 一次渲染里 `parseCot`/`processMainContent` 记忆化（同一内容同一次渲染结果不变） | 省 ~1ms + 减少重复正则 | 极低 |
+| B3 | `renderMarkdown` 的缓存键改「消息对象上的字段」或**嵌套 Map**（现在每次拼 `role_flag_全文`，8千字=16KB 拷贝 + 哈希） | 省 1–3ms | 低 |
+| B4 | 消息行 `contain: layout`（配合 A 使用） | JS 再降 ~30% | 中（containment 影响 margin collapse / fixed 定位，**必须真机截图目测**） |
+
+**C. 不做**（会丢前端部分）：流式期退化成纯文本尾巴、关掉风格过滤/正则/净化、减少渲染条数、
+粗暴提高节流间隔到 300ms+。
+
+### 五、遗留
+
+1. **方案待用户拍板**再动手（A 需要一枚 patch + 新扩展文件；B1 需碰 app.js → 也是 patch）；
+2. **真机复测必须做**：`adb shell dumpsys gfxinfo com.luzymeow.luzzyrp reset` → 流式 10s →
+   `dumpsys gfxinfo`（同机 A/B 对比；AGENTS §7「小样本掉帧对比不可信」→ 必须成对交替测）；
+3. 真机截图目测（现在已开通识图能力，可直接看截图）：气泡/列表间距是否被 `contain` 或增量补丁影响。
+
+
 

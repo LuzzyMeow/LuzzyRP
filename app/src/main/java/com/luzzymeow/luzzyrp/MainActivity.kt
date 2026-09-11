@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
+    private lateinit var bridge: LuzzyBridge
     private val fileChooserHandler = FileChooserHandler()
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -60,7 +61,12 @@ class MainActivity : ComponentActivity() {
         }
 
         // 3) JSBridge（扩展层桥接，AGENTS.md §5）
-        webView.addJavascriptInterface(LuzzyBridge(this), "LuzzyBridge")
+        bridge = LuzzyBridge(this)
+        // 原生 → JS 事件出口（v2.0 原生聊天传输）：契约是「完整 JS 表达式 + UI 线程」。
+        // 用 webView.post 而不是 runOnUiThread：后者在 Activity 已销毁时会抛异常，
+        // 而 post 在 WebView 销毁后只是排队丢弃，绝不跨越 JS 边界炸掉整个页面。
+        bridge.eventSink = { js -> webView.post { webView.evaluateJavascript(js, null) } }
+        webView.addJavascriptInterface(bridge, "LuzzyBridge")
 
         // 4) 客户端：同源导航留在 WebView 内（RP-Hub 纯本地）
         webView.webViewClient = WebViewClient()
@@ -112,6 +118,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // 先停原生传输任务并断开事件出口，再销毁 WebView：
+        // 反过来会让收尾途中的 evaluateJavascript 打在已销毁的 WebView 上。
+        bridge.shutdownChatJobs()
+        root.removeView(webView)
         webView.destroy()
         super.onDestroy()
     }

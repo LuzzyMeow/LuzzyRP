@@ -173,6 +173,31 @@ $Manifest = @(
     @{ Id = '046-setup-exports';         File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'chatInputViewValue, handleChatInput, flushChatInput, chatInputHasText,';  Min = 1 },
     @{ Id = 'HOTZONE-fab-pointer';       File = '../ext/luzzy-theme.css';         Mode = 'contains';     Needle = '.lsp-fab-row .about-top-fab { pointer-events: none; }';  Min = 1 },
     @{ Id = 'HOTZONE-fab-visible';       File = '../ext/luzzy-theme.css';         Mode = 'contains';     Needle = '.lsp-fab-row .about-top-fab.is-visible { pointer-events: auto; }';  Min = 1 },
+    # 047（KV / prompt 前缀缓存：请求形态改为「纯追加」）+ 048（Anthropic 显式缓存断点）
+    #   A1 停用「检索提醒追加到最新 user 消息」→ 断言**注释形态**（未注释即说明补丁被回退，判红）
+    #   A2 <next_response> 移入 system 末块 → 断言 system 侧调用点存在 + 尾部逐轮追加已注释
+    @{ Id = '047-mark-index';            File = 'index.html';                     Mode = 'contains';     Needle = '[LuzzyRP patch 047]';  Min = 1 },
+    @{ Id = '047-prefix-guard-mount';    File = 'index.html';                     Mode = 'contains';     Needle = 'ext/luzzy-prefix-guard.js';  Min = 1 },
+    @{ Id = '047-mark-app';              File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 047]';  Min = 4 },
+    @{ Id = '047-append-only-off';       File = 'assets/js/app.js';               Mode = 'contains';     Needle = '// if (activeToolDepth === 0) messages = appendActiveToolReminderToLatestUserMessage(messages);';  Min = 1 },
+    @{ Id = '047-nextresponse-system';   File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'systemPromptParts.push(buildNextResponsePromptText({';  Min = 1 },
+    @{ Id = '047-nextresponse-detached'; File = 'assets/js/app.js';               Mode = 'contains';     Needle = '// appendNextResponsePrompt(messages, {';  Min = 1 },
+    @{ Id = '048-mark-api';              File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = '[LuzzyRP patch 048]';  Min = 1 },
+    @{ Id = '048-cache-control';         File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = 'withAnthropicCacheBreakpoint';  Min = 2 },
+    # 050（v2.0 B 方案薄切：传输层可卸载到原生 Kotlin，不可用即回落原 JS 路径）
+    #   扩展层挂载顺序有依赖：chat-native（桥接封装）先于 chat-offload（适配层）
+    @{ Id = '050-mark-index';            File = 'index.html';                     Mode = 'contains';     Needle = '[LuzzyRP patch 050]';  Min = 1 },
+    @{ Id = '050-chat-native-mount';     File = 'index.html';                     Mode = 'contains';     Needle = 'ext/luzzy-chat-native.js';  Min = 1 },
+    @{ Id = '050-chat-offload-mount';    File = 'index.html';                     Mode = 'contains';     Needle = 'ext/luzzy-chat-offload.js';  Min = 1 },
+    @{ Id = '050-mark-app';              File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 050]';  Min = 1 },
+    @{ Id = '050-offload-hook';          File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'window.Luzzy.chatOffload';  Min = 1 },
+    # 051（潜伏缺陷修复：C1 toolCalls 无保护解引用 + C4 Anthropic 流式首帧误判为错误）
+    @{ Id = '051-mark-app';              File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 051]';  Min = 2 },
+    @{ Id = '051-toolcalls-guard';       File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'responseResult.toolCalls?.length';  Min = 2 },
+    @{ Id = '051-mark-api';              File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = '[LuzzyRP patch 051]';  Min = 1 },
+    @{ Id = '051-contract-fill';         File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = 'if (!Array.isArray(result.toolCalls)) result.toolCalls = [];';  Min = 1 },
+    @{ Id = '051-mark-core';             File = 'assets/js/core-utils.js';        Mode = 'contains';     Needle = '[LuzzyRP patch 051]';  Min = 2 },
+    @{ Id = '051-anthropic-events';      File = 'assets/js/core-utils.js';        Mode = 'contains';     Needle = 'ANTHROPIC_STREAM_EVENT_TYPES';  Min = 2 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

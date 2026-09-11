@@ -16,6 +16,9 @@ webkit = "1.15.0"
 lifecycle = "2.10.0"
 coroutines = "1.11.0"
 junit = "4.13.2"
+# [v2.0.0] 原生聊天传输层：仅两个运行时依赖（无注解处理器 / 无编译器插件）
+serialization = "1.9.0"
+okhttp = "4.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -23,7 +26,15 @@ androidx-activity = { group = "androidx.activity", name = "activity", version.re
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+# [v2.0.0] 原生聊天传输层：@Serializable 使用 0 次，故无需 kotlinx-serialization 编译器插件，
+# 只引运行时库（buildJsonObject / parseToJsonElement / JsonObject 树 API）。
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+# OkHttp 保持 4.x 线（5.x 需更新的 Kotlin/Java 目标，与 AGP 内置 Kotlin 组合未验证）
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

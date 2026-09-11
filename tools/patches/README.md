@@ -591,6 +591,89 @@
 #   - 预期冲突点：上游改输入区模板（textarea 绑定 / 发送键 disabled 条件）、`sendMessage`
 #     开头或 `handleChatInputBlur` 时需重打
 #
+# 047-prefix-cache-stabilize.patch（2026-09-11，KV / prompt 前缀缓存治理：请求形态改「纯追加」）
+#   - **背景**：KV / prompt 前缀缓存要命中，充要形态是「本轮请求 = 上轮请求 + 逐字节追加」。
+#     门禁 `tools/prefix-cache-test.cjs` 实测「干净配置 6 轮」平均公共前缀仅 **0.9101** ——
+#     每轮都恰有内容在**距尾 1 轮处**被改写，缓存从那一处起全部失效。
+#   - **根因（两处，都在「逐轮追加重写历史」）**：
+#     ① **A1**：`messages = appendActiveToolReminderToLatestUserMessage(messages)`
+#        —— 把「工具检索提醒」追加到**当时最新的一条 user 消息**上；下一轮「最新 user」换人，
+#        旧的提醒被丢掉 → 那条消息逐轮变形。
+#     ② **A2**：`appendNextResponsePrompt(messages, {...})` —— 把 `<next_response>` 块挂到
+#        最新 user 消息尾巴上；下一轮同样被重建丢弃 → 又一处尾部改写。
+#   - **做法**：
+#     ① `app.js` A1：**停用**该追加（原调用整段注释保留，见 047 标记）——同一句提醒已由
+#        system 里的 `<active_tools>` 携带（`buildActiveToolSystemPrompt` 用的就是同一个
+#        `getActiveToolLatestUserReminder()`，且该追加只在「有启用工具」时生效，而那正是
+#        system 含提醒的充要条件）→ **纯冗余**。提示词文本零改动。
+#     ② `app.js` A2：把 `<next_response>` 的文本构造抽出为纯函数 `buildNextResponsePromptText()`
+#        （内容**只由设置决定**，与当轮输入无关 → 语义上本属 system），由 `generateResponse`
+#        在 `systemPromptParts` **末尾注入一次**；尾部逐轮追加整段注释停用。内容完全相同，
+#        只是换了载体。
+#     ③ `index.html`：挂载 `ext/luzzy-prefix-guard.js` 观测层（包装 `window.fetch` 做
+#        「相邻两轮请求公共前缀」比对 + 采集服务端 `cached_tokens`；**只读旁路、失败静默降级**）。
+#        挂载点必须**早于**任何生成请求发起，故与 `luzzy-stream.js`（042）同批置于尾部挂载块。
+#        `api-utils.js` 三处请求都走全局 fetch（全仓无提前捕获）→ 这是唯一「不改上游」的挂钩点。
+#   - 门禁：`tools/prefix-cache-test.cjs`（公共前缀 / 改写条数 / 纯追加形态）
+#   - 预期冲突点：上游改 `generateResponse` 的上下文装配段（`systemPromptParts` 组装、
+#     `appendActiveToolReminderToLatestUserMessage` / `appendNextResponsePrompt` 的调用点）、
+#     或改用 `window.fetch` 之外的请求入口（会让 047 的观测层挂钩失效）时需重打
+#
+# 048-anthropic-cache-breakpoint.patch（2026-09-11，配合 047 把缓存收益落到 Anthropic 协议）
+#   - **背景**：Anthropic Messages **没有** OpenAI 那样的自动前缀缓存 —— 不在内容块上显式声明
+#     `cache_control:{type:'ephemeral'}` 就完全没有缓存收益（与 047 的「纯追加」形态互为前提）。
+#   - **做法（`api-utils.js`，新增 `withAnthropicCacheBreakpoint()`，两个断点）**：
+#     ① **system 块末尾**：`system: [{ type:'text', text: system, cache_control:{type:'ephemeral'} }]`
+#        （单块 ~8KB，是最大的稳定前缀）；
+#     ② **最后一条消息的最后一个文本块**：取该消息 content 数组里**最后一个非空 text 块**
+#        打标（`[...slice(0,-1), withAnthropicCacheBreakpoint(last)]`）—— 下一轮请求正好以它
+#        为前缀命中（配合 047 收益最大）。
+#   - 只用官方块数组形态，**不改动任何既有文本内容**；拿不到合适文本块时原样返回（静默降级）。
+#   - 预期冲突点：上游改 Anthropic 请求体装配（`requestAnthropicCompletionInternal` 的
+#     `body: JSON.stringify({...})`、system 抽出方式 `toAnthropicMessages`）时需重打
+#
+# 050-chat-native-offload.patch（2026-09-11，v2.0 B 方案「薄切」· 传输层可卸载到原生 Kotlin）
+#   - **定义（薄切）**：卸载的只是「HTTP + SSE 解帧 + 三协议线格式 + 工具增量拼装 + 取消/超时」；
+#     **上下文装配与渲染仍在 JS**（角色卡 / 世界书 / 记忆 / 预设 / 正则都在 JS 与 IndexedDB，
+#     原生与远端都无法替代）—— 这是「零双真源」的前提，也是本方案能随时回退的基础。
+#   - **做法**：
+#     ① `index.html`：**按依赖顺序**挂载两个扩展层文件 —— 先 `ext/luzzy-chat-native.js`
+#        （桥接封装：把 `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 包成
+#        `Luzzy.chatNative`），再 `ext/luzzy-chat-offload.js`（把它适配成与上游
+#        `requestChatCompletion` **同形**的可卸载通道）。
+#     ② `app.js`：`requestTrackedChatCompletion` 内新增 `performRequest(opts)` 卸载分支 ——
+#        若 `window.Luzzy.chatOffload` 存在且 `canHandle(opts)` 为真则走原生，否则
+#        `requestChatCompletion(opts)`。**原 JS 路径保留不删不改**。
+#   - **降级（逐级回落，用户无感知）**：扩展层未加载 / 桥不可用 / 协议不支持 / 非流式 /
+#     原生首帧即失败 → 一律回落原 JS 路径（`offload.request(opts, () => requestChatCompletion(opts))`
+#     的第二参即回落闭包）。
+#   - 预期冲突点：上游改 `requestTrackedChatCompletion` 的请求发起方式（不再走该包装函数）、
+#     或改尾部扩展层挂载块（调换 chat-native / chat-offload 顺序会破依赖）时需重打
+#
+# 051-latent-defect-fixes.patch（2026-09-11，潜伏缺陷修复：C1 toolCalls 契约 + C4 Anthropic 事件误判）
+#   - **C1 · `responseResult.toolCalls` 无保护解引用**：
+#     上游 1.9.2 起 app.js 生成收尾**无条件**读 `responseResult.toolCalls.length`（两处：
+#     `activeToolDepth > 0 && !responseResult.toolCalls.length …` 与
+#     `if (responseResult.toolCalls.length) { … }`），而 **Anthropic / Gemini 适配器从不返回
+#     该键** → 每次生成收尾必抛 TypeError。
+#     修法（双侧）：① `api-utils.js` 的 `withUsageMetrics` 出口**补齐返回契约**
+#     （`if (!Array.isArray(result.toolCalls)) result.toolCalls = [];`）；② `app.js` 两个调用点
+#     加**可选链**（`responseResult.toolCalls?.length`）再兜一层，防以后新增协议适配器漏带该字段。
+#   - **C4 · Anthropic 响应第一帧即被判成错误（该协议此前完全不可用）**：
+#     `extractApiErrorMessage` 原先**无条件**读 `payload.message || payload.detail`，而
+#     Anthropic Messages 的流式事件按规范**带顶层 `message` 对象**
+#     （`{"type":"message_start","message":{…}}`）→ 每个响应的**第一帧**就被当成
+#     `"API Error: 200 {…}"` 抛出（`parseAnthropicSseChunk` 内 `if (apiError) throwApiError(apiError)`
+#     立即中断）。
+#     修法（`core-utils.js`）：新增 `ANTHROPIC_STREAM_EVENT_TYPES` 集合
+#     （`message_start` / `message_delta` / `message_stop` / `content_block_start` /
+#     `content_block_delta` / `content_block_stop` / `ping`；**`type:"error"` 故意不在其中**），
+#     命中即提前返回空串放行 —— Anthropic 真正的错误事件仍照常上抛。
+#     **仅新增一个提前返回，不改变其它任何分支行为。**
+#   - 对应：会话 62 静态审查发现的两处潜伏缺陷（Anthropic 协议此前**从未跑通**）
+#   - 预期冲突点：上游改生成收尾的 toolCalls 读取方式、`withUsageMetrics` 返回结构、
+#     或 `extractApiErrorMessage` 的错误信封判定时需重打
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释
@@ -614,16 +697,27 @@
 #    同步新版上游重放失败时：三方合并该文件 → 按上述规程重新生成实体 →
 #    复跑 verify-markers.ps1 全绿。
 #
-#    当前基线 RP-Hub 1.9.3（commit 4aef0bb）· 实体前像 blob id（LF 归一）：
-#      007-character-html        character/index.html      c3153f84
-#      007-029-novel-html        novel/index.html          7e8034a1
-#      009-035-core-utils-js     assets/js/core-utils.js   4f1c2c85
-#      012-035-index-html        index.html                52135b42
-#      012-036-app-js            assets/js/app.js          79267c03
-#      012-035-ui-components-js  assets/js/ui-components.js e9a992bc
-#      012-035-runtime-services-js assets/js/runtime-services.js d2e47294
-#      015-032-api-utils-js      assets/js/api-utils.js    dc5a47cc
-#      016-035-data-services-js  assets/js/data-services.js 7858d9fc
+#    当前基线 RP-Hub 1.9.3（commit 4aef0bb）· 实体前像 blob id（LF 归一，9 枚全量复核）：
+#      007-character-html        character/index.html      c3153f84  (2487 B)
+#      007-029-novel-html        novel/index.html          7e8034a1  (2645 B)
+#      009-035-core-utils-js     assets/js/core-utils.js   4f1c2c85  (5390 B)  ← 本版再生成
+#      012-035-index-html        index.html                52135b42  (115116 B) ← 本版再生成
+#      012-036-app-js            assets/js/app.js          79267c03  (202962 B) ← 本版再生成
+#      012-035-ui-components-js  assets/js/ui-components.js e9a992bc  (26061 B)
+#      012-035-runtime-services-js assets/js/runtime-services.js d2e47294 (7067 B)
+#      015-032-api-utils-js      assets/js/api-utils.js    dc5a47cc  (25283 B) ← 本版再生成
+#      016-035-data-services-js  assets/js/data-services.js 7858d9fc  (740 B)
+#
+#    ★ 2026-09-11 再生成记录：本版新增的 047/048/050/051 恰好全落在其中 4 枚实体上
+#      （core-utils.js / index.html / app.js / api-utils.js），故这 4 枚按上述规程**整枚重生成**
+#      （前像 = 4aef0bb 纯净基线的 LF 归一 blob id，已逐枚复核与上表一致）。
+#      双验证结果（均在仓库外干净目录执行，未触碰工作树）：
+#        a. 逆向 4/4：纯净基线 → git apply --ignore-whitespace
+#           --directory=app/src/main/assets/rphub → 与工作树 LF 归一**逐字节等同**；
+#        b. 端到端 9/9：纯净基线全量 → tools/apply-patches.ps1 实跑 → 9 枚全 [OK]，
+#           且重放结果 9/9 与工作树 LF 归一逐字节一致。
+#      注意：参考克隆里的基线 blob 是 **CRLF**，而实体头 `index <pre>` 是**LF 归一**后的 blob id
+#      （apply-patches.ps1 的 Get-FileGitBlobIdLfNormalized 同此口径）——故落盘基线必须先 LF 归一。
 # 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节
 #    一致（verify-markers.ps1 的 R1/R2 项）。
 # 4. 基线参数化（v1.5.0）：apply-patches.ps1 的「纯净基线兜底判定」不再硬编码 commit，

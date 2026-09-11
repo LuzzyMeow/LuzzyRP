@@ -7,12 +7,16 @@ import android.os.Build
 import android.webkit.JavascriptInterface
 import android.widget.Toast
 import com.luzzymeow.luzzyrp.BuildConfig
+import com.luzzymeow.luzzyrp.chat.ChatEventSink
+import com.luzzymeow.luzzyrp.chat.ChatJobs
+import com.luzzymeow.luzzyrp.chat.ChatJsCall
 
 /**
  * JSBridge 原生实现（AGENTS.md §5.4 新增桥接方法流程的落点）。
  *
  * 所有 `@JavascriptInterface` 方法集中于此；前端通过
- * `assets/ext/luzzy-bridge.js` 的封装调用（含存在性检测与降级）。
+ * `assets/ext/luzzy-bridge.js`（以及 v2.0 的 `luzzy-chat-native.js`）的封装调用
+ * （含存在性检测与降级）。
  *
  * [HARD-REQ-3] 扩展层隔离：本类属于原生层，与上游 RP-Hub 文件无关；
  * 方法名被前端 JS 直接引用，R8 规则已保留（proguard-rules.pro）。
@@ -20,16 +24,70 @@ import com.luzzymeow.luzzyrp.BuildConfig
 @Suppress("unused")
 class LuzzyBridge(private val context: Context) {
 
+    /**
+     * 原生 → JS 事件出口（v2.0）。
+     *
+     * 由 [com.luzzymeow.luzzyrp.MainActivity] 在创建 WebView 后设置，契约：
+     * 收到的字符串是**完整的 JS 表达式**，宿主须在 **UI 线程** 调
+     * `webView.evaluateJavascript(js, null)`；WebView 销毁前须置回 null。
+     */
+    @Volatile
+    var eventSink: ((String) -> Unit)? = null
+
+    /** 事件出口的稳定适配器（读 [eventSink] 的最新值，避免每任务重新分配）。 */
+    private val chatSink = ChatEventSink { jobId, eventJson ->
+        eventSink?.invoke(ChatJsCall.onEvent(jobId, eventJson))
+    }
+
+    /** 原生聊天传输任务管理器（懒建：不用原生传输时不占资源）。 */
+    private val chatJobs: ChatJobs by lazy {
+        ChatJobs(
+            sink = { chatSink },
+            log = { message -> android.util.Log.d(TAG, message) },
+        )
+    }
+
+    // ---------- v2.0 原生聊天传输桥接契约（JS 侧：assets/ext/luzzy-chat-native.js） ----------
+
+    /** 启动一次原生聊天传输；返回 jobId（成功）或空串（原生不可用/参数非法）。必须立即返回，不得阻塞。 */
+    @JavascriptInterface
+    fun chatStart(planJson: String): String = try {
+        chatJobs.start(planJson)
+    } catch (e: Throwable) {
+        android.util.Log.w(TAG, "chatStart 失败：${e.javaClass.simpleName}")
+        ""
+    }
+
+    /** 中止指定 job；返回是否真的中止了。 */
+    @JavascriptInterface
+    fun chatAbort(jobId: String): Boolean = try {
+        chatJobs.abort(jobId)
+    } catch (e: Throwable) {
+        false
+    }
+
+    /** 原生传输能力探测；返回 JSON 字符串 {"available":true,"protocols":[...]} 或 {"available":false,"reason":"..."}。 */
+    @JavascriptInterface
+    fun chatCapabilities(): String = try {
+        ChatJobs.capabilitiesJson(available = true)
+    } catch (e: Throwable) {
+        ChatJobs.capabilitiesJson(available = false, reason = e.javaClass.simpleName)
+    }
+
+    /** WebView 销毁时收尾：停止全部在跑的传输任务，并断开事件出口。 */
+    fun shutdownChatJobs() {
+        eventSink = null
+        chatJobs.shutdown()
+    }
+
     /** 剪贴板写入。返回是否成功（后端实现总是返回 true）。 */
     @JavascriptInterface
-    fun copyToClipboard(text: String): Boolean {
-        return try {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("LuzzyRP", text))
-            true
-        } catch (e: Exception) {
-            false
-        }
+    fun copyToClipboard(text: String): Boolean = try {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("LuzzyRP", text))
+        true
+    } catch (e: Exception) {
+        false
     }
 
     /** 轻提示。 */
@@ -105,6 +163,8 @@ class LuzzyBridge(private val context: Context) {
     }
 
     companion object {
+        private const val TAG = "LuzzyBridge"
+
         /** 上游基线版本；每次同步上游后更新（v1.5.0 同步至 1.9.3 / commit 4aef0bb）。 */
         const val UPSTREAM_VERSION = "1.9.3"
     }

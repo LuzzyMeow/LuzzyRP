@@ -1896,7 +1896,20 @@ const app = createApp({
         // url/apiKey/provider/protocol 覆盖全局默认；provider/protocol 进入用量记录供趋势图筛选
         const requestTrackedChatCompletion = (options, type) => {
             const request = { url: buildApiEndpoint(settings.apiUrl, 'chat/completions'), apiKey: settings.apiKey, ...options };
-            return requestChatCompletion({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
+            // [LuzzyRP patch 050] B 方案（薄切）· 传输层可交由原生 Kotlin 后端执行。
+            // 卸载的只是「HTTP + SSE 解帧 + 三协议线格式 + 工具增量拼装 + 取消/超时」；
+            // 上下文装配与渲染仍在 JS（角色卡/世界书/记忆/预设/正则都在 JS 与 IndexedDB，
+            // 原生与远端都无法替代 —— 这是「薄切」的定义，也是零双真源的前提）。
+            // 扩展层未加载 / 桥不可用 / 协议不支持 / 非流式 / 原生首帧即失败 → 一律回落
+            // 下面这条原有 JS 路径；该路径**保留不删不改**，故用户无感知升级、可随时降级。
+            const performRequest = (opts) => {
+                const offload = typeof window !== 'undefined' && window.Luzzy && window.Luzzy.chatOffload;
+                if (offload && offload.canHandle(opts)) {
+                    return offload.request(opts, () => requestChatCompletion(opts));
+                }
+                return requestChatCompletion(opts);
+            };
+            return performRequest({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
                 type, model: request.model, apiUrl: request.url, apiKey: request.apiKey,
                 provider: options.provider ?? settings.apiProviderId ?? '',
                 protocol: options.protocol ?? '', ...metrics
@@ -6017,15 +6030,12 @@ const app = createApp({
         const wrapAnalysis = (tag, text) => text
             ? `<${tag}>\n${text.replace(/<\s*\/?\s*(?:thinking|think|cot)\s*>/gi, '')}\n</${tag}>\n`
             : '';
-        const appendNextResponsePrompt = (messageList, { cotEnabled = false, useThinkingTag = false, writingStylePrompt = '' } = {}) => {
-            const target = [...messageList].reverse().find(message => (
-                message?.role === 'user'
-                && Array.isArray(message._sourceIndexes)
-                && message._sourceIndexes.length > 0
-            ));
-            if (!target) return;
-
-            const prompt = BUILTIN_PROMPTS.buildNextResponsePrompt({
+        // [LuzzyRP patch 047] A2 · 前缀稳定化：把 <next_response> 的文本构造抽出为纯函数。
+        // 该块内容**只由设置决定**（与当轮用户输入无关）—— 因此语义上属于 system，
+        // 而不是「挂在最新一条 user 消息尾巴上」的逐轮装饰。抽出来之后由 generateResponse
+        // 在 system 末尾注入一次（见 systemPromptParts 处），并停用下面的逐轮追加。
+        const buildNextResponsePromptText = ({ cotEnabled = false, useThinkingTag = false, writingStylePrompt = '' } = {}) => (
+            BUILTIN_PROMPTS.buildNextResponsePrompt({
                 autoImageGenEnabled: isAutoImageGenEnabled.value,
                 cotEnabled,
                 imageGenCount: settings.imageGenCount,
@@ -6035,7 +6045,17 @@ const app = createApp({
                 storyPanelsEnabled: isStoryPanelsEnabled.value,
                 replyInTool: isTruncationEnabled.value,
                 uiTemplateEnabled: isUiTemplateAnalysisEnabled()
-            });
+            })
+        );
+        const appendNextResponsePrompt = (messageList, { cotEnabled = false, useThinkingTag = false, writingStylePrompt = '' } = {}) => {
+            const target = [...messageList].reverse().find(message => (
+                message?.role === 'user'
+                && Array.isArray(message._sourceIndexes)
+                && message._sourceIndexes.length > 0
+            ));
+            if (!target) return;
+
+            const prompt = buildNextResponsePromptText({ cotEnabled, useThinkingTag, writingStylePrompt });
             target.content = `${String(target.content || '').trimEnd()}\n\n${prompt}`;
         };
         const generateResponse = async (startTime = null, options = {}) => {
@@ -6175,6 +6195,22 @@ const app = createApp({
             if (cotPresets.length > 0) {
                 systemPromptParts.push(cotPresets.map(p => p.content).join('\n\n---\n\n'));
             }
+
+            // [LuzzyRP patch 047] A2 · <next_response> 作为 system 的**最后一块**注入。
+            // 原实现把它挂到「当时最新的一条 user 消息」尾巴上，下一轮那条消息被重建时又丢掉，
+            // 于是每轮恰好有 1 条已存在的消息被改写 —— 门禁 tools/prefix-cache-test.cjs 实测到
+            // 「每轮 1 条改写、公共前缀仅 ~0.91」就是它。移到这里后请求变成**纯追加**
+            // （上一轮请求成为下一轮的逐字节前缀），提示词文本一字未改、每轮仍然可见。
+            systemPromptParts.push(buildNextResponsePromptText({
+                cotEnabled: cotPresets.length > 0,
+                useThinkingTag: usesThinkingCotTag(requestModel),
+                writingStylePrompt: writingStylePresets
+                    .map(preset => preset.content
+                        .replace(/^\s*<writing_style>\s*/i, '')
+                        .replace(/\s*<\/writing_style>\s*$/i, ''))
+                    .concat(/deepseek/i.test(requestModel) ? '正文最少700字。' : [])
+                    .join('\n\n')
+            }));
 
             const systemPrompt = systemPromptParts.join('\n\n');
             const systemWorldInfo = [
@@ -6424,16 +6460,19 @@ const app = createApp({
                 .filter(m => String(m.content || '').trim())
             );
             appendPendingUiTemplateCorrection(messages);
-            appendNextResponsePrompt(messages, {
-                cotEnabled: cotPresets.length > 0,
-                useThinkingTag: usesThinkingCotTag(requestModel),
-                writingStylePrompt: writingStylePresets
-                    .map(preset => preset.content
-                        .replace(/^\s*<writing_style>\s*/i, '')
-                        .replace(/\s*<\/writing_style>\s*$/i, ''))
-                .concat(/deepseek/i.test(requestModel) ? '正文最少700字。' : [])
-                    .join('\n\n')
-            });
+            // [LuzzyRP patch 047] A2 · 停用逐轮追加：<next_response> 已改由 system 末块承载
+            // （见 systemPromptParts 组装处）。原来这里每轮把该块挂到当时最新的 user 消息上，
+            // 下一轮该消息被重建时又丢掉 → 前缀在末尾断裂。内容完全相同，只是换了载体。
+            // appendNextResponsePrompt(messages, {
+            //     cotEnabled: cotPresets.length > 0,
+            //     useThinkingTag: usesThinkingCotTag(requestModel),
+            //     writingStylePrompt: writingStylePresets
+            //         .map(preset => preset.content
+            //             .replace(/^\s*<writing_style>\s*/i, '')
+            //             .replace(/\s*<\/writing_style>\s*$/i, ''))
+            //         .concat(/deepseek/i.test(requestModel) ? '正文最少700字。' : [])
+            //         .join('\n\n')
+            // });
 
             let selectedVectorMemories = [];
             if (memorySettings.enabled
@@ -6456,7 +6495,16 @@ const app = createApp({
                 vectorDepth: MEMORY_VECTOR_DEFAULT_DEPTH,
                 safeTargetLimit
             });
-            if (activeToolDepth === 0) messages = appendActiveToolReminderToLatestUserMessage(messages);
+            // [LuzzyRP patch 047] A1 · 前缀稳定化：不再把检索提醒重复追加到「最新一条 user 消息」。
+            // 理由：① 同一句提醒已由 system 里的 <active_tools> 携带 —— 6002 行的
+            // buildActiveToolSystemPrompt 用的就是同一个 getActiveToolLatestUserReminder()，
+            // 且该追加只在「有启用工具」时生效，而那正是 system 含提醒的充要条件 → 纯冗余；
+            // ② 该追加使那条 user 消息在**下一轮**重建时变形（下一轮的最新 user 已换人，
+            // 旧的提醒被丢掉），前缀因此在距尾约 1 轮处断裂 —— 实测「干净配置 6 轮」平均公共
+            // 前缀仅 0.9101，这是主因之一。去掉后请求变为**纯追加**：上一轮的请求成为下一轮的
+            // 逐字节前缀（这正是 KV/prompt 前缀缓存命中的充要形态）。
+            // 提示词文本零改动（提醒仍完整保留在 system 内），行为可通过 luzzy-prefix-guard 观测。
+            // if (activeToolDepth === 0) messages = appendActiveToolReminderToLatestUserMessage(messages);
             messages = postprocessContextMessages(messages).map((message, index, array) => ({
                 ...message,
                 content: processRegex(message.content || '', {
@@ -6735,7 +6783,10 @@ const app = createApp({
                     }
                 }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
                 if (requestSignal.aborted) throw createAbortReason();
-                if (activeToolDepth > 0 && !responseResult.toolCalls.length && !responseResult.content.trim()) {
+                // [LuzzyRP patch 051] C1 · 可选链兜底：Anthropic / Gemini 适配器原先不返回
+                // toolCalls 键（根因已在 api-utils.js 的 withUsageMetrics 出口补齐），
+                // 这里再兜一层，避免以后新增协议适配器漏带该字段时重演同一次 TypeError。
+                if (activeToolDepth > 0 && !responseResult.toolCalls?.length && !responseResult.content.trim()) {
                     throw new Error('检索完成，但 API 未返回正文，请重新尝试。');
                 }
                 if (!responseResult.isStream) {
@@ -6755,7 +6806,8 @@ const app = createApp({
                         }
                     }
                 }
-                if (responseResult.toolCalls.length) {
+                // [LuzzyRP patch 051] C1 · 同上：原为 `responseResult.toolCalls.length`（无保护）
+                if (responseResult.toolCalls?.length) {
                     assistantMessage = ensureAssistantMessage();
                     syncNativeActiveToolUis(assistantMessage, responseResult.toolCalls, requestToolUis, requestTools, true);
                     toolResponse = responseResult;

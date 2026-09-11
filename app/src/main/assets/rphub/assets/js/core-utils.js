@@ -165,8 +165,7 @@ const stringifyErrorDetail = (detail) => {
     }
 };
 
-const getApiErrorStatus = (payload, fallbackStatus) => {
-    const candidates = [
+const getApiErrorStatus = (payload, fallbackStatus) => {    const candidates = [
         payload?.status,
         payload?.statusCode,
         payload?.code,
@@ -187,8 +186,24 @@ const formatApiErrorMessage = (status, detail) => {
     return lines.join('\n');
 };
 
+// [LuzzyRP patch 051] C4 · Anthropic Messages 的正常流式事件类型集合
+// （用于把「正常事件信封」与「错误信封」区分开；`type:"error"` 故意不在其中）
+const ANTHROPIC_STREAM_EVENT_TYPES = new Set([
+    'message_start', 'message_delta', 'message_stop',
+    'content_block_start', 'content_block_delta', 'content_block_stop',
+    'ping'
+]);
 const extractApiErrorMessage = (payload, fallbackStatus = '') => {
     if (!payload || typeof payload !== 'object') return '';
+    // [LuzzyRP patch 051] C4 · 只在「确实是错误信封」时才判错。
+    // Anthropic Messages 的流式事件按规范**带顶层 message 对象**
+    //   {"type":"message_start","message":{"id":…,"type":"message","role":…,"content":[],"usage":{…}}}
+    // 而下面的 `payload.message || payload.detail` 是无条件读取的 → 每个 Anthropic 响应的
+    // **第一帧**就被当成 "API Error: 200 {…}" 抛出，Anthropic 协议实际从未跑通过
+    // （parseAnthropicSseChunk 第 484 行 `if (apiError) throwApiError(apiError)` 立即中断）。
+    // 这里按「已知的正常流式事件类型」提前放行；`type:"error"` 不在集合内，故 Anthropic
+    // 真正的错误事件仍会照常上抛。仅新增一个提前返回，不改变其它任何分支的行为。
+    if (typeof payload.type === 'string' && ANTHROPIC_STREAM_EVENT_TYPES.has(payload.type)) return '';
     const error = payload.error;
     const status = getApiErrorStatus(payload, fallbackStatus);
     if (typeof error === 'string') return formatApiErrorMessage(status, error);

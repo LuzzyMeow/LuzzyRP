@@ -267,7 +267,8 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-040，详见 `tools/patches/README.md`）：
+**允许 patch 的点位**（当前登记 001-051，详见 `tools/patches/README.md`；
+**本表 042-046 行待补**——那 5 枚已登记在 `tools/patches/README.md`，此处仅补 047/048/050/051）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -312,6 +313,10 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | 039 | app.js + ext/luzzy-theme.css | 关于页 CHANGELOG 关键词检索高亮：命中内容关键词包 `<mark>`（文本节点级遍历/跳过 script-style/大小写不敏感/正则转义）+ `--luzzy-mark` token（DESIGN.md highlight #F5D9A8；v1.4.0） |
 | 040 | index.html + app.js | 供应商编辑器「模型列表」改**卡片列表 + 二级弹窗编辑**（用户 2026-09-10 指定）：卡片只承载识别信息（显示名/模型 ID/类型徽标/上下文/最大输出/输入模态）+ 编辑·删除按钮；新增模型编辑弹窗（复用上游 `modal-shell`，`z-[70]` 叠于供应商编辑器 `z-[60]`）；编辑在**草稿副本**上进行、`confirmModelEditor` 才原位写回 → **编辑完单个模型即保持**，取消不影响原条目；`addProviderEditorModel` 改为开弹窗，删除时同步收殓弹窗/递减索引。配色沿用本屏既有 accent（teal/violet/amber），零新增色相（v1.5.0）。另含：模型级自定义请求体改多行输入框（提示文字完整换行）、「+ 加键值」按钮扁平化（去边框白底） |
 | 041 | app.js + ui-components.js + index.html | **识图架构重构 + 删除视频支持**（用户 2026-09-10 指定）：① 聊天模型原生支持图片时图片按 `image_url` part 直发、**不调用识图模型**（`buildNativeImageContent`，只带最近一条带图 user 消息）；② 不支持时先走识图模型（内置提示词）再以 **user 身份**注入「用户上传了一张图，图片内容为：…」（保留 `<user_image_context>` 与安全注记）；③ 输入模态只留 text/image（模型编辑器按钮、归一白名单、`ui-components` 标签映射同步清理）。另：**复原 1.9.3 合并吞掉的 `const requestTools` 声明**（该行丢失导致 `sendMessage`→`generateResponse` 必抛 ReferenceError、聊天全挂且界面永停「生成中」；属上游原状复原，非二创、无标记）（v1.5.0） |
+| 047 | index.html + app.js | **KV / prompt 前缀缓存：请求形态改「纯追加」**（2026-09-11）：① **A1 停用**「把检索提醒追加到最新 user 消息」——同一句提醒已由 system 里的 `<active_tools>` 携带（同一 `getActiveToolLatestUserReminder()`，且该追加只在「有启用工具」时生效 = system 含提醒的充要条件 → 纯冗余），且它使那条消息逐轮变形；② **A2** 把 `<next_response>` 从最新 user 消息尾巴**移到 system 最后一块**（抽出纯函数 `buildNextResponsePromptText()`，内容只由设置决定、与当轮输入无关，由 `systemPromptParts` 注入一次），尾部逐轮追加停用；③ `index.html` 挂载观测层 `ext/luzzy-prefix-guard.js`（包装 `window.fetch` 比对相邻两轮公共前缀 + 采集 `cached_tokens`；只读旁路、失败静默降级，必须早于任何生成请求）。实测公共前缀由 **0.9101** 变为纯追加形态。门禁 `tools/prefix-cache-test.cjs` |
+| 048 | api-utils.js | **Anthropic 显式缓存断点**（2026-09-11）：Anthropic Messages **无** OpenAI 式自动前缀缓存，须显式声明 `cache_control:{type:'ephemeral'}`。新增 `withAnthropicCacheBreakpoint()` 打两个断点：① **system 块末尾**（`system:[{type:'text',text:system,cache_control:{type:'ephemeral'}}]`，单块 ~8KB 是最大稳定前缀）；② **最后一条消息的最后一个文本块**（`[...slice(0,-1), withAnthropicCacheBreakpoint(last)]`，下一轮正好以它为前缀命中，配合 047 收益最大）。只用官方块数组形态、**不改动任何既有文本内容**；拿不到合适文本块时原样返回（静默降级） |
+| 050 | index.html + app.js | **v2.0 B 方案（薄切）· 传输层可卸载到原生 Kotlin**（2026-09-11）：卸载的只是「HTTP + SSE 解帧 + 三协议线格式 + 工具增量拼装 + 取消/超时」，**上下文装配与渲染仍在 JS**（零双真源的前提）。① `index.html` **按依赖顺序**挂载 `ext/luzzy-chat-native.js`（把 `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 包成 `Luzzy.chatNative`）→ `ext/luzzy-chat-offload.js`（适配成与上游 `requestChatCompletion` 同形的可卸载通道）；② `app.js` 的 `requestTrackedChatCompletion` 内新增 `performRequest(opts)` 卸载分支（`window.Luzzy.chatOffload` 存在且 `canHandle(opts)` 为真则走原生）。**降级逐级回落**：扩展层未加载 / 桥不可用 / 协议不支持 / 非流式 / 原生首帧即失败 → 一律回落原 JS 路径（**原路径保留不删不改**） |
+| 051 | app.js + api-utils.js + core-utils.js | **潜伏缺陷修复**（2026-09-11 静态审查发现，Anthropic 协议此前**从未跑通**）：**C1** `responseResult.toolCalls` 无保护解引用——上游 1.9.2 起生成收尾**无条件**读 `responseResult.toolCalls.length`（两处），而 **Anthropic / Gemini 适配器从不返回该键** → 每次收尾必抛 TypeError。双侧修：`api-utils.js` 的 `withUsageMetrics` 出口**补齐返回契约**（`if (!Array.isArray(result.toolCalls)) result.toolCalls = [];`）+ `app.js` 两个调用点加**可选链**。**C4** `extractApiErrorMessage` **无条件**读 `payload.message` / `payload.detail`，而 Anthropic 的 `message_start` 帧按规范**带顶层 `message` 对象** → 每个响应的**第一帧**就被判成 `"API Error: 200 {…}"` 抛出（`parseAnthropicSseChunk` 内立即中断）。修：`core-utils.js` 新增 `ANTHROPIC_STREAM_EVENT_TYPES` 集合（`type:"error"` 故意不在其中）命中即提前放行，真正的错误事件仍照常上抛——**仅新增一个提前返回，不改其它分支行为** |
 
 **新增 patch 的规则**：
 

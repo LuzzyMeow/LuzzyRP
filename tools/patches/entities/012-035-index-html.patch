@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index 52135b4..da8043f 100644
+index 52135b4..863227d 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,20 @@
@@ -1230,7 +1230,7 @@ index 52135b4..da8043f 100644
          <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
          <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"
              @close="showExportModal = false" @select-all="selectAllExportItems"
-@@ -2849,6 +3579,17 @@
+@@ -2849,6 +3579,29 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>
@@ -1245,6 +1245,18 @@ index 52135b4..da8043f 100644
 +    <!-- [LuzzyRP patch 042] 流式增量渲染指令（v-lsp-stream；必须在流式分支渲染前注册，
 +         本文件位于尾部、应用已挂载，但指令是渲染期解析，故时序安全） -->
 +    <script src="../ext/luzzy-stream.js"></script>
++    <!-- [LuzzyRP patch 047] KV / prompt 前缀缓存观测层（v1.6.0）：
++         包装 window.fetch 做「相邻两轮请求公共前缀」比对 + 采集服务端 cached_tokens，
++         只读旁路、失败静默降级。api-utils.js 三处请求都走全局 fetch（全仓无提前捕获），
++         故这是唯一「不改上游」的挂钩点。必须**早于**任何生成请求发起，故与 stream 同批挂载。 -->
++    <script src="../ext/luzzy-prefix-guard.js"></script>
++    <!-- [LuzzyRP patch 050] v2.0 B 方案（薄切）· 原生 Kotlin 聊天传输层。
++         顺序有依赖：先挂 chat-native（桥接封装，把 LuzzyBridge.chatStart/chatAbort/
++         chatCapabilities 包成 Luzzy.chatNative），再挂 chat-offload（把它适配成与上游
++         requestChatCompletion 同形的可卸载通道）。两者都带存在性检测与静默降级：
++         桌面浏览器 / 旧 APK 上 ready() 为 false，app.js 的卸载分支自动走回原 JS 路径。 -->
++    <script src="../ext/luzzy-chat-native.js"></script>
++    <script src="../ext/luzzy-chat-offload.js"></script>
  </body>
  
  </html>

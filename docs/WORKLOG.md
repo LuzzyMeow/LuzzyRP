@@ -1974,3 +1974,161 @@ legacy 臂 p95 是 **241ms**（≈4fps 的尾部）。**即用户要的「跑满
 
 
 
+
+
+---
+
+## 会话 62 · v2.0 开工：KV 前缀缓存最大化（实测 0.9101 → 1.0000）+ B 方案立项
+
+**日期**：2026-09-11
+**用户拍板**：「我想让 web view 作为前端显示样式，也就是目前的样式不用变动，而后端采用原生 Kotlin……
+对齐参考项目 rikkahub 和 dsh 的架构设计」「全力做 B 方案，进行深度调研，确定工作计划，
+确定工作版本为 V2.0，确保 KV 缓存收益最大化，确保现有工具正常调用且不损失精度和质量，确保用户无感知升级」，
+并授权「允许你改上游文件」（仍走登记 patch）、「不需要澄清提问，按你推荐的路线走」。
+
+### 完成
+
+**① 三条并行深度调研（47 条 file:line 证据，推翻了 3 条既有假设）**
+
+| 原假设 | 裁决 |
+|---|---|
+| depth≥1 时 `<active_tools>` 被整段替换 | **错** —— 阈值是 `activeToolDepth < 4`（`app.js:6056`），depth 0/1/2/3 逐字节相同 |
+| depth≥1 时 `tools` 字段消失 | **错（方向相反）** —— 因 `requireTool` 在 depth≥1 翻假（`app.js:6696` → `api-utils.js:262`），tools **多出 1 个** `output_reply`（4→5） |
+| 副模型结果带 `toISOString()` 进 messages | **错** —— 只写 `window.__RPHubLastUiTemplateAnalysis`（`app.js:5645`），**从不进 messages**；请求路径全仓无时钟值 |
+
+**新发现（原清单没有）**：⑧ 世界书触发概率门用 `Math.random()`（`data-services.js:805,813`）；
+⑨ 原生图片 parts 是尾相对的（`app.js:5177-5192`）；⑩ `filterBlockedStyleText` 读时重写历史；
+⑪ `cover` 模式原位改写此前所有 tool 消息。
+**并确认：客户端完全没有 token 预算/裁剪**（`tiktoken|countTokens|estimateTokens|maxContext` 全仓 0 命中）。
+
+**② 「改造前」基线实测**（桌面 Chromium + 真实上游发送链路 + fetch 打桩，6 个连续用户轮，
+无世界书/无记忆/无 UI 模板、system 哈希恒定、tools 稳定）：**平均公共前缀 0.9101**，断裂稳定落在距尾约 1–2 条消息处。
+
+**③ patch 047 · 前缀稳定化（已实测达标）**
+
+- **A1**：停用「把检索提醒追加到最新 user 消息」（`app.js`）。该句与 system 里 `<active_tools>` 内的
+  `${reminder}` **同源同文本**（都来自 `getActiveToolLatestUserReminder()`），属纯冗余；原实现使那条
+  user 消息在**下一轮**重建时变形 → 前缀断裂。
+- **A2**：把 `<next_response>` 从「最新 user 消息的尾巴」移到 **system 的最后一块**。该块内容**只由设置决定**
+  （与当轮用户输入无关），语义上属于 system；文本一字未改、每轮仍可见。
+  门禁实测：修复前**每轮恰好 1 条已存在消息被改写**，改写字段就是它（`firstRewritten` 直接给出了
+  `content: "…<next_response>…" → "…"`）——**这是 0.91 的真正主因，不是 A1**（A1 单独只带来 +0.5pp）。
+
+**实测结果：相邻两轮公共前缀 0.9101 → 1.0000（纯追加，`rewrittenCount` 全为 0）。**
+
+**④ patch 051 · 两个真实潜伏缺陷（Anthropic 协议此前完全不可用）**
+
+- **C1**：`app.js` 生成收尾**无条件**读 `responseResult.toolCalls.length`（两处），而 Anthropic/Gemini
+  适配器**从不返回 `toolCalls` 键** → 任何一次成功回复都抛 TypeError。
+  根因修复：在两者**唯一公共出口** `withUsageMetrics`（`api-utils.js`）补齐返回契约；并在两处调用点加可选链兜底。
+- **C4（新发现，更致命）**：`extractApiErrorMessage`（`core-utils.js`）无条件读 `payload.message` 当错误详情，
+  而 Anthropic `message_start` 帧**按规范就带顶层 `message` 对象**
+  （`{"type":"message_start","message":{"id","type","role","content","model","usage"}}`）
+  → **每个 Anthropic 响应的第一帧就被判成 "API Error: 200 {…}" 抛出**，
+  `parseAnthropicSseChunk` 第 484 行立即中断。**Anthropic 协议实际从未跑通过。**
+  修复：按「已知正常流式事件类型」提前放行（`type:"error"` 不在集合内，真错误仍照常上抛）。
+
+**验证（打桩端点，端到端）**：修复前 `API Error: 200 {"id":"m1","usage":{…}}`；
+修复后 `lastRole: "assistant"` / `lastContent: "这是 Anthropic 桩回复。"` / `exceptions: []`。
+
+**⑤ patch 048 · Anthropic 显式缓存断点**
+Anthropic Messages **没有** OpenAI 那样的自动前缀缓存，不显式声明 `cache_control:{type:'ephemeral'}`
+就零收益。已加两个断点：system 块末尾 + 最后一条消息最后一个文本块（配合 047 的纯追加形态）。
+补测通过（system 已变为官方块数组形态，回复正常）。
+**用量页缓存可见性是既有能力**（`index.html:876` 的 `cacheReadTokens` 徽标 + `runtime-services.js:202`
+的 `getUncachedInputTokens`），无需新增 UI，故**未触发设计 SKILL 门**。
+
+**⑥ 新门禁 `tools/prefix-cache-test.cjs`（含负控）**
+断言形态是「缓存友好的充要形态」：**上一轮请求的 messages 必须逐字节成为下一轮的前缀（纯追加）**，
+并逐条给出**首个被改写消息的下标与字段级 diff**（不只看比例）。8/8 PASS，退出码 0；
+**A7 负控**把旧行为放回来，实测 `rewrote: true` → 证明门禁有牙齿。
+另修：桌面 profile 的 IndexedDB **在多次运行间持久**，会污染基线 —— 门禁每次先清 `RPHubDB` + localStorage。
+
+### 决策
+
+- **B 方案采用「薄切」**：上下文装配**留在 JS**（角色卡/世界书/记忆/预设/正则全在 JS 侧与 IndexedDB，
+  远端/原生无法执行；搬走只会造成永久双真源），Kotlin 只接管**传输 + SSE + 三协议线格式 + 循环调度 + 预算 + 缓存账本**。
+  KV 收益与循环位置正交（服务端只看见 messages 的字节），薄切拿到全部收益且零双真源。
+- **顺序硬约束**：W1/W2 **必须早于** Kotlin 传输迁移 —— 前缀观测层挂在 `window.fetch` 上
+  （`api-utils.js` 三处都调全局 fetch，全仓无提前捕获），传输一旦搬进 Kotlin，该挂钩点即消失。
+- **无感知升级四条硬保证**：零数据迁移（IndexedDB/localStorage 结构一个字段不动）、零重配置、
+  可降级（`transportMode: auto|js|native`，auto 下原生不可用即回落现有 JS 路径）、同签名同包名。
+- 主计划转为 `docs/PLAN-v2.0.md`；`PLAN-v1.6.0-dsh.md` 转历史存档。
+
+### 遗留 / 待办
+
+1. **Gemini 协议未验证**：桌面打桩下 Gemini **不产出回复**（history 只到 user，无 assistant、无错误、
+   `exceptions: []`），即 `onDelta` 似乎从未投递内容。已排除「抗截断 replyInTool」假设（关掉后同样无输出）。
+   **本轮改动不可能抑制输出**（C1 只是加保护、C4 只是少判错），倾向判定为**既有问题**，
+   但**未做 revert 对照，故不下结论**；需真实 Gemini key 复核。**未计入「已修复」。**
+2. A3（世界书/向量召回的「距尾 depth」插入）、A4（正则 depth）、A5（`Math.random()` 概率门）
+   **尚未实施** —— 且调研表明 A3 与「前缀缓存」存在**语义冲突**（「距尾 N 轮」本质非追加式），
+   需要专门设计（钉死首次插入点 / 或提供「缓存优先」开关）。
+3. patch 047/048/051 尚未登记进 `tools/patches/README.md` 与 `AGENTS.md §4.2`，
+   4 个上游文件（index.html / app.js / api-utils.js / core-utils.js）的 entities **尚未重生成**，
+   `verify-markers.ps1` 尚未加新检查项（当前 132 PASS 是**未含新 patch** 的部分绿）。
+4. Kotlin 传输后端（patch 050）由并行子代理实施中；完成后需 **JS 侧接线 + 复核**。
+5. 附带发现（低优先，未修）：非 OpenAI 协议的配额日志 URL 会拼成
+   `…/v1/chat/completions/v1/chat/completions/api/log/token`（重复路径），静默失败。
+
+### 会话 62 追记 · v2.0 收尾（同日）
+
+**⑦ Kotlin 原生传输后端（patch 050）—— 已交付并验证**
+
+- **恢复 + 改编**，不是重写：从 `0392b662^` 取回助手模块的传输层，包名迁到 `chat.llm`。
+  主源码 **15 文件 / 1952 行**（`SseFrames`/`JsonLenient`/`SseClient`/`LlmTransport`/`OpenAiWire`/
+  `OpenAiTransport`/`AnthropicWire`/`AnthropicTransport`/`GeminiWire`/`GeminiTransport`/
+  `RoutingTransport`/`BudgetGuard` + 新增 `ChatPlan`/`ChatJobs`/`JsCall`）。
+- **依赖只加两个**：`kotlinx-serialization-json:1.9.0` + `okhttp:4.12.0`。
+  **不需要编译器插件**（`@Serializable` 使用 **0 次**，全是 JSON 树 API）；
+  kotlin-stdlib 由 AGP 9.2.1 内置提供，实际解析为 **2.2.20**。协程（1.11.0）本来就在。
+- **验证（全部实测）**：`./gradlew :app:testDebugUnitTest` **14 类 / 207 用例 / 0 失败**，
+  其中 **22 条走真 socket**（JDK `ServerSocket` + 真 OkHttp：连接/分帧/空闲超时/取消关连接/重试）；
+  另有 **17 条线格式保真**用例（`WireFidelityTest`，期望值是手写常量串，整串 `assertEquals`
+  钉死键序/值/转义/`extraBody` 落点/`tool_choice` 三分支）；JS 胶水层 **14/14**
+  （Node `vm` 沙箱加载真实资产）。
+  `assembleRelease` **BUILD SUCCESSFUL**，**恰好 1 个 APK**，18,493,190 B，`CN=LuzzyRP`。
+
+**⑧ 自查发现并修复：原生桥的终态事件会被静默丢弃**
+`ext/luzzy-chat-native.js` 的 `onEvent` 原先**先摘处理器、再派发事件**，而派发正是靠该处理器查表
+→ `done`/`error` 取不到处理器被丢弃 → 调用方 Promise 永不 settle，**真机表现就是「一直生成中」**
+（正是本仓库已记录过的故障类）。改为**先派发、后摘除**，并补 Node `vm` 回归门禁
+（`app/src/test/js/chat-native.test.cjs`，14/14）锁死该顺序。
+另确认 **jobId 原样回显**（4 种 id 形态断言逐字节一致），故 `setHandler(plan.jobId, fn)` 能命中。
+
+**⑨ patch 登记 + 实体重生成 + 门禁扩展（子代理执行，我独立复核）**
+
+- 4 枚实体按修正规程重生成，**前像 blob id = 上游纯净基线（`4aef0bb`）的 LF 归一 blob id**；
+  双验证通过：**逆向逐字节一致** + **端到端重放 9/9 `[OK]`**（在仓库外的临时树里跑，
+  **未对仓库工作树执行任何 git 写命令**）。
+- `tools/verify-markers.ps1`：**132 → 151 PASS / 0 FAIL**（新增 19 项）。
+  其中两项**断言的是「被注释掉的旧写法」**（`047-append-only-off` / `047-nextresponse-detached`），
+  所以将来有人**悄悄把改动 revert 回去会直接判红**。
+- 登记：`tools/patches/README.md`（4 个块，沿用该文件的注释式体例）+ `AGENTS.md §4.2`（4 行）。
+  **注意**：§4.2 表原本**缺 042-046 五行**（表止于 041），本次只补了 047/048/050/051 并在表头标注该缺口。
+- 子代理另发现：`gen-entity.mjs` 内置的逆向校验**是坏的**（`--directory=` 传空，恒报 false），
+  其 diff 生成与前像 blob id 正确 —— 后续会话别把这个 false 当真失败。
+
+**⑩ 版本与产物**
+`versionCode 12 → 13`、`versionName 1.4.0 → 2.0.0`；`gen-changelog.mjs` 已把 README 徽章与
+「当前版本」行同步到 v2.0.0（开发中）。`.kotlin/`（AGP 内置 Kotlin 插件的会话数据）已加入 `.gitignore`。
+
+**⑪ 关键决策：原生传输默认「关」**
+
+Kotlin 侧 JVM 层已充分验证，但 **`evaluateJavascript` 的实际投递 / JavaBridge 线程行为 /
+WebView 生命周期竞态只能在真机确认**（本机无设备）。而本仓库发版纪律本就要求「先真机回归再发布」。
+因此在真机验证通过前把未验证路径设为默认走法，**违背用户「无感知升级」的要求**。
+故 `ext/luzzy-chat-offload.js` 用 `ENABLED_BY_DEFAULT = false`，并加：
+① **特性开关** `localStorage.setItem('luzzy_native_transport','1')`（真机验证时免改代码即可开）；
+② **本会话熔断**（原生一旦出错即停用，后续请求全走 JS，不重复踩坑）；
+③ **首帧失败静默回落**（未吐任何增量前失败 → 直接走 JS，用户完全无感）。
+真机验证通过后把该常量改 true 即为默认开启。
+
+**⑫ 本会话新增遗留（诚实清单）**
+
+1. **真机端到端未跑**（无设备）：原生传输的桥接链路只能上真机确认；在此之前默认关（见 ⑪）。
+2. **Gemini 协议**在桌面打桩下不产出回复（详见上文）；倾向既有问题但**未做 revert 对照，不下结论**。
+3. A3/A4/A5 未实施（见上文「遗留」）。
+4. `mockwebserver` 依赖已声明但测试全走自建 `RawSseServer`，**未使用**，可清理。
+5. 签名指纹未与上一版 Release **逐位**比对（手边无旧 APK），只确认是 luzzy 签名（非 debug）。
+6. AGENTS §4.2 表缺 042-046 五行（历史欠账，非本次引入）。

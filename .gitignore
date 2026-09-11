@@ -6,6 +6,8 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/**/build/
 local.properties
+# Kotlin 编译会话数据（AGP 内置 Kotlin 插件生成；v2.0 起引入原生传输层后出现）
+.kotlin/
 
 # IDE
 .idea/

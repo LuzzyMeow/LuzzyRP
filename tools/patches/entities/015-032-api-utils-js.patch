@@ -1,5 +1,5 @@
 diff --git a/assets/js/api-utils.js b/assets/js/api-utils.js
-index dc5a47c..56c0e15 100644
+index dc5a47c..8a631b5 100644
 --- a/assets/js/api-utils.js
 +++ b/assets/js/api-utils.js
 @@ -8,6 +8,40 @@
@@ -83,7 +83,7 @@ index dc5a47c..56c0e15 100644
          for (let attempt = 1; ; attempt++) {
              try { return await requestChatCompletionOnce(options, attempt); }
              catch (error) {
-@@ -342,6 +393,356 @@
+@@ -342,6 +393,398 @@
          }
      };
  
@@ -147,9 +147,39 @@ index dc5a47c..56c0e15 100644
 +        return budget < total ? { type: 'enabled', budget_tokens: budget } : null;
 +    };
 +
++    // [LuzzyRP patch 048] B1 · Anthropic 显式缓存断点。
++    // Anthropic Messages **没有** OpenAI 那样的自动前缀缓存 —— 不在内容块上显式声明
++    // `cache_control:{type:'ephemeral'}` 就完全没有缓存收益。这里打两个断点：
++    //   ① system 块末尾（单块 ~8KB，是最大的稳定前缀）；
++    //   ② 最后一条消息的最后一个文本块末尾 —— 下一轮请求正好以它为前缀命中，
++    //      配合 patch 047 的「纯追加」形态收益最大。
++    // 只用官方的块数组形态，不改动任何既有文本内容；拿不到合适的文本块时原样返回（静默降级）。
++    const withAnthropicCacheBreakpoint = (message) => {
++        if (!message) return message;
++        const content = message.content;
++        if (typeof content === 'string') {
++            return content ? { ...message, content: [{ type: 'text', text: content, cache_control: { type: 'ephemeral' } }] } : message;
++        }
++        if (!Array.isArray(content) || content.length === 0) return message;
++        let target = -1;
++        content.forEach((block, index) => {
++            if (block && typeof block === 'object' && typeof block.text === 'string' && block.text) target = index;
++        });
++        if (target < 0) return message;
++        return {
++            ...message,
++            content: content.map((block, index) => (
++                index === target ? { ...block, cache_control: { type: 'ephemeral' } } : block
++            ))
++        };
++    };
++
 +    const requestAnthropicCompletionInternal = async (options) => {
 +        const { system, messages } = toAnthropicMessages(options.messages || []);
 +        const thinkingConfig = options.reasoningEffort ? anthropicThinkingConfig(options.maxTokens) : null;
++        const cachedMessages = messages.length > 0
++            ? [...messages.slice(0, -1), withAnthropicCacheBreakpoint(messages[messages.length - 1])]
++            : messages;
 +        const response = await fetch(options.url, {
 +            method: 'POST',
 +            headers: {
@@ -161,8 +191,8 @@ index dc5a47c..56c0e15 100644
 +            body: JSON.stringify({
 +                model: options.model,
 +                max_tokens: options.maxTokens || 8192,
-+                ...(system ? { system } : {}),
-+                messages,
++                ...(system ? { system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] } : {}),
++                messages: cachedMessages,
 +                ...(Number.isFinite(options.temperature) ? { temperature: options.temperature } : {}),
 +                ...(thinkingConfig ? { thinking: thinkingConfig } : {}),
 +                ...(options.extraBody || {}),
@@ -424,9 +454,21 @@ index dc5a47c..56c0e15 100644
 +    };
 +
 +    // [LuzzyRP patch 025] 适配器统一用量指标（与上游 openai 路径 onUsage 契约对齐）
++    // [LuzzyRP patch 051] C1 · 返回契约补齐（潜伏缺陷修复）：
++    // 上游 1.9.2 起 app.js 生成收尾会**无条件**读 `responseResult.toolCalls.length`
++    // （app.js 两处：`activeToolDepth > 0 && !responseResult.toolCalls.length …` 与
++    // `if (responseResult.toolCalls.length) { … }`），而 Anthropic / Gemini 适配器
++    // **从来不返回 toolCalls 键**（返回 {content, reasoning, usage, isStream}）。
++    // 后果：任何一次成功的 Anthropic / Gemini 回复都会解引用 undefined 抛 TypeError
++    // —— 正文虽已流式渲染出来，但会被当成生成失败、追加错误提示且置 generationFailed。
++    // LuzzyRP 的三个协议适配器（patch 015）在上游该行写入之后才合并，故从未对账过。
++    // 这里在两个适配器的**唯一公共出口**把返回形态补齐为与 OpenAI 路径同构（根因修复），
++    // 同时 app.js 侧保留可选链兜底（双保险）。
 +    const withUsageMetrics = (adapter) => async (options) => {
 +        const startedAt = Date.now();
 +        const result = await adapter(options);
++        if (!Array.isArray(result.toolCalls)) result.toolCalls = [];
++        if (result.finishReason === undefined) result.finishReason = null;
 +        options.onUsage?.(result.usage, {
 +            isStream: result.isStream, durationMs: Date.now() - startedAt,
 +            outputCharacters: (result.content || '').length + (result.reasoning || '').length

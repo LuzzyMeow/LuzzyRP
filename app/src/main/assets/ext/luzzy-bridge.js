@@ -79,6 +79,44 @@
         }
     };
 
+    // ---- [v2.0 patch 050] 原生聊天传输（AGENTS §5.4：新桥接方法必须在本文件同步封装） ----
+    // 三个方法的语义见 LuzzyBridge.kt；这里只做存在性检测 + 原样透传，**不做业务判断**
+    // （业务判断在 ext/luzzy-chat-native.js 与 ext/luzzy-chat-offload.js）。
+    // 一律不抛异常：桥不可用/原生报错时返回中性值，让上层静默降级到 JS 传输路径。
+    Luzzy.chatTransportAvailable = function () {
+        return !!(bridge
+            && typeof bridge.chatStart === 'function'
+            && typeof bridge.chatAbort === 'function'
+            && typeof bridge.chatCapabilities === 'function');
+    };
+    Luzzy.chatStart = function (planJson) {
+        if (!Luzzy.chatTransportAvailable()) return '';
+        try {
+            const jobId = bridge.chatStart(String(planJson));
+            return typeof jobId === 'string' ? jobId : '';
+        } catch (e) {
+            return '';
+        }
+    };
+    Luzzy.chatAbort = function (jobId) {
+        if (!Luzzy.chatTransportAvailable()) return false;
+        try {
+            return bridge.chatAbort(String(jobId)) === true;
+        } catch (e) {
+            return false;
+        }
+    };
+    Luzzy.chatCapabilities = function () {
+        if (!Luzzy.chatTransportAvailable()) return { available: false, reason: 'no-native-bridge' };
+        try {
+            const raw = bridge.chatCapabilities();
+            const parsed = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+            return (parsed && typeof parsed === 'object') ? parsed : { available: false, reason: 'bad-payload' };
+        } catch (e) {
+            return { available: false, reason: 'exception' };
+        }
+    };
+
     // ------------------------------------------------------------------
     // [v1.5.0 移除] 原「助手」桥接封装（Luzzy.openAssistant / openAssistantAt /
     // openRpSidebar / isAssistantVisible / push·getAssistantConfig /

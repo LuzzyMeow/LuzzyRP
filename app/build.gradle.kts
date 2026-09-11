@@ -51,8 +51,8 @@ android {
 
         // 资产签名（见 assetSignature）：资产变更即触发设备侧重新解压
         buildConfigField("String", "ASSET_SIGNATURE", """"$assetSignature"""")
-        versionCode = 12
-        versionName = "1.4.0"
+        versionCode = 13
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -120,8 +120,15 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
+    // [v2.0.0] 原生聊天传输层（v2.0 薄切：HTTP + SSE + 协议线格式 + 流式装配下沉到 Kotlin）
+    // 仅两个运行时依赖；未使用 @Serializable，故不需要 kotlinx-serialization 编译器插件。
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp)
+
     // 测试
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
 }
 
 // [LuzzyRP v1.2.3] 应用内 CHANGELOG 自动同步（硬性规定 5 辅助机制）：

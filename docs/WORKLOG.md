@@ -1643,7 +1643,6 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 **未做**：方向 A/B 都会改变流式呈现语义，按纪律先报后做。
 
 ### 四、踩坑记录（新增，值得进 AGENTS §7）
-
 - **「DOM 里有文本」不等于「用户看得见」**：flex 行里唯一的可收缩项会被压成 `clientWidth = 0`
   而**不报错、不告警**，只看 `textContent` 的断言全绿。凡新增「要显示的字段」，必须量
   `getBoundingClientRect().width > 0` 且 `scrollWidth ≤ clientWidth`。
@@ -1654,6 +1653,56 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 - **测试脚本崩溃会把状态留在真机上**：一次 CDP 脚本在 teardown 前抛错，留下了一条合成消息
   且 `isGenerating` 卡在 `true`（真机表现为一直「生成中」）。**收尾必须显式核对真机状态**
   （本轮已核对并复原：会话仍为 13 条、`isGenerating = false`）。
+
+---
+
+## 2026-09-11 · 会话 59（三）：patch 044 流式「活通道」（用户拍板「A 治本」）
+
+### 一、做法
+
+流式期间正文/思考**不再每 tick 写响应式状态**：
+
+| 位置 | 改动 |
+|------|------|
+| `app.js`（patch 044，6 处标记） | `onDelta` 的 `content`/`reasoning` 先进**非响应式缓冲** `livePending`；渲染后（`processMainContent(parseCot(raw).main, true).text`，与模板绑定同源）交给 `Luzzy.streamRender.feed()` 直接上屏；响应式状态按 `LIVE_COMMIT_INTERVAL = 1200ms` 低频提交；`finally` 开头 `commitLiveDelta(true)` 强制追平（**必须在读 content 的 `filterBlockedStyleText`/落库之前**）；正文容器未挂载时（流式分支 `v-if` 依赖 content）立即提交一次，避免开头没有落点；扩展层不可用 → 每 tick 立即提交 = 改前行为（降级） |
+| `index.html`（patch 044，1 处） | 流式分支绑定加 `live: true`，供指令登记「当前流式正文元素」 |
+| `ext/luzzy-stream.js` | 新增 `feed(text, role)`（同一任务内合并、setTimeout 0 上屏）与 `liveState()`；`update()` 增加**不倒退守卫**：活通道期间 Vue 带「低频提交的旧文本」回灌时以活文本为准，`src === live.text`（提交追平）后活通道自动退场；`unmounted` 时清理 |
+
+**不丢任何前端部分**：渲染仍走应用自己的 `renderMarkdown`（过滤/正则/marked/净化全保留），
+且提交后 `content` 与所渲染文本**逐字相等**。代价（显式记录）：流式**中间态**的次要 UI
+（字数统计 / 思考面板文字 / 时间线字数）刷新降到 1.2s 一次；正文仍按上游节奏（120ms）逐段出现。
+
+### 二、验证
+
+| 项 | 结果 |
+|----|------|
+| `node --check`（app.js / ext / 门禁脚本） | ✅ |
+| `tools/stream-render-test.cjs` | ✅ A1–A8 全过 **+ 新增 B1–B5**：未登记元素时 feed 返回 false 不抛错 / 指令 `live:true` 登记元素 / 活通道 DOM 与全量渲染**逐节点等价** / **旧文本回灌不倒退**（1680 vs 840 字）/ 提交追平后活通道退场 |
+| `verify-markers.ps1` | ✅ **119 PASS / 0 FAIL**（新增 9 项 044 检查） |
+| 实体 `012-035-index-html` / `012-036-app-js` | 前像 `52135b42` / `79267c03` 不变；**各逆向 apply 后与工作树逐字节一致**；**端到端 9/9 重放与工作树一致** |
+| `assembleRelease` / `testDebugUnitTest` | ✅ 构建通过、单测通过 |
+| 真机 | 已装机；CDP 确认 `Luzzy.streamRender.feed` 存在、`liveState()` 正常 |
+
+### 三、⚠️ 事故记录：真机上用户会话被重置（**必须记住**）
+
+**现象**：本轮装机重启后，真机上 Aurelion Sol 的会话从 13 条变成 **1 条**（只剩角色 `first_mes`，1599 字）；
+查 IndexedDB（`RPHubDB/store`）确认 `rp_hub_chat_0822a373-…` 现在就是 1 条，`rp_hub_memories_*` 也是 0 条
+→ **用户的这段对话不可从设备恢复**（`rp_hub_token_usage_history` 的 21 条用量记录仍在）。
+
+**归因**：测量阶段之前（18:1x 装机重启后）已确认存储里是 13 条（重启后能读出来即证明落过盘），
+而本轮装机重启后变成 1 条 → **重置发生在测量阶段内**。该阶段唯一改动过聊天状态的，就是我这套
+CDP 探针：`chatHistory.push/pop` 合成消息、`isGenerating` 置位/复位；其中一次探针**在 teardown 前崩溃**，
+把「14 条 + `isGenerating = true`」留在真机上数分钟（后来才清理）——最可能是它的连带后果
+（应用侧的生成生命周期/分支记账把会话判成异常态并重置）。**未 100% 复现到确切调用点**。
+
+**纪律（新增，硬性）**：
+1. **真机上禁止改动用户数据**：不得对用户的 `chatHistory` / `isGenerating` / 任何持久化键做增删改；
+2. 需要「有内容的会话」做性能测量时，**先在应用内新建一个一次性角色/会话**，测完删除；
+   或直接在**桌面同引擎族 + 本地桩数据**上测（`tools/*-test.cjs` 那套）；
+3. 真机探针一律**只读**（读 DOM / 读状态 / 读性能指标）；确需写入时，**收尾必须是独立的一次调用**
+   （先复原再跑断言），且**每步之后都核对**被改动的状态；
+4. **任何真机测试结束后**：核对会话条数、生成标志、指令注册表、误建的 IndexedDB 库
+   （本轮还误用 `indexedDB.open(不存在库名)` 创建了 5 个空库，已 `deleteDatabase` 清理）。
 
 
 

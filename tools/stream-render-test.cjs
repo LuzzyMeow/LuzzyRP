@@ -241,12 +241,58 @@ async function main() {
         if (naiveBad === 0) fail('A8-negative-control', '朴素增量竟然全对——等价性断言没有牙齿（门禁失效）');
         else pass('A8-negative-control', { mismatchTicks: naiveBad, totalTicks: naiveTicks });
 
+        // ---------- B1-B5：活通道（patch 044）----------
+        // patch 044 让 app.js 在流式期间把「渲染后的正文」直接投给 stream.feed() 上屏，
+        // 绕开「每 tick 一次根重渲染」（真机实测那一步要 230–340ms）。核心不变量：
+        //   ① 未登记元素时 feed 不得抛错（返回 false）；
+        //   ② 投喂后的 DOM 必须与「该文本的全量渲染」逐节点等价；
+        //   ③ Vue 带「低频提交的旧文本」回灌时，已流出的文字**不得倒退**；
+        //   ④ 提交追平（src === 活文本）后活通道自动退场，回到常规指令路径。
+        const liveDir = document.querySelector('#app').__vue_app__._context.directives['lsp-stream'];
+        const liveEl = document.createElement('div');
+        liveEl.className = 'markdown-body';
+        document.body.appendChild(liveEl);
+        const lvTicks = (n) => new Promise((r) => setTimeout(r, n));
+
+        if (!liveDir || typeof liveDir.mounted !== 'function') fail('B1-live-feed-unbound', '取不到 v-lsp-stream 指令');
+        else {
+            const unbound = stream.feed('未登记时投喂');
+            if (unbound !== false) fail('B1-live-feed-unbound', '未登记元素时 feed 应返回 false，实际 ' + unbound);
+            else pass('B1-live-feed-unbound');
+        }
+
+        const halfLive = shapeB.slice(0, Math.floor(shapeB.length / 2));
+        liveDir.mounted(liveEl, { value: { src: halfLive, role: 'assistant', live: true } });
+        const stReg = stream.liveState();
+        if (!stReg.hasEl) fail('B2-live-el-registered', '指令带 live:true 未登记元素：' + JSON.stringify(stReg));
+        else pass('B2-live-el-registered');
+
+        stream.feed(shapeB, 'assistant');
+        await lvTicks(30);
+        const wantLive = p.renderMarkdown(shapeB, 'assistant', false, { cache: false });
+        const eqLive = same(liveEl, wantLive);
+        if (!eqLive.ok) fail('B3-live-feed-equals-full-render', eqLive.why);
+        else pass('B3-live-feed-equals-full-render', { chars: shapeB.length, active: stream.liveState().active });
+
+        // ③ 回灌旧文本（Vue 低频提交时就是这么来的）——必须仍是活文本，不能倒退
+        liveDir.updated(liveEl, { value: { src: halfLive, role: 'assistant', live: true } });
+        const eqStale = same(liveEl, wantLive);
+        if (!eqStale.ok) fail('B4-no-regress-on-stale-apply', '旧文本回灌把已流出的内容顶掉了：' + eqStale.why);
+        else pass('B4-no-regress-on-stale-apply', { staleChars: halfLive.length, liveChars: shapeB.length });
+
+        // ④ 提交追平 → 活通道退场
+        liveDir.updated(liveEl, { value: { src: shapeB, role: 'assistant', live: true } });
+        const stEnd = stream.liveState();
+        if (stEnd.active) fail('B5-live-retires-on-catchup', '提交追平后活通道未退场：' + JSON.stringify(stEnd));
+        else pass('B5-live-retires-on-catchup');
+
+        liveEl.remove();
         host.remove();
         return R;
     })()`);
 
     const report = Object.assign({ url: APP_URL }, result, { exceptions });
-    if (exceptions.length) report.failures = (report.failures || []).concat(['A9-no-js-exception: ' + exceptions[0]]);
+    if (exceptions.length) report.failures = (report.failures || []).concat(['B6-no-js-exception: ' + exceptions[0]]);
     report.pass = (report.failures || []).length === 0;
     console.log(JSON.stringify(report, null, 1));
     ws.close();

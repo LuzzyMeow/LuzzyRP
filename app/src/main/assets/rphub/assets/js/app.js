@@ -6566,6 +6566,56 @@ const app = createApp({
             };
 
             try {
+                // [LuzzyRP patch 044] 流式正文「活通道」节流（v1.5.0 性能；实测数据见 ext/luzzy-stream.js 头注）：
+                //   真机实测（会话 59）：流式期间每 tick 的 230–340ms **全部**来自「根级响应式变更 →
+                //   重渲染 + diff 整个界面」（≈1040 vnode），与渲染器无关（指令自身仅 ≈1.4ms；
+                //   换成空实现后同样的 tick 循环仍是 233ms，消息 1200 字 vs 5300 字也无差别）。
+                //   故流式期间**不再每 tick 写响应式状态**：delta 先进非响应式缓冲，渲染后交给
+                //   扩展层 Luzzy.streamRender.feed() 直接上屏；响应式 content/reasoning 按
+                //   LIVE_COMMIT_INTERVAL 低频提交，流结束（finally）强制追平。
+                //   降级：扩展层不可用时缓冲每 tick 立即提交 —— 等价于改前行为。
+                const LIVE_COMMIT_INTERVAL = 1200;
+                let liveCommitAt = 0;
+                const livePending = { content: '', reasoning: '' };
+                const liveFeedApi = () => {
+                    const lz = window.Luzzy;
+                    const api = lz && lz.streamRender;
+                    return api && typeof api.feed === 'function' ? api : null;
+                };
+                const commitLiveDelta = (force) => {
+                    const now = Date.now();
+                    if (!force && now - liveCommitAt < LIVE_COMMIT_INTERVAL) {
+                        // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
+                        // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
+                        const api = liveFeedApi();
+                        const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
+                        if (!livePending.content || (st && st.hasEl)) return false;
+                    }
+                    liveCommitAt = now;
+                    if (livePending.reasoning) {
+                        if (!livePending.content) isThinking.value = true;
+                        appendAssistantText(assistantMessage, 'reasoning', livePending.reasoning);
+                        livePending.reasoning = '';
+                    }
+                    if (livePending.content) {
+                        appendAssistantText(assistantMessage, 'content', livePending.content);
+                        livePending.content = '';
+                        isThinking.value = false;
+                        collapseNativeReasoning(assistantMessage);
+                    }
+                    return true;
+                };
+                // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏
+                const feedLivePreview = () => {
+                    if (!assistantMessage) return;
+                    const api = liveFeedApi();
+                    if (!api) return;
+                    const raw = String(assistantMessage.content || '') + livePending.content;
+                    if (!raw) return;
+                    let text = raw;
+                    try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
+                    api.feed(text, assistantMessage.role || 'assistant');
+                };
                 const responseResult = await requestTrackedChatCompletion({
                     // [LuzzyRP patch 015/025] 多商路由 + provider 透传
                     url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
@@ -6601,18 +6651,21 @@ const app = createApp({
                                 collapseNativeReasoning(assistantMessage);
                             }
                             await nextTick();
+                            liveCommitAt = Date.now();   // [LuzzyRP patch 044] 首帧离散事件不计入低频窗口
                         }
                         if (reasoning && !seededReasoning) {
                             // 原生思考中的文字标签不能改变 API 已指定的通道。
-                            appendAssistantText(assistantMessage, 'reasoning', reasoning);
-                            isThinking.value = true;
+                            // [LuzzyRP patch 044] 先入非响应式缓冲，由 commitLiveDelta 低频提交
+                            livePending.reasoning += reasoning;
                         }
                         if (content && !seededContent) {
-                            appendAssistantText(assistantMessage, 'content', content);
-                            isThinking.value = false;
-                            collapseNativeReasoning(assistantMessage);
+                            // [LuzzyRP patch 044] 同上：正文先入缓冲，渲染结果走活通道直接上屏
+                            livePending.content += content;
                         }
                         if (toolCalls?.length) syncNativeActiveToolUis(assistantMessage, toolCalls, requestToolUis, requestTools);
+                        // [LuzzyRP patch 044] 上屏 + 低频提交；扩展层不可用则每 tick 立即提交（改前行为）
+                        feedLivePreview();
+                        commitLiveDelta(!liveFeedApi());
                     }
                 }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
                 if (requestSignal.aborted) throw createAbortReason();
@@ -6676,6 +6729,9 @@ const app = createApp({
                     chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: errorMessage, skipReveal: true });
                 }
             } finally {
+                // [LuzzyRP patch 044] 流式收尾：把活通道缓冲一次性追平（必须在下面读 content 之前），
+                // 保证 filterBlockedStyleText / 落库 / 后续所有读 content 的逻辑看到完整正文。
+                commitLiveDelta(true);
                 if (assistantMessage?.content) {
                     const styleFilterHits = [];
                     assistantMessage.content = filterBlockedStyleText(assistantMessage.content, {

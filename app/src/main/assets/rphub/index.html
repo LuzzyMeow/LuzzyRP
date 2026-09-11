@@ -633,10 +633,19 @@
                                                          `全文 HTML === 前缀 HTML + 尾部 HTML` 才提交，
                                                          不等价即放弃/整段回退 —— 渲染结果永远与全量渲染一致。
                                                          渲染仍走应用自己的 renderMarkdown（过滤/正则/marked/净化全保留）。 -->
+                                                    <!-- [LuzzyRP patch 044] 流式正文「活通道」标记（v1.5.0 性能）：
+                                                         真机实测流式期间每 tick 的 230–340ms 全部来自
+                                                         「根级响应式变更 → 重渲染整个界面」，与渲染器无关
+                                                         （指令自身仅 ≈1.4ms；换成空实现后 tick 仍是 233ms）。
+                                                         `live: true` 让 ext/luzzy-stream.js 记住这个元素：
+                                                         app.js 在流式期间直接把渲染后的正文投给
+                                                         Luzzy.streamRender.feed() 上屏，响应式 content 降为低频提交、
+                                                         流结束追平；Vue 带旧文本回灌时以活文本为准（不倒退）。
+                                                         非流式分支不带该标记，行为与改前完全一致。 -->
                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).text"
                                                         class="markdown-body"
                                                         :style="settings.fontSize ? { fontSize: settings.fontSize + 'px' } : {}"
-                                                        v-lsp-stream="{ src: processMainContent(parseCot(msg.content).main, true).text, role: msg.role }">
+                                                        v-lsp-stream="{ src: processMainContent(parseCot(msg.content).main, true).text, role: msg.role, live: true }">
                                                     </div>
                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).showSpinner"
                                                         class="flex flex-col items-center justify-center p-8 w-full mt-2 gap-4 opacity-90">

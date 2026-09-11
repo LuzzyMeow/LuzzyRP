@@ -505,6 +505,35 @@
 #   - 预期冲突点：上游改模型列表合并（fetchModelsForProvider / providerModels / availableModels）、
 #     `ensureProviderModelsLoaded` 的拉取策略、或模型选择器行模板（ui-components.js ModelSelectorModal）时需重打
 #
+# 044-stream-live-channel.patch（2026-09-11，真机流式性能实测后的「治本」项）
+#   - **背景**：会话 59 真机定量测量推翻了「瓶颈在流式渲染器」的假设 ——
+#     ① `v-lsp-stream` 自身一次更新 ≈1.4ms；
+#     ② 但**任何一次根级响应式状态变更**（含把流式正文写回 `msg.content`）都要 230–340ms：
+#        上游是单体根组件，每次变更重渲染并 diff 整个界面（实测每次 ≈1040 vnode / 1130 DOM 节点）；
+#     ③ 三臂对拍（空实现 / 整段 innerHTML / 增量）分别 233 / 234 / 240ms —— 指令不是成本来源；
+#     ④ 消息 1200 字与 5300 字无差别；CSS 剥离（模糊/背景图/阴影/整页 display:none）亦无差别。
+#     即流式每 ~120ms 触发一次根重渲染 → 主线程超额占用约 2.5 倍 → 跑不满帧率。
+#   - **做法（活通道）**：流式期间正文**不再每 tick 写响应式状态** ——
+#     ① `app.js`：`onDelta` 的 `content`/`reasoning` 先进**非响应式缓冲**（`livePending`），
+#        渲染后（`processMainContent(parseCot(...).main, true).text`，与模板绑定同源）交给
+#        `Luzzy.streamRender.feed()` 直接上屏；响应式 `content`/`reasoning` 按
+#        `LIVE_COMMIT_INTERVAL`（1200ms）低频提交，`finally` 里 `commitLiveDelta(true)` 强制追平
+#        （必须在读 `content` 的 `filterBlockedStyleText`/落库之前）；
+#        正文容器尚未挂载时（流式分支 `v-if` 依赖 content）立即提交一次，避免开头没有落点；
+#        扩展层不可用 → 每 tick 立即提交 = 改前行为（降级）。
+#     ② `index.html`：流式分支绑定加 `live: true`，让指令登记「当前流式正文元素」。
+#     ③ `ext/luzzy-stream.js`：新增 `feed(text, role)`（同一任务内合并、setTimeout 0 上屏）
+#        与 `liveState()`；`update()` 增加**不倒退**守卫 —— 活通道期间 Vue 带着「低频提交的旧文本」
+#        回灌时以活文本为准；一旦提交追平（`src === live.text`）活通道自动退场。
+#   - **不丢任何前端部分**：渲染仍走应用自己的 `renderMarkdown`（过滤/正则/marked/净化全保留），
+#     且提交后 `content` 与所渲染文本**逐字相等**；所见正文与改前完全一致。
+#     代价（显式记录）：流式**中间态**的次要 UI（字数统计、思考面板文字、时间线字数）刷新降到
+#     1.2s 一次；正文本身仍按上游节奏（120ms）逐段出现。
+#   - 门禁：`tools/stream-render-test.cjs` 新增 B1–B5（未登记元素时 feed 不抛错 / 指令登记 /
+#     活通道 DOM 与全量渲染逐节点等价 / **旧文本回灌不倒退** / 提交追平后退场）
+#   - 预期冲突点：上游改 `onDelta` 的流式写入方式、`appendAssistantText`、消息渲染分支模板
+#     （流式 div 的绑定）或 `renderMarkdown` 语义时需重打
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

@@ -29,6 +29,22 @@
  * 降级（硬性规定 3：扩展层不得影响主流程）：
  *   - 取不到应用渲染器 → 什么也不做（保留模板原有内容），不抛错、不白屏；
  *   - 任何一次验证不通过 → 本次直接全量 innerHTML（与改前行为一致）。
+ *
+ * ── patch 044 追加：活通道（live feed）────────────────────────────────────────
+ * 真机实测（2026-09-11 会话 59，小米 25098PN5AC）推翻了「瓶颈在渲染器」的假设：
+ *   · `v-lsp-stream` 自身一次更新 **≈1.4ms**；
+ *   · 但**任何一次根级响应式状态变更**（含把流式正文写回 `msg.content`）都要
+ *     **230–340ms**——上游是单体根组件，每次变更都会重渲染并 diff 整个界面
+ *     （实测每次 diff ≈1040 vnode / 1130 DOM 节点）；把指令换成**空实现**后同样的
+ *     tick 循环仍是 233ms，消息长度 1200 字 vs 5300 字也无差别。
+ *   即：流式每 ~120ms 触发一次根重渲染 → 主线程被超额占用约 2.5 倍 → 跑不满帧率。
+ *
+ * 做法（app.js patch 044 配合）：流式期间正文**不再每 tick 写响应式状态**，
+ *   而是把渲染后的正文交给本文件的 `feed()` 直接增量写进 DOM；响应式 `content`
+ *   降到低频（见 app.js `LIVE_COMMIT_INTERVAL`）提交一次，流结束时追平。
+ *   于是流式期间几乎没有根重渲染，文字仍按上游节奏（120ms）逐段出现。
+ *   活通道渲染走的仍是应用自己的 `renderMarkdown`，且提交后 `content` 与所渲染的
+ *   文本**逐字相等**——「不丢任何前端部分」的约束不变。
  */
 (function () {
     'use strict';
@@ -50,6 +66,14 @@
     var directiveRegistered = false;
     /** 计数（门禁/自检用）：前缀推进次数、候选被证明不成立次数、整段回退次数。 */
     var stats = { advances: 0, failures: 0, repairs: 0 };
+
+    /**
+     * 活通道状态（patch 044）：由 app.js 直接投喂渲染后的正文，绕开根重渲染。
+     *   el     —— 当前流式消息的正文元素（指令带 `live: true` 时登记）
+     *   text   —— 最新投喂的正文（渲染后的 HTML 源文本，与模板绑定同源）
+     *   active —— 活通道是否生效（低频提交追平后自动退场）
+     */
+    var live = { active: false, el: null, text: '', role: 'assistant', timer: 0, feeds: 0 };
 
     function app() {
         if (appProxy) return appProxy;
@@ -145,7 +169,18 @@
     }
 
     /** 一次更新；返回是否产生可见变化。 */
-    function update(el, src, role) {
+    function update(el, src, role, isLive) {
+        // [patch 044] 活通道期间：Vue 只会带着「低频提交的旧正文」来更新，
+        // 若直接用旧文本覆盖，已经流出来的字会**倒退**。故以活文本为准；
+        // 一旦低频提交追平（src === live.text），活通道自动退场、回到常规路径。
+        if (!isLive && live.active && live.el === el) {
+            if (src === live.text) {
+                live.active = false; live.el = null; live.text = '';
+            } else {
+                src = live.text;
+                role = live.role;
+            }
+        }
         var st = states.get(el);
         if (!st || st.role !== role || src.indexOf(st.src) !== 0) {
             st = createState(el, role);
@@ -205,20 +240,43 @@
         return changed;
     }
 
-    /** Vue 自定义指令：v-lsp-stream="{ src: '…', role: 'assistant' }"。 */
+    /** Vue 自定义指令：v-lsp-stream="{ src: '…', role: 'assistant', live: true }"。 */
     var directive = {
         mounted: function (el, binding) {
             var v = binding.value || {};
+            if (v.live) live.el = el;
             update(el, String(v.src == null ? '' : v.src), v.role);
         },
         updated: function (el, binding) {
             var v = binding.value || {};
+            if (v.live) live.el = el;
             update(el, String(v.src == null ? '' : v.src), v.role);
         },
         unmounted: function (el) {
             states.delete(el);
+            if (live.el === el) { live.active = false; live.el = null; live.text = ''; }
         },
     };
+
+    /**
+     * 活通道投喂（patch 044）：app.js 在流式期间把**渲染后**的正文交给这里直接上屏。
+     * 同一任务内多次投喂会合并成一次渲染（setTimeout 0），渲染仍走 update 的增量通道。
+     * 尚无流式元素可写时返回 false（调用方无需处理，下一 tick 会带上更长的文本再投）。
+     */
+    function feed(text, role) {
+        live.text = String(text == null ? '' : text);
+        if (role) live.role = role;
+        live.feeds++;
+        if (!live.el) return false;
+        live.active = true;
+        if (live.timer) return true;
+        live.timer = setTimeout(function () {
+            live.timer = 0;
+            if (!live.el || !live.active) return;
+            update(live.el, live.text, live.role, true);
+        }, 0);
+        return true;
+    }
 
     /** 注册指令（幂等）。应用挂载早于本文件，但指令只需在流式分支渲染前注册即可。 */
     function register() {
@@ -246,6 +304,8 @@
         register: register,
         ready: function () { return directiveRegistered && !!app(); },
         apply: function (el, src, role) { return update(el, String(src == null ? '' : src), role); },
+        feed: feed,
+        liveState: function () { return { active: live.active, hasEl: !!live.el, textLen: live.text.length, feeds: live.feeds }; },
         stats: function () { return { advances: stats.advances, failures: stats.failures, repairs: stats.repairs }; },
         stateOf: function (el) {
             var st = states.get(el);

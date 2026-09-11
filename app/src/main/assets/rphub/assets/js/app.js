@@ -435,7 +435,8 @@ const app = createApp({
         const autoResizeInput = () => {
             if (inputBox.value) {
                 inputBox.value.style.height = 'auto';
-                if (userInput.value === '') {
+                // [LuzzyRP patch 046] 判空改读 DOM 实际值：响应式 userInput 现在按防抖同步，不再是每键最新
+                if (!inputBox.value.value) {
                     inputBox.value.style.height = '';
                 } else {
                     inputBox.value.style.height = Math.min(inputBox.value.scrollHeight, 180) + 'px';
@@ -443,7 +444,46 @@ const app = createApp({
             }
         };
 
+        // [LuzzyRP patch 046] 输入框「打字不重渲染」（v1.5.0 性能；真机实测见 docs/WORKLOG.md 会话 60）：
+        //   打字时**每次按键**都会触发一次根重渲染，而每次重渲染 ≈260–300ms（单体根组件的老问题）。
+        //   消融实验已排除 autoResizeInput 的强制回流（关掉它按键耗时 4029ms→3892ms，无改善）。
+        //   textarea 的 DOM 本来就已是用户输入的内容，v-model 的同步只影响「发送键可用状态」这类次要 UI，
+        //   不值得每键重渲染整屏。做法：
+        //     · chatInputViewValue() —— 模板 `:value` 用它取值，**永远返回最新文本**（优先非响应式镜像）
+        //       → 任何一次重渲染（含流式期的定时器重渲染）都不会冲掉用户正在输入/正在拼字的内容；
+        //     · handleChatInput()   —— 只更新镜像 + 调整高度，并把响应式 userInput 的写入防抖；
+        //       连续打字期间**一次重渲染都不会发生**，停手 250ms 后才同步一次；
+        //     · flushChatInput()    —— 发送前、失焦时必须调用，保证 userInput 是最新的。
+        //   降级：扩展层无关，纯上游内改动；任何异常都不会影响输入（DOM 自身行为不变）。
+        //   ★ 发送键可用状态：不能读防抖后的 userInput（否则打完立刻点发送会"没反应"），
+        //     改用一个**只在「空 ↔ 非空」翻转时**才写的响应式布尔 —— 打字过程里最多触发两次重渲染
+        //     （第一次按键 + 清空），而按钮是**即时可用**的；发送时 sendMessage 会先 flush 拿到最新文本。
+        const CHAT_INPUT_SYNC_DELAY = 200;
+        let chatInputMirror = null;
+        let chatInputTimer = null;
+        const chatInputHasText = ref(false);
+        const chatInputViewValue = () => (chatInputMirror === null ? userInput.value : chatInputMirror);
+        const syncChatInputHasText = (text) => {
+            const has = !!String(text == null ? '' : text).trim();
+            if (chatInputHasText.value !== has) chatInputHasText.value = has;
+        };
+        const flushChatInput = () => {
+            if (chatInputTimer) { clearTimeout(chatInputTimer); chatInputTimer = null; }
+            if (chatInputMirror === null) return;
+            const next = chatInputMirror;
+            chatInputMirror = null;
+            if (userInput.value !== next) userInput.value = next;
+        };
+        const handleChatInput = (event) => {
+            chatInputMirror = event && event.target ? String(event.target.value) : String(inputBox.value ? inputBox.value.value : '');
+            syncChatInputHasText(chatInputMirror);
+            autoResizeInput();
+            if (chatInputTimer) clearTimeout(chatInputTimer);
+            chatInputTimer = setTimeout(() => { chatInputTimer = null; flushChatInput(); }, CHAT_INPUT_SYNC_DELAY);
+        };
+
         watch(userInput, () => {
+            syncChatInputHasText(userInput.value);   // [LuzzyRP patch 046] 程序化写入（继续/建议/清空）也要同步按钮态
             nextTick(autoResizeInput);
         });
 
@@ -550,6 +590,7 @@ const app = createApp({
         };
 
         const handleChatInputBlur = () => {
+            flushChatInput();   // [LuzzyRP patch 046] 失焦即追平（发送键可用状态/草稿立刻准确）
             clearTimeout(mobileKeyboardBlurTimer);
             mobileKeyboardBlurTimer = setTimeout(() => {
                 isMobileKeyboardOpen.value = false;
@@ -5293,6 +5334,7 @@ const app = createApp({
         };
 
         const sendMessage = async () => {
+            flushChatInput();   // [LuzzyRP patch 046] 发送前先追平：防风抖窗口内的输入被漏掉
             if ((!userInput.value.trim() && pendingChatImages.value.length === 0 && !pendingCardInteraction.value) || isConversationBusy.value || isRecognizingImages.value) return;
             if (pendingChatImages.value.some(image => image.status !== 'ready')) {
                 showToast('请先移除识别失败的图片', 'warning');
@@ -11209,6 +11251,9 @@ const app = createApp({
             },
             toggleMobileMenu, closeMobileMenu,
             fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat,
+            // [LuzzyRP patch 046] 输入框带外通道（模板用 chatInputViewValue/handleChatInput/flushChatInput，
+            // 漏出 setup() 返回列表会导致模板解析失败 → 整页白屏）
+            chatInputViewValue, handleChatInput, flushChatInput, chatInputHasText,
             handleConfirm, handleCancel, // Export handlers
             copyMessage, playMessageActionFeedback, canDeleteMessage, deleteMessage, regenerateMessage,
             editMessage, saveEditMessage, cancelEditMessage,

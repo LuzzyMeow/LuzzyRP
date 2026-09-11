@@ -560,6 +560,31 @@
 #   - 预期冲突点：上游改思考面板模板（thinking step 的 v-html）、`getTimelineSteps`，
 #     或 `appendAssistantText` 的 reasoning 分支时需重打
 #
+# 046-chat-input-decoupled.patch（2026-09-11，用户报「打字也很卡顿」）
+#   - **背景**：真机实测**每次按键都触发一次根重渲染**，每次 ≈260–300ms（15 键 = 15 次长任务 ≈ 4s 阻塞）。
+#     消融实验排除 `autoResizeInput` 的强制回流：关掉它 4029ms → 3892ms，无改善 —— 病根仍是
+#     「单体根组件：任何根级响应式变更都重渲染整屏」。
+#   - **做法**：textarea 的 DOM 本来就已是用户输入的内容，v-model 的同步只影响「发送键可用状态」
+#     这类次要 UI，不值得每键重渲染整屏。故：
+#     ① `index.html`：`v-model="userInput" @input="autoResizeInput"` →
+#        `:value="chatInputViewValue()" @input="handleChatInput"`；
+#        发送键 `:disabled` 由 `!userInput.trim()` 改为 `!chatInputHasText`。
+#     ② `app.js`：新增非响应式镜像 `chatInputMirror` + 200ms 防抖同步 `userInput`；
+#        `chatInputViewValue()` 永远返回最新文本（优先镜像）→ **任何重渲染都不会冲掉用户正在输入/
+#        正在拼字的内容**（含流式期的定时器重渲染）；`chatInputHasText` 是**只在「空 ↔ 非空」翻转时**
+#        才写的响应式布尔 → 打字过程最多两次重渲染，而发送键**即时可用**；
+#        `flushChatInput()` 在 `sendMessage` 开头与输入框失焦时调用，保证发出的就是刚打的字。
+#     ③ 三个新符号必须进 `setup()` 返回列表（漏出去会模板解析失败 → **整页白屏**，本轮已踩过一次）。
+#   - **同批修复的用户长期问题（扩展层 CSS，无 patch）**：关于页「回到顶部」FAB 是
+#     `fixed bottom-5 right-5 44×44 z-30`，**隐藏态 `opacity: 0` 但仍 `pointer-events: auto`**，
+#     与聊天页发送键重叠 41×25px → 用户长期表现为「发送键要点偏上一点才点得到」。
+#     修法（`ext/luzzy-theme.css`）：`pointer-events` 与显隐严格同源，仅 `.is-visible` 时可点。
+#   - 门禁：`verify-markers.ps1` 新增 046 与热区修复共 9 项；真机命中测试扫全页
+#     「不可见却吃点击」元素 → 0 命中；发送键全高可点；端到端「打字后立刻点发送键中心」
+#     发出的正是刚打的字。
+#   - 预期冲突点：上游改输入区模板（textarea 绑定 / 发送键 disabled 条件）、`sendMessage`
+#     开头或 `handleChatInputBlur` 时需重打
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

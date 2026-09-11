@@ -752,7 +752,13 @@
     pointer-events: none;
 }
 
-.lsp-fab-row .about-top-fab { pointer-events: auto; }
+/* [LuzzyRP 修复 · 2026-09-11] 隐藏态必须**同时**不吃点击：
+   `opacity: 0` 的元素照样参与命中测试，而这个 FAB 是 fixed bottom-5 right-5、44×44、z-30，
+   与聊天页发送键（右下角同位置）重叠 41×25px —— 用户真机长期表现为
+   「发送键要点偏上一点才点得到」（点下半部其实点到了这个隐形 FAB）。
+   故 pointer-events 与显隐严格同源：仅 `.is-visible` 时可点。 */
+.lsp-fab-row .about-top-fab { pointer-events: none; }
+.lsp-fab-row .about-top-fab.is-visible { pointer-events: auto; }
 
 .about-top-fab {
     display: flex; align-items: center; justify-content: center;

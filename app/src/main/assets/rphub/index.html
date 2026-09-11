@@ -1041,7 +1041,11 @@
                             </div>
                         </div>
                         <div class="relative w-full flex items-end gap-2 px-1">
-                            <textarea v-model="userInput" @input="autoResizeInput" @focus="handleChatInputFocus"
+                            <!-- [LuzzyRP patch 046] 输入框打字不再每键写响应式（真机每键一次根重渲染 ≈260–300ms）：
+                                 `:value` 由 chatInputViewValue() 提供「永远最新」的值（优先非响应式镜像，
+                                 因此任何重渲染都不会冲掉正在输入/正在拼字的内容）；输入事件走 handleChatInput
+                                 （镜像 + 高度调整 + 250ms 防抖同步），失焦/发送前由 flushChatInput 追平。 -->
+                            <textarea :value="chatInputViewValue()" @input="handleChatInput" @focus="handleChatInputFocus"
                                 @blur="handleChatInputBlur" @keydown.enter.exact.prevent="sendMessage"
                                 :placeholder="'输入消息...'"
                                 class="flex-1 bg-gray-100/70 text-gray-800 rounded-2xl px-4 py-2.5 md:px-4 md:py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 resize-none border border-transparent shadow-inner transition-all focus:bg-white chat-input-scrollbar min-h-[44px] md:min-h-[46px] max-h-[140px] md:max-h-[160px]"
@@ -1051,7 +1055,7 @@
                             <!-- [LuzzyRP patch 033] 发送/中止按钮 transition-all→定向属性（v1.3.0 性能） -->
                             <div class="flex-shrink-0 flex items-center gap-1">
                                 <button v-if="!isConversationBusy" @click="sendMessage"
-                                    :disabled="(!userInput.trim() && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
+                                    :disabled="(!chatInputHasText && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
                                     class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-[background-color,box-shadow,transform,opacity] shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
                                     title="发送">
                                     <svg class="w-5 h-5 transform rotate-90" fill="none"

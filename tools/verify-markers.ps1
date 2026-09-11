@@ -166,6 +166,16 @@ $Manifest = @(
     @{ Id = '045-ext-skipregex';         File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = 'skipRegex: !!skipRegex, timer: 0, feeds: 0';  Min = 1 },
     @{ Id = '045-ext-dual-guard';        File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = 'if (!isLive) {';  Min = 1 },
     @{ Id = '045-ext-channel-router';   File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = "channels[name === 'reasoning' ? 'reasoning' : 'content']";  Min = 1 },
+    # 046（打字不重渲染）+ 热区修复（隐藏态 FAB 不得吃点击）
+    @{ Id = '046-mark-index';            File = 'index.html';                     Mode = 'contains';     Needle = '[LuzzyRP patch 046]';  Min = 1 },
+    @{ Id = '046-input-binding';         File = 'index.html';                     Mode = 'contains';     Needle = ':value="chatInputViewValue()" @input="handleChatInput"';  Min = 1 },
+    @{ Id = '046-send-disabled';         File = 'index.html';                     Mode = 'contains';     Needle = '!chatInputHasText && pendingChatImages.length === 0';  Min = 1 },
+    @{ Id = '046-mark-app';              File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 046]';  Min = 4 },
+    @{ Id = '046-sync-delay';            File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'CHAT_INPUT_SYNC_DELAY';  Min = 2 },
+    @{ Id = '046-send-flush';            File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'flushChatInput();   // [LuzzyRP patch 046] 发送前先追平';  Min = 1 },
+    @{ Id = '046-setup-exports';         File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'chatInputViewValue, handleChatInput, flushChatInput, chatInputHasText,';  Min = 1 },
+    @{ Id = 'HOTZONE-fab-pointer';       File = '../ext/luzzy-theme.css';         Mode = 'contains';     Needle = '.lsp-fab-row .about-top-fab { pointer-events: none; }';  Min = 1 },
+    @{ Id = 'HOTZONE-fab-visible';       File = '../ext/luzzy-theme.css';         Mode = 'contains';     Needle = '.lsp-fab-row .about-top-fab.is-visible { pointer-events: auto; }';  Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

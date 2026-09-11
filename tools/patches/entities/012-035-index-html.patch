@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index 52135b4..a875212 100644
+index 52135b4..da8043f 100644
 --- a/index.html
 +++ b/index.html
 @@ -5,19 +5,20 @@
@@ -269,20 +269,33 @@ index 52135b4..a875212 100644
                          <transition enter-active-class="transition-all duration-200 ease-out"
                              enter-from-class="opacity-0 translate-y-2 scale-95"
                              enter-to-class="opacity-100 translate-y-0 scale-100"
-@@ -991,10 +1048,11 @@
+@@ -984,17 +1041,22 @@
+                             </div>
+                         </div>
+                         <div class="relative w-full flex items-end gap-2 px-1">
+-                            <textarea v-model="userInput" @input="autoResizeInput" @focus="handleChatInputFocus"
++                            <!-- [LuzzyRP patch 046] 输入框打字不再每键写响应式（真机每键一次根重渲染 ≈260–300ms）：
++                                 `:value` 由 chatInputViewValue() 提供「永远最新」的值（优先非响应式镜像，
++                                 因此任何重渲染都不会冲掉正在输入/正在拼字的内容）；输入事件走 handleChatInput
++                                 （镜像 + 高度调整 + 250ms 防抖同步），失焦/发送前由 flushChatInput 追平。 -->
++                            <textarea :value="chatInputViewValue()" @input="handleChatInput" @focus="handleChatInputFocus"
+                                 @blur="handleChatInputBlur" @keydown.enter.exact.prevent="sendMessage"
+                                 :placeholder="'输入消息...'"
+                                 class="flex-1 bg-gray-100/70 text-gray-800 rounded-2xl px-4 py-2.5 md:px-4 md:py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 resize-none border border-transparent shadow-inner transition-all focus:bg-white chat-input-scrollbar min-h-[44px] md:min-h-[46px] max-h-[140px] md:max-h-[160px]"
                                  rows="1" ref="inputBox"></textarea>
  
                              <!-- Send/Stop Button -->
 +                            <!-- [LuzzyRP patch 033] 发送/中止按钮 transition-all→定向属性（v1.3.0 性能） -->
                              <div class="flex-shrink-0 flex items-center gap-1">
                                  <button v-if="!isConversationBusy" @click="sendMessage"
-                                     :disabled="(!userInput.trim() && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
+-                                    :disabled="(!userInput.trim() && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
 -                                    class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-all shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
++                                    :disabled="(!chatInputHasText && pendingChatImages.length === 0 && !pendingCardInteraction) || isRecognizingImages || pendingChatImages.some(image => image.status !== 'ready')"
 +                                    class="p-2 md:p-2.5 bg-primary-600 text-white rounded-2xl md:hover:bg-primary-700 md:hover:shadow-lg md:hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 transition-[background-color,box-shadow,transform,opacity] shadow-md flex items-center justify-center w-[44px] h-[44px] md:w-[46px] md:h-[46px]"
                                      title="发送">
                                      <svg class="w-5 h-5 transform rotate-90" fill="none"
                                          stroke="currentColor" viewBox="0 0 24 24">
-@@ -1003,7 +1061,7 @@
+@@ -1003,7 +1065,7 @@
                                      </svg>
                                  </button>
                                  <button v-else @click="stopGeneration"
@@ -291,7 +304,7 @@ index 52135b4..a875212 100644
                                      title="中止生成">
                                      <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                          viewBox="0 0 24 24">
-@@ -1606,7 +1664,7 @@
+@@ -1606,7 +1668,7 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -300,7 +313,7 @@ index 52135b4..a875212 100644
                                                  type="button" @click="selectApiProvider(provider)"
                                                  :class="['w-full mt-2 px-3 py-2.5 border-t border-gray-100 rounded-lg flex items-center text-left transition-all', selectedApiProvider.id === provider.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-gray-50 text-gray-700']">
                                                  <span
-@@ -1621,7 +1679,7 @@
+@@ -1621,7 +1683,7 @@
                                                  </span>
                                                  <span class="min-w-0 flex-1">
                                                      <span class="block text-sm font-bold truncate">{{ provider.name }}</span>
@@ -309,7 +322,7 @@ index 52135b4..a875212 100644
                                                  </span>
                                                  <svg v-if="selectedApiProvider.id === provider.id"
                                                      class="w-4 h-4 ml-2 text-teal-600 shrink-0" fill="none"
-@@ -1630,9 +1688,30 @@
+@@ -1630,9 +1692,30 @@
                                                          stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                  </svg>
                                              </button>
@@ -341,7 +354,7 @@ index 52135b4..a875212 100644
                                          <div
                                              class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-teal-500 transition-colors pointer-events-none">
                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-@@ -1703,7 +1782,7 @@
+@@ -1703,7 +1786,7 @@
                                              </div>
                                              <div
                                                  class="w-full bg-gray-50/60 border-2 border-gray-100 rounded-xl pl-11 pr-4 py-3 text-gray-800 font-medium flex items-center justify-between cursor-pointer hover:bg-white hover:border-teal-300 hover:shadow-md transition-all active:scale-[0.99]">
@@ -350,7 +363,7 @@ index 52135b4..a875212 100644
                                                  <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                  </svg>
-@@ -1746,6 +1825,19 @@
+@@ -1746,6 +1829,19 @@
                                          </a>
                                      </div>
                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -370,7 +383,7 @@ index 52135b4..a875212 100644
                                          <!-- Image Key -->
                                          <div
                                              class="generation-setting-card">
-@@ -1757,7 +1849,7 @@
+@@ -1757,7 +1853,7 @@
                                          </div>
  
                                          <!-- Image Model -->
@@ -379,7 +392,7 @@ index 52135b4..a875212 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图版本</label>
                                              <custom-select v-model="settings.imageModel" :options="imageModelOptions"
-@@ -1766,9 +1858,23 @@
+@@ -1766,9 +1862,23 @@
                                              </custom-select>
                                          </div>
  
@@ -405,7 +418,7 @@ index 52135b4..a875212 100644
                                              <label
                                                  class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">生图风格</label>
                                              <custom-select v-model="settings.imageStyle" :options="availableImageStyleOptions"
-@@ -1868,41 +1974,7 @@
+@@ -1868,41 +1978,7 @@
                                  </label>
                              </div>
  
@@ -448,7 +461,7 @@ index 52135b4..a875212 100644
  
                              <!-- Storage Management -->
                              <div class="pt-6 border-t border-gray-100 mt-6">
-@@ -1918,11 +1990,7 @@
+@@ -1918,11 +1994,7 @@
                                          </h4>
                                      </div>
                                      <div class="flex flex-wrap items-center gap-2">
@@ -461,7 +474,7 @@ index 52135b4..a875212 100644
                                          <button type="button" @click="cleanupUnusedStorage"
                                              :disabled="storageStats.loading || storageStats.cleaning || storageStats.orphanedItems === 0"
                                              class="px-4 py-2.5 text-sm font-bold text-red-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-100 hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-@@ -1938,7 +2006,7 @@
+@@ -1938,7 +2010,7 @@
                                  <div v-else class="space-y-6">
                                      <div>
                                          <div class="flex items-center justify-between gap-3 mb-3 text-sm">
@@ -470,7 +483,7 @@ index 52135b4..a875212 100644
                                              <span class="font-semibold text-gray-500 whitespace-nowrap">
                                                  <span class="text-gray-700">{{ formatStorageSize(storageStats.usage) }}</span>
                                                  <span class="mx-1 text-gray-300">/</span>
-@@ -1973,6 +2041,138 @@
+@@ -1973,6 +2045,138 @@
                  </div>
              </div>
  
@@ -609,7 +622,7 @@ index 52135b4..a875212 100644
              <!-- Presets View -->
              <div v-if="currentView === 'presets'" class="management-view">
                  <settings-page-header title="预设管理" @menu="toggleMobileMenu">
-@@ -2046,6 +2246,7 @@
+@@ -2046,6 +2250,7 @@
                  :has-character="!!currentCharacter" :show-settings="showUiTemplateSettings"
                  :settings="settings" :update-status="uiTemplateUpdateStatus"
                  :help-topic="settingsHelpTopic" :analysis-depth="uiTemplateAnalysisDepthSlider"
@@ -617,7 +630,7 @@ index 52135b4..a875212 100644
                  @menu="toggleMobileMenu" @export="openExportModal('uitemplates')"
                  @import="importUiTemplates" @create="createUiTemplate"
                  @update:show-settings="showUiTemplateSettings = $event"
-@@ -2229,18 +2430,21 @@
+@@ -2229,18 +2434,21 @@
                  </div>
              </div>
  
@@ -644,7 +657,7 @@ index 52135b4..a875212 100644
                  @update:page="tokenUsagePage = $event" @update:help-topic="settingsHelpTopic = $event">
              </token-usage-view>
  
-@@ -2389,7 +2593,7 @@
+@@ -2389,7 +2597,7 @@
                                          :title="memorySettings.embeddingModel || '请选择向量嵌入模型'">
                                          <span
                                              :class="memorySettings.embeddingModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -653,7 +666,7 @@ index 52135b4..a875212 100644
                                      </button>
                                  </div>
                                  <div class="settings-field">
-@@ -2421,7 +2625,7 @@
+@@ -2421,7 +2629,7 @@
                                      class="settings-model-button truncate"
                                      :title="memorySettings.classicModel || '请选择总结模式副模型'">
                                      <span :class="memorySettings.classicModel ? 'text-gray-700' : 'text-gray-400'">{{
@@ -662,7 +675,7 @@ index 52135b4..a875212 100644
                                  </button>
                              </div>
  
-@@ -2618,6 +2822,140 @@
+@@ -2618,6 +2826,140 @@
                      </div>
                  </div>
  
@@ -803,7 +816,7 @@ index 52135b4..a875212 100644
              </div>
  
              <!-- World Info View -->
-@@ -2738,6 +3076,7 @@
+@@ -2738,6 +3080,7 @@
                  </div>
              </div>
  
@@ -811,7 +824,7 @@ index 52135b4..a875212 100644
          </div>
  
          <!-- Modals -->
-@@ -2761,11 +3100,378 @@
+@@ -2761,11 +3104,378 @@
              :search-query="modelSearchQuery" :active-tag="activeModelTag" :tags="modelTags"
              :models="filteredModels"
              :slot-models="[settings.qualityModel, settings.balancedModel, settings.fastModel]"
@@ -1190,7 +1203,7 @@ index 52135b4..a875212 100644
          <add-character-modal :show="showAddCharacterMenu" @close="showAddCharacterMenu = false"
              @create="createNewCharacter(); showAddCharacterMenu = false"
              @generate="showAddCharacterMenu = false; currentView = 'generator'"
-@@ -2804,6 +3510,26 @@
+@@ -2804,6 +3514,26 @@
              @update:result-count="editingActiveTool.data.resultCount = $event"
              @update:tavily-api-key="editingActiveTool.data.tavilyApiKey = $event"></active-tool-editor-modal>
  
@@ -1217,7 +1230,7 @@ index 52135b4..a875212 100644
          <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
          <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"
              @close="showExportModal = false" @select-all="selectAllExportItems"
-@@ -2849,6 +3575,17 @@
+@@ -2849,6 +3579,17 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>

@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 79267c0..15e956f 100644
+index 79267c0..c9e5c32 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -2139,7 +2139,7 @@ index 79267c0..15e956f 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4996,14 +6557,85 @@ const app = createApp({
+@@ -4996,14 +6557,97 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -2160,8 +2160,15 @@ index 79267c0..15e956f 100644
 +                //   扩展层 Luzzy.streamRender.feed() 直接上屏；响应式 content/reasoning 按
 +                //   LIVE_COMMIT_INTERVAL 低频提交，流结束（finally）强制追平。
 +                //   降级：扩展层不可用时缓冲每 tick 立即提交 —— 等价于改前行为。
++                // [LuzzyRP patch 045] 思考也接活通道：真机实测「思考面板」每次提交要重建整条思考内容
++                //   （11 万字思考时单次 270–390ms），是 patch 044 之后**残余占用的主要来源**。
++                //   故 reasoning 也走带外通道（ext 的 reasoning 通道以 skipRegex=true 渲染，与模板原调用一致），
++                //   响应式 reasoning 用更长的 LIVE_REASONING_COMMIT_INTERVAL 提交；
++                //   正文开始提交时强制把思考一次性追平（面板定稿后再显示正文）。
 +                const LIVE_COMMIT_INTERVAL = 1200;
++                const LIVE_REASONING_COMMIT_INTERVAL = 6000;
 +                let liveCommitAt = 0;
++                let liveReasoningAt = 0;
 +                const livePending = { content: '', reasoning: '' };
 +                const liveFeedApi = () => {
 +                    const lz = window.Luzzy;
@@ -2170,19 +2177,20 @@ index 79267c0..15e956f 100644
 +                };
 +                const commitLiveDelta = (force) => {
 +                    const now = Date.now();
-+                    if (!force && now - liveCommitAt < LIVE_COMMIT_INTERVAL) {
-+                        // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
-+                        // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
-+                        const api = liveFeedApi();
-+                        const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
-+                        if (!livePending.content || (st && st.hasEl)) return false;
-+                    }
-+                    liveCommitAt = now;
++                    const api = liveFeedApi();
++                    const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
++                    // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
++                    // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
++                    const needContainer = !!livePending.content && !(st && st.hasEl);
++                    const contentDue = force || needContainer || now - liveCommitAt >= LIVE_COMMIT_INTERVAL;
++                    const reasoningDue = force || now - liveReasoningAt >= LIVE_REASONING_COMMIT_INTERVAL
++                        || (contentDue && !!livePending.content);   // 正文要出现前，先把思考定稿
++                    if (!contentDue && !reasoningDue) return false;
 +                    // 先取走再清空：即便下面抛错也不会重复追加（硬性规定 3：扩展层不得阻断主流程）
-+                    const reasoningDelta = livePending.reasoning;
-+                    const contentDelta = livePending.content;
-+                    livePending.reasoning = '';
-+                    livePending.content = '';
++                    const reasoningDelta = reasoningDue ? livePending.reasoning : '';
++                    const contentDelta = contentDue ? livePending.content : '';
++                    if (reasoningDue) { livePending.reasoning = ''; liveReasoningAt = now; }
++                    if (contentDue) { livePending.content = ''; liveCommitAt = now; }
 +                    try {
 +                        if (reasoningDelta) {
 +                            if (!contentDelta) isThinking.value = true;
@@ -2198,17 +2206,21 @@ index 79267c0..15e956f 100644
 +                    }
 +                    return true;
 +                };
-+                // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏
++                // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏；
++                // 思考面板直接投喂 step.text 同源的纯文本（渲染由 ext 以 skipRegex=true 完成）
 +                const feedLivePreview = () => {
 +                    try {
 +                        if (!assistantMessage) return;
 +                        const api = liveFeedApi();
 +                        if (!api) return;
++                        const role = assistantMessage.role || 'assistant';
++                        const reasoningText = String(assistantMessage.reasoning || '') + livePending.reasoning;
++                        if (reasoningText) api.feed(reasoningText, 'assistant', 'reasoning');
 +                        const raw = String(assistantMessage.content || '') + livePending.content;
 +                        if (!raw) return;
 +                        let text = raw;
 +                        try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
-+                        api.feed(text, assistantMessage.role || 'assistant');
++                        api.feed(text, role, 'content');
 +                    } catch (e) {
 +                        /* 同上：上屏失败只影响观感（下一次提交会补上），不得抛出 */
 +                    }
@@ -2225,11 +2237,12 @@ index 79267c0..15e956f 100644
                      messages: apiMessages,
                      replyInTool: isTruncationEnabled.value,
                      tools: buildActiveToolDefinitions(requestTools),
-@@ -5030,18 +6662,21 @@ const app = createApp({
+@@ -5030,18 +6674,22 @@ const app = createApp({
                                  collapseNativeReasoning(assistantMessage);
                              }
                              await nextTick();
-+                            liveCommitAt = Date.now();   // [LuzzyRP patch 044] 首帧离散事件不计入低频窗口
++                            liveCommitAt = Date.now();       // [LuzzyRP patch 044] 首帧离散事件不计入低频窗口
++                            liveReasoningAt = Date.now();    // [LuzzyRP patch 045] 同上（思考通道）
                          }
                          if (reasoning && !seededReasoning) {
                              // 原生思考中的文字标签不能改变 API 已指定的通道。
@@ -2252,7 +2265,7 @@ index 79267c0..15e956f 100644
                      }
                  }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
                  if (requestSignal.aborted) throw createAbortReason();
-@@ -5105,6 +6740,10 @@ const app = createApp({
+@@ -5105,6 +6753,10 @@ const app = createApp({
                      chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: errorMessage, skipReveal: true });
                  }
              } finally {
@@ -2263,7 +2276,7 @@ index 79267c0..15e956f 100644
                  if (assistantMessage?.content) {
                      const styleFilterHits = [];
                      assistantMessage.content = filterBlockedStyleText(assistantMessage.content, {
-@@ -5330,12 +6969,20 @@ const app = createApp({
+@@ -5330,12 +6982,20 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -2287,7 +2300,7 @@ index 79267c0..15e956f 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5716,29 +7363,78 @@ const app = createApp({
+@@ -5716,29 +7376,78 @@ const app = createApp({
  
              return fragments;
          };
@@ -2384,7 +2397,7 @@ index 79267c0..15e956f 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5749,6 +7445,18 @@ const app = createApp({
+@@ -5749,6 +7458,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2403,7 +2416,7 @@ index 79267c0..15e956f 100644
              return vectors;
          };
  
-@@ -5780,7 +7488,8 @@ const app = createApp({
+@@ -5780,7 +7501,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -2413,7 +2426,7 @@ index 79267c0..15e956f 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6044,10 +7753,6 @@ const app = createApp({
+@@ -6044,10 +7766,6 @@ const app = createApp({
              return retainedTurns;
          };
  
@@ -2424,7 +2437,7 @@ index 79267c0..15e956f 100644
          const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6083,6 +7788,30 @@ const app = createApp({
+@@ -6083,6 +7801,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -2455,7 +2468,7 @@ index 79267c0..15e956f 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6102,9 +7831,30 @@ const app = createApp({
+@@ -6102,9 +7844,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -2489,7 +2502,7 @@ index 79267c0..15e956f 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6133,16 +7883,15 @@ const app = createApp({
+@@ -6133,16 +7896,15 @@ const app = createApp({
                  return;
              }
  
@@ -2512,7 +2525,7 @@ index 79267c0..15e956f 100644
                  return;
              }
  
-@@ -6159,21 +7908,43 @@ const app = createApp({
+@@ -6159,21 +7921,43 @@ const app = createApp({
              );
  
              try {
@@ -2564,7 +2577,7 @@ index 79267c0..15e956f 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6219,6 +7990,278 @@ const app = createApp({
+@@ -6219,6 +8003,278 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2843,7 +2856,7 @@ index 79267c0..15e956f 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -6269,7 +8312,7 @@ const app = createApp({
+@@ -6269,7 +8325,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -2852,7 +2865,7 @@ index 79267c0..15e956f 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -6673,6 +8716,18 @@ const app = createApp({
+@@ -6673,6 +8729,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2871,7 +2884,7 @@ index 79267c0..15e956f 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -7462,7 +9517,10 @@ const app = createApp({
+@@ -7462,7 +9530,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2883,7 +2896,7 @@ index 79267c0..15e956f 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -8567,10 +10625,13 @@ const app = createApp({
+@@ -8567,10 +10638,13 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2899,7 +2912,7 @@ index 79267c0..15e956f 100644
              fetchQuota(); // Fetch quota after saved settings are loaded
  
              updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载
-@@ -8778,7 +10839,11 @@ const app = createApp({
+@@ -8778,7 +10852,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2912,7 +2925,7 @@ index 79267c0..15e956f 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -8799,9 +10864,7 @@ const app = createApp({
+@@ -8799,9 +10877,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -2923,7 +2936,7 @@ index 79267c0..15e956f 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -8815,8 +10878,7 @@ const app = createApp({
+@@ -8815,8 +10891,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2933,7 +2946,7 @@ index 79267c0..15e956f 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9036,6 +11098,7 @@ const app = createApp({
+@@ -9036,6 +11111,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2941,7 +2954,7 @@ index 79267c0..15e956f 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9048,22 +11111,25 @@ const app = createApp({
+@@ -9048,22 +11124,25 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -2973,7 +2986,7 @@ index 79267c0..15e956f 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9080,6 +11146,14 @@ const app = createApp({
+@@ -9080,6 +11159,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2988,7 +3001,7 @@ index 79267c0..15e956f 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9121,7 +11195,7 @@ const app = createApp({
+@@ -9121,7 +11208,7 @@ const app = createApp({
                  });
              },
              toggleMobileMenu, closeMobileMenu,

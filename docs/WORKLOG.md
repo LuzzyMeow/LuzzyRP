@@ -1744,6 +1744,62 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ---
 
+## 2026-09-11 · 会话 59（六）：patch 045 —— 思考面板也接活通道（对齐 rikkahub 的「分块组合」）
+
+### 一、动机（来自 rikkahub 的对照）
+
+用户让我查 rikkahub 为什么流畅。源码级结论：它把**正文**（`MarkdownBlock`）与**思考**
+（`ChainOfThought`）做成**两个不同的 composable**，Compose 的重组按「读了该状态的最小组合单元」
+作用 → 思考涨多长都不影响正文。我们同处一个根组件，只能再用一条**带外通道**做等效。
+
+### 二、做法（patch 045）
+
+| 位置 | 改动 |
+|------|------|
+| `ext/luzzy-stream.js` | 活通道由单条扩为**两条**（`content` / `reasoning`），各自持有 元素/文本/定时器/退场判定；`feed(text, role, channel)` 第三参选通道；指令按 `live: true` 与 `live: 'reasoning'` 分别登记；**思考通道固化 `skipRegex=true`**（模板原本就是 `renderMarkdown(step.text,'assistant',true)`，用错会显示正则差异） |
+| `index.html` | 思考步骤正文 `v-html="renderMarkdown(step.text,'assistant',true)"` → `v-lsp-stream="{ src: step.text, role: 'assistant', live: 'reasoning' }"`（src 传纯文本，渲染仍由 ext 调应用自己的 renderMarkdown） |
+| `app.js` | 思考 delta 也走缓冲 + `api.feed(..., 'reasoning')`；响应式 `reasoning` 用 `LIVE_REASONING_COMMIT_INTERVAL = 6000ms`；**正文开始提交时强制把思考一次性追平**（面板定稿后再显示正文）；finally 强制追平不变；提交逻辑拆成 content/reasoning 两个独立到期判定 |
+
+**不丢任何前端部分**：思考面板仍走应用的 `renderMarkdown`（marked/DOMPurify/显示正则全保留，
+且 skipRegex 与原调用一致）。代价：流式中间态的「思考 N 字」计数刷新变慢（面板正文仍按 120ms 更新）。
+
+### 三、验证
+
+| 项 | 结果 |
+|----|------|
+| `tools/stream-render-test.cjs` | ✅ A1–A8、B1–B5 全过 **+ 新增 C1/C1b/C2/C3/C4**（通道独立登记 / 两通道共存 / **思考通道 skipRegex=true 且渲染等价** / 正文通道更新正确 / **跨通道互不干扰**） |
+| `verify-markers.ps1` | ✅ **127 PASS / 0 FAIL**（045 新增 8 项；044 的 `044-live-feed-call`/`044-ext-live-binding` 随实现签名变化同步更新） |
+| 实体 | `012-035-index-html`（前像 `52135b42`）/ `012-036-app-js`（前像 `79267c03`）重生成：**逆向逐字节一致**、**端到端 9/9 重放一致** |
+| 构建/单测 | ✅ `assembleRelease` + `testDebugUnitTest` |
+| 真机 CDP | ✅ 装机后 `liveState()` 正常返回双通道（`skipRegex` 分别 false/true） |
+
+### 四、真机结果（同提示词 `写一段 200 字左右的雨夜场景描写。`，`deepseek-v4.1-flash`）
+
+| 指标 | **patch 045（live）** | legacy（每 tick 提交） | 044（参考，同日早先两轮） |
+|------|----------------------|----------------------|--------------------------|
+| 窗口 | 31.4s / 35.2s | 38.7s | 47.4s / 24.1s |
+| 帧数 | 2105 / **3326** | 734 | 3608 / 1474 |
+| 平均帧率 | 67 / **94.5 fps** | 19 fps | 76.1 / 61.1 fps |
+| 帧间隔 p50 | 8.3ms | 8.3ms | 8.3ms |
+| **帧间隔 p95** | **8.4ms** | **241.2ms** | 8.4ms |
+| 长任务占用 | 44.5% / **22%** | 86% | 38% / 50% |
+| 思考通道 feeds | **504 次**（35s） | — | — |
+
+**结论**：思考面板接活通道后，思考阶段的长任务占用明显下降（86% → 22%，其中 045 让「思考
+每 1.2s 重建整条面板」变成「6s 一次 + 期间增量上屏」），帧间隔 p95 稳定在 8.4ms（满帧）。
+
+### 五、顺带发现（**下一步的候选**，本轮未做）
+
+数根重渲染次数（用模板每次渲染都会调的 `processMainContent` 计数）发现：
+一次 35.2s 的生成里 **≈149 次根重渲染（≈4.2 次/秒）**，而对应的长任务只有 28 个 —— 说明
+**大多数重渲染其实很便宜**，贵的是「内容真变了」的那些。这 ~4/s 的渲染来自：
+`app.js:6044` 的 `waitTimer = setInterval(..., 100)` 每 100ms 写一次响应式
+`currentWaitTime`，而 `currentWaitTime` 被模板绑定（`<generation-timer v-if="isGenerating"
+:wait-time="currentWaitTime">`）→ 每次写入都触发一次根重渲染。按同一份数据，
+**把它的写入改成非响应式（或在流式期拉长/外置）还能再省一部分** —— 列为下一步候选。
+
+---
+
 ## 2026-09-11 · 会话 59（五）：**正文阶段真机 A/B 实测完成** —— patch 044 达标
 
 ### 一、怎么测的（用户指示：新建 `deepseek-v4.1-flash` 模型再测）

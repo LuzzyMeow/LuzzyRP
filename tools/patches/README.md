@@ -534,6 +534,32 @@
 #   - 预期冲突点：上游改 `onDelta` 的流式写入方式、`appendAssistantText`、消息渲染分支模板
 #     （流式 div 的绑定）或 `renderMarkdown` 语义时需重打
 #
+# 045-thinking-live-channel.patch（2026-09-11，patch 044 之后的残余占用治理）
+#   - **背景**：patch 044 之后真机实测残余**长任务占用仍有 38–50%**，定位到「思考面板」：
+#     `msg.reasoning` 每 1.2s 提交一次，每次都要重渲染整条思考内容（思考 5K–20K 字时单次 200–390ms）。
+#     对照 rikkahub：它的思考块（ChainOfThought）与正文块是**不同的 composable**、互不牵连；
+#     我们同处一个根组件，只能再用一条带外通道来等效实现。
+#   - **做法（双通道活通道）**：
+#     ① `ext/luzzy-stream.js`：活通道由单条扩为**两条**（`content` / `reasoning`），
+#        各自持有 元素 / 文本 / 定时器 / 退场判定；`feed(text, role, channel)` 第三参选通道；
+#        指令按 `live: true`（正文）与 `live: 'reasoning'`（思考）分别登记；
+#        **思考通道必须以 `skipRegex=true` 渲染**（模板原本就是
+#        `renderMarkdown(step.text, 'assistant', true)`），用错会显示正则差异 ——
+#        故通道内固化 skipRegex，`update()` 的每元素状态也记录该标志。
+#     ② `index.html`：思考步骤正文由 `v-html="renderMarkdown(step.text,'assistant',true)"`
+#        改为 `v-lsp-stream="{ src: step.text, role: 'assistant', live: 'reasoning' }"`
+#        （src 传**纯文本**，与正文通道契约一致；渲染仍由 ext 调应用自己的 renderMarkdown 完成）。
+#     ③ `app.js`：思考 delta 也走缓冲 + `api.feed(..., 'reasoning')`；响应式 `reasoning` 用更长的
+#        `LIVE_REASONING_COMMIT_INTERVAL`（6000ms）提交；**正文开始提交时强制把思考一次性追平**
+#        （面板定稿后再显示正文）；流结束（finally）强制追平不变。
+#   - **不丢任何前端部分**：思考面板仍走应用的 renderMarkdown（marked/DOMPurify/显示正则全保留，
+#     且 skipRegex 与原调用一致）；只是「谁在什么时候写进 DOM」换了条带外通道。
+#     代价：流式**中间态**的「思考 N 字」计数刷新变慢（面板正文本身仍按上游节奏 120ms 更新）。
+#   - 门禁：`tools/stream-render-test.cjs` 新增 C1/C1b/C2/C3/C4（通道独立登记 / 两通道共存 /
+#     **思考通道 skipRegex=true 且渲染等价** / 正文通道更新正确 / 跨通道互不干扰）
+#   - 预期冲突点：上游改思考面板模板（thinking step 的 v-html）、`getTimelineSteps`，
+#     或 `appendAssistantText` 的 reasoning 分支时需重打
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

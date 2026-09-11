@@ -287,12 +287,66 @@ async function main() {
         else pass('B5-live-retires-on-catchup');
 
         liveEl.remove();
+
+        // ---------- C1-C4：双通道（patch 045，思考面板也走活通道）----------
+        // 关键不变量：① 两条通道的元素各自独立登记、互不覆盖；
+        //            ② **思考通道必须以 skipRegex=true 渲染**（模板原本就是
+        //               renderMarkdown(step.text,'assistant',true)），用错会显示正则差异；
+        //            ③ 一条通道投喂不得改动另一条的 DOM。
+        const contentEl = document.createElement('div');
+        contentEl.className = 'markdown-body';
+        const reasoningEl = document.createElement('div');
+        reasoningEl.className = 'markdown-body';
+        document.body.appendChild(contentEl);
+        document.body.appendChild(reasoningEl);
+
+        liveDir.mounted(reasoningEl, { value: { src: '', role: 'assistant', live: 'reasoning' } });
+        const stR1 = stream.liveState();
+        if (!stR1.reasoning.hasEl || stR1.hasEl) fail('C1-channels-independent', '思考通道登记后正文通道不应被占用：' + JSON.stringify(stR1));
+        else pass('C1-channels-independent');
+
+        liveDir.mounted(contentEl, { value: { src: '', role: 'assistant', live: true } });
+        const stR2 = stream.liveState();
+        if (!stR2.hasEl || !stR2.reasoning.hasEl) fail('C1b-both-registered', '两条通道应各自登记：' + JSON.stringify(stR2));
+        else pass('C1b-both-registered');
+
+        const reasoningText = shapeC.slice(0, 900);
+        stream.feed(reasoningText, 'assistant', 'reasoning');
+        await lvTicks(30);
+        const wantReasoning = p.renderMarkdown(reasoningText, 'assistant', true, { cache: false });
+        const wantNoSkip = p.renderMarkdown(reasoningText, 'assistant', false, { cache: false });
+        const eqR = same(reasoningEl, wantReasoning);
+        if (!eqR.ok) fail('C2-reasoning-skipregex-render', eqR.why);
+        else if (stR2.reasoning.skipRegex !== true) fail('C2-reasoning-skipregex-render', '思考通道 skipRegex 应为 true');
+        else pass('C2-reasoning-skipregex-render', {
+            chars: reasoningText.length,
+            // 信息字段：本机若没配显示正则，两种渲染相同（强度主要来自上面的 skipRegex 标志位）
+            differsFromRegexApplied: wantReasoning !== wantNoSkip,
+        });
+
+        const contentSrc = shapeA.slice(0, 400);
+        const contentBefore = contentEl.textContent;
+        stream.feed(contentSrc, 'assistant', 'content');
+        await lvTicks(30);
+        const eqC = same(contentEl, p.renderMarkdown(contentSrc, 'assistant', false, { cache: false }));
+        if (contentEl.textContent === contentBefore) fail('C3-content-channel-updates', '正文通道未更新');
+        else if (!eqC.ok) fail('C3-content-channel-updates', '正文通道渲染不符：' + eqC.why);
+        else pass('C3-content-channel-updates', { contentChars: contentEl.textContent.length, reasoningChars: reasoningEl.textContent.length });
+
+        const reasoningBefore = reasoningEl.textContent;
+        stream.feed(shapeA.slice(0, 800), 'assistant', 'content');
+        await lvTicks(30);
+        if (reasoningEl.textContent !== reasoningBefore) fail('C4-cross-channel-isolation', '投喂正文改动到了思考面板');
+        else pass('C4-cross-channel-isolation');
+
+        contentEl.remove();
+        reasoningEl.remove();
         host.remove();
         return R;
     })()`);
 
     const report = Object.assign({ url: APP_URL }, result, { exceptions });
-    if (exceptions.length) report.failures = (report.failures || []).concat(['B6-no-js-exception: ' + exceptions[0]]);
+    if (exceptions.length) report.failures = (report.failures || []).concat(['C5-no-js-exception: ' + exceptions[0]]);
     report.pass = (report.failures || []).length === 0;
     console.log(JSON.stringify(report, null, 1));
     ws.close();

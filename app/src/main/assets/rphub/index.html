@@ -566,9 +566,16 @@
                                                                             </summary>
                                                                             <div class="mt-2 bg-gray-50 border border-gray-100/60 rounded-xl p-3 text-[13px] text-gray-700 overflow-x-auto custom-scrollbar shadow-inner select-text"
                                                                                 :class="{ 'timeline-thinking-detail': step.type === 'thinking' }">
+                                                                                <!-- [LuzzyRP patch 045] 思考面板正文接活通道（v1.5.0 性能）：
+                                                                                     原为 v-html="renderMarkdown(step.text, 'assistant', true)" —— 每 tick 改一次
+                                                                                     reasoning 就重渲染整个界面，且这一块的成本随思考长度增长（真机实测
+                                                                                     11 万字思考时单次提交 270–390ms）。改为带外通道后，思考文字由
+                                                                                     ext/luzzy-stream.js 按上游节奏（120ms）增量上屏，响应式 reasoning 降到
+                                                                                     低频提交；渲染仍是应用自己的 renderMarkdown，且**保持原来的 skipRegex=true**
+                                                                                     （模板原本就跳过显示正则，两通道参数必须各自一致）。 -->
                                                                                 <div v-if="step.type === 'thinking'" class="markdown-body"
                                                                                     :style="settings.fontSize ? { fontSize: (settings.fontSize - 1.5) + 'px' } : {}"
-                                                                                    v-html="renderMarkdown(step.text, 'assistant', true)">
+                                                                                    v-lsp-stream="{ src: step.text, role: 'assistant', live: 'reasoning' }">
                                                                                 </div>
                                                                                 <div v-else class="tool-call-detail flex flex-col gap-3 text-[13px]">
                                                                                     <div class="flex justify-between items-center text-[13px] border-b border-gray-200 pb-2">

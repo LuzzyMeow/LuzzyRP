@@ -6574,8 +6574,15 @@ const app = createApp({
                 //   扩展层 Luzzy.streamRender.feed() 直接上屏；响应式 content/reasoning 按
                 //   LIVE_COMMIT_INTERVAL 低频提交，流结束（finally）强制追平。
                 //   降级：扩展层不可用时缓冲每 tick 立即提交 —— 等价于改前行为。
+                // [LuzzyRP patch 045] 思考也接活通道：真机实测「思考面板」每次提交要重建整条思考内容
+                //   （11 万字思考时单次 270–390ms），是 patch 044 之后**残余占用的主要来源**。
+                //   故 reasoning 也走带外通道（ext 的 reasoning 通道以 skipRegex=true 渲染，与模板原调用一致），
+                //   响应式 reasoning 用更长的 LIVE_REASONING_COMMIT_INTERVAL 提交；
+                //   正文开始提交时强制把思考一次性追平（面板定稿后再显示正文）。
                 const LIVE_COMMIT_INTERVAL = 1200;
+                const LIVE_REASONING_COMMIT_INTERVAL = 6000;
                 let liveCommitAt = 0;
+                let liveReasoningAt = 0;
                 const livePending = { content: '', reasoning: '' };
                 const liveFeedApi = () => {
                     const lz = window.Luzzy;
@@ -6584,19 +6591,20 @@ const app = createApp({
                 };
                 const commitLiveDelta = (force) => {
                     const now = Date.now();
-                    if (!force && now - liveCommitAt < LIVE_COMMIT_INTERVAL) {
-                        // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
-                        // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
-                        const api = liveFeedApi();
-                        const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
-                        if (!livePending.content || (st && st.hasEl)) return false;
-                    }
-                    liveCommitAt = now;
+                    const api = liveFeedApi();
+                    const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
+                    // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
+                    // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
+                    const needContainer = !!livePending.content && !(st && st.hasEl);
+                    const contentDue = force || needContainer || now - liveCommitAt >= LIVE_COMMIT_INTERVAL;
+                    const reasoningDue = force || now - liveReasoningAt >= LIVE_REASONING_COMMIT_INTERVAL
+                        || (contentDue && !!livePending.content);   // 正文要出现前，先把思考定稿
+                    if (!contentDue && !reasoningDue) return false;
                     // 先取走再清空：即便下面抛错也不会重复追加（硬性规定 3：扩展层不得阻断主流程）
-                    const reasoningDelta = livePending.reasoning;
-                    const contentDelta = livePending.content;
-                    livePending.reasoning = '';
-                    livePending.content = '';
+                    const reasoningDelta = reasoningDue ? livePending.reasoning : '';
+                    const contentDelta = contentDue ? livePending.content : '';
+                    if (reasoningDue) { livePending.reasoning = ''; liveReasoningAt = now; }
+                    if (contentDue) { livePending.content = ''; liveCommitAt = now; }
                     try {
                         if (reasoningDelta) {
                             if (!contentDelta) isThinking.value = true;
@@ -6612,17 +6620,21 @@ const app = createApp({
                     }
                     return true;
                 };
-                // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏
+                // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏；
+                // 思考面板直接投喂 step.text 同源的纯文本（渲染由 ext 以 skipRegex=true 完成）
                 const feedLivePreview = () => {
                     try {
                         if (!assistantMessage) return;
                         const api = liveFeedApi();
                         if (!api) return;
+                        const role = assistantMessage.role || 'assistant';
+                        const reasoningText = String(assistantMessage.reasoning || '') + livePending.reasoning;
+                        if (reasoningText) api.feed(reasoningText, 'assistant', 'reasoning');
                         const raw = String(assistantMessage.content || '') + livePending.content;
                         if (!raw) return;
                         let text = raw;
                         try { text = processMainContent(parseCot(raw).main, true).text || ''; } catch (e) { text = raw; }
-                        api.feed(text, assistantMessage.role || 'assistant');
+                        api.feed(text, role, 'content');
                     } catch (e) {
                         /* 同上：上屏失败只影响观感（下一次提交会补上），不得抛出 */
                     }
@@ -6662,7 +6674,8 @@ const app = createApp({
                                 collapseNativeReasoning(assistantMessage);
                             }
                             await nextTick();
-                            liveCommitAt = Date.now();   // [LuzzyRP patch 044] 首帧离散事件不计入低频窗口
+                            liveCommitAt = Date.now();       // [LuzzyRP patch 044] 首帧离散事件不计入低频窗口
+                            liveReasoningAt = Date.now();    // [LuzzyRP patch 045] 同上（思考通道）
                         }
                         if (reasoning && !seededReasoning) {
                             // 原生思考中的文字标签不能改变 API 已指定的通道。

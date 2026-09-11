@@ -68,12 +68,32 @@
     var stats = { advances: 0, failures: 0, repairs: 0 };
 
     /**
-     * 活通道状态（patch 044）：由 app.js 直接投喂渲染后的正文，绕开根重渲染。
-     *   el     —— 当前流式消息的正文元素（指令带 `live: true` 时登记）
-     *   text   —— 最新投喂的正文（渲染后的 HTML 源文本，与模板绑定同源）
-     *   active —— 活通道是否生效（低频提交追平后自动退场）
+     * 活通道（patch 044 起；patch 045 扩到两条通道）。
+     * 由 app.js 在流式期间直接投喂**渲染前的纯文本**，本文件用应用自己的 renderMarkdown
+     * 渲染后写进对应元素，绕开「根状态变更 → 整个界面重渲染」。
+     *
+     *   content   —— 流式正文（模板 `live: true`）
+     *   reasoning —— 思考面板正文（模板 `live: 'reasoning'`）
+     *
+     * 两条通道各自独立：元素、文本、定时器、退场判定互不影响 ——
+     * 对应 rikkahub「思考块与正文块是不同 composable、互不牵连」的结构
+     * （但我们是同一根组件，只能靠这条带外通道来等效实现）。
+     *
+     * skipRegex 必须与模板原调用一致：正文是 `renderMarkdown(text, role)`（false），
+     * 思考面板是 `renderMarkdown(step.text, 'assistant', true)`（**true**）——
+     * 用错会显示正则差异（app 在思考面板上刻意跳过显示正则）。
      */
-    var live = { active: false, el: null, text: '', role: 'assistant', timer: 0, feeds: 0 };
+    function makeChannel(skipRegex) {
+        return {
+            active: false, el: null, text: '', role: 'assistant',
+            skipRegex: !!skipRegex, timer: 0, feeds: 0,
+        };
+    }
+    var channels = { content: makeChannel(false), reasoning: makeChannel(true) };
+
+    function channelOf(name) {
+        return channels[name === 'reasoning' ? 'reasoning' : 'content'];
+    }
 
     function app() {
         if (appProxy) return appProxy;
@@ -91,12 +111,12 @@
     }
 
     /** 应用自己的 Markdown 渲染；不可用返回 null（调用方一律降级）。 */
-    function render(text, role) {
+    function render(text, role, skipRegex) {
         var p = app();
         if (!p || typeof p.renderMarkdown !== 'function') return null;
         try {
             // cache:false —— 与 patch 032 同口径：流式中间串不灌渲染缓存
-            return p.renderMarkdown(text, role || 'assistant', false, { cache: false });
+            return p.renderMarkdown(text, role || 'assistant', !!skipRegex, { cache: false });
         } catch (e) {
             return null;
         }
@@ -160,30 +180,39 @@
         st.prefixNodes += count;
     }
 
-    function createState(el, role) {
+    function createState(el, role, skipRegex) {
         return {
-            el: el, role: role || 'assistant', src: '',
+            el: el, role: role || 'assistant', skipRegex: !!skipRegex, src: '',
             prefixLen: 0, prefixHtml: '', prefixNodes: 0, tailHtml: null,
             ticks: 0, blockedUpTo: 0, blockedAtLen: -1,
         };
     }
 
     /** 一次更新；返回是否产生可见变化。 */
-    function update(el, src, role, isLive) {
-        // [patch 044] 活通道期间：Vue 只会带着「低频提交的旧正文」来更新，
+    function update(el, src, role, isLive, skipRegex) {
+        // [patch 044/045] 活通道期间：Vue 只会带着「低频提交的旧正文」来更新，
         // 若直接用旧文本覆盖，已经流出来的字会**倒退**。故以活文本为准；
-        // 一旦低频提交追平（src === live.text），活通道自动退场、回到常规路径。
-        if (!isLive && live.active && live.el === el) {
-            if (src === live.text) {
-                live.active = false; live.el = null; live.text = '';
-            } else {
-                src = live.text;
-                role = live.role;
+        // 一旦低频提交追平（src === 通道文本），该通道自动退场、回到常规路径。
+        // 两条通道各自判定 —— 正文与思考互不牵连。
+        if (!isLive) {
+            for (var name in channels) {
+                var ch = channels[name];
+                if (ch.active && ch.el === el) {
+                    if (src === ch.text) {
+                        ch.active = false; ch.el = null; ch.text = '';
+                    } else {
+                        src = ch.text;
+                        role = ch.role;
+                        skipRegex = ch.skipRegex;
+                    }
+                    break;
+                }
             }
         }
+        var skip = skipRegex === undefined ? null : !!skipRegex;
         var st = states.get(el);
-        if (!st || st.role !== role || src.indexOf(st.src) !== 0) {
-            st = createState(el, role);
+        if (!st || st.role !== role || (skip !== null && st.skipRegex !== skip) || src.indexOf(st.src) !== 0) {
+            st = createState(el, role, skip === null ? undefined : skip);
             states.set(el, st);
         }
         st.ticks++;
@@ -195,9 +224,9 @@
         if (canTry) {
             var bound = candidateBoundary(src, st.prefixLen, st.blockedUpTo);
             if (bound > st.prefixLen) {
-                var chunkHtml = render(src.slice(st.prefixLen, bound), st.role);
-                var nextTail = render(src.slice(bound), st.role);
-                var fullHtml = render(src, st.role);
+                var chunkHtml = render(src.slice(st.prefixLen, bound), st.role, st.skipRegex);
+                var nextTail = render(src.slice(bound), st.role, st.skipRegex);
+                var fullHtml = render(src, st.role, st.skipRegex);
                 if (chunkHtml != null && nextTail != null && fullHtml != null
                     && fullHtml === st.prefixHtml + chunkHtml + nextTail) {
                     appendPrefix(st, chunkHtml);
@@ -217,14 +246,14 @@
         }
 
         // ---- 2) 只重建尾部 ----
-        var tailHtml = render(src.slice(st.prefixLen), st.role);
+        var tailHtml = render(src.slice(st.prefixLen), st.role, st.skipRegex);
         if (tailHtml == null) return false;         // 渲染器不可用：什么都不做（保持原样）
         var changed = tailHtml !== st.tailHtml;
         if (changed) setTail(st, tailHtml);
 
         // ---- 3) 周期性全文校验（第二道保险）----
         if (st.ticks % VERIFY_EVERY_TICKS === 0) {
-            var check = render(src, st.role);
+            var check = render(src, st.role, st.skipRegex);
             if (check != null && check !== st.prefixHtml + (st.tailHtml || '')) {
                 el.innerHTML = check;               // 整段回退：与改前行为完全一致
                 st.prefixNodes = el.childNodes.length;
@@ -240,21 +269,30 @@
         return changed;
     }
 
-    /** Vue 自定义指令：v-lsp-stream="{ src: '…', role: 'assistant', live: true }"。 */
+    /** 指令登记：`live: true` → 正文通道；`live: 'reasoning'` → 思考通道。 */
+    function registerLive(el, flag) {
+        if (!flag) return;
+        channelOf(flag === 'reasoning' ? 'reasoning' : 'content').el = el;
+    }
+
+    /** Vue 自定义指令：v-lsp-stream="{ src: '…', role: 'assistant', live: true|'reasoning' }"。 */
     var directive = {
         mounted: function (el, binding) {
             var v = binding.value || {};
-            if (v.live) live.el = el;
+            registerLive(el, v.live);
             update(el, String(v.src == null ? '' : v.src), v.role);
         },
         updated: function (el, binding) {
             var v = binding.value || {};
-            if (v.live) live.el = el;
+            registerLive(el, v.live);
             update(el, String(v.src == null ? '' : v.src), v.role);
         },
         unmounted: function (el) {
             states.delete(el);
-            if (live.el === el) { live.active = false; live.el = null; live.text = ''; }
+            for (var name in channels) {
+                var ch = channels[name];
+                if (ch.el === el) { ch.active = false; ch.el = null; ch.text = ''; }
+            }
         },
     };
 
@@ -263,17 +301,18 @@
      * 同一任务内多次投喂会合并成一次渲染（setTimeout 0），渲染仍走 update 的增量通道。
      * 尚无流式元素可写时返回 false（调用方无需处理，下一 tick 会带上更长的文本再投）。
      */
-    function feed(text, role) {
-        live.text = String(text == null ? '' : text);
-        if (role) live.role = role;
-        live.feeds++;
-        if (!live.el) return false;
-        live.active = true;
-        if (live.timer) return true;
-        live.timer = setTimeout(function () {
-            live.timer = 0;
-            if (!live.el || !live.active) return;
-            update(live.el, live.text, live.role, true);
+    function feed(text, role, channel) {
+        var ch = channelOf(channel);
+        ch.text = String(text == null ? '' : text);
+        if (role) ch.role = role;
+        ch.feeds++;
+        if (!ch.el) return false;
+        ch.active = true;
+        if (ch.timer) return true;
+        ch.timer = setTimeout(function () {
+            ch.timer = 0;
+            if (!ch.el || !ch.active) return;
+            update(ch.el, ch.text, ch.role, true, ch.skipRegex);
         }, 0);
         return true;
     }
@@ -300,12 +339,24 @@
         }, 100);
     }
 
+    function stateOfChannel(ch) {
+        return {
+            active: ch.active, hasEl: !!ch.el, textLen: ch.text.length,
+            feeds: ch.feeds, skipRegex: ch.skipRegex,
+        };
+    }
+
     Luzzy.streamRender = {
         register: register,
         ready: function () { return directiveRegistered && !!app(); },
         apply: function (el, src, role) { return update(el, String(src == null ? '' : src), role); },
         feed: feed,
-        liveState: function () { return { active: live.active, hasEl: !!live.el, textLen: live.text.length, feeds: live.feeds }; },
+        // liveState() 顶层字段 = 正文通道（保持 patch 044 门禁的字段契约），另附 reasoning 子对象
+        liveState: function () {
+            var base = stateOfChannel(channels.content);
+            base.reasoning = stateOfChannel(channels.reasoning);
+            return base;
+        },
         stats: function () { return { advances: stats.advances, failures: stats.failures, repairs: stats.repairs }; },
         stateOf: function (el) {
             var st = states.get(el);

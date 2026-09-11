@@ -6,6 +6,12 @@
 # 2. 每个 patch 头部注明：目的 / 对应硬性规定 / 预期冲突点。
 # 3. NSFW 相关点位（built-in-content.js 内 nsfw_rules）永远不在 patch 范围内。
 #
+# [v1.5.0 移除 · 退役登记] 原「助手」原生 Agent 全程走**扩展层自持文件**
+# （`ext/luzzy-assistant.js` + `ext/luzzy-bridge.js` / `ext/luzzy-ext.js` 封装 +
+#  `ext/luzzy-theme.css` 规则），**从未占用任何 patch 编号**——本目录无助手相关条目可退，
+# 故无 patch 需删除；对应的 verify-markers 校验项 `V15-assistant-*` 已退役。
+# 该功能已按用户指示于 2026-09-11 彻底移除（详见 docs/WORKLOG.md）。
+#
 # 当前登记（全部针对 app/src/main/assets/rphub/ 内 files）：
 # ------------------------------------------------------------
 # 001-brand-title.patch
@@ -595,7 +601,7 @@
 #    apply-patches.ps1 末段按「前像 blob id 一致才自动 apply」执行。
 #
 #    ★ 生成规程（v1.5.0 修正版，会话 26 定稿——旧规程以「二创工作树」为对生成，
-#      导致 2 枚实体换基线后前像失配，见 docs/PLAN-v1.5.0-assistant.md §18.4.1/§18.6）：
+#      导致 2 枚实体换基线后前像失配，见 `docs/PLAN-v1.5.0-assistant.md` §18.4.1/§18.6）：
 #      ① 落盘「上游纯净基线」：git -C rp-hub-reference show <baseline>:<file>，LF 归一；
 #      ② 落盘「合并后工作树」：app/src/main/assets/rphub/<file>，LF 归一；
 #      ③ 生成：git diff --no-index --ignore-cr-at-eol base.bin work.bin

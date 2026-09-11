@@ -266,7 +266,8 @@ LuzzyRP/
 **当前版本**：[v1.5.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
 
 > [!IMPORTANT]
-> **v1.5.0 为「开发中」版本**（文档定位澄清 + 发布纪律固化 + 「助手」原生页调研），
+> **v1.5.0 为「开发中」版本**（文档定位澄清 + 发布纪律固化 + 同步上游 1.9.3；
+> 原「助手」原生页已按用户指示于 2026-09-11 彻底移除），
 > **尚未发布**；**最新可下载版本仍是 [v1.4.0](https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.4.0)**。
 > 顶部 Status 徽章与上面这行版本号由 `tools/gen-changelog.mjs` 自动同步（取 CHANGELOG 顶部
 > 版本与状态），**是否已发版以 [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases) 为准**。
@@ -276,9 +277,7 @@ LuzzyRP/
 > [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases)。发版时运行
 > `node tools/gen-changelog.mjs` 会自动同步上面一行当前版本与顶部 Status 徽章。
 
-**后续规划（候选，随上游节奏迭代）**：菜单栏「助手」原生页（Kotlin 手机端 Agent）——
-可行性调研 [`docs/RESEARCH-assistant-native-agent.md`](docs/RESEARCH-assistant-native-agent.md) ·
-实施级计划 [`docs/PLAN-v1.5.0-assistant.md`](docs/PLAN-v1.5.0-assistant.md) · styles.css 低频硬编码蓝收编 ·
+**后续规划（候选，随上游节奏迭代）**：styles.css 低频硬编码蓝收编 ·
 向量阈值滑杆 · 「荧光笔落笔」招牌动效 · 深链 · 自建更新检查 · Gemini/Anthropic 图像模型接生图流
 
 版本号独立于上游（LuzzyRP v1.0.0 基于 RP-Hub 1.8.9），CHANGELOG 每条记录注明上游基线版本。

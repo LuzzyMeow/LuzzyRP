@@ -18,11 +18,7 @@ import com.luzzymeow.luzzyrp.BuildConfig
  * 方法名被前端 JS 直接引用，R8 规则已保留（proguard-rules.pro）。
  */
 @Suppress("unused")
-class LuzzyBridge(
-    private val context: Context,
-    /** 助手原生页宿主控制（可空：未接线时相关桥接方法降级为 no-op）。 */
-    private val assistantController: com.luzzymeow.luzzyrp.assistant.AssistantController? = null,
-) {
+class LuzzyBridge(private val context: Context) {
 
     /** 剪贴板写入。返回是否成功（后端实现总是返回 true）。 */
     @JavascriptInterface
@@ -113,62 +109,7 @@ class LuzzyBridge(
         const val UPSTREAM_VERSION = "1.9.3"
     }
 
-    // ------------------------------------------------------------------
-    // [LuzzyRP v1.5.0 助手] 桥接契约（PLAN §14）
-    // 前端封装见 assets/ext/luzzy-bridge.js（存在性检测 + 降级），
-    // 调用点见 assets/ext/luzzy-assistant.js。新增方法按 AGENTS §5.4 流程登记 CHANGELOG。
-    // ------------------------------------------------------------------
-
-    /** 侧栏「助手」入口：显示原生助手覆盖层首页。未接线时静默（前端有降级提示）。 */
-    @JavascriptInterface
-    fun openAssistant() {
-        assistantController?.showAssistant("")
-    }
-
-    /**
-     * 侧栏「助手」子项入口：按指定页面打开助手（PLAN §3.3）。
-     *
-     * @param route `conversations` / `memory` / `skills` / `mcp` / `workspace` / `terminal` /
-     *   `settings`；未知值回退首页。
-     */
-    @JavascriptInterface
-    fun openAssistantAt(route: String) {
-        assistantController?.showAssistant(route)
-    }
-
-    /**
-     * 助手页左上角汉堡 → 回到 **LuzzyRP 原侧栏**（用户 2026-09-09 指定）。
-     * 原生侧：隐藏助手覆盖层后调用 `window.Luzzy.openRpSidebar()`。
-     */
-    @JavascriptInterface
-    fun openRpSidebar() {
-        assistantController?.openRpSidebar()
-    }
-
-    /** 助手覆盖层当前是否可见（前端可据此暂停/恢复轮询等）。 */
-    @JavascriptInterface
-    fun isAssistantVisible(): Boolean = assistantController?.isAssistantVisible() ?: false
-
-    /**
-     * Web 端供应商配置**只读**推送（PLAN §14）：由 `luzzy-assistant.js` 在页面就绪与
-     * 设置变更时调用。内容仅驻留内存（[com.luzzymeow.luzzyrp.assistant.AssistantConfigHolder]），
-     * **不落盘、不进日志**。
-     */
-    @JavascriptInterface
-    fun setAssistantConfig(json: String) {
-        com.luzzymeow.luzzyrp.assistant.AssistantConfigHolder.update(json)
-    }
-
-    /** 读取最近一次推送的配置（未推送时返回空串）。 */
-    @JavascriptInterface
-    fun getAssistantConfig(): String = com.luzzymeow.luzzyrp.assistant.AssistantConfigHolder.get()
-
-    /**
-     * 主题模式联动：`"light"` / `"dark"`。助手覆盖层与 Web 端主题保持一致
-     * （DESIGN.md：恒定「暖幕手记」，亮/暗双模式）。
-     */
-    @JavascriptInterface
-    fun setAssistantThemeMode(mode: String) {
-        assistantController?.setThemeMode(mode == "dark")
-    }
+    // [v1.5.0 移除] 原「助手」桥接契约（openAssistant / openAssistantAt / openRpSidebar /
+    // isAssistantVisible / set-getAssistantConfig / setAssistantThemeMode）已随助手功能
+    // 按用户指示于 2026-09-11 一并移除。
 }

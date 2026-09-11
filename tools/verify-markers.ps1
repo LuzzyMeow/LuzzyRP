@@ -75,11 +75,8 @@ $Manifest = @(
     @{ Id = '018-no-flash';           File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 018]';                   Min = 1 },
     @{ Id = '018-theme-css-head';     File = 'index.html';                       Mode = 'contains';     Needle = 'luzzy-theme.css?v=';                    Min = 1 },
     @{ Id = '018-ext-snapshot';       File = '../ext/luzzy-ext.js';              Mode = 'contains';     Needle = 'luzzy_theme_snapshot';                  Min = 1 },
-    # [v1.5.0 助手] 侧栏入口与桥接契约（PLAN §3.3/§14）——扩展层自持文件，非上游 patch
-    @{ Id = 'V15-assistant-entry';    File = '../ext/luzzy-assistant.js';        Mode = 'contains';     Needle = 'luzzy-assistant-entry';                 Min = 1 },
-    @{ Id = 'V15-assistant-loader';   File = '../ext/luzzy-ext.js';              Mode = 'contains';     Needle = 'luzzy-assistant.js';                    Min = 1 },
-    @{ Id = 'V15-assistant-bridge';   File = '../ext/luzzy-bridge.js';           Mode = 'contains';     Needle = 'Luzzy.openAssistant';                   Min = 1 },
-    @{ Id = 'V15-assistant-config';   File = '../ext/luzzy-bridge.js';           Mode = 'contains';     Needle = 'Luzzy.pushAssistantConfig';             Min = 1 },
+    # [v1.5.0 移除] 原 V15-assistant-entry / -loader / -bridge / -config 四项校验
+    # 随「助手」功能按用户指示于 2026-09-11 一并退役（ext/luzzy-assistant.js 已删除）。
     @{ Id = '019-drawer-ui';          File = 'assets/js/ui-components.js';       Mode = 'contains';     Needle = '[LuzzyRP patch 019]';                   Min = 2 },
     @{ Id = '019-preview-index';      File = 'index.html';                       Mode = 'contains';     Needle = '[LuzzyRP patch 019]';                   Min = 1 },
     @{ Id = '020-vector-toast';       File = 'assets/js/app.js';                 Mode = 'contains';     Needle = '[LuzzyRP patch 020]';                   Min = 2 },

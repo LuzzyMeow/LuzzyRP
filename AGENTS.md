@@ -3,9 +3,6 @@
 > 本文件是**后续开发 / 更新 / 维护 Agent 的强制工作指南**。
 > 任何 Agent 接手本仓库任务前，必须完整阅读本文件与 [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md)，并遵守其中的全部纪律。
 > 违反硬性规定任何一条即为不合格交付。
-> **接手 v1.5.0「助手」相关任务时**：先读 [`docs/STATUS-v1.5.0-assistant.md`](docs/STATUS-v1.5.0-assistant.md)
-> ——它是**上下文重置后的交接入口**（现状快照 / 代码地图 / 设计契约与组件库 / 已知问题 / 决策记录 /
-> 踩坑表 / 工作约定 / 用户待报问题登记）。改助手 UI 前另须读 `DESIGN.md`「助手原生页」章。
 
 ---
 
@@ -88,16 +85,14 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `tools/model-list-test.cjs` | **模型列表合并回归门禁**（2026-09-11 立，patch 043 的守卫） | 桌面 Chromium 里注入「带手动模型的供应商」+ 桩掉 `/models`：断言①冷启动（重载）且**断网**时手动模型仍可见、②显示名（label）/上下文保留、③**同 id 时手动条目优先**（不被检测结果顶掉）、④用户没配过的检测结果仍可选、⑤无 JS 异常。用法同上。**改 `fetchModelsForProvider` / `providerModels` / `availableModels` / 供应商保存路径后必跑** |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.4.0.md` | 最近版本（v1.4.0）实施计划 | 最新版本主文档；历史 PLAN（v1.0.0~v1.2.1）并存备查 |
-| `docs/RESEARCH-assistant-native-agent.md` | 菜单栏「助手」原生页（Kotlin 手机端 Agent）可行性调研 | 调研结论与分阶段路线；实施前先看该文档 + 硬性规定 9 |
-| `docs/PLAN-v1.5.0-assistant.md` | v1.5.0 实施级计划（上游同步 1.9.3 + 助手原生 Agent） | **本版唯一主计划**；§18 = 上游同步完整调查（U1-U12 执行清单） |
+| `docs/PLAN-v1.5.0-assistant.md` | 历史存档（助手已移除） | 仅 §18（上游同步 1.9.3 调查）仍有效；§2-§17 已作废 |
+| `docs/RESEARCH-assistant-native-agent.md` · `docs/design/AUDIT-assistant-ui-parity.md` | 历史存档（助手已移除） | **不指导新工作**；重启同类功能须重走调研 + 硬性规定 9 设计门 |
 | `docs/HANDOFF-v1.5.0-execution.md` | 给执行 Agent 的交接提示词 | 派发任务时整段复制；含必读清单、红线、UI 设计 SKILL 门、验收标准 |
 | `docs/RELEASE-KEY.md` | 签名密钥说明（口令/别名/有效期） | **已 gitignore，仅本地**；密钥库与口令严禁入库（§3.4） |
 | `docs/design/` | 设计存档（spec-v2 合同 / boards-v2 三方向板 / direction-approved-v2 / 验证截图） | 设计演进按硬性规定 9 流程 |
-| **`docs/design/AUDIT-assistant-ui-parity.md`** | **助手页 UI 设计语言断层审查档 + 修复计划（P0 契约自洽 / P1 机械对齐 / P2 顶栏统一 / P3 验收）** | 改助手 UI 前先读；P2 属新视觉决策，**必须走三方向硬门**（方向板待出，见 `direction-approved-assistant.md` 末节） |
 | `docs/WORKLOG.md` | 工作日志 | 每次会话追加「日期 / 完成 / 决策 / 遗留 / 下一步」 |
 | `docs/archive/` | 归档（旧工程备份等） | gitignore，仅本地 |
 | `rp-hub-reference/` | 上游参考克隆 | 保留 upstream remote；**只读参考，不直接改** |
-| `app/src/main/assets/assistant/` | 助手模块资产（字体 TTF / 内置技能 / **沙盒资产**） | 沙盒含 **GPL-2.0 的 proot 二进制**：来源与源码获取途径见 `sandbox/SOURCES.md`，许可全文 `sandbox/LICENSE-proot-GPL-2.0.txt`；**升级 proot/rootfs 时必须同步 `manifest.json` 与 `ProotRuntime.ASSET_VERSION`**（版本不匹配会触发重装） |
 
 ---
 
@@ -485,16 +480,12 @@ Luzzy.copyToClipboard = function (text) {
 | **CSS 动画的缓动在关键帧上**（会话 55 实证） | `KeyframeEffect.getTiming().easing` 对 **CSS 动画**恒为 `'linear'`（**不是实现没生效**）；真实曲线在 `effect.getKeyframes().map(k => k.easing)` 里。断言动画曲线必须读关键帧，否则得到「曲线是 linear」的假告警 |
 | **模板字符串里的注释不能含反引号**（会话 55 实证） | 与「Kotlin 块注释可嵌套」同类：在 `evalJs(\`…\`)` 的模板串内写注释时，注释里出现反引号会**直接截断模板串**（报 `missing ) after argument list`，且报的行号往往不是真凶）。写进模板串的代码注释用「」或纯文字 |
 | **契约文档写了、实现没接**（会话 54 静态审查实证） | `ApprovalGate` 的 KDoc 与 PLAN §12.1 都写「T2/T3 默认关闭，**需用户在设置里逐项开启**」，而实现侧**三处全缺**：内存快照无 hydration、setter 零调用点、设置页无开关 UI → **8 类工具（日历/终端/截屏/短信/通讯录/发到 RP 会话…）成为交互死路**，且不报错、不崩溃，看日志永远正常。**审查纪律**：顺着「文档承诺」逐条做**三段对账**（契约 → 调用点 → UI 入口），缺一段就是死路；只跑测试/只看有没有异常查不出这类问题 |
-| **WebView 从「停绘 + 暂停」恢复时，动画时间线是冻的**（会话 57 真机实证） | 助手覆盖层全屏时壳会 `visibility=INVISIBLE` + `onPause()` + `pauseTimers()`；恢复后在**同一个任务里**改类/加类，CSS 过渡与动画会**直接跳到终态**（不播）。真机逐帧证据：覆盖层返回时 `openRpSidebar()` 调用后 9ms 的首帧，侧栏 `transform` 已经是 `0`（跳变）；而 WebView 活跃时同一次调用是 `0 → -53 → -101 → … → -300` 平滑滑出。**正解：把这个「翻类」推迟到渲染帧内**（`requestAnimationFrame` 回调里再点），时间线已恢复，过渡才会真跑。**推论**：任何「壳暂停过 WebView 之后立刻触发的视觉变化」都要按这条检查 |
+| **WebView 被壳暂停过后，动画时间线是冻的**（会话 57 真机实证；原样本＝已移除的助手覆盖层停绘+`pauseTimers`） | 壳若 `visibility=INVISIBLE` + `onPause()` + `pauseTimers()`，恢复后在**同一个任务里**改类/加类，CSS 过渡与动画会**直接跳到终态**（不播）。**正解：把这个「翻类」推迟到渲染帧内**（`requestAnimationFrame` 回调里再点），时间线已恢复，过渡才会真跑。**推论**：任何「壳暂停过 WebView 之后立刻触发的视觉变化」都要按这条检查 |
 | **上游侧栏开合是模块状态，不是响应式绑定**（会话 57 真机实证） | `app.js` 用 `let isMobileSidebarOpen` + `setMobileSidebarOpen()` 里 `classList.toggle('mobile-sidebar-open')`。扩展层**直接摘这个类**只改 DOM、不改状态 → 下次 `toggleMobileMenu()` 把状态翻成 `false`、toggle 一个「已不存在的类」→ **第一次点汉堡没反应、第二次才开**。**正解：永远点上游自己的按钮**（`toggleMobileMenu` 的 DOM 入口），让状态机同时管类与状态 |
-| **Compsoe `LaunchedEffect(外部字符串)` 对「同一值再次进入」不重跑**（会话 57 真机实证） | 侧栏子项进入助手时用 `LaunchedEffect(initialRoute)` 切页：同一路由（尤其「对话」的空串）再次进入 key 不变 → 效果不重跑 → **页面停在上一页**。**正解：用自增导航序号作 key**（每次进入必变）；另注意别加「排除首页」之类的守卫，会把首页请求一并挡掉 |
 | **实体前像 = 上游纯净基线**（会话 25 修正） | 实体段必须先于字符串块重放（否则前像失配）；前像判定用实体头 `index <pre>` 的 LF 归一 blob id，勿用指纹表（CRLF 工作树哈希）比对覆盖态 |
 | **Kotlin 块注释可嵌套**（会话 31 实踩） | KDoc 里写路径 `skills/*.md` 时，`/*` 会**开启嵌套注释**，导致后续代码被吞、报 `Unclosed comment`。写注释时避免裸 `/*`（改用 `skills/…md` 或转义） |
-| **Compose `FontFamily` 不做逐字形回退**（会话 28 实证） | 与 CSS `font-family` 栈语义不同：按字重/字形选字体，缺字形时回退**系统字体**而非栈内下一个自定义字体。故正文主族直接取中文字体，display 走 Lora + 系统 CJK |
 | **Android 无 `Process.toHandle()/ProcessHandle`**（会话 29 实证） | 无法枚举孙进程；`sh -c "sleep 30"` 只杀 shell 时，若用阻塞 `readText()` 排空会一直等到孙进程结束（超时形同失效）。改用**非阻塞 `available()` 轮询 + 有界排空** |
-| **Compose `addPathNodes` 误读「紧凑弧线标志位」**（会话 45 实证） | 上游 SVG 写法 `a3 3 0 11-6 0`（标志位 `1 1` 紧邻）会被解析成一个数 → 圆被画成**半圆**、齿轮变花形。**不要用 `ImageVector.Builder + addPathNodes` 复刻上游 SVG**：改为 `res/drawable/ic_*.xml`（VectorDrawable，系统解析器）+ **显式分隔标志位**，用 `painterResource` 渲染 |
 | **AGP 会解压 `.gz` 资产并去掉后缀**（会话 37 实证） | 源码树 `assets/**/rootfs.tar.gz` 在 APK 内变成 `rootfs.tar`（未压缩 tar，扩展名被去掉）。运行时读资产要**两种名字都试 + 按 magic bytes 判断**，否则真机「资产缺失」 |
-| **Compose 编译器 mapping 生产者类路径版本漂移**（会话 37 实证） | AGP 9 内置 Kotlin 与项目 Kotlin 版本不一致时，`produce*ComposeMapping` 会去解析内置版本的 `compose-group-mapping`，离线环境解析失败并被 Gradle 报成「配置缓存序列化错误」误导排查。用 `resolutionStrategy` 钉到项目 Kotlin 版本 |
 | **「DOM 里有文本」不等于「用户看得见」**（会话 59 真机实证） | 选择器行改成「label 为主文本」后，数据层断言全绿、DOM 里 `textContent` 也有 label，**用户却仍然看不见** —— 行内固定件（徽标 42 + 裸 ID 131 + chip 121 + 间距 24 = 318px）已超过行宽 292px，label 作为唯一可收缩项被 flex 压成 **`clientWidth = 0`**（不报错、不告警）。**凡新增「要显示的字段」，断言必须量 `getBoundingClientRect().width > 0` 且 `scrollWidth ≤ clientWidth`（未被省略号截断），不能只看 textContent**；回归门禁 `tools/model-list-test.cjs` A7/A8 即此判据 |
 | **采样 profiler 的「自耗时」排名在真机上会失真**（会话 59 实证） | 真机把 88% 自耗时归给 Vue 的 `setStyle`（每次状态变更仅 37 次调用），而微基准显示单次样式写入 0.006ms —— 两者差 800 倍。**结论：不要只信 profiler 排名**，要用「微基准 + 三臂对拍（含空实现对照）+ 调用计数 + 分段计时」交叉验证；`dumpsys gfxinfo` 对 WebView 只能作旁证（内容在渲染进程绘制），有区分力的是**页面内 rAF 间隔 + 一次根状态变更的主线程耗时** |
 | **CDP 测试脚本崩溃会把状态留在真机上**（会话 59 实证） | 一次探针在 teardown 前抛错，真机上留下一条合成消息且 `isGenerating` 卡在 `true`（表现是一直「生成中」）。**任何真机脚本都要把「收尾」写成独立的一次调用**（先清理再断言），跑完再**显式核对**会话条数 / 生成标志 / 指令注册表等被改动过的状态 |
@@ -506,12 +497,13 @@ Luzzy.copyToClipboard = function (text) {
 
 > 完整过程见 `docs/WORKLOG.md` 会话 26 及追记。上游基线 RP-Hub **1.9.3**（commit `4aef0bb`，
 > 2026-09-09 同步完成）。参考克隆锚定 `4aef0bb`（**合并全程只引用该工作树**，勿用 HEAD~N）。
-> v1.5.0 三条工作流：**W0 文档与纪律 ✅** · **W1 上游同步 ✅** · **W2 助手原生 Agent ⏳**。
+> v1.5.0 工作流：**W0 文档与纪律 ✅** · **W1 上游同步 ✅** · ~~W2 助手原生 Agent~~（2026-09-11 按用户指示移除）。
 
 ### 版本状态（2026-09-09 · 会话 26）
 
-- **v1.5.0 开发中（未发布）**，最新可下载版本仍为 **v1.4.0**。本版含「上游同步 1.9.3」+
-  「助手原生 Agent」两条主线，按用户指示**先同步、再做助手，最后一次性发版**（不拆版）。
+- **v1.5.0 开发中（未发布）**，最新可下载版本仍为 **v1.4.0**。本版原含「上游同步 1.9.3」+
+  「助手原生 Agent」两条主线；**助手已于 2026-09-11 按用户指示彻底移除**（见 `CHANGELOG.md`
+  v1.5.0「移除」段），本版只交付上游同步。
 - **W1 上游同步 1.9.3 已完成**（2026-09-09）：三方合并（1.9.3 纯净底 + 1.9.2 纯净祖先 +
   二创工作树）——index.html / ui-components.js / character/index.html 零冲突，app.js 1 处冲突
   取上游侧；**顺带修复 1.9.2 合并时误删 `let workshopImportPending = false;` 的存量缺陷**；
@@ -528,10 +520,9 @@ Luzzy.copyToClipboard = function (text) {
 - **W1 遗留（需真机 / 联网）**：工坊 Diff 工具调用与抗截断需带 tool 的模型实测；万相广场
   一键导入需联网实测（iframe 与 `RPH_FORUM_*` 桥已就位）；开屏动画 / 剧情面板时机 / 沉浸模式
   宽度需真机目测。
-- **W2 待办**：按 `docs/PLAN-v1.5.0-assistant.md` §16 执行 P0→P4；**进入界面实现前必须走
-  硬性规定 9 设计门**（读 4 项设计 SKILL → 三方向硬门 → 用户选定 → 写入 `DESIGN.md`）。
-  侧栏入口最终改为扩展层 DOM 注入（`ext/luzzy-assistant.js`），**未占用 patch 040**；
-  patch 040 已用于供应商编辑器模型列表的卡片化 + 二级弹窗（2026-09-10）。
+- **W2（助手原生 Agent）已终止**：模块与全部子页面已于 2026-09-11 按用户指示彻底移除
+  （代码 / 资产 / 测试 / 构建接入 / 桥接 / 扩展层入口一并删除，详见 `CHANGELOG.md` v1.5.0
+  「移除」段）。patch 040 已用于供应商编辑器模型列表的卡片化 + 二级弹窗（2026-09-10）。
 - **发布纪律（长期，见 §3.4）**：**只构建/发布一个 APK**（`app-release.apk`，ABI 拆分保持
   关闭、禁止恢复）；**每次发布必须保持同一应用签名**（`keystore/luzzy-release.keystore`，
   发布前 `apksigner verify --print-certs` 核对指纹与上一版一致，`keystore.properties` 缺失

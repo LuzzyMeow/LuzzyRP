@@ -1906,6 +1906,70 @@ legacy 臂 p95 是 **241ms**（≈4fps 的尾部）。**即用户要的「跑满
 下一步候选：① 活通道覆盖 reasoning；② 提交间隔随长度自适应（`max(1.2s, len/50s)`）；
 ③ 折叠态不渲染思考内容。
 
+---
+
+## 2026-09-11 · 会话 61：**彻底移除「助手」功能（用户指示）**
+
+**任务**：用户明确拍板——彻底移除「助手」功能（原生 Compose Agent 模块）及所有相关子页面。
+本会话只做移除 + 文档改口 + 验证，不夹带任何其它改动。
+
+**完成**
+
+- **代码**：`app/src/main/java/com/luzzymeow/luzzyrp/assistant/` 整模块删除（**120 个 .kt**，
+  data / domain / runtime / ui 全部子包）；`app/schemas/`（Room 导出 schema，仅服务
+  `AssistantDatabase`）随之删除。
+- **资产**：`app/src/main/assets/assistant/` 整目录删除（**20 文件 / 26.5MB**，含字体 TTF、
+  内置技能、**GPL-2.0 的 proot 沙盒二进制与 rootfs**）。改造前 release APK 内该目录占
+  **约 23.0MB**（压缩后）。
+- **扩展层**：`ext/luzzy-assistant.js` 整文件删除；`ext/luzzy-bridge.js` 移除
+  `Luzzy.openAssistant` / `openAssistantAt` / `openRpSidebar` / `isAssistantVisible` /
+  `push·getAssistantConfig` / `setAssistantThemeMode` / `onAssistantVisibilityChanged`；
+  `ext/luzzy-ext.js` 移除助手脚本加载器与交接控制器的 `lsp-assistant-handoff` 让位分支；
+  `ext/luzzy-theme.css` 移除「侧栏 → 助手」入口编排段（**页面之间的交接编排保留原样**）。
+- **原生接线**：`MainActivity.kt` 去掉 `AssistantController` 实现、ComposeView 懒创建、返回键
+  三级优先级（回归「WebView 可回退则回退，否则退出」）、覆盖层进/出过渡、以及**仅为助手存在**的
+  WebView 停绘 / `pauseTimers` / 恢复逻辑；`web/LuzzyBridge.kt` 去掉 7 个助手
+  `@JavascriptInterface` 与 `AssistantController` 构造参数（构造签名回到 `LuzzyBridge(context)`）。
+- **测试**：`app/src/test/java/.../assistant/` **35 个测试文件整体删除**（它们只测助手自身）。
+  **未修改任何非助手测试断言**。
+- **构建配置**：`app/build.gradle.kts` 去掉 Compose 编译器 / KSP / kotlinx-serialization 三个
+  插件、Compose BOM 与 UI / Material3 / Foundation / activity-compose / lifecycle-compose、
+  Room 三件套、DataStore、OkHttp、kotlinx-serialization-json 依赖、`buildFeatures.compose`、
+  `ksp { room.schemaLocation }` 与 Compose mapping 生产者版本对齐块；
+  `gradle/libs.versions.toml` 同步清理对应 version / library / plugin 条目。
+- **门禁**：`tools/verify-markers.ps1` 的 `V15-assistant-entry / -loader / -bridge / -config`
+  四项退役；`tools/patches/README.md` 加退役登记说明。
+- **文档改口**：`docs/STATUS-v1.5.0-assistant.md` 与 `docs/PLAN-v1.5.0-assistant.md` 顶部加
+  「已于 2026-09-11 彻底移除 / 历史存档」醒目标注；`CHANGELOG.md` v1.5.0 加「移除」段；
+  `AGENTS.md` §1.5 / §2 / §9 的助手条目同步改写（顺带把文件压回 65.5KB 指令预算内）；
+  `DESIGN.md`「助手原生页」章与交接表助手行加历史存档标注；`README.md` 版本规划行去掉助手条目。
+- **未动上游**：`app/src/main/assets/rphub/**` **零改动**——助手入口原本就是扩展层 DOM 注入，
+  从未占用 patch 编号，故**无 patch 需删除 / 退役 / 实体重生成**（已 `git status` / 指纹核对确认）。
+
+**决策**
+
+- 构建配置整体退回「最小依赖 WebView 壳」：逐文件核对后确认**除助手外没有任何 Compose 使用点**，
+  故 Compose / Room / KSP / serialization 一并移除（不是只删助手用到的部分）。
+- 历史文档**不删除**，只加存档标注——保留设计决策与踩坑记录供追溯，同时明确「不再指导新工作」。
+
+**验证**（本会话收尾实测，四条验收门 + 悬空引用扫描）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| release 构建 | `./gradlew :app:assembleRelease` | **成功**；`app/build/outputs/apk/release/` 下 **只有 1 个** `app-release.apk` |
+| APK 体积 | 改造前 42 969 263 → 改造后 **18 215 394** 字节 | **−24 753 869 字节（−57.6%）**，剩余 42.4%（基本就是被删的助手资产） |
+| 单元测试 | `./gradlew :app:testDebugUnitTest` | **成功 / 0 失败**；注：全仓测试源码**只剩助手测试**，35 枚整体随模块删除后 `app/src/test` 已空（0 个测试类），故本轮为「无测试可跑」的绿 |
+| 标记门 | `tools/verify-markers.ps1` | **132 PASS / 0 FAIL**（原 95 项含 4 项 `V15-assistant-*`，退役 4 项后其余项与 046/HOTZONE 等新增项合计 132） |
+| 流式渲染门 | `node tools/stream-render-test.cjs` | **pass: true / failures: []**（118 tick 全等价，负控 A8 仍判红） |
+| 模型列表门 | `node tools/model-list-test.cjs` | **pass: true / failures: []**（A7/A8 真实渲染宽度断言通过） |
+| 页面交接门（额外，AGENTS §1.5 要求） | `node tools/page-handoff-test.cjs` | **pass: true**——本轮动了 `ext/luzzy-ext.js` 的交接控制器与 `luzzy-theme.css` 的 `.lsp-view-*` 邻近段，按登记表属必跑项 |
+| 悬空引用 | 全仓 `grep` 助手标识符（`openAssistant` / `luzzy-assistant` / `AssistantController` / `LuzzyAssistantTheme` / `ProotRuntime` / `animateAssistantOverlay` 等） | **代码与工具层零命中**；剩余命中全部是**历史文档**（`docs/`）与**CHANGELOG 历史叙述**，以及由 CHANGELOG 自动生成的 `ext/luzzy-changelog.js`（构建期重生成，非手写） |
+
+**下一步**
+
+- 用户真机体验 release 包（移除后的包体积与启动是否如预期），通过后才谈发版。
+- v1.5.0 剩余内容 = 上游同步 1.9.3 + 本版各 patch，发版流程仍按 AGENTS §3.4。
+
 
 
 

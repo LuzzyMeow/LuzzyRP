@@ -662,7 +662,7 @@
         color 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-/* —— 侧栏折叠组（在线 / 高级 / 助手）—— 用户 2026-09-10 报告「动画不流畅、跑不满刷新率」。
+/* —— 侧栏折叠组（在线 / 高级）—— 用户 2026-09-10 报告「动画不流畅、跑不满刷新率」。
  * 上游 .advanced-nav-panel 为 0.32s cubic-bezier(.22,1,.36,1)，非本项目令牌。
  * 真机实测（小米 25098PN5AC / 120Hz / CDP 帧事件追踪 + dumpsys gfxinfo）：
  *   主线程不是瓶颈（每帧 layout 0.27ms + recalc 0.75ms + paint 0.6ms，rAF 稳定 8.3ms），
@@ -857,16 +857,9 @@ html.lsp-page-handoff .app-main > .lsp-view-in {
     animation: lspViewOut var(--lsp-handoff-ms) var(--lsp-handoff-ease) both;
 }
 
-/* —— 侧栏 → 助手 入口（用户 2026-09-10 指定，2026-09-11 并入统一编排）——
- * 同一套编排的助手版：① 侧栏向左收起（由上游自己的开合状态机摘 `mobile-sidebar-open`，
- * 闭态 transform 是上游 styles.css 的 translate3d(-104%)；时长/曲线已由上面的令牌统一）；
- * ② 「新页」＝助手原生覆盖层，它自己做 alpha 0→1 交叉淡化（MainActivity.animateAssistantOverlay，
- *    同一令牌）；③ 覆盖层淡入期间 **WebView 保持绘制**（MainActivity 改为过渡结束才停绘），
- *    被淡化的旧页才是真的「页内容」，而不是窗口底色。
- * **取消 .app-main 平移**：统一编排只保留「侧栏左移」一处位移，页面内容只做淡化，避免两处位移互相打架。
- * 信号类 `lsp-assistant-handoff`（`<html>`）由 ext/luzzy-assistant.js 加/撤，只用于让页面交接
- * 控制器让位——**这里不再有任何强制 transform**：直接摘 `mobile-sidebar-open` 会让上游的
- * `isMobileSidebarOpen` 与 DOM 脱节，下次点汉堡失效（会话 57 真机实证）。 */
+/* [v1.5.0 移除] 原「侧栏 → 助手」入口编排（信号类 .lsp-assistant-handoff 及该入口
+ * 专属的让位规则）已随助手功能按用户指示于 2026-09-11 一并移除。
+ * 页面之间的交接编排（本段上方）保持不变。 */
 
 @media (prefers-reduced-motion: reduce) {
     :root[data-theme="luzzy"] .app-sidebar,

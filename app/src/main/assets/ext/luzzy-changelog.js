@@ -9,12 +9,13 @@
 > 格式：\`### vX.Y.Z — 标题\` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
-### v1.5.0 — 开发中 · 文档定位澄清 × 发布纪律固化 × 「助手」原生 Agent × 同步上游 1.9.3（上游基线 RP-Hub 1.9.2 → 1.9.3）
+### v1.5.0 — 开发中 · 文档定位澄清 × 发布纪律固化 × 同步上游 1.9.3（上游基线 RP-Hub 1.9.2 → 1.9.3）
 
 > **状态：开发中（2026-09-09 起）。** 本版含三条工作流：① 文档与纪律更新（已完成）；
 > ② **上游同步**（上游在 1.9.2 基线后又新增 4 个提交，本版合并，见下「同步」段）；
-> ③ **「助手」原生 Agent**（原生 Kotlin 页 + 手机端 Agent，实施计划见
-> \`docs/PLAN-v1.5.0-assistant.md\`）。**尚未发布**，最新可下载版本仍为 **v1.4.0**。
+> ③ **「助手」原生 Agent —— 已于 2026-09-11 按用户指示彻底移除**（见下「移除」段；
+> 原实施计划 \`docs/PLAN-v1.5.0-assistant.md\` 与交接档 \`docs/STATUS-v1.5.0-assistant.md\`
+> 均转为历史存档）。**尚未发布**，最新可下载版本仍为 **v1.4.0**。
 
 **新增**
 - **「助手」原生页可行性调研（\`docs/RESEARCH-assistant-native-agent.md\`）**：调研菜单栏新增
@@ -528,6 +529,43 @@
 - 门禁回归：单测 **332 / 0 失败**、\`verify-markers\` **95 PASS / 0 FAIL**、
   \`page-handoff-test.cjs\` **pass**；\`assembleRelease\` 单包 40.96 MB、签名 \`ed78235d…dfb1\` 一致，
   已 \`install -r\` 装机。
+
+**移除（2026-09-11 · 用户指示）**
+- **「助手」功能（原生 Compose Agent 模块）及全部相关子页面彻底移除**：
+  - **为什么改**：用户于 2026-09-11 明确指示移除该功能，本版不再交付「助手」；
+    v1.5.0 由「上游同步 1.9.3 + 助手原生 Agent」两条主线收敛为**只保留上游同步**。
+  - **代码**：\`app/src/main/java/com/luzzymeow/luzzyrp/assistant/\`**整模块删除（120 个 .kt**，
+    data / domain / runtime / ui 全部子包）；\`app/schemas/\`（Room 导出 schema）随之删除。
+  - **资产**：\`app/src/main/assets/assistant/\`**整目录删除（20 文件 / 26.5MB**）——含字体 TTF、
+    内置技能、以及 **GPL-2.0 的 proot 沙盒二进制与 rootfs**；release APK 内该项压缩前占用
+    **约 23.0MB**（改造前 APK 42.97MB → 改造后见下）。
+  - **扩展层**：\`ext/luzzy-assistant.js\`（侧栏「助手」折叠组注入 + 配置推送 + 交接信号）整文件删除；
+    \`ext/luzzy-bridge.js\` 的 \`Luzzy.openAssistant\` / \`openAssistantAt\` / \`openRpSidebar\` /
+    \`isAssistantVisible\` / \`push·getAssistantConfig\` / \`setAssistantThemeMode\` /
+    \`onAssistantVisibilityChanged\` 全部移除；\`ext/luzzy-ext.js\` 的助手脚本加载器与交接控制器的
+    \`lsp-assistant-handoff\` 让位分支移除；\`ext/luzzy-theme.css\` 的「侧栏 → 助手」入口编排段移除
+    （页面之间的交接编排保持不变）。
+  - **原生接线**：\`MainActivity.kt\` 去掉 \`AssistantController\` 实现、覆盖层 ComposeView 懒创建、
+    返回键三级优先级（回归「WebView 可回退则回退，否则退出」）、覆盖层进/出过渡、
+    以及**仅为助手存在**的 WebView 停绘 / \`pauseTimers\` / 恢复逻辑；
+    \`web/LuzzyBridge.kt\` 去掉 7 个助手相关 \`@JavascriptInterface\` 与 \`AssistantController\` 构造参数。
+  - **测试**：\`app/src/test/java/.../assistant/\` **35 个测试文件整体删除**（它们只测助手自身；
+    其余断言一律未动——**没有为了让测试通过而修改任何测试断言**）。
+  - **构建配置**：\`app/build.gradle.kts\` 去掉 Compose 编译器 / KSP / kotlinx-serialization 三个插件、
+    Compose BOM 与 UI / Material3 / Foundation / activity-compose / lifecycle-compose、
+    Room 三件套、DataStore、OkHttp、kotlinx-serialization-json 依赖、\`buildFeatures.compose\`、
+    \`ksp { room.schemaLocation }\` 与 Compose mapping 生产者版本对齐块；
+    \`gradle/libs.versions.toml\` 同步清理对应 version / library / plugin 条目。
+    **主壳不再需要 Compose**（除助手外无任何 Compose 使用点，已逐文件核对），故一并移除。
+  - **明确未动**：\`app/src/main/assets/rphub/**\`（上游文件）**零改动**——助手入口原本就是扩展层
+    DOM 注入，从未占用 patch 编号，故本次无 patch 新增 / 退役 / 实体重生成。
+  - **体积变化（实测）**：release APK **42 969 263 → 18 215 394 字节**
+    （**−24 753 869 字节 / −57.6%**，仅余原体积的 42.4%）——减少量与助手资产在包内的
+    压缩占用（约 23.0MB）吻合，另含 Compose / Room / OkHttp 等依赖的代码与资源。
+  - **验证**：\`assembleRelease\` 成功且 release 目录下**只有一个** \`app-release.apk\`；
+    \`testDebugUnitTest\` 成功 0 失败（全仓测试仅助手测试，35 枚随模块删除后已无测试类）；
+    \`verify-markers\` **132 PASS / 0 FAIL**；\`stream-render-test.cjs\` / \`model-list-test.cjs\` /
+    \`page-handoff-test.cjs\` 均 **pass**；全仓助手标识符扫描在代码与工具层**零命中**（剩余仅历史文档叙述）。
 
 **优化**
 - **流式输出改「增量渲染」：长回复不再越写越卡（patch 042，用户 2026-09-11 指定）**：用户报

@@ -471,6 +471,24 @@
 #     renderMarkdown 签名/缓存语义时需重打；**该分支不再有 v-html 兜底**，故扩展层
 #     `ext/luzzy-stream.js` 必须随包分发（已在同一补丁的挂载块内）
 #
+# 043-manual-model-precedence.patch（2026-09-11，用户报：手写配置的模型在选择器里看不到）
+#   - app.js: 三处「手动模型 vs 自动检测」的关系修正：
+#     ① `fetchModelsForProvider` 合并改为**手动条目优先**（原 `manualOnly + 检测结果`：
+#        同 id 时检测结果覆盖手动条目 → 用户配的显示名/上下文/最大输出/模态全丢，
+#        选择器里只剩端点返回的裸 id；且与请求路径 `getProviderModelMeta`（手动优先）自相矛盾）；
+#     ② 新增 `seedManualProviderModels()` 并在 `onMounted`（`loadData()` 之后）调用：
+#        `providerModels` 缓存此前只由「保存供应商」或「/models 拉取成功」写入 → 冷启动为空，
+#        重启后打开选择器看不到手动模型（拉取失败时更是什么都没有）；
+#     ③ 新增拉取标记 `providerModelsFetched`：`ensureProviderModelsLoaded` 不再用「缓存是否存在」
+#        判断是否要拉 /models（否则手动模型一旦种入缓存，自动检测就被顺带关掉），
+#        并在保存 / 删除供应商时复位标记；
+#     ④ 两条保存路径（内置商 override / 用户商）也改为**手动条目优先**写回缓存（此前「缺 id 才补」
+#        → 用户对手动模型的编辑在选择器里看不到）。
+#   - 对应：用户需求（2026-09-11）「手动配置的模型应该在选择模型时可见、不被自动检测顶掉」
+#   - 门禁：`tools/model-list-test.cjs`（冷启动 + 断网 + 同 id 冲突 + 检测结果仍可选）
+#   - 预期冲突点：上游改模型列表合并（fetchModelsForProvider / providerModels / availableModels）
+#     或改 `ensureProviderModelsLoaded` 的拉取策略时需重打
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

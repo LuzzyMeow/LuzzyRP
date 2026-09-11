@@ -138,6 +138,11 @@ $Manifest = @(
     @{ Id = '042-stream-vhtml-gone';     File = 'index.html';                     Mode = 'notcontains';  Needle = 'main, true).text, msg.role, false, { cache: false }' },
     @{ Id = '042-stream-ext-directive';  File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = "directive('lsp-stream'";  Min = 1 },
     @{ Id = '042-stream-ext-proof';      File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = 'fullHtml === st.prefixHtml';  Min = 1 },
+    @{ Id = '043-manual-model-marks';    File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 043]';  Min = 6 },
+    @{ Id = '043-seed-fn';               File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'seedManualProviderModels';  Min = 2 },
+    @{ Id = '043-seed-called';           File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'seedManualProviderModels();';  Min = 1 },
+    @{ Id = '043-fetch-flag';            File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'providerModelsFetched';  Min = 4 },
+    @{ Id = '043-manual-first-merge';    File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'const detectedOnly = models.filter';  Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

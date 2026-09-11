@@ -1468,6 +1468,65 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 3. **B 组优化未做**（超长回复仍需）：B1 风格过滤触发词快速判定 / B2 去重复解析 / B3 廉价缓存键 /
    B4 `contain: layout`（B4 会影响 margin collapse 与 fixed 定位，必须真机截图目测）。
 
+---
+
+## 2026-09-11 · 会话 58（续）：**手动配置的模型在选择器里看不到**（patch 043）
+
+**用户原话**：「在 API 配置里，明明是供应商设置内手动配置模型，可是在选择模型的时候又变成
+自动检测然后选择检测出来的模型了，自己配置的模型反而是看不到」。
+
+### 一、定位（桌面同引擎族驱动应用真实函数，法同本会话前半段）
+
+在 headless Chromium 里加载真实前端 → 用 `#app.__vue_app__._container._vnode.component.proxy`
+注入一个「用户供应商」（手写 3 条模型，其中 2 条与随后桩造的 `/models` 检测结果同 id）→
+桩掉 `window.fetch` 返回端点列表 → 走真实入口 `openModelSelector('model')` → 读 `filteredModels`
+（`availableModels`/`providerModels` 未暴露在代理上，`filteredModels` 暴露）。
+
+**实测（修复前）**：
+
+| 手写条目 | 端点 `/models` 是否含同 id | 合并结果 |
+|---|---|---|
+| `manual-only-model` | 否 | ✅ 保留（`manual:true`、上下文保留） |
+| `shared-model`（label/上下文是我填的） | **是** | ❌ **变成检测条目**：`manual:false`、`label:null`、`ctx:null` |
+| `deepseek-flash`（我填的） | 是 | ❌ 同上被顶掉 |
+
+**根因两处**：
+1. `fetchModelsForProvider` 的合并是 `manualOnly + models`（**检测结果覆盖同 id 手动条目**）——
+   而**请求路径** `getProviderModelMeta` 明明是「手动模型条目优先」，两边自相矛盾；
+2. `providerModels` 缓存只由「保存供应商」或 `/models` 拉取成功写入 —— **冷启动为空**，
+   而 `rebuildMergedAvailableModels` 会跳过没有缓存的供应商 → 重启后打开选择器，
+   手动模型**根本不在列表里**（拉取失败时更是什么都没有）。
+
+### 二、修复（patch 043，四处）
+
+| # | 改动 |
+|---|------|
+| ① | `fetchModelsForProvider`：合并改**手动条目优先**（`detectedOnly = models − manual`，`merged = [...manual, ...detectedOnly]`） |
+| ② | 新增 `seedManualProviderModels()`，在 `onMounted`（`loadData()` 之后）把各商手动模型种入缓存（幂等，只补缺 id） |
+| ③ | 新增拉取标记 `providerModelsFetched`：`ensureProviderModelsLoaded` 不再以「缓存是否存在」判断是否拉取——否则手动模型一进缓存就把**自动检测顺带关掉**（这是本修复第一版的副作用，靠 `fetchHits=0` 抓出来的）；保存/删除供应商时复位标记 |
+| ④ | 两条保存路径（内置商 override / 用户商）也改为手动条目优先写回缓存（原「缺 id 才补」→ 对手动模型的编辑在选择器里看不到） |
+
+### 三、验证
+
+- **修复后实测**：手写 2 条 + 端点 3 条（1 条同 id、1 条仅端点有）→ 选择器 3 条：
+  `manual-only`（手动保留）、`shared`（**手动优先**：label「我的共享模型」+ 上下文 64000 保留）、
+  `detected-only`（检测结果仍可选）；`fetchHits = 1`（检测没被关掉）；
+- **冷启动语义**：把供应商写进设置 → 重新加载页面（模拟重启）→ **未打开选择器**即可见手动 2 条；
+  再把 `/models` 桩成失败后打开选择器 → 仍是这 2 条（label 全保留）；
+- **新增门禁** `tools/model-list-test.cjs`：A1 冷启动断网可见 / A2 显示名保留 /
+  A3 同 id 手动优先 / A4 检测结果仍可选 / A5 手动专属可见 / A6 无 JS 异常 → **全过**（exit 0）；
+- 门禁：`verify-markers` **105 PASS / 0 FAIL**（新增 5 项 043 检查）；实体
+  `012-036-app-js.patch` 重生成（前像 `79267c03` 不变，**逆向逐字节一致**，
+  **端到端 9/9 重放与工作树一致**）。
+
+### 四、遗留
+
+1. **真机复验**：把手机接回后，在「设置 → 供应商」手动加一条模型 → 打开模型选择器确认它
+   与检测结果同时可见、且改过的显示名生效（桌面门禁已覆盖同一逻辑，真机只需目测一次）；
+2. 至此**同一类「契约与实现不一致」已出现两次**（会话 54 的工具开关链路、本次的模型合并），
+   后续做静态审查时优先按「同一份数据在两处用了不同的优先级」这条线索扫一遍。
+
+
 
 
 

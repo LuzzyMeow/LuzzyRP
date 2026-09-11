@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 79267c0..7664702 100644
+index 79267c0..3639d45 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -1120,7 +1120,7 @@ index 79267c0..7664702 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3445,21 +4223,100 @@ const app = createApp({
+@@ -3445,21 +4223,133 @@ const app = createApp({
          };
  
          // API & Models
@@ -1186,18 +1186,51 @@ index 79267c0..7664702 100644
 +                const data = await response.json();
 +                models = Array.isArray(data?.data) ? data.data : [];
 +            }
-+            const manual = (Array.isArray(provider.models) ? provider.models : []).map(m => ({ ...m, manual: true }));
-+            const manualOnly = manual.filter(m => !models.some(existing => existing.id === m.id));
-+            const merged = [...manualOnly, ...models];
++            // [LuzzyRP patch 043] **手动条目优先**：同 id 时保留用户手动配置的条目（显示名/上下文/
++            // 最大输出/模态/自定义请求体），自动检测结果只用来补「用户没配过」的 id。
++            // 改前是 `manualOnly + models`（检测结果覆盖同 id 手动条目）→ 用户配好的模型在选择器里
++            // 变成检测出来的裸 id，看起来像「自己配置的模型不见了」（用户 2026-09-11 报；
++            // 且与请求路径 `getProviderModelMeta`（手动优先）自相矛盾）。
++            const manual = (Array.isArray(provider.models) ? provider.models : [])
++                .filter(m => m && m.id).map(m => ({ ...m, manual: true }));
++            const detectedOnly = models.filter(entry => !manual.some(m => String(m.id) === String(entry.id)));
++            const merged = [...manual, ...detectedOnly];
 +            providerModels.value = { ...providerModels.value, [provider.id]: merged };
 +            rebuildMergedAvailableModels();
 +            return merged.length;
 +        };
++        // [LuzzyRP patch 043] 启动即把各供应商「手动配置的模型」种入 providerModels 缓存。
++        // 该缓存此前只由「保存供应商」或「/models 拉取成功」写入 → 冷启动后为空，
++        // 于是选择器里只有自动检测结果、看不到手动模型（拉取失败时更是什么都没有）。
++        // 幂等：只补缓存里没有的 id，不覆盖已有条目。
++        const seedManualProviderModels = () => {
++            const caches = { ...providerModels.value };
++            let changed = false;
++            allApiProviders.value.forEach(provider => {
++                const manual = (Array.isArray(provider.models) ? provider.models : [])
++                    .filter(m => m && m.id).map(m => ({ ...m, manual: true }));
++                if (manual.length === 0) return;
++                const cached = Array.isArray(caches[provider.id]) ? caches[provider.id] : [];
++                const missing = manual.filter(m => !cached.some(entry => String(entry.id) === String(m.id)));
++                if (missing.length === 0) return;
++                caches[provider.id] = [...missing, ...cached];
++                changed = true;
++            });
++            if (changed) {
++                providerModels.value = caches;
++                rebuildMergedAvailableModels();
++            }
++        };
++        // [LuzzyRP patch 043] **拉取标记**：手动模型已由 seedManualProviderModels 种入缓存，
++        // 不能再用「缓存是否存在」判断要不要拉 /models——否则有手动模型的供应商永远不会去检测
++        // （把自动检测顺带关掉了）。标记在「保存/删除供应商」时复位，下次打开选择器重新拉取。
++        const providerModelsFetched = {};
 +        const ensureProviderModelsLoaded = () => {
 +            allApiProviders.value.filter(isProviderConfigured).forEach(provider => {
-+                if (!Array.isArray(providerModels.value[provider.id])) {
-+                    fetchModelsForProvider(provider).catch(() => { });
-+                }
++                if (providerModelsFetched[provider.id] === true) return;
++                fetchModelsForProvider(provider).then(() => {
++                    providerModelsFetched[provider.id] = true;
++                }).catch(() => { /* 拉取失败：保留手动条目，下次再试 */ });
 +            });
 +        };
          const fetchModels = async (isManual = false) => {
@@ -1233,7 +1266,7 @@ index 79267c0..7664702 100644
              }
          };
  
-@@ -3471,9 +4328,566 @@ const app = createApp({
+@@ -3471,9 +4361,572 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1677,12 +1710,16 @@ index 79267c0..7664702 100644
 +                    extraBody: { ...(draft.extraBody || {}) }
 +                };
 +                settings.apiProviderOverrides = overrides;
++                // [LuzzyRP patch 043] 保存后**手动条目优先**写回缓存（同 id 用手动条目替换检测条目，
++                // 否则用户对手动模型的编辑（显示名/上下文/输出/模态）在选择器里看不到）
 +                const cachedBuiltin = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
-+                const manualBuiltin = overrides[cleanId].models.map(m => ({ ...m, manual: true }))
-+                    .filter(m => !cachedBuiltin.some(e => e.id === m.id));
-+                if (manualBuiltin.length > 0) {
-+                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...cachedBuiltin] };
-+                }
++                const manualBuiltin = overrides[cleanId].models
++                    .filter(m => m && m.id).map(m => ({ ...m, manual: true }));
++                const detectedBuiltin = cachedBuiltin
++                    .filter(entry => !manualBuiltin.some(m => String(m.id) === String(entry.id)));
++                providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...detectedBuiltin] };
++                // [LuzzyRP patch 043] 复位拉取标记：地址/Key/模型有改动，下次打开选择器重新检测
++                providerModelsFetched[cleanId] = false;
 +                rebuildMergedAvailableModels();
 +                if (settings.apiProviderId === cleanId) {
 +                    settings.apiUrl = cleanUrl;
@@ -1740,13 +1777,15 @@ index 79267c0..7664702 100644
 +                    if (settings.apiProviderId === oldId) settings.apiProviderId = cleanId;
 +                    rebuildMergedAvailableModels();
 +                }
-+                // 手动模型并入缓存 → 合并视图热更新（聊天/识图槽位立即可见，无需等 /models 拉取）
++                // [LuzzyRP patch 043] 手动模型**优先**并入缓存 → 合并视图热更新（聊天/识图槽位立即可见，
++                // 无需等 /models 拉取）；同 id 用手动条目替换检测条目（patch 015 原为「缺 id 才补」，
++                // 导致编辑过的模型在选择器里显示成检测出来的裸条目）
 +                const cached = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
-+                const manualEntries = models.map(m => ({ ...m, manual: true }))
-+                    .filter(m => !cached.some(e => e.id === m.id));
-+                if (manualEntries.length > 0) {
-+                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualEntries, ...cached] };
-+                }
++                const manualEntries = models.filter(m => m && m.id).map(m => ({ ...m, manual: true }));
++                const detectedEntries = cached.filter(entry => !manualEntries.some(m => String(m.id) === String(entry.id)));
++                providerModels.value = { ...providerModels.value, [cleanId]: [...manualEntries, ...detectedEntries] };
++                // [LuzzyRP patch 043] 复位拉取标记：地址/Key/模型有改动，下次打开选择器重新检测
++                providerModelsFetched[cleanId] = false;
 +                rebuildMergedAvailableModels();
 +                if (settings.apiProviderId === cleanId) {
 +                    settings.apiUrl = cleanUrl;
@@ -1800,7 +1839,7 @@ index 79267c0..7664702 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3541,8 +4955,26 @@ const app = createApp({
+@@ -3541,8 +4994,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1828,7 +1867,7 @@ index 79267c0..7664702 100644
              ), () => true);
          };
  
-@@ -3619,13 +5051,66 @@ const app = createApp({
+@@ -3619,13 +5090,66 @@ const app = createApp({
          };
  
          const MAX_CHAT_IMAGES = 3;
@@ -1898,7 +1937,7 @@ index 79267c0..7664702 100644
                  .filter(Boolean);
              if (descriptions.length === 0) return '';
              return [
-@@ -3655,9 +5140,17 @@ const app = createApp({
+@@ -3655,9 +5179,17 @@ const app = createApp({
              reader.readAsDataURL(file);
          });
          const recognizeChatImage = async (image) => {
@@ -1917,7 +1956,7 @@ index 79267c0..7664702 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3692,7 +5185,8 @@ const app = createApp({
+@@ -3692,7 +5224,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -1927,7 +1966,7 @@ index 79267c0..7664702 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3732,6 +5226,11 @@ const app = createApp({
+@@ -3732,6 +5265,11 @@ const app = createApp({
                  slotsTransferred = true;
                  if (selectionEpoch !== chatImageSelectionEpoch) return;
                  pendingChatImages.value.push(...images);
@@ -1939,7 +1978,7 @@ index 79267c0..7664702 100644
                  const results = await Promise.all(images.map(recognizeChatImage));
                  if (results.some(result => !result)) showToast('部分图片识别失败，请移除后重新选择', 'error');
              } catch (error) {
-@@ -3816,43 +5315,7 @@ const app = createApp({
+@@ -3816,43 +5354,7 @@ const app = createApp({
              });
          };
  
@@ -1984,7 +2023,7 @@ index 79267c0..7664702 100644
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -4022,7 +5485,9 @@ const app = createApp({
+@@ -4022,7 +5524,9 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -1995,7 +2034,7 @@ index 79267c0..7664702 100644
              if (!fallbackModel) {
                  markUiTemplateStatus('skipped', '未选模型');
                  return false;
-@@ -4058,7 +5523,14 @@ const app = createApp({
+@@ -4058,7 +5562,14 @@ const app = createApp({
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
                          const result = await requestTrackedChatCompletion({
@@ -2010,7 +2049,7 @@ index 79267c0..7664702 100644
                              messages: [
                                  {
                                      role: 'system',
-@@ -4443,7 +5915,7 @@ const app = createApp({
+@@ -4443,7 +5954,7 @@ const app = createApp({
                  maxRounds: ACTIVE_TOOL_MAX_AUTO_CONTINUE
              });
          };
@@ -2019,7 +2058,7 @@ index 79267c0..7664702 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              parts.push(parseCot(message?.content || '').rawCot);
-@@ -4479,7 +5951,15 @@ const app = createApp({
+@@ -4479,7 +5990,15 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -2036,7 +2075,7 @@ index 79267c0..7664702 100644
              const requestTools = activeToolDepth < ACTIVE_TOOL_MAX_AUTO_CONTINUE ? getEnabledActiveTools() : [];
  
              if (!currentCharacter.value) {
-@@ -4842,7 +6322,7 @@ const app = createApp({
+@@ -4842,7 +6361,7 @@ const app = createApp({
                      return {
                          role: m.role === 'user' ? 'user' : 'assistant',
                          name: m.name || (m.role === 'user' ? user.name : currentCharacter.value.name),
@@ -2045,7 +2084,7 @@ index 79267c0..7664702 100644
                          _sourceIndexes: sourceIndexes,
                          _contextFloor: m._contextFloor,
                          _preventContextMerge: m._preventContextMerge === true
-@@ -4985,6 +6465,36 @@ const app = createApp({
+@@ -4985,6 +6504,36 @@ const app = createApp({
                  isReasoningAutoCollapsed: false
              });
  
@@ -2082,7 +2121,7 @@ index 79267c0..7664702 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4996,6 +6506,9 @@ const app = createApp({
+@@ -4996,6 +6545,9 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -2092,7 +2131,7 @@ index 79267c0..7664702 100644
                  chatHistory.value.push(assistantMessage);
                  isReceiving.value = true;
                  return assistantMessage;
-@@ -5003,7 +6516,14 @@ const app = createApp({
+@@ -5003,7 +6555,14 @@ const app = createApp({
  
              try {
                  const responseResult = await requestTrackedChatCompletion({
@@ -2107,7 +2146,7 @@ index 79267c0..7664702 100644
                      messages: apiMessages,
                      replyInTool: isTruncationEnabled.value,
                      tools: buildActiveToolDefinitions(requestTools),
-@@ -5330,12 +6850,20 @@ const app = createApp({
+@@ -5330,12 +6889,20 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -2131,7 +2170,7 @@ index 79267c0..7664702 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5716,29 +7244,78 @@ const app = createApp({
+@@ -5716,29 +7283,78 @@ const app = createApp({
  
              return fragments;
          };
@@ -2228,7 +2267,7 @@ index 79267c0..7664702 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5749,6 +7326,18 @@ const app = createApp({
+@@ -5749,6 +7365,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2247,7 +2286,7 @@ index 79267c0..7664702 100644
              return vectors;
          };
  
-@@ -5780,7 +7369,8 @@ const app = createApp({
+@@ -5780,7 +7408,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -2257,7 +2296,7 @@ index 79267c0..7664702 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6044,10 +7634,6 @@ const app = createApp({
+@@ -6044,10 +7673,6 @@ const app = createApp({
              return retainedTurns;
          };
  
@@ -2268,7 +2307,7 @@ index 79267c0..7664702 100644
          const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6083,6 +7669,30 @@ const app = createApp({
+@@ -6083,6 +7708,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -2299,7 +2338,7 @@ index 79267c0..7664702 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6102,9 +7712,30 @@ const app = createApp({
+@@ -6102,9 +7751,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -2333,7 +2372,7 @@ index 79267c0..7664702 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6133,16 +7764,15 @@ const app = createApp({
+@@ -6133,16 +7803,15 @@ const app = createApp({
                  return;
              }
  
@@ -2356,7 +2395,7 @@ index 79267c0..7664702 100644
                  return;
              }
  
-@@ -6159,21 +7789,43 @@ const app = createApp({
+@@ -6159,21 +7828,43 @@ const app = createApp({
              );
  
              try {
@@ -2408,7 +2447,7 @@ index 79267c0..7664702 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6219,6 +7871,278 @@ const app = createApp({
+@@ -6219,6 +7910,278 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2687,7 +2726,7 @@ index 79267c0..7664702 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -6269,7 +8193,7 @@ const app = createApp({
+@@ -6269,7 +8232,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -2696,7 +2735,7 @@ index 79267c0..7664702 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -6673,6 +8597,18 @@ const app = createApp({
+@@ -6673,6 +8636,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2715,7 +2754,7 @@ index 79267c0..7664702 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -7462,7 +9398,10 @@ const app = createApp({
+@@ -7462,7 +9437,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2727,7 +2766,7 @@ index 79267c0..7664702 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -8567,8 +10506,7 @@ const app = createApp({
+@@ -8567,10 +10545,13 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2736,8 +2775,14 @@ index 79267c0..7664702 100644
 +            // [LuzzyRP patch 022] fullscreenchange 监听已随全屏功能移除（v1.2.3）
  
              await loadData();
++            // [LuzzyRP patch 043] 设置载入后立刻把「手动配置的模型」种入模型缓存：
++            // 该缓存只在保存供应商或 /models 拉取成功时写入，冷启动为空 → 选择器里
++            // 只看到自动检测结果、看不到自己配置的模型（用户 2026-09-11 报）
++            seedManualProviderModels();
              fetchQuota(); // Fetch quota after saved settings are loaded
-@@ -8778,7 +10716,11 @@ const app = createApp({
+ 
+             updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载
+@@ -8778,7 +10759,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2750,7 +2795,7 @@ index 79267c0..7664702 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -8799,9 +10741,7 @@ const app = createApp({
+@@ -8799,9 +10784,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -2761,7 +2806,7 @@ index 79267c0..7664702 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -8815,8 +10755,7 @@ const app = createApp({
+@@ -8815,8 +10798,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2771,7 +2816,7 @@ index 79267c0..7664702 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9036,6 +10975,7 @@ const app = createApp({
+@@ -9036,6 +11018,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2779,7 +2824,7 @@ index 79267c0..7664702 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9048,22 +10988,25 @@ const app = createApp({
+@@ -9048,22 +11031,25 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -2811,7 +2856,7 @@ index 79267c0..7664702 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9080,6 +11023,14 @@ const app = createApp({
+@@ -9080,6 +11066,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2826,7 +2871,7 @@ index 79267c0..7664702 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9121,7 +11072,7 @@ const app = createApp({
+@@ -9121,7 +11115,7 @@ const app = createApp({
                  });
              },
              toggleMobileMenu, closeMobileMenu,

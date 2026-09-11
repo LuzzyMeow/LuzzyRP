@@ -561,6 +561,34 @@
     4aef0bb 纯净基线全量重放后与工作树 9/9 逐字节一致**）；\`verify-markers.ps1\` 新增 5 项
     （含「流式分支不再有 v-html 兜底」的 notcontains 项）→ **100 PASS / 0 FAIL**。
 
+**修复**
+- **手动配置的模型在「选择模型」里看不到 / 被自动检测顶掉（patch 043，用户 2026-09-11 报）**：
+  用户原话「在 API 配置里，明明是供应商设置内手动配置模型，可是在选择模型的时候又变成自动检测
+  然后选择检测出来的模型了，自己配置的模型反而是看不到」。
+  - **复现与根因**（桌面同引擎族驱动应用真实函数，方法同会话 58；证据见 \`docs/WORKLOG.md\`）：
+    ① \`fetchModelsForProvider\` 的合并写成 \`manualOnly + 检测结果\` —— **同 id 时检测结果覆盖手动条目**，
+    用户填的显示名 / 上下文 / 最大输出 / 模态全被丢弃，选择器里只剩端点返回的裸 id
+    （实测：手写 \`shared-model{label:'我的共享模型', ctx:64000}\` + 端点返回同 id → 合并后变成
+    \`manual:false, ctx:null\`）；这与**请求路径** \`getProviderModelMeta\`（手动条目优先）自相矛盾。
+    ② \`providerModels\` 缓存只由「保存供应商」或 \`/models\` 拉取成功写入 —— **冷启动为空**，
+    于是重启后打开选择器，手动配置的模型**根本不在列表里**（拉取失败时更是什么都没有，
+    因为 \`rebuildMergedAvailableModels\` 会跳过没有缓存的供应商）。
+  - **修复**：① 合并改为**手动条目优先**（检测结果只补用户没配过的 id）；② 新增
+    \`seedManualProviderModels()\` 在 \`onMounted\`（\`loadData()\` 后）把各商手动模型种入缓存；
+    ③ 新增拉取标记 \`providerModelsFetched\` —— \`ensureProviderModelsLoaded\` 不再以「缓存是否存在」
+    判断是否拉取（否则手动模型一进缓存就把自动检测顺带关掉），保存 / 删除供应商时复位；
+    ④ 两条保存路径（内置商 override / 用户商）同样改为手动条目优先写回，使编辑立即生效。
+  - **实测（修复后）**：手写两条 + 端点返回三条（含一条同 id、一条仅端点有）→ 选择器显示 3 条：
+    \`manual-only\`（手动，label/上下文保留）、\`shared\`（**手动优先**，label/上下文保留）、
+    \`detected-only\`（检测，仍可选）；**断网 + 重载后**手动两条照常可见（含 label）；
+    \`fetchHits = 1\` 证明自动检测没有被「种入缓存」顺带关掉。
+  - **新增回归门禁** \`tools/model-list-test.cjs\`（A1 冷启动断网可见 / A2 显示名保留 /
+    A3 同 id 手动优先 / A4 检测结果仍可选 / A5 手动专属可见 / A6 无 JS 异常）→ **全过**。
+  - **Patch 登记**：\`tools/patches/README.md\` 043 段；app.js 8 处 \`[LuzzyRP patch 043]\` 标记；
+    实体 \`012-036-app-js.patch\` 按 v1.5.0 规程重生成（前像 blob id 仍为 \`79267c03\`；
+    **逆向与工作树逐字节一致**；**端到端 9/9 枚实体纯净基线全量重放 → 与工作树 9/9 一致**）；
+    \`verify-markers.ps1\` 新增 5 项 → **105 PASS / 0 FAIL**。
+
 **注意事项**
 - 本轮**未改任何上游文件**（\`assets/rphub/\` 零改动），无新 patch、无指纹表变更；
   verify-markers 仍应全绿。**上游同步已列入本版计划（§「同步」段），执行时按 AGENTS §4 全流程走**。

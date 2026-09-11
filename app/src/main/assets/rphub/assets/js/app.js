@@ -4285,18 +4285,51 @@ const app = createApp({
                 const data = await response.json();
                 models = Array.isArray(data?.data) ? data.data : [];
             }
-            const manual = (Array.isArray(provider.models) ? provider.models : []).map(m => ({ ...m, manual: true }));
-            const manualOnly = manual.filter(m => !models.some(existing => existing.id === m.id));
-            const merged = [...manualOnly, ...models];
+            // [LuzzyRP patch 043] **手动条目优先**：同 id 时保留用户手动配置的条目（显示名/上下文/
+            // 最大输出/模态/自定义请求体），自动检测结果只用来补「用户没配过」的 id。
+            // 改前是 `manualOnly + models`（检测结果覆盖同 id 手动条目）→ 用户配好的模型在选择器里
+            // 变成检测出来的裸 id，看起来像「自己配置的模型不见了」（用户 2026-09-11 报；
+            // 且与请求路径 `getProviderModelMeta`（手动优先）自相矛盾）。
+            const manual = (Array.isArray(provider.models) ? provider.models : [])
+                .filter(m => m && m.id).map(m => ({ ...m, manual: true }));
+            const detectedOnly = models.filter(entry => !manual.some(m => String(m.id) === String(entry.id)));
+            const merged = [...manual, ...detectedOnly];
             providerModels.value = { ...providerModels.value, [provider.id]: merged };
             rebuildMergedAvailableModels();
             return merged.length;
         };
+        // [LuzzyRP patch 043] 启动即把各供应商「手动配置的模型」种入 providerModels 缓存。
+        // 该缓存此前只由「保存供应商」或「/models 拉取成功」写入 → 冷启动后为空，
+        // 于是选择器里只有自动检测结果、看不到手动模型（拉取失败时更是什么都没有）。
+        // 幂等：只补缓存里没有的 id，不覆盖已有条目。
+        const seedManualProviderModels = () => {
+            const caches = { ...providerModels.value };
+            let changed = false;
+            allApiProviders.value.forEach(provider => {
+                const manual = (Array.isArray(provider.models) ? provider.models : [])
+                    .filter(m => m && m.id).map(m => ({ ...m, manual: true }));
+                if (manual.length === 0) return;
+                const cached = Array.isArray(caches[provider.id]) ? caches[provider.id] : [];
+                const missing = manual.filter(m => !cached.some(entry => String(entry.id) === String(m.id)));
+                if (missing.length === 0) return;
+                caches[provider.id] = [...missing, ...cached];
+                changed = true;
+            });
+            if (changed) {
+                providerModels.value = caches;
+                rebuildMergedAvailableModels();
+            }
+        };
+        // [LuzzyRP patch 043] **拉取标记**：手动模型已由 seedManualProviderModels 种入缓存，
+        // 不能再用「缓存是否存在」判断要不要拉 /models——否则有手动模型的供应商永远不会去检测
+        // （把自动检测顺带关掉了）。标记在「保存/删除供应商」时复位，下次打开选择器重新拉取。
+        const providerModelsFetched = {};
         const ensureProviderModelsLoaded = () => {
             allApiProviders.value.filter(isProviderConfigured).forEach(provider => {
-                if (!Array.isArray(providerModels.value[provider.id])) {
-                    fetchModelsForProvider(provider).catch(() => { });
-                }
+                if (providerModelsFetched[provider.id] === true) return;
+                fetchModelsForProvider(provider).then(() => {
+                    providerModelsFetched[provider.id] = true;
+                }).catch(() => { /* 拉取失败：保留手动条目，下次再试 */ });
             });
         };
         const fetchModels = async (isManual = false) => {
@@ -4768,12 +4801,16 @@ const app = createApp({
                     extraBody: { ...(draft.extraBody || {}) }
                 };
                 settings.apiProviderOverrides = overrides;
+                // [LuzzyRP patch 043] 保存后**手动条目优先**写回缓存（同 id 用手动条目替换检测条目，
+                // 否则用户对手动模型的编辑（显示名/上下文/输出/模态）在选择器里看不到）
                 const cachedBuiltin = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
-                const manualBuiltin = overrides[cleanId].models.map(m => ({ ...m, manual: true }))
-                    .filter(m => !cachedBuiltin.some(e => e.id === m.id));
-                if (manualBuiltin.length > 0) {
-                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...cachedBuiltin] };
-                }
+                const manualBuiltin = overrides[cleanId].models
+                    .filter(m => m && m.id).map(m => ({ ...m, manual: true }));
+                const detectedBuiltin = cachedBuiltin
+                    .filter(entry => !manualBuiltin.some(m => String(m.id) === String(entry.id)));
+                providerModels.value = { ...providerModels.value, [cleanId]: [...manualBuiltin, ...detectedBuiltin] };
+                // [LuzzyRP patch 043] 复位拉取标记：地址/Key/模型有改动，下次打开选择器重新检测
+                providerModelsFetched[cleanId] = false;
                 rebuildMergedAvailableModels();
                 if (settings.apiProviderId === cleanId) {
                     settings.apiUrl = cleanUrl;
@@ -4831,13 +4868,15 @@ const app = createApp({
                     if (settings.apiProviderId === oldId) settings.apiProviderId = cleanId;
                     rebuildMergedAvailableModels();
                 }
-                // 手动模型并入缓存 → 合并视图热更新（聊天/识图槽位立即可见，无需等 /models 拉取）
+                // [LuzzyRP patch 043] 手动模型**优先**并入缓存 → 合并视图热更新（聊天/识图槽位立即可见，
+                // 无需等 /models 拉取）；同 id 用手动条目替换检测条目（patch 015 原为「缺 id 才补」，
+                // 导致编辑过的模型在选择器里显示成检测出来的裸条目）
                 const cached = Array.isArray(providerModels.value[cleanId]) ? providerModels.value[cleanId] : [];
-                const manualEntries = models.map(m => ({ ...m, manual: true }))
-                    .filter(m => !cached.some(e => e.id === m.id));
-                if (manualEntries.length > 0) {
-                    providerModels.value = { ...providerModels.value, [cleanId]: [...manualEntries, ...cached] };
-                }
+                const manualEntries = models.filter(m => m && m.id).map(m => ({ ...m, manual: true }));
+                const detectedEntries = cached.filter(entry => !manualEntries.some(m => String(m.id) === String(entry.id)));
+                providerModels.value = { ...providerModels.value, [cleanId]: [...manualEntries, ...detectedEntries] };
+                // [LuzzyRP patch 043] 复位拉取标记：地址/Key/模型有改动，下次打开选择器重新检测
+                providerModelsFetched[cleanId] = false;
                 rebuildMergedAvailableModels();
                 if (settings.apiProviderId === cleanId) {
                     settings.apiUrl = cleanUrl;
@@ -10509,6 +10548,10 @@ const app = createApp({
             // [LuzzyRP patch 022] fullscreenchange 监听已随全屏功能移除（v1.2.3）
 
             await loadData();
+            // [LuzzyRP patch 043] 设置载入后立刻把「手动配置的模型」种入模型缓存：
+            // 该缓存只在保存供应商或 /models 拉取成功时写入，冷启动为空 → 选择器里
+            // 只看到自动检测结果、看不到自己配置的模型（用户 2026-09-11 报）
+            seedManualProviderModels();
             fetchQuota(); // Fetch quota after saved settings are loaded
 
             updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载

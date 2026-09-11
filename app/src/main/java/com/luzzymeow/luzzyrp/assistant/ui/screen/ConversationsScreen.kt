@@ -4,23 +4,31 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.luzzymeow.luzzyrp.assistant.ui.component.AssistantAvatarStrip
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.Ledger
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerCard
+import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerCollapseCard
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerEmptyState
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIcons
 import com.luzzymeow.luzzyrp.assistant.ui.component.ledger.LedgerIconButton
@@ -45,14 +53,16 @@ fun ConversationsScreen(
     selectedAssistant: AssistantUi?,
     conversations: List<ConversationUi>,
     onSelectAssistant: (String) -> Unit,
-    onOpenManager: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
-    onBack: () -> Unit,
+    onCreateAssistant: () -> Unit,
+    onDeleteAssistant: (String) -> Unit,
+    onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
     var query by remember { mutableStateOf("") }
+    var openManager by remember { mutableStateOf(false) }
     val filtered = remember(query, conversations) {
         if (query.isBlank()) conversations
         else conversations.filter { it.title.contains(query, true) || it.summary.contains(query, true) }
@@ -68,7 +78,7 @@ fun ConversationsScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Conversation,
             title = "会话",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = {
                 LedgerStatusPill("${conversations.size} 条")
                 LedgerIconButton(
@@ -86,8 +96,64 @@ fun ConversationsScreen(
                 assistants = assistants,
                 selectedId = selectedAssistant?.id.orEmpty(),
                 onSelect = onSelectAssistant,
-                onOpenManager = onOpenManager,
+                // 扁平化（2026-09-11）：头像条末尾「+」的语义就是「新建助手」，
+                // 不再跳到独立的助手管理页（那是二级页）。
+                onCreateAssistant = onCreateAssistant,
             )
+        }
+        Spacer(Modifier.height(Ledger.CardGap))
+
+        // 助手管理（原独立二级页，2026-09-11 并入本页折叠卡）：切换已由头像条承担，
+        // 这里只留「识别信息 + 删除」这类管理动作。
+        LedgerCollapseCard(
+            icon = LedgerIcons.Assistants,
+            title = "助手管理",
+            expanded = openManager,
+            onToggle = { openManager = !openManager },
+            statusText = "${assistants.size} 位",
+        ) {
+            if (assistants.isEmpty()) {
+                LedgerEmptyState(
+                    icon = LedgerIcons.Assistants,
+                    title = "还没有助手",
+                    hint = "新建一个助手后即可开始对话；模型与提示词可在助手设置里调整。",
+                    actionLabel = "新建助手",
+                    onAction = onCreateAssistant,
+                )
+            } else {
+                assistants.forEach { assistant ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = Ledger.ListRowMinHeight),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(colors.accentSoft),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(assistant.initial, style = LedgerType.label, color = colors.accentDeep)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(assistant.name, style = LedgerType.cardTitle, color = colors.ink)
+                            Text(
+                                text = assistant.lastTitle ?: "暂无会话",
+                                style = LedgerType.caption,
+                                color = colors.mutedSoft,
+                            )
+                        }
+                        LedgerStatusPill(assistant.modelLabel)
+                        LedgerIconButton(
+                            icon = LedgerIcons.Trash,
+                            contentDescription = "删除助手",
+                            onClick = { onDeleteAssistant(assistant.id) },
+                        )
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(Ledger.CardGap))
 

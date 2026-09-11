@@ -1191,4 +1191,51 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 2. 用户随后提出**新需求**：「助手项的每一个子项都做成独立单页、均从侧边菜单栏进入，不要二级页」
    ——**待下一轮实施**（属信息架构调整，需先明确「旧的二级页入口如何处置」）。
 
+---
+
+## 2026-09-11 · 会话 56：助手导航扁平化（8 个子项各自独立单页，均从侧栏进）
+
+**用户确认的口径**：「首页（对话）保留为侧栏第一项，会话/记忆/技能/MCP/工作区/终端/设置各自
+独立成页、互相不再有上下级跳转」——用户原话「这样理解对 先改 改完再连真机」。
+
+### 一、改前的 6 条「页 → 页」推进边与处置
+
+| # | 改前 | 处置 |
+|---|------|------|
+| 1 | 8 个管理页页头**返回箭头 → 回首页** | 改**汉堡 → 打开侧栏**（它们本就是侧栏一级入口，没有「上一级」可返） |
+| 2 | 会话页「全部助手管理」→ 独立页 `AssistantManager` | **并入会话页折叠卡**；路由与 `AssistantManagerScreen.kt` 删除 |
+| 3 | 会话页点会话 → `Chat(id)` 页 | **切到同为一级的「对话」页**并打开该会话；`Chat` 路由删除 |
+| 4 | 会话页「新建会话」→ `Chat(id)` | 同上（新建后回对话页） |
+| 5 | 头像条末尾「+」→ 助手管理页 | 语义本就是**新建助手** → 直连 `createAssistant` |
+| 6 | 对话页右上角设置按钮 → 设置页 | **保留**（同级跳转，用户 2026-09-09 明确指定的快捷入口，非层级） |
+
+### 二、实现
+
+- `LedgerPageHeader` 新增 **`onMenu`**（汉堡→侧栏），与 `onBack`（返回箭头）二选一；
+  8 个页面全部改用 `onMenu = onOpenRpSidebar`；`onBack` 保留能力但助手层已无用例。
+- `AssistantRoute`：删除 `Chat(id)` 与 `AssistantManager`，只剩 7 个**同级**路由
+  （对话 / 会话 / 记忆 / 技能 / MCP / 工作区 / 终端 / 设置）。
+- `ConversationsScreen`：新增「助手管理」折叠卡（识别信息 + 删除 + 空态新建入口），
+  头像条 `onOpenManager` → `onCreateAssistant`（语义改准）。
+- `AssistantHost`：会话页 `onOpenConversation` / `onNewConversation` 改为
+  「设 `homeConversationId` → 切到对话页」；7 处 `onBack` 全部替换为 `onMenu`。
+- **删除** `AssistantManagerScreen.kt`（其内容已并入会话页；git 历史可回溯）。
+
+### 三、验证
+
+| 项 | 结果 |
+|----|------|
+| `git grep` 残留引用 | `AssistantManagerScreen` / `AssistantRoute.Chat` / `AssistantRoute.AssistantManager` **零命中** |
+| `:app:compileDebugKotlin` | BUILD SUCCESSFUL |
+| `:app:testDebugUnitTest` | **332 / 0 失败** |
+| `:app:assembleRelease` | 通过（单包 40.96 MB） |
+| 文档 | DESIGN.md §管理页组件规范 #1 与 §助手页 IA 已同步「左键二选一」「扁平单页制」；CHANGELOG v1.5.0「修复」段登记 |
+
+### 四、遗留
+
+1. **真机未验**（用户指示「改完再连真机」）——待装机看：8 页页头汉堡是否统一、会话页折叠卡
+   是否好找、点会话是否落到对话页且会话正确；
+2. 助手层**再无返回箭头**：系统返回键仍为「非对话页 → 回对话页；否则退出助手」（
+   `BackHandler` 未改）——若用户觉得该键也该退出助手，一行可调，待真机体验后定。
+
 

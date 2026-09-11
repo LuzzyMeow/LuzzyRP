@@ -214,6 +214,9 @@ v1.0.0 曾把气泡强制实底（用户反馈「玻璃不完整」根因）。v
   侧栏品牌字样 **LuzzyRP**（patch 019：「Luzzy」主字 gray-800 + 「RP」品牌色 primary-600
   双色同构开屏字标，下划线条随宽度 w-14）；
 - **页面结构**：`management-view` 惯例（settings-page-header + max-w-2xl 卡列）——
+  **助手 8 页为「扁平单页制」（2026-09-11 用户指定）**：每页都是侧栏一级入口，彼此无上下级；
+  页面头左键一律汉堡→侧栏（无返回箭头）；页与页之间无推进关系（会话页点一条会话 = 切到同为
+  一级的「对话」页）；原「助手管理」二级页已并入会话页折叠卡。
   顶部**主题预览卡（v1.2.1 patch 019 交互化）**：色板随 `data-theme` 取色
   （`--luzzy-prev-*` 定义于 luffy-theme.css，值均为本文件既有 token；classic 展示
   上游蓝灰原色属语义正确，不受「禁新增裸 blue」约束）；luzzy 下亮/暗双卡为
@@ -457,7 +460,7 @@ WebView 视口即设备 dp，故 **1 CSS px = 1 dp = 1 sp**。
 
 | # | 组件 | 上游出处与规格 | Compose 规格 |
 |---|------|----------------|--------------|
-| 1 | **页面头** | `.settings-page-header`：`flex items-center justify-between mb-4`；左＝汉堡（`.mobile-menu-button` `w-6 h-6` `text-gray-600` `mr-3`）+ `h2 text-xl font-bold text-gray-800 flex items-center` + 前置图标 `w-6 h-6 mr-2 text-primary-600`；右＝按钮组 `flex gap-2` | `Row`(高 48dp, mb 16dp)；图标 24dp；标题 20sp Bold `body`；右侧动作区 |
+| 1 | **页面头** | `.settings-page-header`：`flex items-center justify-between mb-4`；左＝汉堡（`.mobile-menu-button` `w-6 h-6` `text-gray-600` `mr-3`）+ `h2 text-xl font-bold text-gray-800 flex items-center` + 前置图标 `w-6 h-6 mr-2 text-primary-600`；右＝按钮组 `flex gap-2` | `Row`(高 48dp, mb 16dp)；图标 24dp；标题 20sp Bold `body`；右侧动作区。**左键二选一（2026-09-11 定稿）**：助手 8 个页面一律 `onMenu`＝汉堡 → 侧栏（它们都是侧栏一级入口、彼此无上下级，**没有「上一级」可返**）；`onBack`＝返回箭头只留给「确实从别处推进来」的场景 |
 | 2 | **图标按钮** | `p-2.5 bg-white rounded-xl border border-gray-200 shadow-sm active:scale-95`（危险态 `text-red-600`） | 40dp 方钮，`card` 底 + `hairline` 边 + `rounded-xl`(12dp) |
 | 3 | **分组标题** | `.settings-section-heading`：12px / 700 / `uppercase` / `letter-spacing .05em` / `#9ca3af`(gray-400) / `mb-4` | 12sp Bold，字距 0.05em，`hairlineStrong`，mb 16dp |
 | 4 | **卡片** | `bg-white rounded-2xl border border-gray-200 shadow-sm mb-6`；折叠容器变体 `bg-white/70 backdrop-blur-sm p-1 rounded-2xl border border-gray-200 shadow-sm mb-4 overflow-hidden` | `card` 底 + `hairline` 边 + `rounded-2xl`(16dp) + shadow-sm；折叠容器内边距 4dp |

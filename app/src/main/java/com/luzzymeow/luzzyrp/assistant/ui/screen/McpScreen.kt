@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.screen
+﻿package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -52,7 +52,7 @@ fun McpScreen(
     onConnect: (String) -> Unit,
     onDelete: (String) -> Unit,
     onDismissMessage: () -> Unit,
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -67,7 +67,7 @@ fun McpScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Mcp,
             title = "MCP",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = { LedgerStatusPill("${servers.size} 个服务器") },
         )
         Spacer(Modifier.height(Ledger.PageHeaderGap))

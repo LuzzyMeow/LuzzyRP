@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.screen
+﻿package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +51,7 @@ fun WorkspaceScreen(
     onDelete: (String) -> Unit,
     onClosePreview: () -> Unit,
     onDismissMessage: () -> Unit,
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -65,7 +65,7 @@ fun WorkspaceScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Workspace,
             title = "工作区",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = {
                 LedgerStatusPill(text = usageLabel)
                 LedgerIconButton(

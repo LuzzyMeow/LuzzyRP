@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.screen
+﻿package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,7 +64,7 @@ fun TerminalScreen(
     onRun: (String) -> Unit,
     onClear: () -> Unit,
     onSetMode: (String) -> Unit = {},
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -84,7 +84,7 @@ fun TerminalScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Terminal,
             title = "终端",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = {
                 LedgerStatusPill(modeLabel + (lastExitCode?.let { " · 退出码 $it" } ?: ""))
                 LedgerButton(text = "清屏", onClick = onClear)

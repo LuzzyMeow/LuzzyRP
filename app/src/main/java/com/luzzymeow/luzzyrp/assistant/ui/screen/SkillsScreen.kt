@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.screen
+﻿package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -53,7 +53,7 @@ fun SkillsScreen(
     onDelete: (String) -> Unit,
     onDismissMessage: () -> Unit,
     onImportUrl: (String) -> Unit = {},
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -68,7 +68,7 @@ fun SkillsScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Skills,
             title = "技能",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = {
                 LedgerButton(
                     text = "链接导入",

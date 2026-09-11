@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.component
+﻿package com.luzzymeow.luzzyrp.assistant.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,14 +30,14 @@ import com.luzzymeow.luzzyrp.assistant.ui.theme.LuzzyTheme
  * 助手切换头像条（方向 A §1.1）。
  *
  * 40dp 圆头像 + Lora 名字；选中态 = coral 圆环 + `surface-card` 底；
- * 末尾 `+` 进「全部助手」管理页。单屏 5 个（横向滚动）。
+ * 末尾 `+` = 新建助手（2026-09-11 扁平化后不再跳管理页）。单屏 5 个（横向滚动）。
  */
 @Composable
 fun AssistantAvatarStrip(
     assistants: List<AssistantUi>,
     selectedId: String,
     onSelect: (String) -> Unit,
-    onOpenManager: () -> Unit,
+    onCreateAssistant: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -61,7 +61,7 @@ fun AssistantAvatarStrip(
                         .clip(CircleShape)
                         .background(colors.surfaceCard)
                         .border(1.dp, colors.hairlineStrong, CircleShape)
-                        .clickable(onClick = onOpenManager),
+                        .clickable(onClick = onCreateAssistant),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(

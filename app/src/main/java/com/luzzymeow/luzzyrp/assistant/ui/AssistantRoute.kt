@@ -1,29 +1,25 @@
 package com.luzzymeow.luzzyrp.assistant.ui
 
 /**
- * 助手层导航状态（方向 A · 卷宗；2026-09-09 按用户要求改稿）。
+ * 助手层导航状态（**扁平单页制**，2026-09-11 用户指定改稿）。
  *
- * **首页 = LuzzyRP 聊天页版式**（深色渐隐顶栏 + 消息流 + 输入岛），顶栏右上角为助手设置按钮；
- * 会话列表 / 助手切换 / 管理页入口**全部在 LuzzyRP 原侧栏**的「助手」子项组里
- * （用户 2026-09-09 指定：菜单栏归 LuzzyRP）。助手页左上角汉堡 = 回到 LuzzyRP 侧栏。
+ * **每一页都是侧栏的一级入口，彼此没有上下级**（用户原话：「助手项的每一个子项都是独立单页，
+ * 均从侧边菜单栏进入，而不是点击后进入二级页面」）。因此：
+ * - 页面**不再有「返回上一级」**——每页左上角一律是**汉堡 → 打开 LuzzyRP 侧栏**（导航唯一入口）；
+ * - 页与页之间**没有推进关系**：从会话页点一条会话 = **切到同为一级的「对话」页**并打开它；
+ * - 原先的二级页已就地消化：**助手管理并入会话页**（页内折叠卡），会话信息/设置等入口保持同级跳转。
  *
- * 用密封类 + 栈式返回，不引入 Navigation 库——页面数量少、转场统一（右移 12dp + 淡入 200ms），
- * 手写更可控且零额外依赖。
+ * 用密封类 + 单一 `route` 状态，不引入 Navigation 库——页面数量少、转场统一（DESIGN.md 页面交接
+ * 令牌：进 200ms / 出 140ms / `cubic-bezier(.23,1,.32,1)`），手写更可控且零额外依赖。
  */
 sealed interface AssistantRoute {
-    /** 家：聊天页版式（承载最近一条会话；无会话时首次发送自动新建）。 */
+    /** 对话（家）：聊天页版式；承载「当前会话」（无会话时首次发送自动新建）。 */
     data object ChatList : AssistantRoute
 
-    /** 指定会话的聊天页。 */
-    data class Chat(val conversationId: String) : AssistantRoute
-
-    /** 会话列表（含助手切换 + 新建）；侧栏「会话」子项入口。 */
+    /** 会话列表（含助手切换 + 助手管理折叠卡 + 新建）；侧栏「会话」子项入口。 */
     data object Conversations : AssistantRoute
 
-    /** 全部助手管理页。 */
-    data object AssistantManager : AssistantRoute
-
-    /** 侧栏「助手」子项二级页。 */
+    /** 侧栏「助手」子项一级页。 */
     data object Memory : AssistantRoute
     data object Skills : AssistantRoute
     data object Mcp : AssistantRoute
@@ -32,7 +28,7 @@ sealed interface AssistantRoute {
     data object Settings : AssistantRoute
 
     companion object {
-        /** RP 侧栏子项路由名 → 助手路由（空串 = 首页）。 */
+        /** RP 侧栏子项路由名 → 助手路由（空串 = 对话页）。 */
         fun fromSidebarRoute(route: String): AssistantRoute = when (route.trim().lowercase()) {
             "conversations" -> Conversations
             "memory" -> Memory

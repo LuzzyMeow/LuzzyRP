@@ -88,7 +88,12 @@ private fun Modifier.ledgerShadow(shape: androidx.compose.ui.graphics.Shape) =
 
 /**
  * 页面头：`flex items-center mb-4` + 前置 24dp 图标（`text-primary-600`）+ `text-xl font-bold` 标题
- * + 右侧动作区。可选返回/菜单按钮（`.mobile-menu-button` `w-6 h-6 mr-3`）。
+ * + 右侧动作区。
+ *
+ * 左键二选一（2026-09-11 用户指定「助手子项都是独立单页、均从侧边菜单栏进入」后定稿）：
+ * - [onMenu]：**汉堡 → 打开侧栏**。助手层的 8 个页面一律用这个——它们都是侧栏的一级入口，
+ *   彼此没有上下级，**没有「上一级」可返**，导航唯一入口就是侧栏；
+ * - [onBack]：返回箭头。留给「确实是从别处推进来」的场景（助手层当前已无用例，保留能力）。
  */
 @Composable
 fun LedgerPageHeader(
@@ -96,6 +101,7 @@ fun LedgerPageHeader(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    onMenu: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
     val colors = LuzzyTheme.colors
@@ -105,19 +111,21 @@ fun LedgerPageHeader(
             .height(Ledger.PageHeaderHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (onBack != null) {
+        val leading = onMenu ?: onBack
+        if (leading != null) {
+            val isMenu = onMenu != null
             val interaction = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .size(Ledger.IconButtonSize)
                     .pressScale(interaction)
                     .clip(SmallShape)
-                    .clickable(interactionSource = interaction, indication = null, onClick = onBack),
+                    .clickable(interactionSource = interaction, indication = null, onClick = leading),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(LedgerIcons.ChevronLeft),
-                    contentDescription = "返回",
+                    painter = painterResource(if (isMenu) LedgerIcons.Menu else LedgerIcons.ChevronLeft),
+                    contentDescription = if (isMenu) "打开侧栏" else "返回",
                     tint = colors.muted,
                     modifier = Modifier.size(Ledger.IconSize),
                 )

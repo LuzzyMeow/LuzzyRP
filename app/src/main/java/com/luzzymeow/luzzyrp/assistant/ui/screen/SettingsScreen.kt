@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.screen
+﻿package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,7 +77,7 @@ fun SettingsScreen(
     onSave: () -> Unit,
     onDismissMessage: () -> Unit,
     onClearAudit: () -> Unit = {},
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LuzzyTheme.colors
@@ -110,7 +110,7 @@ fun SettingsScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Settings,
             title = "设置",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = {
                 LedgerButton(text = "保存", onClick = onSave)
             },

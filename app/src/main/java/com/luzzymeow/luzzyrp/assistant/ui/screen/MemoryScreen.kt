@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui.screen
+﻿package com.luzzymeow.luzzyrp.assistant.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,7 +58,7 @@ fun MemoryScreen(
     topK: Int,
     threshold: Float,
     recent: Int,
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     onAdd: (String, String) -> Unit = { _, _ -> },
     onDelete: (String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -81,7 +81,7 @@ fun MemoryScreen(
         LedgerPageHeader(
             icon = LedgerIcons.Memory,
             title = "记忆",
-            onBack = onBack,
+            onMenu = onMenu,
             actions = {
                 LedgerIconButton(
                     icon = LedgerIcons.Plus,

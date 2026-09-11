@@ -1,4 +1,4 @@
-package com.luzzymeow.luzzyrp.assistant.ui
+﻿package com.luzzymeow.luzzyrp.assistant.ui
 
 import android.content.Context
 import android.content.Intent
@@ -35,7 +35,6 @@ import com.luzzymeow.luzzyrp.assistant.ui.mcp.McpViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.memory.MemoryViewModel
 import com.luzzymeow.luzzyrp.assistant.ui.model.AssistantUi
 import com.luzzymeow.luzzyrp.assistant.ui.model.ConversationUi
-import com.luzzymeow.luzzyrp.assistant.ui.screen.AssistantManagerScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.ChatScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.ConversationsScreen
 import com.luzzymeow.luzzyrp.assistant.ui.screen.McpScreen
@@ -157,36 +156,27 @@ private fun AssistantRoot(
                     }
                 }
 
-                is AssistantRoute.Chat -> ChatPane(
-                    runtime = runtime,
-                    assistant = selectedAssistant,
-                    conversationId = current.conversationId,
-                    conversation = conversations.firstOrNull { it.id == current.conversationId },
-                    onOpenRpSidebar = onOpenRpSidebar,
-                    onOpenConversations = { route = AssistantRoute.Conversations },
-                    onOpenSettings = { route = AssistantRoute.Settings },
-                    onConversationResolved = { homeConversationId = it },
-                )
-
                 AssistantRoute.Conversations -> ConversationsScreen(
                     assistants = assistants,
                     selectedAssistant = selectedAssistant,
                     conversations = conversations,
                     onSelectAssistant = listVm::select,
-                    onOpenManager = { route = AssistantRoute.AssistantManager },
-                    onOpenConversation = { id -> route = AssistantRoute.Chat(id) },
-                    onNewConversation = {
-                        listVm.createConversation { id -> route = AssistantRoute.Chat(id) }
+                    // 扁平化（2026-09-11）：点会话 = 切到同为一级入口的「对话」页并打开它，
+                    // 不再推进出「会话 → 对话」这种二级关系。
+                    onOpenConversation = { id ->
+                        homeConversationId = id
+                        route = AssistantRoute.ChatList
                     },
-                    onBack = { route = AssistantRoute.ChatList },
-                )
-
-                AssistantRoute.AssistantManager -> AssistantManagerScreen(
-                    assistants = assistants,
-                    onBack = { route = AssistantRoute.ChatList },
-                    // [用户 2026-09-10] 空态「新建助手」入口（内置预设助手「阿墨」已删除）
+                    onNewConversation = {
+                        listVm.createConversation { id ->
+                            homeConversationId = id
+                            route = AssistantRoute.ChatList
+                        }
+                    },
+                    // 助手管理已并入本页（折叠卡），不再有独立二级页
                     onCreateAssistant = { listVm.createAssistant("新助手") },
                     onDeleteAssistant = { id -> listVm.deleteAssistant(id) },
+                    onMenu = onOpenRpSidebar,
                 )
 
                 AssistantRoute.Memory -> {
@@ -203,7 +193,7 @@ private fun AssistantRoot(
                         topK = memoryState.topK,
                         threshold = memoryState.threshold,
                         recent = memoryState.recent,
-                        onBack = { route = AssistantRoute.ChatList },
+                        onMenu = onOpenRpSidebar,
                         onAdd = memoryVm::addMemory,
                         onDelete = memoryVm::deleteMemory,
                     )
@@ -225,7 +215,7 @@ private fun AssistantRoot(
                         onDelete = skillsVm::delete,
                         onDismissMessage = skillsVm::dismissMessage,
                         onImportUrl = skillsVm::importFromUrl,
-                        onBack = { route = AssistantRoute.ChatList },
+                        onMenu = onOpenRpSidebar,
                     )
                 }
 
@@ -242,7 +232,7 @@ private fun AssistantRoot(
                         onConnect = mcpVm::connect,
                         onDelete = mcpVm::delete,
                         onDismissMessage = mcpVm::dismissMessage,
-                        onBack = { route = AssistantRoute.ChatList },
+                        onMenu = onOpenRpSidebar,
                     )
                 }
 
@@ -266,7 +256,7 @@ private fun AssistantRoot(
                         onDelete = wsVm::delete,
                         onClosePreview = wsVm::closePreview,
                         onDismissMessage = wsVm::dismissMessage,
-                        onBack = { route = AssistantRoute.ChatList },
+                        onMenu = onOpenRpSidebar,
                     )
                 }
 
@@ -290,7 +280,7 @@ private fun AssistantRoot(
                         onRun = termVm::run,
                         onClear = termVm::clear,
                         onSetMode = termVm::setMode,
-                        onBack = { route = AssistantRoute.ChatList },
+                        onMenu = onOpenRpSidebar,
                     )
                 }
 
@@ -322,7 +312,7 @@ private fun AssistantRoot(
                         onSave = settingsVm::save,
                         onDismissMessage = settingsVm::dismissMessage,
                         onClearAudit = settingsVm::clearAudit,
-                        onBack = { route = AssistantRoute.ChatList },
+                        onMenu = onOpenRpSidebar,
                     )
                 }
             }

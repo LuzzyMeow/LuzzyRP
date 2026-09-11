@@ -133,6 +133,11 @@ $Manifest = @(
     @{ Id = '041-video-gone-app';        File = 'assets/js/app.js';               Mode = 'notcontains';  Needle = "'text', 'image', 'video'" },
     @{ Id = '041-video-gone-index';      File = 'index.html';                     Mode = 'notcontains';  Needle = "['text', 'image', 'video']" },
     @{ Id = '041-video-gone-ui';         File = 'assets/js/ui-components.js';     Mode = 'notcontains';  Needle = "video: '视频'" },
+    @{ Id = '042-stream-directive';      File = 'index.html';                     Mode = 'contains';     Needle = '[LuzzyRP patch 042]';  Min = 2 },
+    @{ Id = '042-stream-script';         File = 'index.html';                     Mode = 'contains';     Needle = 'ext/luzzy-stream.js';  Min = 1 },
+    @{ Id = '042-stream-vhtml-gone';     File = 'index.html';                     Mode = 'notcontains';  Needle = 'main, true).text, msg.role, false, { cache: false }' },
+    @{ Id = '042-stream-ext-directive';  File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = "directive('lsp-stream'";  Min = 1 },
+    @{ Id = '042-stream-ext-proof';      File = '../ext/luzzy-stream.js';         Mode = 'contains';     Needle = 'fullHtml === st.prefixHtml';  Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

@@ -624,10 +624,19 @@
                                                 <template
                                                     v-if="index === chatHistory.length - 1 && (isGenerating || isRemoteGenerating)">
                                                     <!-- [LuzzyRP patch 032] 流式分支旁路渲染 LRU（防中间串灌满缓存，v1.3.0 性能） -->
+                                                    <!-- [LuzzyRP patch 042] 流式分支改**增量渲染**（v1.5.0 性能）：
+                                                         原 `v-html` 每 tick 用整段消息的 HTML 重建整条消息 DOM，
+                                                         成本与消息长度成正比、与新增字数无关（实测 4000 字 24.7ms/tick、
+                                                         8000 字 44.8ms/tick，120Hz 帧预算仅 8.33ms）。
+                                                         `v-lsp-stream` 由 ext/luzzy-stream.js 提供：只重建「活动尾部」，
+                                                         已定稿前缀不再触碰；每次推进前缀都先证明
+                                                         `全文 HTML === 前缀 HTML + 尾部 HTML` 才提交，
+                                                         不等价即放弃/整段回退 —— 渲染结果永远与全量渲染一致。
+                                                         渲染仍走应用自己的 renderMarkdown（过滤/正则/marked/净化全保留）。 -->
                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).text"
                                                         class="markdown-body"
                                                         :style="settings.fontSize ? { fontSize: settings.fontSize + 'px' } : {}"
-                                                        v-html="renderMarkdown(processMainContent(parseCot(msg.content).main, true).text, msg.role, false, { cache: false })">
+                                                        v-lsp-stream="{ src: processMainContent(parseCot(msg.content).main, true).text, role: msg.role }">
                                                     </div>
                                                     <div v-if="processMainContent(parseCot(msg.content).main, true).showSpinner"
                                                         class="flex flex-col items-center justify-center p-8 w-full mt-2 gap-4 opacity-90">
@@ -3558,6 +3567,9 @@
 <!-- [LuzzyRP patch 005] 扩展层挂载（theme/bridge/ext + patch 014 changelog） -->
     <script src="../ext/luzzy-ext.js"></script>
     <script src="../ext/luzzy-splash.js"></script>
+    <!-- [LuzzyRP patch 042] 流式增量渲染指令（v-lsp-stream；必须在流式分支渲染前注册，
+         本文件位于尾部、应用已挂载，但指令是渲染期解析，故时序安全） -->
+    <script src="../ext/luzzy-stream.js"></script>
 </body>
 
 </html>

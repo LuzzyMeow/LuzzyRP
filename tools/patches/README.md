@@ -452,6 +452,25 @@
 #     resolveModelRequest 的 modelMeta.inputModalities 字段语义时需重打；
 #     上游若恢复 requestTools 声明，本补丁该段会因上下文已存在而被跳过（需人工核对）
 #
+# 042-stream-incremental.patch（2026-09-11，用户指定：流式输出卡顿优化，不丢任何前端部分）
+#   - index.html: 流式分支的
+#     `v-html="renderMarkdown(processMainContent(parseCot(msg.content).main, true).text, …)"`
+#     换成 `v-lsp-stream="{ src: processMainContent(parseCot(msg.content).main, true).text, role: msg.role }"`；
+#     并在尾部挂载块新增 `<script src="../ext/luzzy-stream.js"></script>`。
+#   - 起因（桌面同引擎族实测，见 docs/WORKLOG.md 会话 58）：原实现每 tick 用**整段**消息的 HTML
+#     重建整条消息 DOM，成本 ∝ 消息长度、与新增字数无关 —— 1200 字 11.6ms / 4000 字 24.7ms /
+#     8000 字 44.8ms 每 tick（120Hz 帧预算 8.33ms），越写越卡。
+#   - 做法：`ext/luzzy-stream.js` 提供 Vue 自定义指令 `v-lsp-stream`，按「稳定前缀 + 活动尾部」
+#     增量渲染；**每次推进前缀都先证明** `全文 HTML === 前缀 HTML + 尾部 HTML` 才提交，
+#     不等价即放弃本次推进、周期性校验不等价则整段回退 —— 渲染结果永远与全量渲染一致。
+#     渲染仍调用应用自己的 `renderMarkdown`（显示过滤 / 显示正则 / marked / DOMPurify 全保留），
+#     故**不丢任何前端部分**。
+#   - 对应：用户需求（2026-09-11）「流式输出性能损耗太严重，不丢任何前端部分，跑满手机帧率」
+#   - 门禁：`tools/stream-render-test.cjs`（含负控 A8：拿掉等价证明的朴素增量必须被判红）
+#   - 预期冲突点：上游改流式分支模板结构（该 `<div class="markdown-body">` 的绑定）或改
+#     renderMarkdown 签名/缓存语义时需重打；**该分支不再有 v-html 兜底**，故扩展层
+#     `ext/luzzy-stream.js` 必须随包分发（已在同一补丁的挂载块内）
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释

@@ -84,6 +84,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行）；**同时自动同步 README Status 徽章与「当前版本」行**（README 版本说明已收敛至 CHANGELOG，逐版表格移除） |
 | `tools/page-handoff-test.cjs` | **页面交接（转场）回归门禁**（2026-09-11 立） | 桌面 Chromium 同引擎族 + 手机视口：连切 10 次页断言「可见页面数 == 1 / 无残留交接类 / 恒可见 chrome 不被误隐藏」，并采样时间线断言**各要素同时结束**（≤2 帧）与时长落在 200ms 令牌 ±60ms。用法：先起 `chrome --headless=new --remote-debugging-port=9347`，再 `node tools/page-handoff-test.cjs`（退出码 0=全过）。**改 `ext/luzzy-ext.js` 的交接控制器或 `luzzy-theme.css` 的`.lsp-view-*` 规则后必跑** |
+| `tools/stream-render-test.cjs` | **流式增量渲染回归门禁**（2026-09-11 立，patch 042 的守卫） | 桌面 Chromium 里加载真实前端 + 注入合成历史，逐 tick 比对「增量渲染的 DOM」与「应用全量渲染的 DOM」是否**逐节点等价**（含围栏内空行 / 松散列表 / 引用跨空行等硬形态），并断言前缀确实推进、后段成本 ≤ 基线 0.75×。**自带负控 A8**：把「提交前等价证明」拿掉的朴素增量必须被判红（实测 118 tick 中 46 tick 不等价）。用法同 page-handoff-test（`node tools/stream-render-test.cjs`，退出码 0=全过）。**改 `ext/luzzy-stream.js`、流式分支模板或 `renderMarkdown` 语义后必跑** |
 | `tools/upstream-fingerprints.txt` | 上游文件 SHA-256 基线 | 同步后更新 |
 | `docs/PLAN-v1.4.0.md` | 最近版本（v1.4.0）实施计划 | 最新版本主文档；历史 PLAN（v1.0.0~v1.2.1）并存备查 |
 | `docs/RESEARCH-assistant-native-agent.md` | 菜单栏「助手」原生页（Kotlin 手机端 Agent）可行性调研 | 调研结论与分阶段路线；实施前先看该文档 + 硬性规定 9 |

@@ -1414,12 +1414,60 @@ innerHTML 重建 → 浏览器重新解析 HTML、重建 DOM、重排整条消�
 **C. 不做**（会丢前端部分）：流式期退化成纯文本尾巴、关掉风格过滤/正则/净化、减少渲染条数、
 粗暴提高节流间隔到 300ms+。
 
-### 五、遗留
+### 五、方案 A 已实施（用户拍板「A」）——增量渲染上线
 
-1. **方案待用户拍板**再动手（A 需要一枚 patch + 新扩展文件；B1 需碰 app.js → 也是 patch）；
-2. **真机复测必须做**：`adb shell dumpsys gfxinfo com.luzymeow.luzzyrp reset` → 流式 10s →
-   `dumpsys gfxinfo`（同机 A/B 对比；AGENTS §7「小样本掉帧对比不可信」→ 必须成对交替测）；
-3. 真机截图目测（现在已开通识图能力，可直接看截图）：气泡/列表间距是否被 `contain` 或增量补丁影响。
+**实现**：新增 `app/src/main/assets/ext/luzzy-stream.js`（Vue 自定义指令 `v-lsp-stream`）+
+**patch 042**（index.html 流式分支的 `v-html` 换成该指令 + 尾部挂载块加 script）。
+
+**核心不变量（可证明，而不是事后修补）**：每次「前缀推进」在**提交前**先算
+`fullHtml = render(全文)`、`nextPrefix = prefixHtml + render(新增前缀)`、`nextTail = render(剩余尾部)`，
+**仅当 `fullHtml === nextPrefix + nextTail` 才提交**；不成立就放弃这次推进（并记住该切点不再试）；
+另有「每 8 tick 一次全文校验」，不等价立即**整段回退**到全量渲染。渲染器始终是**应用自己的
+`renderMarkdown`**（显示过滤 / 显示正则 / marked / DOMPurify 全保留）——所以「不丢任何前端部分」
+是结构上成立的，不是承诺。
+
+**实现期踩到的两处坑（都已修）**：
+1. 注释节点**没有** `insertAdjacentHTML`/`after` → 原设计用 `<!--anchor-->` 做前缀/尾部分界是错的；
+   改为**节点计数**模型（`prefixNodes` + `Range.createContextualFragment` 插入）。
+2. 首版「候选失败即冷却 12 tick」在短消息上会把整段优化永久挡掉（一次失败=后续全不推进）；
+   改为**按长度门控**（记住被证明不成立的切点，等文本再长 96 字才重试），并给候选加两条廉价筛除
+   （切点后必须紧跟非空白字符、尾部必须有实际内容）。
+
+**门禁**：`tools/stream-render-test.cjs`（9 项，含负控）**pass**：
+A2 常规形态 43 tick 零失配 / A3 前缀推进（2 次、prefixLen 695）/ **A4 硬形态 118 tick 零失配，
+且证明拒掉 3 个不安全切点、推进 8 次** / A5 单一大段落 70 tick 零失配（正确不切）/
+A6 整体替换后仍等价 / **A7 收益：6.2k 字后段 增量 JS 1.29ms vs 基线 3.58ms（0.36×）、
+layout 1.38ms vs 6.32ms** / **A8 负控 118 tick 中 46 tick 不等价**（证明等价性断言有牙齿）。
+
+**端到端收益（同一真实模板、30 条历史、流式条在末尾；每 tick 主线程）**：
+
+| 消息长度 | 优化前 JS+layout | 优化后 JS+layout | layout 前 → 后 |
+|---|---|---|---|
+| 1 200 字 | 11.6ms | **7.8ms** | 3.5 → 1.6ms |
+| 4 000 字 | 24.7ms | **12.0ms** | 10.4 → 1.9ms |
+| 8 000 字 | 44.8ms | **18.3ms** | 20.2 → 2.6ms |
+
+→ 典型回复（≤2 千字）已回到 120Hz 帧预算（8.33ms）以内；超长回复的剩余大头是
+**模板侧每 tick 对全部可见消息重算 `parseCot`/`processMainContent`（含风格过滤 ~4.3ms@4000字）**
+与 Vue 的 vnode 工作量 —— 即会话 58 方案里的 **B 组（B1 风格过滤快速判定 / B2 去重复解析 /
+B3 廉价缓存键 / B4 contain）**，尚未实施。
+
+**Patch 登记（硬性规定 10）**：`tools/patches/README.md` 042 段；
+`entities/012-035-index-html.patch` 按 v1.5.0 规程重生成（前像 blob id `52135b42` 不变，
+**逆向 1/1 逐字节一致**，**端到端 9 枚实体自 4aef0bb 纯净基线全量重放 → 与工作树 9/9 逐字节一致**）；
+`verify-markers.ps1` 新增 5 项 → **100 PASS / 0 FAIL**。
+
+**验证**：`stream-render-test.cjs` pass、`page-handoff-test.cjs` pass、
+`:app:testDebugUnitTest` + `:app:assembleRelease` BUILD SUCCESSFUL。
+
+### 六、遗留
+
+1. **真机复测帧率**（设备未接）：`adb shell dumpsys gfxinfo com.luzymeow.luzzyrp reset` → 流式 10s →
+   `dumpsys gfxinfo`，**同机 A/B 成对交替**（AGENTS §7：小样本掉帧对比不可信）；
+2. **真机截图目测**（识图已开通）：气泡/列表/表格/代码块间距是否与改前一致（增量拼接的视觉回归）；
+3. **B 组优化未做**（超长回复仍需）：B1 风格过滤触发词快速判定 / B2 去重复解析 / B3 廉价缓存键 /
+   B4 `contain: layout`（B4 会影响 margin collapse 与 fixed 定位，必须真机截图目测）。
+
 
 
 

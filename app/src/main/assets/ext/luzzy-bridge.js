@@ -124,6 +124,14 @@
      * 助手页左上角汉堡 → 回到 LuzzyRP 原侧栏（用户 2026-09-09 指定）。
      *
      * 由原生侧调用：先隐藏助手覆盖层，再执行本函数打开侧栏。
+     *
+     * **翻类必须发生在渲染帧内（rAF）**：助手覆盖层全屏时 WebView 是「停绘 + 暂停定时器」状态，
+     * 刚恢复时**动画时间线还是冻的**——在同一个任务里翻类，侧栏会直接跳到终态（不滑入）。
+     * 真机实测（会话 57）：覆盖层返回时 `openRpSidebar()` 调用后 9ms 的首帧，侧栏 transform
+     * 已经是 `0`（跳变）；而 WebView 活跃时同一次调用是 `0 → -53 → -101 → … → -300` 平滑滑出。
+     * rAF 回调在帧内执行，时间线已恢复，过渡才会真正跑起来。
+     *
+     * 返回值只表示**汉堡按钮是否找到**（找不到 → 原生侧退避重试）；实际点击在下一帧执行。
      */
     Luzzy.openRpSidebar = function () {
         try {
@@ -132,11 +140,15 @@
             // （不按 @click 属性选——Vue 编译后事件绑定不落在 DOM 属性上）
             var icon = document.querySelector('button svg use[href="#icon-menu"]');
             var toggle = icon && icon.closest ? icon.closest('button') : null;
-            if (toggle && typeof toggle.click === 'function') {
+            if (!toggle || typeof toggle.click !== 'function') return false;
+            if (typeof window.requestAnimationFrame !== 'function') {
                 toggle.click();
                 return true;
             }
-            return false;
+            window.requestAnimationFrame(function () {
+                try { toggle.click(); } catch (e) { /* 降级：静默（不阻断主流程） */ }
+            });
+            return true;
         } catch (e) {
             return false;
         }

@@ -143,6 +143,11 @@ $Manifest = @(
     @{ Id = '043-seed-called';           File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'seedManualProviderModels();';  Min = 1 },
     @{ Id = '043-fetch-flag';            File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'providerModelsFetched';  Min = 4 },
     @{ Id = '043-manual-first-merge';    File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'const detectedOnly = models.filter';  Min = 1 },
+    @{ Id = '043-label-search';          File = 'assets/js/app.js';               Mode = 'contains';     Needle = '手动条目的**显示名（label）**也参与检索';  Min = 1 },
+    @{ Id = '043-manual-first-sort';     File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'const am = a.manual === true ? 0 : 1;';  Min = 1 },
+    @{ Id = '043-selector-shows-label';  File = 'assets/js/ui-components.js';     Mode = 'contains';     Needle = '{{ model.label }}';  Min = 1 },
+    @{ Id = '043-selector-two-line';     File = 'assets/js/ui-components.js';     Mode = 'contains';     Needle = 'min-w-0 flex-1 flex flex-col gap-1 overflow-hidden';  Min = 1 },
+    @{ Id = '043-selector-mark';         File = 'assets/js/ui-components.js';     Mode = 'contains';     Needle = '[LuzzyRP patch 043]';  Min = 1 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

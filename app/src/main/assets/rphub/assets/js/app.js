@@ -3860,10 +3860,22 @@ const app = createApp({
                 result = result.filter(m => (
                     String(m.bareId || m.id).toLowerCase().includes(query)
                     || String(m.providerName || '').toLowerCase().includes(query)
+                    // [LuzzyRP patch 043] 手动条目的**显示名（label）**也参与检索：
+                    // 用户按自己起的名字搜却搜不到，等于「配了看不见」
+                    || String(m.label || '').toLowerCase().includes(query)
                 ));
             }
 
-            return result.sort((a, b) => a.id.localeCompare(b.id));
+            // [LuzzyRP patch 043] 同一供应商内**手动条目排最前**（跨供应商仍按原来的分组顺序）：
+            // 检测结果动辄数十条，用户自定义的模型不该被淹没在字母序里
+            return result.sort((a, b) => {
+                const byProvider = String(a.providerId || '').localeCompare(String(b.providerId || ''));
+                if (byProvider !== 0) return byProvider;
+                const am = a.manual === true ? 0 : 1;
+                const bm = b.manual === true ? 0 : 1;
+                if (am !== bm) return am - bm;
+                return a.id.localeCompare(b.id);
+            });
         });
 
         const getCharacterWICount = (char) => {

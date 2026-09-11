@@ -495,6 +495,9 @@ Luzzy.copyToClipboard = function (text) {
 | **Compose `addPathNodes` 误读「紧凑弧线标志位」**（会话 45 实证） | 上游 SVG 写法 `a3 3 0 11-6 0`（标志位 `1 1` 紧邻）会被解析成一个数 → 圆被画成**半圆**、齿轮变花形。**不要用 `ImageVector.Builder + addPathNodes` 复刻上游 SVG**：改为 `res/drawable/ic_*.xml`（VectorDrawable，系统解析器）+ **显式分隔标志位**，用 `painterResource` 渲染 |
 | **AGP 会解压 `.gz` 资产并去掉后缀**（会话 37 实证） | 源码树 `assets/**/rootfs.tar.gz` 在 APK 内变成 `rootfs.tar`（未压缩 tar，扩展名被去掉）。运行时读资产要**两种名字都试 + 按 magic bytes 判断**，否则真机「资产缺失」 |
 | **Compose 编译器 mapping 生产者类路径版本漂移**（会话 37 实证） | AGP 9 内置 Kotlin 与项目 Kotlin 版本不一致时，`produce*ComposeMapping` 会去解析内置版本的 `compose-group-mapping`，离线环境解析失败并被 Gradle 报成「配置缓存序列化错误」误导排查。用 `resolutionStrategy` 钉到项目 Kotlin 版本 |
+| **「DOM 里有文本」不等于「用户看得见」**（会话 59 真机实证） | 选择器行改成「label 为主文本」后，数据层断言全绿、DOM 里 `textContent` 也有 label，**用户却仍然看不见** —— 行内固定件（徽标 42 + 裸 ID 131 + chip 121 + 间距 24 = 318px）已超过行宽 292px，label 作为唯一可收缩项被 flex 压成 **`clientWidth = 0`**（不报错、不告警）。**凡新增「要显示的字段」，断言必须量 `getBoundingClientRect().width > 0` 且 `scrollWidth ≤ clientWidth`（未被省略号截断），不能只看 textContent**；回归门禁 `tools/model-list-test.cjs` A7/A8 即此判据 |
+| **采样 profiler 的「自耗时」排名在真机上会失真**（会话 59 实证） | 真机把 88% 自耗时归给 Vue 的 `setStyle`（每次状态变更仅 37 次调用），而微基准显示单次样式写入 0.006ms —— 两者差 800 倍。**结论：不要只信 profiler 排名**，要用「微基准 + 三臂对拍（含空实现对照）+ 调用计数 + 分段计时」交叉验证；`dumpsys gfxinfo` 对 WebView 只能作旁证（内容在渲染进程绘制），有区分力的是**页面内 rAF 间隔 + 一次根状态变更的主线程耗时** |
+| **CDP 测试脚本崩溃会把状态留在真机上**（会话 59 实证） | 一次探针在 teardown 前抛错，真机上留下一条合成消息且 `isGenerating` 卡在 `true`（表现是一直「生成中」）。**任何真机脚本都要把「收尾」写成独立的一次调用**（先清理再断言），跑完再**显式核对**会话条数 / 生成标志 / 指令注册表等被改动过的状态 |
 
 ---
 

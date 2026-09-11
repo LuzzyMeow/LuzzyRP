@@ -485,9 +485,25 @@
 #     ④ 两条保存路径（内置商 override / 用户商）也改为**手动条目优先**写回缓存（此前「缺 id 才补」
 #        → 用户对手动模型的编辑在选择器里看不到）。
 #   - 对应：用户需求（2026-09-11）「手动配置的模型应该在选择模型时可见、不被自动检测顶掉」
-#   - 门禁：`tools/model-list-test.cjs`（冷启动 + 断网 + 同 id 冲突 + 检测结果仍可选）
-#   - 预期冲突点：上游改模型列表合并（fetchModelsForProvider / providerModels / availableModels）
-#     或改 `ensureProviderModelsLoaded` 的拉取策略时需重打
+#   - **追加（同日真机复验后）**：数据层修好之后，选择器**行内只渲染裸 id**，
+#     用户配置的显示名（label）根本不显示 —— 实测 94 条里他的手配条目显示成
+#     `[Cloud]GLM-5…`（被 meta chip 挤成省略号），旁边还有 4 条同族检测结果，等于看不见。故同批补：
+#     ⑤ `ui-components.js` 选择器行：手动条目（`manual === true && label`）**以 label 为主文本**、
+#        裸 id 退为 11px 淡色次要信息；检测条目渲染路径完全不变（无 label → 走原分支）；
+#     ⑥ `app.js` `filteredModels`：检索字段加入 `label`（按自己起的名字搜不到 = 配了看不见）；
+#        同一供应商内**手动条目排最前**（跨供应商仍保持原分组顺序）。
+#   - **再追加（同日真机复验第二轮）**：⑤ 的单行写法**在真机上等于没修** ——
+#     行内固定件「供应商徽标 42px + 裸 ID 131px + meta chip 121px」+ 3×8px 间距 = 318px
+#     已超过行内容宽 292px，label 作为唯一的可收缩项被压成 **clientWidth = 0**
+#     （真机 getBoundingClientRect 实测；截图里首行只剩 `[Cloud]DeepSeek-V4.1-…`）。
+#     故 ⑤ 改为**两行式**（第一行「徽标 + 用户显示名」，第二行「裸 ID + meta chip」）：
+#     label 独占首行可用 242px ≥ 自然宽 150px、第二行 283px ≤ 292px，三者零截断
+#     （真机实测 labelW == labelScrollW）。检测条目仍是单行，行高 47px vs 手动行 69px。
+#   - 门禁：`tools/model-list-test.cjs`（冷启动 + 断网 + 同 id 冲突 + 检测结果仍可选
+#     + **A7 渲染层断言**：label 的 clientWidth > 0 且 scrollWidth ≤ clientWidth+1
+#     「数据层有 label ≠ 用户看得见」+ **A8 负控**：无 label 的检测行必须仍是单行）
+#   - 预期冲突点：上游改模型列表合并（fetchModelsForProvider / providerModels / availableModels）、
+#     `ensureProviderModelsLoaded` 的拉取策略、或模型选择器行模板（ui-components.js ModelSelectorModal）时需重打
 #
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================

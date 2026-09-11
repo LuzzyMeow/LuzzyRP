@@ -120,10 +120,53 @@ async function main() {
         p2ok && p2.afterDetect.some(m => m.bare === 'manual-only' && m.manual === true),
         { afterDetect: p2 && p2.afterDetect });
 
+    // ---------- 阶段 3：选择器 DOM —— 手动条目的显示名必须**真的可见** ----------
+    // 复现过的真实缺陷：数据层把 label 交到了模板，但单行 flex 里
+    // 「供应商徽标 + 裸 ID + meta chip」已占满行宽，label 被压成 clientWidth = 0
+    // ——数据层断言全绿、用户仍然「看不到自己配的模型」。故此处必须测**渲染结果**：
+    // label 宽度 > 0 且未被 ellipsis 截断（scrollWidth ≤ clientWidth + 1）。
+    const p3 = await evalJs(`(async () => {
+        const p = ${PROXY};
+        if (!p) return { __error: 'no proxy' };
+        p.modelSearchQuery = '';
+        p.activeModelTag = 'all';
+        p.openModelSelector('model');
+        await new Promise(r => setTimeout(r, 900));
+        const modal = document.querySelector('.max-w-2xl');
+        if (!modal) return { __error: 'modal not rendered' };
+        const rows = [...modal.querySelectorAll('button')];
+        const findRow = (needle) => rows.find(b => b.textContent.includes(needle));
+        const measure = (row) => {
+            if (!row) return null;
+            const label = [...row.querySelectorAll('span')].find(s => /text-gray-800/.test(s.className));
+            const mono = [...row.querySelectorAll('span')].find(s => /font-mono/.test(s.className));
+            const group = row.firstElementChild;
+            return {
+                text: row.textContent.replace(/\\s+/g, ' ').trim().slice(0, 80),
+                labelText: label ? label.textContent.trim() : null,
+                labelClientW: label ? Math.round(label.getBoundingClientRect().width) : null,
+                labelScrollW: label ? label.scrollWidth : null,
+                bareId: mono ? mono.textContent.trim() : null,
+                twoLine: /flex-col/.test(group.className),
+            };
+        };
+        return { manual: measure(findRow('手动专属')), detected: measure(findRow('detected-only')) };
+    })()`);
+    const p3ok = p3 && !p3.__error;
+    record('A7-manual-label-visible',
+        p3ok && p3.manual && p3.manual.labelText === '手动专属'
+        && p3.manual.labelClientW > 0 && p3.manual.labelScrollW <= p3.manual.labelClientW + 1,
+        { why: '数据层有 label ≠ 用户看得见：label 的真实渲染宽度必须 > 0 且不被省略号截断',
+          manual: p3 && p3.manual });
+    record('A8-detected-row-unchanged',
+        p3ok && p3.detected && p3.detected.twoLine === false && p3.detected.labelClientW === null,
+        { why: '无 label 的检测条目必须维持上游单行原状（两行式不得波及）',
+          detected: p3 && p3.detected });
+
     const report = {
         url: APP_URL,
         checks,
-        failures: failures.concat(exceptions.length ? ['A6-no-js-exception: ' + exceptions[0]] : []),
+        failures: failures.concat(exceptions.length ? ['A9-no-js-exception: ' + exceptions[0]] : []),
         exceptions,
     };
     report.pass = report.failures.length === 0;

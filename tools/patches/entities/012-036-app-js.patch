@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 79267c0..3639d45 100644
+index 79267c0..d5146ab 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -956,7 +956,7 @@ index 79267c0..3639d45 100644
                  let found = false;
                  for (const family of popularModelFamilies) {
                      if (id.includes(family)) {
-@@ -3203,18 +3846,21 @@ const app = createApp({
+@@ -3203,21 +3846,36 @@ const app = createApp({
              if (activeModelTag.value && activeModelTag.value !== 'all') {
                  if (activeModelTag.value === 'other') {
                      result = result.filter(m => {
@@ -974,14 +974,32 @@ index 79267c0..3639d45 100644
              if (searchQuery) {
                  const query = searchQuery.toLowerCase();
 -                result = result.filter(m => m.id.toLowerCase().includes(query));
+-            }
+-
+-            return result.sort((a, b) => a.id.localeCompare(b.id));
 +                result = result.filter(m => (
 +                    String(m.bareId || m.id).toLowerCase().includes(query)
 +                    || String(m.providerName || '').toLowerCase().includes(query)
++                    // [LuzzyRP patch 043] 手动条目的**显示名（label）**也参与检索：
++                    // 用户按自己起的名字搜却搜不到，等于「配了看不见」
++                    || String(m.label || '').toLowerCase().includes(query)
 +                ));
-             }
++            }
++
++            // [LuzzyRP patch 043] 同一供应商内**手动条目排最前**（跨供应商仍按原来的分组顺序）：
++            // 检测结果动辄数十条，用户自定义的模型不该被淹没在字母序里
++            return result.sort((a, b) => {
++                const byProvider = String(a.providerId || '').localeCompare(String(b.providerId || ''));
++                if (byProvider !== 0) return byProvider;
++                const am = a.manual === true ? 0 : 1;
++                const bm = b.manual === true ? 0 : 1;
++                if (am !== bm) return am - bm;
++                return a.id.localeCompare(b.id);
++            });
+         });
  
-             return result.sort((a, b) => a.id.localeCompare(b.id));
-@@ -3389,6 +4035,138 @@ const app = createApp({
+         const getCharacterWICount = (char) => {
+@@ -3389,6 +4047,138 @@ const app = createApp({
              clearMessageRenderCaches();
          }, { deep: true });
  
@@ -1120,7 +1138,7 @@ index 79267c0..3639d45 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3445,21 +4223,133 @@ const app = createApp({
+@@ -3445,21 +4235,133 @@ const app = createApp({
          };
  
          // API & Models
@@ -1266,7 +1284,7 @@ index 79267c0..3639d45 100644
              }
          };
  
-@@ -3471,9 +4361,572 @@ const app = createApp({
+@@ -3471,9 +4373,572 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1839,7 +1857,7 @@ index 79267c0..3639d45 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3541,8 +4994,26 @@ const app = createApp({
+@@ -3541,8 +5006,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1867,7 +1885,7 @@ index 79267c0..3639d45 100644
              ), () => true);
          };
  
-@@ -3619,13 +5090,66 @@ const app = createApp({
+@@ -3619,13 +5102,66 @@ const app = createApp({
          };
  
          const MAX_CHAT_IMAGES = 3;
@@ -1937,7 +1955,7 @@ index 79267c0..3639d45 100644
                  .filter(Boolean);
              if (descriptions.length === 0) return '';
              return [
-@@ -3655,9 +5179,17 @@ const app = createApp({
+@@ -3655,9 +5191,17 @@ const app = createApp({
              reader.readAsDataURL(file);
          });
          const recognizeChatImage = async (image) => {
@@ -1956,7 +1974,7 @@ index 79267c0..3639d45 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3692,7 +5224,8 @@ const app = createApp({
+@@ -3692,7 +5236,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -1966,7 +1984,7 @@ index 79267c0..3639d45 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3732,6 +5265,11 @@ const app = createApp({
+@@ -3732,6 +5277,11 @@ const app = createApp({
                  slotsTransferred = true;
                  if (selectionEpoch !== chatImageSelectionEpoch) return;
                  pendingChatImages.value.push(...images);
@@ -1978,7 +1996,7 @@ index 79267c0..3639d45 100644
                  const results = await Promise.all(images.map(recognizeChatImage));
                  if (results.some(result => !result)) showToast('部分图片识别失败，请移除后重新选择', 'error');
              } catch (error) {
-@@ -3816,43 +5354,7 @@ const app = createApp({
+@@ -3816,43 +5366,7 @@ const app = createApp({
              });
          };
  
@@ -2023,7 +2041,7 @@ index 79267c0..3639d45 100644
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -4022,7 +5524,9 @@ const app = createApp({
+@@ -4022,7 +5536,9 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -2034,7 +2052,7 @@ index 79267c0..3639d45 100644
              if (!fallbackModel) {
                  markUiTemplateStatus('skipped', '未选模型');
                  return false;
-@@ -4058,7 +5562,14 @@ const app = createApp({
+@@ -4058,7 +5574,14 @@ const app = createApp({
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
                          const result = await requestTrackedChatCompletion({
@@ -2049,7 +2067,7 @@ index 79267c0..3639d45 100644
                              messages: [
                                  {
                                      role: 'system',
-@@ -4443,7 +5954,7 @@ const app = createApp({
+@@ -4443,7 +5966,7 @@ const app = createApp({
                  maxRounds: ACTIVE_TOOL_MAX_AUTO_CONTINUE
              });
          };
@@ -2058,7 +2076,7 @@ index 79267c0..3639d45 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              parts.push(parseCot(message?.content || '').rawCot);
-@@ -4479,7 +5990,15 @@ const app = createApp({
+@@ -4479,7 +6002,15 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -2075,7 +2093,7 @@ index 79267c0..3639d45 100644
              const requestTools = activeToolDepth < ACTIVE_TOOL_MAX_AUTO_CONTINUE ? getEnabledActiveTools() : [];
  
              if (!currentCharacter.value) {
-@@ -4842,7 +6361,7 @@ const app = createApp({
+@@ -4842,7 +6373,7 @@ const app = createApp({
                      return {
                          role: m.role === 'user' ? 'user' : 'assistant',
                          name: m.name || (m.role === 'user' ? user.name : currentCharacter.value.name),
@@ -2084,7 +2102,7 @@ index 79267c0..3639d45 100644
                          _sourceIndexes: sourceIndexes,
                          _contextFloor: m._contextFloor,
                          _preventContextMerge: m._preventContextMerge === true
-@@ -4985,6 +6504,36 @@ const app = createApp({
+@@ -4985,6 +6516,36 @@ const app = createApp({
                  isReasoningAutoCollapsed: false
              });
  
@@ -2121,7 +2139,7 @@ index 79267c0..3639d45 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4996,6 +6545,9 @@ const app = createApp({
+@@ -4996,6 +6557,9 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -2131,7 +2149,7 @@ index 79267c0..3639d45 100644
                  chatHistory.value.push(assistantMessage);
                  isReceiving.value = true;
                  return assistantMessage;
-@@ -5003,7 +6555,14 @@ const app = createApp({
+@@ -5003,7 +6567,14 @@ const app = createApp({
  
              try {
                  const responseResult = await requestTrackedChatCompletion({
@@ -2146,7 +2164,7 @@ index 79267c0..3639d45 100644
                      messages: apiMessages,
                      replyInTool: isTruncationEnabled.value,
                      tools: buildActiveToolDefinitions(requestTools),
-@@ -5330,12 +6889,20 @@ const app = createApp({
+@@ -5330,12 +6901,20 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -2170,7 +2188,7 @@ index 79267c0..3639d45 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5716,29 +7283,78 @@ const app = createApp({
+@@ -5716,29 +7295,78 @@ const app = createApp({
  
              return fragments;
          };
@@ -2267,7 +2285,7 @@ index 79267c0..3639d45 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5749,6 +7365,18 @@ const app = createApp({
+@@ -5749,6 +7377,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2286,7 +2304,7 @@ index 79267c0..3639d45 100644
              return vectors;
          };
  
-@@ -5780,7 +7408,8 @@ const app = createApp({
+@@ -5780,7 +7420,8 @@ const app = createApp({
                  contentFingerprint: getVectorFragmentFingerprint(fragment),
                  sourceUserIds: fragment.sourceUserIds,
                  sourceAssistantIds: fragment.sourceAssistantIds,
@@ -2296,7 +2314,7 @@ index 79267c0..3639d45 100644
                  embedding,
                  sourceText: fragment.sourceText,
                  ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6044,10 +7673,6 @@ const app = createApp({
+@@ -6044,10 +7685,6 @@ const app = createApp({
              return retainedTurns;
          };
  
@@ -2307,7 +2325,7 @@ index 79267c0..3639d45 100644
          const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
  
          const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6083,6 +7708,30 @@ const app = createApp({
+@@ -6083,6 +7720,30 @@ const app = createApp({
              vectorScore: scored.vectorScore
          });
  
@@ -2338,7 +2356,7 @@ index 79267c0..3639d45 100644
          const selectVectorMemoriesForContext = async (signal, options = {}) => {
              const excludedTurns = options.excludedTurns instanceof Set
                  ? options.excludedTurns
-@@ -6102,9 +7751,30 @@ const app = createApp({
+@@ -6102,9 +7763,30 @@ const app = createApp({
              if (!queryText) return [];
  
              try {
@@ -2372,7 +2390,7 @@ index 79267c0..3639d45 100644
  
                  const selected = [];
                  const seen = new Set();
-@@ -6133,16 +7803,15 @@ const app = createApp({
+@@ -6133,16 +7815,15 @@ const app = createApp({
                  return;
              }
  
@@ -2395,7 +2413,7 @@ index 79267c0..3639d45 100644
                  return;
              }
  
-@@ -6159,21 +7828,43 @@ const app = createApp({
+@@ -6159,21 +7840,43 @@ const app = createApp({
              );
  
              try {
@@ -2447,7 +2465,7 @@ index 79267c0..3639d45 100644
                  }
                  if (!isCurrentSearch()) return;
                  vectorMemorySearchResults.value = scoredMemories
-@@ -6219,6 +7910,278 @@ const app = createApp({
+@@ -6219,6 +7922,278 @@ const app = createApp({
              isVectorMemorySearching.value = false;
          };
  
@@ -2726,7 +2744,7 @@ index 79267c0..3639d45 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
              if (!cleanQuery) return [];
-@@ -6269,7 +8232,7 @@ const app = createApp({
+@@ -6269,7 +8244,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -2735,7 +2753,7 @@ index 79267c0..3639d45 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -6673,6 +8636,18 @@ const app = createApp({
+@@ -6673,6 +8648,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2754,7 +2772,7 @@ index 79267c0..3639d45 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -7462,7 +9437,10 @@ const app = createApp({
+@@ -7462,7 +9449,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2766,7 +2784,7 @@ index 79267c0..3639d45 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -8567,10 +10545,13 @@ const app = createApp({
+@@ -8567,10 +10557,13 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2782,7 +2800,7 @@ index 79267c0..3639d45 100644
              fetchQuota(); // Fetch quota after saved settings are loaded
  
              updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载
-@@ -8778,7 +10759,11 @@ const app = createApp({
+@@ -8778,7 +10771,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2795,7 +2813,7 @@ index 79267c0..3639d45 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -8799,9 +10784,7 @@ const app = createApp({
+@@ -8799,9 +10796,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -2806,7 +2824,7 @@ index 79267c0..3639d45 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -8815,8 +10798,7 @@ const app = createApp({
+@@ -8815,8 +10810,7 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeMobileMenu();
@@ -2816,7 +2834,7 @@ index 79267c0..3639d45 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9036,6 +11018,7 @@ const app = createApp({
+@@ -9036,6 +11030,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2824,7 +2842,7 @@ index 79267c0..3639d45 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9048,22 +11031,25 @@ const app = createApp({
+@@ -9048,22 +11043,25 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -2856,7 +2874,7 @@ index 79267c0..3639d45 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9080,6 +11066,14 @@ const app = createApp({
+@@ -9080,6 +11078,14 @@ const app = createApp({
              vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
              startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2871,7 +2889,7 @@ index 79267c0..3639d45 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9121,7 +11115,7 @@ const app = createApp({
+@@ -9121,7 +11127,7 @@ const app = createApp({
                  });
              },
              toggleMobileMenu, closeMobileMenu,

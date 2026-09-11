@@ -946,11 +946,27 @@
                             <div class="space-y-1">
                                 <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
                                     class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-colors flex justify-between items-center group border border-transparent hover:border-gray-100 active:bg-gray-100">
-                                    <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                    <!-- [LuzzyRP patch 043] 手动条目显示**用户配置的显示名**（label）——此前只显示裸 id，
+                                         用户配好的模型在 90+ 条检测结果里认不出来（用户 2026-09-11：「自己配置的
+                                         模型反而是看不到」）。且必须改**两行式**：单行时供应商徽标(42px)+裸 ID(131px)+
+                                         meta chip(121px) 已占满行宽 292px，label 被 flex 压到 **0 宽度**（真机实测
+                                         getBoundingClientRect=0），等于仍然看不见。两行后 label 独占首行
+                                         （可用 242px ≥ 自然宽 150px），裸 ID 与 chip 落第二行（260px ≤ 292px），
+                                         三者零截断。检测条目无 label，维持上游单行原状。 -->
+                                    <span v-if="model.manual === true && model.label" class="min-w-0 flex-1 flex flex-col gap-1 overflow-hidden">
+                                        <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                            <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
+                                            <span class="min-w-0 truncate text-gray-800 font-medium group-hover:text-primary-600 transition-colors">{{ model.label }}</span>
+                                        </span>
+                                        <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                            <span class="min-w-0 truncate text-[11px] font-mono text-gray-400">{{ model.bareId || model.id }}</span>
+                                            <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
+                                            <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
+                                        </span>
+                                    </span>
+                                    <span v-else class="min-w-0 flex items-center gap-2 overflow-hidden">
                                         <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
                                         <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
-                                        <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
-                                        <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
                                     </span>
                                     <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -44,6 +44,10 @@ class MainActivity : ComponentActivity(), AssistantController {
     private companion object {
         const val ENTER_DURATION_MS = 200L
         const val EXIT_DURATION_MS = 140L
+
+        /** 呼出前端侧栏（返回 "true" 表示汉堡按钮已点到、侧栏已开始滑入）。 */
+        const val JS_OPEN_RP_SIDEBAR =
+            "!!(window.Luzzy && window.Luzzy.openRpSidebar && window.Luzzy.openRpSidebar())"
     }
 
     private lateinit var webView: WebView
@@ -63,6 +67,23 @@ class MainActivity : ComponentActivity(), AssistantController {
 
     /** 助手初始页面（RP 侧栏「助手」子项传入；空串 = 首页聊天页版式）。 */
     private var assistantRouteState by mutableStateOf("")
+
+    /**
+     * 侧栏子项「进入助手」的导航请求序号。
+     *
+     * 每次 `showAssistant` 自增：`initialRoute` 是字符串，同一路由（尤其是「对话」的空串）
+     * 连续进入时 key 不变，Compose 的 `LaunchedEffect` 不会重跑 → 页面切不过去（会话 57 真机实测）。
+     */
+    private var assistantNavSeq by mutableStateOf(0)
+
+    /**
+     * 覆盖层正在做进入交叉淡化（侧栏子项进入 → 200ms 后转 false）。
+     *
+     * 传给助手层用于**抑制页内动画**：这一次切换的「页内容交叉淡化」由覆盖层 alpha 与 WebView
+     * 页完成（DESIGN.md 页面交接令牌），页内若再淡入淡出，新页会在覆盖层还半透明时就换完，
+     * 观感即「硬切」（会话 57 真机实测）。
+     */
+    private var assistantEntering by mutableStateOf(false)
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -157,14 +178,18 @@ class MainActivity : ComponentActivity(), AssistantController {
      * 注意：桥接方法从 WebView 的 JS 线程调用，视图操作必须切主线程。
      */
     override fun showAssistant(route: String) {
-        assistantRouteState = route
+        // 路由与序号必须在主线程一次性写入：Compose 状态、且要在首次 setContent 之前生效
         runOnUiThread {
+            assistantRouteState = route
+            assistantNavSeq++
             val view = assistantView ?: ComposeView(this).also { created ->
                 created.setContent {
                     val dark = darkThemeState
                     AssistantApp(
                         darkTheme = dark,
                         initialRoute = assistantRouteState,
+                        navSeq = assistantNavSeq,
+                        entering = assistantEntering,
                         onExit = ::hideAssistant,
                         onOpenRpSidebar = ::openRpSidebar,
                     )
@@ -182,6 +207,7 @@ class MainActivity : ComponentActivity(), AssistantController {
             if (!assistantVisible) {
                 view.visibility = View.VISIBLE
                 assistantVisible = true
+                assistantEntering = true
                 // [用户 2026-09-10] 进/出助手原为硬切（visibility 直翻）体感生硬 → 加过渡。
                 // 令牌取自 DESIGN.md Motion：进 200ms / 退 140ms / cubic-bezier(0.23,1,0.32,1)，
                 // 自 scale(0.96)+alpha 0 起步（**禁 scale(0) 起步**）；系统关动画时直接呈现。
@@ -190,18 +216,33 @@ class MainActivity : ComponentActivity(), AssistantController {
                 // 淡入结束才停绘：原实现紧接着置 INVISIBLE，等于把「旧页」瞬间抽走——覆盖层只能
                 // 淡入到窗口底色上（不是交叉淡化），WebView 侧的侧栏左收动画也一并看不见。
                 // 停绘策略本身不变，只是推迟到过渡收尾（200ms，可忽略）。
-                animateAssistantOverlay(view, entering = true) { suspendWebViewForAssistant() }
+                animateAssistantOverlay(view, entering = true) {
+                    assistantEntering = false
+                    suspendWebViewForAssistant()
+                }
                 notifyAssistantVisibility(true)
             }
         }
     }
 
-    override fun hideAssistant() {
+    override fun hideAssistant() = closeAssistant(handoffToSidebar = false)
+
+    /**
+     * 隐藏助手覆盖层。
+     *
+     * @param handoffToSidebar true = 这次关闭是「呼出 LuzzyRP 侧栏」的**页面交接**：覆盖层淡出改用
+     *   200ms 交接令牌，与侧栏滑入同帧起跑、同时结束；false = 普通退出（140ms 退出令牌）。
+     */
+    private fun closeAssistant(handoffToSidebar: Boolean) {
         runOnUiThread {
             if (!assistantVisible) return@runOnUiThread
-            // 退出过渡 140ms（令牌）；收尾再置 GONE，避免退场动画被立刻掐断
+            assistantEntering = false
+            val duration = if (handoffToSidebar) ENTER_DURATION_MS else EXIT_DURATION_MS
+            // 退出过渡（令牌）；收尾再置 GONE，避免退场动画被立刻掐断
             assistantView?.let { view ->
-                animateAssistantOverlay(view, entering = false) { view.visibility = View.GONE }
+                animateAssistantOverlay(view, entering = false, durationMs = duration) {
+                    view.visibility = View.GONE
+                }
             } ?: run { assistantView?.visibility = View.GONE }
             assistantVisible = false
             webView.resumeTimers()
@@ -235,7 +276,12 @@ class MainActivity : ComponentActivity(), AssistantController {
      * （令牌禁止 `scale(0)` 起步）。系统「移除动画」（ANIMATOR_DURATION_SCALE=0）时直接呈现。
      * 不改变既有的 WebView 停绘策略——过渡只负责视觉衔接。
      */
-    private fun animateAssistantOverlay(view: View, entering: Boolean, onEnd: (() -> Unit)? = null) {
+    private fun animateAssistantOverlay(
+        view: View,
+        entering: Boolean,
+        durationMs: Long = if (entering) ENTER_DURATION_MS else EXIT_DURATION_MS,
+        onEnd: (() -> Unit)? = null,
+    ) {
         val reduced = runCatching {
             Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE) == 0f
         }.getOrDefault(false)
@@ -258,30 +304,38 @@ class MainActivity : ComponentActivity(), AssistantController {
             .alpha(if (entering) 1f else 0f)
             .scaleX(1f)
             .scaleY(if (entering) 1f else 0.96f)
-            .setDuration(if (entering) ENTER_DURATION_MS else EXIT_DURATION_MS)
+            .setDuration(durationMs)
             .setInterpolator(PathInterpolator(0.23f, 1f, 0.32f, 1f))
             .withEndAction { onEnd?.invoke() }
             .start()
     }
 
     /**
-     * 助手页左上角汉堡 → 隐藏助手 + 打开 LuzzyRP 原侧栏（用户 2026-09-09 指定）。
+     * 助手页左上角汉堡 → 隐藏助手 + 呼出 LuzzyRP 原侧栏（用户 2026-09-09 指定）。
      *
-     * 先恢复 WebView（`hideAssistant` 内已做），再等一帧后调用前端封装
-     * `window.Luzzy.openRpSidebar()`——WebView 刚 resume 时 Vue 尚未完成布局，
-     * 立即点击汉堡可能点空，故延迟 250ms。
+     * **一次页面交接**（DESIGN.md 页面交接令牌 200ms）：覆盖层淡出与侧栏滑入**同帧起跑、同时结束**。
+     * 改前是「淡出 140ms → 盲等 250ms 才点汉堡 → 侧栏再滑入 200ms」，中间约 110ms 空档，
+     * 观感是两段（会话 57 真机）。
+     *
+     * 前端调用改为**按返回值重试**（`Luzzy.openRpSidebar()` 返回 false = 汉堡没找到）：
+     * 不再盲等固定时长，点空时按 100ms 退避补两次。
      */
     override fun openRpSidebar() {
         runOnUiThread {
-            hideAssistant()
-            webView.postDelayed({
-                runCatching {
-                    webView.evaluateJavascript(
-                        "window.Luzzy && window.Luzzy.openRpSidebar && window.Luzzy.openRpSidebar();",
-                        null,
-                    )
+            closeAssistant(handoffToSidebar = true)
+            requestRpSidebar(attempt = 0)
+        }
+    }
+
+    /** 调前端封装打开侧栏；返回 false（汉堡按钮没找到）时按 100ms 退避重试，最多 3 次。 */
+    private fun requestRpSidebar(attempt: Int) {
+        runCatching {
+            webView.evaluateJavascript(JS_OPEN_RP_SIDEBAR) { value ->
+                val opened = value?.trim()?.trim('"') == "true"
+                if (!opened && attempt < 2) {
+                    webView.postDelayed({ requestRpSidebar(attempt + 1) }, 100)
                 }
-            }, 250)
+            }
         }
     }
 

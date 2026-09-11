@@ -1238,4 +1238,59 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 2. 助手层**再无返回箭头**：系统返回键仍为「非对话页 → 回对话页；否则退出助手」（
    `BackHandler` 未改）——若用户觉得该键也该退出助手，一行可调，待真机体验后定。
 
+---
+
+## 2026-09-11 · 会话 57：真机验证 + 助手导航三处缺陷修复（用户报「很大的问题」）
+
+**用户原话**：「还是有很大的问题，比如页面之间的切换还是硬切换，然后从助手子项的聊天点击后页面
+时设置页而不是聊天页，并且进入设置页后再点汉堡菜单却无法呼出菜单」；追问期望口径时用户答
+**「我的期望目标是呼出侧边菜单栏 然后随用户点击切换至其他页面 并且同步全局的页面切换效果」**
+（"硬切是哪一处" 一题选「所有」）。**用户随后指示暂停真机测试：「好了不测了 后续再测 你先记录工作节点」**
+——故本轮修复**已装机但未完成真机复验**（见文末遗留）。
+
+### 一、定位过程（真机 CDP 取证，非推测）
+
+真机 = 小米 25098PN5AC / `df97f3c4`（Android 16），CDP 通道：`/proc/net/unix` 取
+`webview_devtools_remote_<pid>` → `adb forward tcp:9222 localabstract:<socket>`；临时探针
+`%TEMP%\lsp-probe.mjs`（inline 表达式或 `@文件`），未入仓库。
+
+| 取证 | 结果 |
+|------|------|
+| 设备动画设置 | `animator_duration_scale` / `transition_animation_scale` / `window_animation_scale` **全 = 1.0**；页面 `matchMedia('(prefers-reduced-motion: reduce)').matches` = **false** → **排除「系统关了动画」这条** |
+| 侧栏点「记忆系统」（真机逐帧） | 旧页 `1.00 → 0.00`、新页 `0.35 → 1.00`、侧栏 `tx 0 → -300`、`ho=1` 首帧（t=40ms 即已生效），**200ms 内 ~12 帧** → **RP 主界面（WebView）页间交叉淡化在真机上是生效的** |
+| 汉堡 → 侧栏（进助手时抽屉开着） | 3 轮复现 1 次失败：`openRpSidebar` 被调用（打桩计数 +1）但**侧栏最终仍是关的** |
+| 上游侧栏开合实现 | `app.js`：`let isMobileSidebarOpen` + `setMobileSidebarOpen(open)` 内 `classList.toggle('mobile-sidebar-open')`；CSS：`.app-sidebar:not(.mobile-sidebar-open){transform:translate3d(-104%,0,0)}` |
+
+### 二、三处根因与修复
+
+| # | 根因 | 修复 |
+|---|------|------|
+| 1 | **点「对话」停在上一页**：`AssistantRoot` 进入跳转写 `if (target != ChatList) route = target`——「对话」路由名是**空串**、映射结果正是 `ChatList`，被守卫挡掉；且 key 是 `initialRoute` 字符串，**同一路由再次进入 key 不变 → `LaunchedEffect` 不重跑**（点「会话」同样可能停在对话页） | `MainActivity` 新增 `assistantNavSeq`（每次 `showAssistant` 自增），Compose 侧 `LaunchedEffect(navSeq)` 作 key；**去掉 ChatList 排除**；路由/序号的写入挪进 `runOnUiThread` 且先于 `setContent` |
+| 2 | **一次切换叠两套动画 → 读作硬切**：侧栏进入时覆盖层整体 alpha 0→1，页内 `AnimatedContent` 同时滑出/滑入 → 新页在覆盖层还半透明时就换完，等覆盖层不透明时「已经在那儿」 | 新增 `assistantEntering`（进入淡化 200ms 内 true）→ 此期间 `transitionSpec` 返回 `EnterTransition.None togetherWith ExitTransition.None`；页内同级跳转（会话 → 对话、对话 → 助手设置）改**纯交叉淡化**（去掉 1/24 位移，扁平单页制下页间已无前后关系） |
+| 3 | **点汉堡无法呼出菜单**：扩展层为让侧栏同步左收**直接摘掉** `mobile-sidebar-open` 类，而上游开合是模块状态 `isMobileSidebarOpen` → **摘类不改状态**，DOM（已收）与状态（认为开着）脱节；下次 `toggleMobileMenu()` 把状态翻成 false、toggle 一个「本来就不存在的类」→ 视觉零变化（第一次点没反应，第二次才开） | `withDrawerHandoff` 不再摘类，改**点上游自己的汉堡**（`toggleMobileMenu` 的 DOM 入口，与 `openRpSidebar` 同一个按钮），交上游状态机摘类；信号类更名 `lsp-assistant-handoff`（**不再承载 transform**），`ext/luzzy-theme.css` 的 `html.lsp-handoff .app-sidebar{transform…!important}` 规则删除 |
+| 3b | （同批）返回侧栏是两段：覆盖层淡出 140ms → **盲等 250ms** 才点汉堡 → 侧栏再滑入 200ms，中间 ~110ms 空档 | `openRpSidebar()` 改走**页面交接令牌 200ms**（与侧栏滑入同帧起跑、同时结束）；前端调用从「盲等固定时长」改为**按返回值退避重试**（`Luzzy.openRpSidebar()` 返回 false → 100ms 后补试，最多 3 次）。普通退出（返回键 / onExit）仍 140ms |
+
+### 三、验证
+
+| 项 | 结果 |
+|----|------|
+| `:app:compileReleaseKotlin` | BUILD SUCCESSFUL |
+| `:app:testDebugUnitTest` | **332 / 0 失败** |
+| `verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch；R3 随 gen-changelog 重跑转绿） |
+| `tools/page-handoff-test.cjs` | **pass: true**（连切 10 次不变量 + A7–A10 确定性判据；声明值 200ms / `cubic-bezier(.23,1,.32,1)` / 侧栏 `0.2s` 一致） |
+| `:app:assembleRelease` | 通过；单包 40.96 MB；`apksigner` CN=LuzzyRP、SHA-256 `ed78235d…dfb1` **与上一版一致** |
+| 装机 | `adb -s df97f3c4 install -r` Success（同签名覆盖，数据保留） |
+
+### 四、遗留（**下一会话第一件事**）
+
+1. **三处修复的真机复验未做**（用户指示暂停）：① 进助手时抽屉开着 → 点汉堡**一次**即出侧栏；
+   ② 助手「对话」子项必落到对话页；③ 助手↔侧栏往返是「覆盖层淡出 + 侧栏滑入」同时进行（可 CDP
+   采 `tx` 时间线：应无 ~250ms 空档）；④ 顺带复验会话 56 的扁平化遗留（记忆/终端页头汉堡、
+   点会话落到对话页）；
+2. **「硬切」口径待用户复测后确认**：真机实测 RP 页间交叉淡化**是生效的**（数据见上表）；
+   本轮按「助手页内叠两套动画」修复。若用户复测后仍觉得硬切，需用户指定**具体操作路径**再定位；
+3. **返回键语义待拍板**（用户答「期望呼出侧栏 → 点击切页 → 全局统一的页面切换效果」，
+   未对返回键表态）：现为「非对话页 → 回对话页；对话页 → 退出助手」；
+4. 开屏是点击门（`.lsp-dive-btn` ≈610,1284）：**装包/重启后测助手前先点掉开屏**，否则页面被遮挡。
+
 

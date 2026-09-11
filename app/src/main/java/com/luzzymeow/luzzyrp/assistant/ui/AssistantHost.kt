@@ -1,18 +1,16 @@
-﻿package com.luzzymeow.luzzyrp.assistant.ui
+package com.luzzymeow.luzzyrp.assistant.ui
 
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -66,6 +64,16 @@ fun AssistantApp(
     darkTheme: Boolean,
     /** RP 侧栏「助手」子项传入的初始页面（空串 = 首页聊天页版式）。 */
     initialRoute: String = "",
+    /** 侧栏子项的「导航请求」序号：每次进入自增，保证**同一条路由再次进入也生效**。 */
+    navSeq: Int = 0,
+    /**
+     * 覆盖层正在做「呼出/进入」的交叉淡化（侧栏子项进入时为 true，200ms 后转 false）。
+     *
+     * 为 true 时**页内不再另做动画**：交叉淡化由覆盖层自身的 alpha 承担（与 WebView 页交叉），
+     * 页内再滑动/淡化会在同一次切换里叠两套动画，且把新页在覆盖层还半透明时就换完，
+     * 观感即「硬切」（会话 57 真机实测）。
+     */
+    entering: Boolean = false,
     onExit: () -> Unit,
     /** 首页左上角汉堡 → 回到 LuzzyRP 原侧栏（用户 2026-09-09 指定）。 */
     onOpenRpSidebar: () -> Unit = onExit,
@@ -73,6 +81,8 @@ fun AssistantApp(
     LuzzyAssistantTheme(darkTheme = darkTheme) {
         AssistantRoot(
             initialRoute = initialRoute,
+            navSeq = navSeq,
+            entering = entering,
             onExit = onExit,
             onOpenRpSidebar = onOpenRpSidebar,
         )
@@ -82,16 +92,18 @@ fun AssistantApp(
 @Composable
 private fun AssistantRoot(
     initialRoute: String,
+    navSeq: Int,
+    entering: Boolean,
     onExit: () -> Unit,
     onOpenRpSidebar: () -> Unit,
 ) {
     // 首页 = 聊天页版式（用户 2026-09-09 改稿）；会话/管理页入口在 LuzzyRP 原侧栏的「助手」子项组。
     var route by remember { mutableStateOf<AssistantRoute>(AssistantRoute.fromSidebarRoute(initialRoute)) }
-    // 侧栏子项再次进入时切换页面（覆盖层复用同一 ComposeView）
-    LaunchedEffect(initialRoute) {
-        val target = AssistantRoute.fromSidebarRoute(initialRoute)
-        if (target != AssistantRoute.ChatList) route = target
-    }
+    // 侧栏子项每次进入都按请求切页——**不排除「对话」页**：点「对话」就是要回到对话页。
+    // 原实现写成 `if (target != ChatList) route = target`，于是点「对话」留在上一页（设置），
+    // 会话 57 真机实测；且 `initialRoute` 是字符串，同一路由连续进入 key 不变 → 效果不重跑，
+    // 故这里改用**自增序号** `navSeq` 作 key（每次进入必变），路由值同步读取。
+    LaunchedEffect(navSeq) { route = AssistantRoute.fromSidebarRoute(initialRoute) }
 
     val context = LocalContext.current
     val runtime = remember(context) { AssistantRuntimeProvider.get(context) }
@@ -123,16 +135,16 @@ private fun AssistantRoot(
         AnimatedContent(
             targetState = route,
             transitionSpec = {
-                val forward = targetState != AssistantRoute.ChatList
-                val enter = slideInHorizontally(
-                    animationSpec = tween(LuzzyMotion.ENTER_MS, easing = LuzzyMotion.EaseOut),
-                    initialOffsetX = { full -> if (forward) full / 24 else -full / 24 },
-                ) + fadeIn(tween(LuzzyMotion.ENTER_MS, easing = LuzzyMotion.EaseOut))
-                val exit = slideOutHorizontally(
-                    animationSpec = tween(LuzzyMotion.EXIT_MS, easing = LuzzyMotion.EaseOut),
-                    targetOffsetX = { full -> if (forward) -full / 24 else full / 24 },
-                ) + fadeOut(tween(LuzzyMotion.EXIT_MS, easing = LuzzyMotion.EaseOut))
-                enter togetherWith exit
+                // 侧栏进入＝一次「页面交接」：交叉淡化由覆盖层 alpha 与 WebView 页完成，
+                // 页内保持静止（否则同一次切换叠两套动画，且新页在覆盖层半透明时就换完 → 硬切观感）。
+                if (entering) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    // 页内同级跳转（会话 → 对话、对话 → 助手设置）：交叉淡化，令牌 200/140ms。
+                    // 扁平单页制下页与页没有前后关系，故不做位移，只淡入淡出。
+                    fadeIn(tween(LuzzyMotion.ENTER_MS, easing = LuzzyMotion.EaseOut)) togetherWith
+                        fadeOut(tween(LuzzyMotion.EXIT_MS, easing = LuzzyMotion.EaseOut))
+                }
             },
             label = "assistant-route",
             modifier = Modifier.fillMaxSize(),

@@ -259,8 +259,8 @@
     function tryPlay() {
         var main = mainEl();
         if (!main || !beforeSet) return true;
-        // 助手入口那条自带编排（.lsp-handoff + 原生覆盖层），Web 侧不需要交叉淡化
-        if (document.documentElement.classList.contains('lsp-handoff')) { beforeSet = null; return true; }
+        // 助手入口那条自带编排（.lsp-assistant-handoff + 原生覆盖层），Web 侧不需要交叉淡化
+        if (document.documentElement.classList.contains('lsp-assistant-handoff')) { beforeSet = null; return true; }
         var after = visibleSet(main);
         var added = after.filter(function (el) { return beforeSet.indexOf(el) < 0; });
         if (!added.length) return false;

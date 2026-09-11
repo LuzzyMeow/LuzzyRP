@@ -85,27 +85,36 @@
     }
 
     /* 协同转场（用户 2026-09-10 指定；2026-09-11 并入「页面交接」统一编排）：
-       侧栏展开时点助手子项 → ① 侧栏左收（`.lsp-handoff` 强制 transform；时长/曲线由
-       ext/luzzy-theme.css 的 --lsp-handoff-ms 令牌统一，与普通换页同一套）；
+       侧栏展开时点助手子项 → ① 侧栏左收（**点上游自己的汉堡**，交给它的开合状态机摘类；
+       时长/曲线由 ext/luzzy-theme.css 的 --lsp-handoff-ms 令牌统一，与普通换页同一套）；
        ② 「新页」＝助手原生覆盖层，由 Luzzy.openAssistantAt 触发，自己做 alpha 0→1 交叉淡化
        （MainActivity.animateAssistantOverlay，同一令牌）；③ 覆盖层淡入期间 WebView 保持绘制
        （MainActivity 改为过渡结束才停绘），被淡化的旧页才是真的页内容。
-       三件事同帧起跑、同时结束；此处只负责加类与收尾（**不再平移 .app-main**，见 CSS 注释）。 */
+       三件事同帧起跑、同时结束；此处只负责开合与标记（**不再平移 .app-main**，见 CSS 注释）。
+       标记类 `lsp-assistant-handoff` 只是给页面交接控制器的信号：这次换页由助手覆盖层接管，
+       Web 侧不要再做交叉淡化。 */
     const HANDOFF_MS = 200;
+    const HANDOFF_CLASS = 'lsp-assistant-handoff';
+
+    /** 上游侧栏汉堡（`toggleMobileMenu` 的 DOM 入口；`Luzzy.openRpSidebar` 用的是同一个）。 */
+    function drawerToggle() {
+        const icon = document.querySelector('button svg use[href="#icon-menu"]');
+        return icon && icon.closest ? icon.closest('button') : null;
+    }
 
     function withDrawerHandoff(open) {
         const sidebar = document.querySelector('.app-sidebar');
-        const overlay = document.querySelector('.mobile-overlay');
         const drawerOpen = !!sidebar && sidebar.classList.contains('mobile-sidebar-open');
-        if (!drawerOpen) { open(); return; }
+        const toggle = drawerToggle();
+        // 抽屉开着就交给上游自己的开关去关：直接摘 `mobile-sidebar-open` 会让它的
+        // `isMobileSidebarOpen` 状态与 DOM 脱节——下一次点汉堡会把状态翻回 false 而不是打开，
+        // 表现为「进助手后第一次点汉堡没反应」（会话 57 真机实证）。
+        if (!drawerOpen || !toggle) { open(); return; }
         const root = document.documentElement;
-        root.classList.add('lsp-handoff');
+        root.classList.add(HANDOFF_CLASS);
+        toggle.click();
         open(); // 与侧栏收起同帧：覆盖层同步淡化，形成交叉淡化
-        setTimeout(function () {
-            if (sidebar) sidebar.classList.remove('mobile-sidebar-open');
-            if (overlay) overlay.classList.remove('mobile-sidebar-open');
-            root.classList.remove('lsp-handoff');
-        }, HANDOFF_MS);
+        setTimeout(function () { root.classList.remove(HANDOFF_CLASS); }, HANDOFF_MS);
     }
 
     function openRoute(route) {

@@ -842,6 +842,15 @@ html.lsp-page-handoff .app-main > .lsp-view-in {
     animation: lspViewIn var(--lsp-handoff-ms) var(--lsp-handoff-ease) both;
 }
 
+/* 被 `v-if` 摘除的旧页 → 搬进这个覆盖层当快照（管理页之间互切）。
+ * 层级 10：压住页面内容、不盖侧栏（上游 `.app-sidebar` 是 `z-50`）。 */
+#lsp-handoff-layer > .lsp-view-out {
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    animation: lspViewOut var(--lsp-handoff-ms) var(--lsp-handoff-ease) both;
+}
+
 /* —— 侧栏 → 助手 入口（用户 2026-09-10 指定，2026-09-11 并入统一编排）——
  * 同一套编排的助手版：① 侧栏向左收起（下面这条强制 transform；时长/曲线已由上面的令牌统一）；
  * ② 「新页」＝助手原生覆盖层，它自己做 alpha 0→1 交叉淡化（MainActivity.animateAssistantOverlay，

@@ -134,11 +134,13 @@
 
     var HANDOFF_MS = 200;   // 与 CSS 的 --lsp-handoff-ms 同值（此处只作兜底清理计时）
     var MAIN_SELECTOR = '.app-main';
+    var LAYER_ID = 'lsp-handoff-layer';
 
-    var ghost = null;       // 旧页（快照层，可能为 null）
-    var incoming = null;    // 新页
-    var chrome = [];        // 本次切换中恒定可见的元素（不会被当成页面）
-    var beforeSet = null;   // 点击前的可见集合
+    var ghost = null;        // 旧页（快照层，可能为 null）
+    var ghostInLayer = false;// 旧页是否被搬进了覆盖层（v-if 摘除的情形）
+    var incoming = null;     // 新页
+    var chrome = [];         // 本次切换中恒定可见的元素（不会被当成页面）
+    var beforeSet = null;    // 点击前的可见集合
     var endTimer = 0;
     var rafId = 0;
     var tries = 0;
@@ -160,25 +162,62 @@
         return out;
     }
 
+    /**
+     * 快照层容器：**给被 `v-if` 摘除的旧页**用。
+     *
+     * 为什么需要它：管理页之间互切时 Vue 把旧页整棵子树从 DOM 摘掉，元素虽还在内存里，
+     * 但已经不在文档流里 → 无法原地当快照。此时把**那棵原样的子树**搬进这个覆盖层里淡出，
+     * 就能得到与「原位快照层」完全一致的交叉淡化（**不克隆、不重建**，滚动位置也还在）。
+     * 层级取 10：压住页面内容、但不盖侧栏（上游 `.app-sidebar` 是 `z-50`）。
+     */
+    function layerEl(create) {
+        var el = document.getElementById(LAYER_ID);
+        if (el || !create) return el;
+        try {
+            el = document.createElement('div');
+            el.id = LAYER_ID;
+            var main = mainEl();
+            var rect = main ? main.getBoundingClientRect() : null;
+            el.style.cssText = 'position:fixed;pointer-events:none;z-index:10;overflow:hidden;' +
+                (rect
+                    ? 'left:' + rect.left + 'px;top:' + rect.top + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;'
+                    : 'inset:0;');
+            (document.body || document.documentElement).appendChild(el);
+            return el;
+        } catch (e) {
+            return null;
+        }
+    }
+
     function clear() {
         if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
         if (endTimer) { clearTimeout(endTimer); endTimer = 0; }
         if (ghost) {
             ghost.classList.remove('lsp-view-out');
-            // 旧页的行内 display 是我们在 play() 里清掉的。收尾时判断它现在到底该不该可见：
-            // 排除「本次切换中恒可见的 chrome」后，若还有别的页面可见 → 旧页不是当前页 → 还原隐藏；
-            // 一个都没有（用户在这 200ms 内又切回了它）→ 它就是当前页，保持可见。
-            var main = mainEl();
-            if (main && ghost.isConnected) {
-                var others = visibleSet(main).filter(function (el) {
-                    return el !== ghost && chrome.indexOf(el) < 0;
-                });
-                if (others.length) ghost.style.display = 'none';
+            if (ghostInLayer) {
+                // 覆盖层里的旧页是 Vue 已经丢弃的子树：用完摘掉，引用一断即可回收
+                var layer = document.getElementById(LAYER_ID);
+                if (layer) {
+                    if (ghost.parentElement === layer) layer.removeChild(ghost);
+                    if (!layer.childElementCount) layer.remove();
+                }
+            } else {
+                // 原位旧页：它的行内 display 是我们在 play() 里清掉的，需判断现在该不该可见
+                // （排除「本次切换中恒可见的 chrome」后仍有别的页面 → 它不是当前页 → 还原隐藏；
+                //  一个都没有 = 用户在这 200ms 内又切回了它 → 它就是当前页，保持可见）
+                var main = mainEl();
+                if (main && ghost.isConnected) {
+                    var others = visibleSet(main).filter(function (el) {
+                        return el !== ghost && chrome.indexOf(el) < 0;
+                    });
+                    if (others.length) ghost.style.display = 'none';
+                }
             }
         }
         if (incoming) incoming.classList.remove('lsp-view-in');
         document.documentElement.classList.remove('lsp-page-handoff');
         ghost = null;
+        ghostInLayer = false;
         incoming = null;
         chrome = [];
         beforeSet = null;
@@ -191,13 +230,21 @@
         chrome = chromeSet || [];
         document.documentElement.classList.add('lsp-page-handoff');
         if (prev) {
-            // 快照层：清掉 v-show 的行内 display:none（**不写死 display**，让它自己的 display 类生效），
-            // 再由 .lsp-view-out 把它绝对定位浮在新页之上；加类即起跑（animation），与侧栏同帧
             if (prev.isConnected) {
+                // 情形一：旧页还挂在文档里（`v-show` 保活）→ 原位快照层（零成本、滚动位置天然保持）。
+                // 只清掉行内 display:none（**不写死 display**，让它自己的 display 类生效）。
                 prev.style.removeProperty('display');
                 prev.classList.add('lsp-view-out');
             } else {
-                ghost = null;
+                // 情形二：旧页已被 `v-if` 摘除（管理页之间互切）→ 把原样子树搬进覆盖层当快照。
+                var layer = layerEl(true);
+                if (layer) {
+                    layer.appendChild(prev);
+                    prev.classList.add('lsp-view-out');
+                    ghostInLayer = true;
+                } else {
+                    ghost = null;   // 覆盖层建不出来：退化为「只做新页淡入」
+                }
             }
         }
         if (next) next.classList.add('lsp-view-in');
@@ -206,25 +253,30 @@
         endTimer = setTimeout(clear, HANDOFF_MS + 40);
     }
 
-    function check() {
-        rafId = 0;
+    /**
+     * 比对并起播；返回 true = 已经起播或确认无需起播，false = 还没换页（调用方决定是否重试）。
+     */
+    function tryPlay() {
         var main = mainEl();
-        if (!main || !beforeSet) { beforeSet = null; return; }
+        if (!main || !beforeSet) return true;
         // 助手入口那条自带编排（.lsp-handoff + 原生覆盖层），Web 侧不需要交叉淡化
-        if (document.documentElement.classList.contains('lsp-handoff')) { beforeSet = null; return; }
+        if (document.documentElement.classList.contains('lsp-handoff')) { beforeSet = null; return true; }
         var after = visibleSet(main);
         var added = after.filter(function (el) { return beforeSet.indexOf(el) < 0; });
+        if (!added.length) return false;
         var gone = beforeSet.filter(function (el) { return after.indexOf(el) < 0; });
-        if (added.length) {
-            var prev = gone.length ? gone[gone.length - 1] : null;
-            var next = added[added.length - 1];
-            var chromeSet = after.filter(function (el) { return beforeSet.indexOf(el) >= 0; });
-            beforeSet = null;
-            play(prev, next, chromeSet);
-            return;
-        }
-        // Vue 也可能把重渲染推后一帧（异步导航）：再等一帧，仍没换页就放弃
-        if (++tries < 2) rafId = requestAnimationFrame(check);
+        var prev = gone.length ? gone[gone.length - 1] : null;
+        var next = added[added.length - 1];
+        var chromeSet = after.filter(function (el) { return beforeSet.indexOf(el) >= 0; });
+        beforeSet = null;
+        play(prev, next, chromeSet);
+        return true;
+    }
+
+    function checkRaf() {
+        rafId = 0;
+        if (tryPlay()) return;
+        if (++tries < 2) rafId = requestAnimationFrame(checkRaf);
         else beforeSet = null;
     }
 
@@ -233,14 +285,26 @@
         if (!main) return;
         beforeSet = visibleSet(main);
         tries = 0;
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(check);
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+        // **交接必须与 DOM 切换落在同一帧**：Vue 的状态更新是微任务、渲染（paint）在其后，
+        // 若等到 rAF 才应用交接，中间会漏出一帧「已换页、但旧页快照还没上、侧栏也没动」的硬切
+        // （2026-09-11 真机逐帧实测：dt=35 帧即为该硬切，dt=42 交接才起跑）。
+        // 故先排两个微任务：第一个排在 Vue 的 flush 之前、第二个排在它之后，且都在同帧 paint 之前。
+        Promise.resolve().then(function () {
+            Promise.resolve().then(function () {
+                if (tryPlay()) return;
+                tries = 0;
+                rafId = requestAnimationFrame(checkRaf);   // 异步导航兜底：再等两帧
+            });
+        });
     }
 
-    /** 自愈：清掉上一次进程/异常中断可能留下的类。 */
+    /** 自愈：清掉上一次进程/异常中断可能留下的类与覆盖层。 */
     function heal() {
         try {
             document.documentElement.classList.remove('lsp-page-handoff');
+            var layer = document.getElementById(LAYER_ID);
+            if (layer) layer.remove();
             var main = mainEl();
             if (!main) return;
             var kids = main.children;

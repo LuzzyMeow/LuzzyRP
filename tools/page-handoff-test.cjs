@@ -116,19 +116,35 @@ async function main() {
                 const out = [];
                 window.__lspT.probe = out;
                 const t0 = performance.now();
+                const firstPage = () => {
+                    const m = document.querySelector('.app-main');
+                    const kids = m ? Array.from(m.children) : [];
+                    for (const el of kids) {
+                        const c = (el.className || '').toString();
+                        // 跳过扩展层自己注入的恒可见 chrome（.lsp-fab-row）：它不是页面，
+                        // 否则换页瞬间会把「可见页」误报成它，A7 就会假红。
+                        if (c === 'lsp-fab-row' || c.indexOf('lsp-fab') === 0) continue;
+                        if (getComputedStyle(el).display !== 'none') return c.split(' ')[0];
+                    }
+                    return 'none';
+                };
                 const tick = () => {
                     const outEl = document.querySelector('.lsp-view-out');
                     const inEl = document.querySelector('.lsp-view-in');
+                    const layerEl = document.getElementById('lsp-handoff-layer');
+                    const ghostNode = outEl || (layerEl && layerEl.querySelector('.lsp-view-out'));
                     const m = sb && getComputedStyle(sb).transform;
                     const tx = (m && m !== 'none') ? new DOMMatrix(m).m41 : 0;
                     out.push({
                         t: Math.round(performance.now() - t0),
                         handoff: root.classList.contains('lsp-page-handoff') ? 1 : 0,
-                        o: outEl ? +(+getComputedStyle(outEl).opacity).toFixed(3) : null,
+                        o: ghostNode ? +(+getComputedStyle(ghostNode).opacity).toFixed(3) : null,
+                        ghostInLayer: !!(ghostNode && ghostNode.parentElement && ghostNode.parentElement.id === 'lsp-handoff-layer'),
                         i: inEl ? +(+getComputedStyle(inEl).opacity).toFixed(3) : null,
                         tx: Math.round(tx),
+                        first: firstPage(),
                     });
-                    if (out.length < 90) requestAnimationFrame(tick);
+                    if (out.length < 120) requestAnimationFrame(tick);
                 };
                 requestAnimationFrame(tick);
             },
@@ -174,22 +190,88 @@ async function main() {
     }
     report.checks.switchStress = steps;
 
-    // ---- 2) 采样一次完整转场，断言 A4/A5 共终止与时长 ----
+    // ---- 2) 采样一次完整转场，断言 A4/A5 共终止与时长 + A7 无「硬切帧」 ----
     // 先回到聊天页（v-show 保活 → 会被当快照层，三条信号齐全），再切到管理页
     await evalJs(`(() => { const h = window.__lspT.hamburger(); if (h) h.click(); return 1; })()`);
     await sleep(320);
     await evalJs(`(() => { const b = window.__lspT.nav('聊天'); if (b) b.click(); return 1; })()`);
     await sleep(500);
-    await evalJs(`(() => { const h = window.__lspT.hamburger(); if (h) h.click(); return 1; })()`);
-    await sleep(320);
-    await evalJs(`(() => { window.__lspT.startProbe(); const b = window.__lspT.nav('记忆系统'); if (b) b.click(); return 'target-clicked'; })()`);
-    await sleep(1400);
-    const probe = await evalJs(`window.__lspT.lastProbe()`);
-    const samples = Array.isArray(probe) ? probe : [];
-    const active = samples.filter((s) => s.handoff === 1);
+    const samples = [];
+    for (const [from, to] of [['聊天', '记忆系统'], ['记忆系统', '角色卡管理']]) {
+        await evalJs(`(() => { const h = window.__lspT.hamburger(); if (h) h.click(); return 1; })()`);
+        await sleep(340);
+        await evalJs(`(() => { window.__lspT.startProbe(); const b = window.__lspT.nav(${JSON.stringify(to)}); if (b) b.click(); return 1; })()`);
+        await sleep(900);
+        const frames = await evalJs(`window.__lspT.lastProbe()`);
+        samples.push({ from, to, frames: Array.isArray(frames) ? frames : [] });
+    }
+    const probe = samples[0].frames;
+    const active = probe.filter((s) => s.handoff === 1);
     const firstActive = active[0] || null;
     const lastActive = active[active.length - 1] || null;
-    const frame = samples.length > 1 ? (samples[samples.length - 1].t - samples[0].t) / (samples.length - 1) : 16.7;
+    const frame = probe.length > 1 ? (probe[probe.length - 1].t - probe[0].t) / (probe.length - 1) : 16.7; 
+
+    // A7：任一切换里都不得出现「可见页已经变了、但没有任何交接层」的帧——那正是用户报的
+    // 「先切换、后淡化」硬切。判据要排除两种情况，否则会假红：
+    //   ① 交接**进行中**的快照层接管（cur.handoff=1）；
+    //   ② 交接**收尾**时快照层被移除，可见页身份随即回落到真实页面（prev.handoff=1）。
+    // 故只有「前后两帧都无交接、且可见页身份变了」才算硬切。
+    for (const s of samples) {
+        for (let i = 1; i < s.frames.length; i++) {
+            const prev = s.frames[i - 1];
+            const cur = s.frames[i];
+            const switched = cur.first !== prev.first;
+            if (switched && !cur.handoff && !prev.handoff && cur.o === null) {
+                report.failures.push(`A7 「${s.from}→${s.to}」出现硬切帧：t=${cur.t} 可见页 ${prev.first}→${cur.first}，但无 ghost / 无交接类`);
+            }
+        }
+    }
+    // A8：管理页之间互切（旧页 v-if 摘除）也要有快照层——它必须来自 #lsp-handoff-layer
+    const mgmtSample = samples[1];
+    const layerGhost = mgmtSample.frames.some((s) => s.o !== null && s.ghostInLayer === true);
+    if (!layerGhost) {
+        report.failures.push(`A8 「${mgmtSample.from}→${mgmtSample.to}」没有覆盖层快照（旧页被 v-if 摘除时应有 #lsp-handoff-layer 承载）`);
+    }
+
+    // ---- A9：交接必须与切换**落在同一帧**（微任务阶段即应用）----
+    // 用户报的「先切换、后淡化」根因：Vue 在微任务里换完 DOM，而交接若等到下一个 rAF 才应用，
+    // 中间那一帧就是硬切。这里用**确定性判据**而不是「碰运气看有没有画出来」：
+    //   点击后只推进微任务（不给浏览器出帧机会），此时交接类就该已经在 html 上。
+    // 微任务版实现：它在捕获阶段排了两个嵌套微任务（排在 Vue flush 之后），同一帧内必然生效 ✔
+    // rAF 版实现：此处读到的仍是 false → 判红（红证已验）。
+    const a9 = await evalJs(`(async () => {
+        const t = window.__lspT;
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        // 摆到聊天页 + 开侧栏
+        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
+        const b1 = t.nav('聊天'); if (b1) b1.click(); await sleep(650);
+        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h2 = t.hamburger(); if (h2) h2.click(); await sleep(360); }
+        const target = t.nav('记忆系统');
+        if (!target) return { error: 'target-not-found' };
+        const hoBefore = document.documentElement.classList.contains('lsp-page-handoff');
+        target.click();                                   // 同步派发点击
+        const hoSync = document.documentElement.classList.contains('lsp-page-handoff');
+        await Promise.resolve(); await Promise.resolve();  // 只推进微任务：不给浏览器出帧的机会
+        await Promise.resolve(); await Promise.resolve();
+        const hoMicro = document.documentElement.classList.contains('lsp-page-handoff');
+        const ghost = !!document.querySelector('.lsp-view-out');
+        await new Promise((r) => setTimeout(r, 12));       // 再给半帧，确认它确实会起播
+        const hoLater = document.documentElement.classList.contains('lsp-page-handoff');
+        return { hoBefore, hoSync, hoMicro, hoLater, ghost };
+    })()`);
+    report.checks.sameFrameStart = a9;
+    if (!a9 || a9.error) {
+        report.failures.push(`A9 同帧起播检查无法执行：${JSON.stringify(a9)}`);
+    } else if (!a9.hoMicro) {
+        report.failures.push(
+            `A9 交接没有与切换落在同一帧：微任务阶段 handoff=${a9.hoMicro}（同帧起播应为 true）——` +
+            `「先切换、后淡化」的硬切就是这么来的`,
+        );
+    }
+    report.checks.switchSamples = samples.map((s) => ({
+        pair: `${s.from}→${s.to}`,
+        frames: s.frames.filter((_, i) => i % 3 === 0).slice(0, 12),
+    }));
 
     let ends = null;
     if (firstActive && lastActive) {
@@ -219,17 +301,70 @@ async function main() {
             frame: +frame.toFixed(2),
             sidebarWidth: sbWidth,
         };
+        // 采样判据只作**信息字段**：rAF 采样会被机器负载饿死（同一断言在 gradle 并行时偶发红），
+        // 概率门禁比没有更糟 → 时长/曲线的 pass/fail 交给下面的 A10（读声明值，确定性）。
+        report.checks.handoffTimeline = { ends, samples: active.filter((_, i) => i % 3 === 0).slice(0, 14) };
         if (allEnds.length < 2) {
             report.failures.push(`A4 转场信号不足（至少要有新页与侧栏两条「有变化」的信号）: ${JSON.stringify(ends)}`);
-        } else if (Math.max(...allEnds) - Math.min(...allEnds) > frame * 2 + 8) {
-            report.failures.push(`A4 转场各要素未同时结束（差 ${Math.max(...allEnds) - Math.min(...allEnds)}ms > 2 帧）: ${JSON.stringify(ends)}`);
         }
-        if (ends.duration !== null && Math.abs(ends.duration - 200) > 60) {
-            report.failures.push(`A5 转场时长 ${ends.duration}ms 偏离 200ms 令牌 ±60ms`);
-        }
-        report.checks.handoffTimeline = { ends, samples: active.filter((_, i) => i % 3 === 0).slice(0, 14) };
     } else {
         report.failures.push('A4 没有采到任何转场样本（交接类从未出现）');
+    }
+
+    // ---- A10：时长与曲线读**声明值**（确定性，与机器负载无关）----
+    // 采样式判据会被负载饿死（A5 曾偶发红）；这里直接读 Web Animations API 的 timing 与
+    // computed style 的 transition 声明，断言四个要素共用同一 200ms 令牌与同一 ease-out 曲线。
+    const a10 = await evalJs(`(async () => {
+        const t = window.__lspT;
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
+        const b1 = t.nav('聊天'); if (b1) b1.click(); await sleep(650);
+        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h2 = t.hamburger(); if (h2) h2.click(); await sleep(360); }
+        const target = t.nav('记忆系统');
+        if (!target) return { error: 'target-not-found' };
+        target.click();
+        await new Promise((r) => requestAnimationFrame(() => r()));
+        const timingOf = (el) => {
+            if (!el || !el.getAnimations) return null;
+            const list = el.getAnimations();
+            if (!list.length) return null;
+            const eff = list[0].effect;
+            const tm = eff.getTiming();
+            // 注意：CSS 动画的缓动写在**关键帧**上，effect.getTiming().easing 对 CSS 动画
+            // 恒为 'linear'（不是实现问题）。故一并读关键帧缓动。
+            // ⚠ 本段在模板字符串内：注释里**不能出现反引号**，否则会截断模板字符串（已踩）。
+            const kfs = eff.getKeyframes ? eff.getKeyframes() : [];
+            return { duration: tm.duration, easing: tm.easing, keyEasings: kfs.map((k) => k.easing) };
+        };
+        const sb = t.sidebar();
+        const cs = sb ? getComputedStyle(sb) : null;
+        return {
+            out: timingOf(document.querySelector('.lsp-view-out')),
+            inFly: timingOf(document.querySelector('.lsp-view-in')),
+            sidebar: cs ? { duration: cs.transitionDuration, easing: cs.transitionTimingFunction } : null,
+        };
+    })()`);
+    report.checks.declaredMotion = a10;
+    const TOKEN_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+    const norm = (s) => (s || '').toString().replace(/\s+/g, ' ').trim();
+    if (!a10 || a10.error) {
+        report.failures.push(`A10 无法读取声明值：${JSON.stringify(a10)}`);
+    } else {
+        for (const [name, sig] of [['旧页', a10.out], ['新页', a10.inFly]]) {
+            if (!sig) { report.failures.push(`A10 ${name}没有动画声明（应挂 lspViewOut/lspViewIn）`); continue; }
+            if (Number(sig.duration) !== 200) report.failures.push(`A10 ${name}时长 ${sig.duration}ms ≠ 200ms 令牌`);
+            // 曲线以关键帧缓动为准（CSS 动画的 effect.easing 恒为 linear，不作为判据）
+            const eases = (sig.keyEasings && sig.keyEasings.length ? sig.keyEasings : [sig.easing]).map(norm);
+            const bad = eases.filter((e) => e !== TOKEN_EASE && e !== 'linear');
+            if (bad.length === eases.length) {
+                report.failures.push(`A10 ${name}曲线 ${JSON.stringify(eases)} ≠ ${TOKEN_EASE}`);
+            }
+        }
+        const sbDur = norm(a10.sidebar && a10.sidebar.duration);
+        if (sbDur !== '0.2s') report.failures.push(`A10 侧栏时长 ${sbDur} ≠ 0.2s（应与其他三处共用一个令牌值）`);
+        if (norm(a10.sidebar && a10.sidebar.easing) !== TOKEN_EASE) {
+            report.failures.push(`A10 侧栏曲线 ${a10.sidebar && a10.sidebar.easing} ≠ ${TOKEN_EASE}`);
+        }
     }
 
     // ---- 3) 异常 ----

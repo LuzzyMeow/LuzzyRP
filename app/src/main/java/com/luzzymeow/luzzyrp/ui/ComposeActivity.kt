@@ -51,8 +51,8 @@ class ComposeActivity : ComponentActivity() {
                     onNavigate = { route = it },
                     darkMode = currentDark,
                     onToggleDarkMode = toggleDark,
-                ) { onOpenDrawer ->
-                    when (route) {
+                ) { r, onOpenDrawer ->
+                    when (r) {
                         LuzzyRoute.Chat -> ChatPage(
                             darkMode = currentDark,
                             onToggleDarkMode = toggleDark,

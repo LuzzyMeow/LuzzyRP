@@ -2723,3 +2723,20 @@ who comes into possession of a copy`）：
 - **遗留如实声明**：250ms 交叉淡化在抽屉遮挡下观感偏快（用户此前「像硬切」的观感部分
   源于此）；当前取舍 = 忠实用户定稿语义（同步完成、纯淡化、无位移）；若观感仍偏快，
   可调参数只有 `ContentTxMs`（延长则突破「抽屉收完=完成」），由用户模拟器体验后定夺。
+
+#### 追记 11（同日）：转场根因定位与修复 —— **AnimatedContent 未使用其 current 槽位**（用户第三次反馈「还是不可以」后逐行审查发现）
+
+- **我的实现 bug（非参数问题）**：`LuzzyNavShell` 的 `AnimatedContent { current -> ... }` 中，
+  `current` 被**完全忽略**，内部调用的 `content` 是外层捕获的 lambda——它读取**外层 `route`**。
+  后果：AnimatedContent 的两个动画槽位（旧页/新页）**渲染的是同一个新页面**，旧页在新页
+  开始淡入的瞬间即消失 → 视觉上退化成硬切。这解释了为何前两轮调时长/加位移都「没用」。
+- **修复**：`content(current) { … }`（签名改为 `(route, onOpenDrawer) -> Unit`），
+  ComposeActivity 用传入的 `r` 分发（而非外层 `route`）。
+- **验证（`verify-p1v2-tx-fixed.png` 四帧）**：f27(t=7.020) **旧页 Vanio 对话与新页
+  「角色卡管理」标题同时可见、均为半透明**（探针 newTitle=224 / oldContent=237 中间态）
+  ——真正的交叉淡化；f26→f27→f28（191→224→243）为新页不透明度推进序列；f28 落定。
+- **教训（重要）**：`AnimatedContent`/`AnimatedVisibility` 等动画容器的 **lambda 参数
+  （current/targetState）必须被使用**，否则动画槽位退化为同一内容——**症状与「时长太短」
+  「曲线不对」完全一样（都表现为硬切），极易误判为参数问题**。排查动画「看不见」时，
+  第一件事是确认被动画的**内容真的随状态变化**，而不是反复调时长。
+  前两轮（250ms→450ms 两段式→加位移→回退）全部是在错误的层面上折腾。

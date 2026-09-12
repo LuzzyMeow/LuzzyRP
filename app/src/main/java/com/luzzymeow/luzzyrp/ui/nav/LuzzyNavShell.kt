@@ -72,7 +72,7 @@ fun LuzzyNavShell(
     onNavigate: (LuzzyRoute) -> Unit,
     darkMode: Boolean,
     onToggleDarkMode: () -> Unit,
-    content: @Composable (onOpenDrawer: () -> Unit) -> Unit,
+    content: @Composable (route: LuzzyRoute, onOpenDrawer: () -> Unit) -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -123,10 +123,9 @@ fun LuzzyNavShell(
         AnimatedContent(
             targetState = route,
             transitionSpec = {
-                // DESIGN-compose §13.2（二次修订：250ms 主体被抽屉遮挡 ≈ 硬切，用户实测反馈）。
-                // 内容转场 450ms 两段式：0-250ms 抽屉收起期完成主体（alpha 0.35→0.8+上移大半），
-                // 250-450ms 为抽屉收完后可感知的落定段（渐显至 1 + 上移到位）；
-                // 旧页 fadeOut 200ms 随抽屉期完成。不透明度 ease-out 全程，禁 scale(0)。
+                // DESIGN-compose §13.2：纯交叉淡化（无位移，用户 2026-09-12 否定位移方向）。
+                // 时长 = 实测抽屉收起 250ms（DrawerCloseMs）——抽屉完全收入的瞬间转场恰好完成；
+                // 新页 alpha 0.35→1（抬高起点防灰陷），旧页 1→0；ease-out；禁 scale(0)。
                 (fadeIn(
                     animationSpec = tween(ContentTxMs, easing = Motion.Easing),
                     initialAlpha = 0.35f,
@@ -137,7 +136,9 @@ fun LuzzyNavShell(
             label = "pageTransition",
         ) { current ->
             Box(Modifier.fillMaxWidth()) {
-                content { scope.launch { drawerState.open() } }
+                // 关键：必须把 AnimatedContent 的 current 传下去。若 content 内部读外层 route，
+                // 两个动画槽位会渲染同一个新页面（旧页瞬间消失）→ 视觉上退化成硬切。
+                content(current) { scope.launch { drawerState.open() } }
             }
         }
     }

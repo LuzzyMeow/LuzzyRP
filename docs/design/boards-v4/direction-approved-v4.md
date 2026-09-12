@@ -48,3 +48,21 @@ AskUserQuestion 回答：**「A · 织机 Loom」**（2026-09-12，会话 63）�
 - 示例角色卡 Vanio.png 为**非标准 PNG**（NovelAI 导出，IHDR 后 chunk 边界错位），
   已手工重建合法 PNG 入 `drawable-nodpi/vanio_card.png`（仅作 P1 演示资产；
   正式链路 P4 角色卡导入才用真卡）。
+
+---
+
+## 豁免记录 · P2 的 Markdown 渲染 + 剧情分支列表（2026-09-12，会话 66）
+
+- **豁免类型**：huashu-design「唯一豁免」第 2 条 —— **已选定方向后的迭代**（同项目内新增页面）。
+- **依据**：设计方向「A · 织机 Loom」已于会话 63 由用户选定（本文档上文）；本轮两项交付
+  都是**在既有方向词汇内延续**，不是新视觉设计：
+  - Markdown 渲染：排版全取自既有 token 体系（正文 13.5sp / 行高 23sp / PuHuiTi 正文族 +
+    Lora 标题族 + MaterialTheme 语义色），无新增色相、无新字体；
+  - 剧情分支列表：容器沿用既有词汇（`ModalBottomSheet` + `surfaceContainer*` 色阶 +
+    12dp 圆角 + hairline 边 + `BadgeChip`），与上游 `StoryBranchModal` 同语义、同位置。
+- **没有跳过硬性规定 9 的任何一步**：4 项 SKILL 主文档在本轮开工前**已完整重读**
+  （huashu `SKILL.md` / open-design `AGENTS.md`+`CLAUDE.md` / ui-ux-pro-max `CLAUDE.md`+`SKILL.md` /
+  awesome-design-md `README.md`），并按 ui-ux-pro-max 的查询契约做了针对性检索
+  （`--stack jetpack-compose` 命中 State/rememberSaveable 等条目；
+   `--domain ux` 对「层级列表披露」**无库匹配** → 按该 SKILL 的要求显式声明无匹配并回落通用默认）。
+- **交付后门控**：pro-rules 清单逐项核对 + 五维 critique 自评，记录见 `docs/WORKLOG.md` 会话 66 收尾。

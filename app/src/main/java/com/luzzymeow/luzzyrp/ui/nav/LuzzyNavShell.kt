@@ -50,14 +50,20 @@ enum class LuzzyRoute(val title: String, val icon: Int) {
     About("关于", LuzzyIcons.Info),
 }
 
-/** 抽屉收起时长（对齐 M3 ModalNavigationDrawer 默认关闭动画 ≈250ms）。 */
-const val DrawerCloseMs = 250
+/**
+ * 抽屉收起时长（覆盖 M3 默认 ≈250ms；放慢到 400ms——用户反馈「250ms 像硬切」：
+ * 抽屉宽约占屏 80%，淡化主体被移动中的抽屉遮挡，故抽屉与内容同时放慢）。
+ */
+const val DrawerCloseMs = 400
 
-/** 内容页面转场总时长（两段式：抽屉期主体 + 收完后可感知落定段）。 */
-const val ContentTxMs = 250
+/** 内容转场时长 = 抽屉收起时长（抽屉完全收入时转场恰好完成；等长交叉）。 */
+const val ContentTxMs = DrawerCloseMs
 
-/** 旧页淡出时长（随抽屉收起期内完成，避免残影）。 */
-const val OldFadeMs = 250
+/** 旧页淡出时长 = 等长交叉（与新页同段完成，不留残影）。 */
+const val OldFadeMs = DrawerCloseMs
+
+/** 转场曲线（ease-out：快起慢收，尾部减速让落定段可感知）。 */
+val TxEasing = Motion.Easing
 
 /**
  * v3.0 应用壳：抽屉（提升到壳层，全页共用）+ AnimatedContent 页面转场。
@@ -113,7 +119,13 @@ fun LuzzyNavShell(
                         },
                         modifier = Modifier.clickable {
                             onNavigate(r)
-                            scope.launch { drawerState.close() }
+                            // 用显式 400ms spec 覆盖 M3 默认，与内容转场等长（同帧起跑、同时结束）
+                            scope.launch {
+                                drawerState.animateTo(
+                                    DrawerValue.Closed,
+                                    tween(DrawerCloseMs, easing = TxEasing),
+                                )
+                            }
                         },
                     )
                 }
@@ -123,14 +135,15 @@ fun LuzzyNavShell(
         AnimatedContent(
             targetState = route,
             transitionSpec = {
-                // DESIGN-compose §13.2：纯交叉淡化（无位移，用户 2026-09-12 否定位移方向）。
-                // 时长 = 实测抽屉收起 250ms（DrawerCloseMs）——抽屉完全收入的瞬间转场恰好完成；
+                // DESIGN-compose §13.2（三次修订）：纯交叉淡化（无位移）。
+                // 实测 250ms 交叉期仅 ~1 录屏帧（≈130ms 可辨窗口）→ 用户观感「像硬切」；
+                // 现取 400ms：交叉段延伸到抽屉收完之后，两页交叠可见时间 ≈ 400ms，
                 // 新页 alpha 0.35→1（抬高起点防灰陷），旧页 1→0；ease-out；禁 scale(0)。
                 (fadeIn(
-                    animationSpec = tween(ContentTxMs, easing = Motion.Easing),
-                    initialAlpha = 0.35f,
+                    animationSpec = tween(ContentTxMs, easing = TxEasing),
+                    initialAlpha = 0.30f,   // 关键帧起点：抬高防灰陷，同时让淡化幅度更大更可见
                 )).togetherWith(
-                    fadeOut(animationSpec = tween(OldFadeMs, easing = Motion.Easing)),
+                    fadeOut(animationSpec = tween(OldFadeMs, easing = TxEasing)),
                 )
             },
             label = "pageTransition",

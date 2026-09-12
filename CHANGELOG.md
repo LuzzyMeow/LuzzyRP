@@ -92,6 +92,11 @@
   一处已知冲突（CC BY-NC 非商用 vs AGPL 第 10 条）如实记录于 `docs/LICENSING.md` §3；
   `HARD_REQUIREMENTS.md` 合规红线与 README「许可证与合规」段已同步更新。
   本条**不改变** v2.0.0 的任何构建产物与代码行为（纯许可/文档动作）。
+- **上游同步退役（2026-09-12，用户拍板）**：v3.0 转 Compose 后，上游 RP-Hub 同步
+  **不再执行**，上游基线定格 **1.9.3**；`tools/sync-upstream.ps1` 等同步工具、
+  `tools/patches/` 与 `rp-hub-reference/` **保留不删**（追溯依据），仅停止流程
+  （`AGENTS.md` §4 头部退役声明 + `HARD_REQUIREMENTS.md` 规定 6 标注退役 + README 表述更新）。
+  `nsfw_rules` 不可触碰约束（硬性规定 1）**永久有效**。本条同样**不改变** v2.0.0 构建产物。
 
 **验证**
 - **构建**：`./gradlew :app:assembleRelease :app:testDebugUnitTest` → BUILD SUCCESSFUL；

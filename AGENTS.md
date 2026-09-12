@@ -249,6 +249,12 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 
 ## 4. 上游同步 SOP
 
+> **⚠️ 本章已于 2026-09-12 起退役（用户拍板，v3.0 立项后续）**：上游 RP-Hub 同步**不再执行**，
+> 上游基线定格 **1.9.3**（commit `4aef0bb`）。`tools/sync-upstream.ps1` / `apply-patches.ps1` /
+> `verify-markers.ps1`、`tools/patches/` 与 `rp-hub-reference/` **保留不删**（历史追溯与回滚依据），
+> 但任何新任务**不再发起**同步流程；`built-in-content.js` 内 `nsfw_rules` 的不可触碰约束
+> （硬性规定 1）**永久有效**，与同步与否无关。本章以下内容仅作历史操作档案保留。
+
 ### 4.1 同步流程（tools/sync-upstream.ps1 半自动化）
 
 ```

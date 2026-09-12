@@ -2460,3 +2460,21 @@ who comes into possession of a copy`）：
 
 - 用户拍板 §三.1 两件事 → 进 **P1 空壳可跑**（单 Activity + Compose + 导航 + 主题 +
   假数据聊天页，验收 = DESIGN-compose §11 实施对账）。
+
+## 2026-09-12 · 会话 64：v3.0 P1「空壳可跑」
+
+### 开始
+
+- **用户拍板两项（PLAN §6 第 2/3 条，就此收口）**：① **上游同步退役：现在**（即刻生效，
+  工具与 `rp-hub-reference/`、`tools/patches/` 保留不删，仅停止执行同步流程）；
+  ② **数据迁移校验失败兜底：无需**（不设「回退 WebView 版」机制）。
+- **任务**：P1 空壳可跑——T2 工程接线（回收 `52aab12c` Compose 先例）/ T3 字体落地
+  （git 历史恢复 8 枚 TTF）/ T4 HCT 主题层（material-color-utilities vendor + seed
+  #CC785C）/ T5 假数据聊天页（DESIGN-compose §4/5/7 对账）/ T6 模拟器验证。
+- **架构决策（已批准）**：新增独立 `ComposeActivity`（exported，launcher 仍为
+  MainActivity/WebView，v2.x 零影响，P6 才切 launcher）；P1 不引导航库（route 状态 +
+  CompositionLocal）；构建验证走模拟器 debug 包，真机 release 包不动。
+- **技术锚点（探索代理已核实）**：Compose 接线先例全在 `52aab12c`（kotlin.plugin.compose@2.4.0
+  + BOM 2026.08.00 + composeMappingProducerClasspath 钉版本补丁）；8 枚 TTF 在
+  `52aab12c:app/src/main/assets/assistant/fonts/` 可 `git show` 取回；HCT 库 =
+  material-foundation/material-color-utilities（Apache-2.0，不触发 AGPL，rikkahub submodule 未检出）。

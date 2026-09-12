@@ -46,6 +46,9 @@ class MigrationWriter(
         val usage: Int,
         val profiles: Int,
         val assets: Int,
+        /** 坏记录条数（只跳过不中断）与需要人看一眼的情况数（从旧库补回、补了 uuid…）。 */
+        val skipped: Int = 0,
+        val notes: Int = 0,
     )
 
     /** 同步写文件（调用方在 IO 线程）；返回实际落盘的相对路径集合。 */
@@ -187,6 +190,8 @@ class MigrationWriter(
                 usage = data.usage.size,
                 profiles = data.profiles.size,
                 assets = assetRows.size,
+                skipped = data.skipped.size,
+                notes = data.notes.size,
             )
         }
     }

@@ -176,6 +176,16 @@ class LuzzyBridge(private val context: Context) {
         MigrationInbox(java.io.File(context.filesDir, "migration"))
     }
 
+    /**
+     * 迁移导出结束的回调（成功, 说明）。由 [com.luzzymeow.luzzyrp.data.legacy.MigrationRunner] 挂上，
+     * 用来把「页面跑完了」这件事告诉等待中的原生协程。
+     *
+     * 为什么不用轮询桥方法：轮询要猜时长（快机器 1 秒、慢机器 10 秒），而回调是**事件本身**。
+     * WebView 销毁前须置回 null（否则回调会打在已销毁的 WebView 流程上）。
+     */
+    @Volatile
+    var migrationDoneSink: ((Boolean, String) -> Unit)? = null
+
     /** 开始一次导出，返回会话 id（页面后续回传）。 */
     @JavascriptInterface
     fun migrateStart(sessionId: String): String = try {
@@ -202,8 +212,10 @@ class LuzzyBridge(private val context: Context) {
         val summary = parseMigrationSummary(summaryJson)
         val result = migrationInbox.finish(summary)
         if (result == null) {
+            migrationDoneSink?.invoke(false, "导出文件未通过校验（块数不足或为空）")
             ""
         } else {
+            migrationDoneSink?.invoke(true, "chunks=${result.chunkCount} chars=${result.charCount}")
             """{"chunks":${result.chunkCount},"chars":${result.charCount},"sha256":"${result.sha256}",""" +
                 """"path":"${result.file.name}"}"""
         }
@@ -216,6 +228,7 @@ class LuzzyBridge(private val context: Context) {
     @JavascriptInterface
     fun migrateError(message: String) {
         android.util.Log.w(TAG, "迁移导出失败：$message")
+        migrationDoneSink?.invoke(false, message)
         try {
             migrationInbox.abandon()
         } catch (_: Throwable) {

@@ -490,3 +490,60 @@ androidTest 里一律用 ASCII camelCase（`dataSurvivesDatabaseReopen`）。
 - **多候选持久化**：`‹ n/m ›` 只持久化当前展示的那一版（存储里一消息一行，候选集合是纯界面态）。
   要持久化需改表（一条消息多行候选），属 P5。
 - **迁移入口接线**：谁在什么时候启动迁移 WebView、进度与报告怎么呈现（P4-C）。
+
+---
+
+## 11. 迁移入口接线（P4-C 第一部分，已做）
+
+### 11.1 流程
+
+```
+ComposeActivity.onCreate → MigrationCoordinator.ensureMigrated()（进程内只跑一次）
+        ↓
+MigrationRunner.runIfNeeded()
+   ├─ 已迁移 / 新库已有数据 → Skipped（不做事）
+   └─ 否则：隐藏 WebView 打开 files/ext/luzzy-migrate.html（**复用 WebViewSetup.configure**）
+            → 页面读两库、分块经桥回传 → 原生落盘
+            → LegacyDb.parse → LegacyMigrator.migrate → MigrationWriter.import
+            → 写完成标记 + 一行报告（kv）
+        ↓
+聊天页等 MigrationCoordinator 出结论**再读库**，并一次性提示那一行报告
+```
+
+### 11.2 三个设计决定
+
+- **界面要等迁移出结论再读库**。不等的话会出现「迁移还在写，聊天页已按空库渲染成演示角色」，
+  用户先看到演示数据、真数据随后悄悄出现（或要重启才出现）。
+  所以 `MigrationCoordinator` 暴露一个浅状态机（Idle/Running/Skipped/Done/Failed），
+  聊天页 `state.first { it !is Running }` 之后再 `load()`。
+- **失败不阻断启动**：迁移挂掉时界面进空库/演示态，用户至少能用；**不写完成标记**，下次启动重来。
+- **报告用既有 Snackbar 提示一行**，不新做界面。理由有二：① 报告界面是**视觉产出**，
+  按硬性规定 9 要走设计流程（三方向硬门等），不该顺手塞进来；② 一行摘要已经覆盖
+  「用户需要知道的事」（搬了多少条）。明细留在 kv（`legacy.migrationReport`）与日志里。
+  **专门的迁移报告页＝待设计**。
+- 另：**新库已有数据就不再迁移**（并且补写标记）：用户已经用过新版时，旧数据不能反过来覆盖它。
+
+### 11.3 设备端实测（模拟器，真实旧数据）
+
+| 步骤 | 证据 |
+|---|---|
+| 首次启动（清空新库后） | `LuzzyMigrate: 导出页回调 ok=true chunks=1 chars=82992` → `迁移完成：已从旧版迁移：角色 5 · 会话 16 条 · 记忆 8 · 世界书 4 · 预设 19` |
+| 与 JVM 夹具测试对照 | **数字完全一致**（`LegacyMigratorTest` 对同一份数据期望 角色 5 / 分支 6 / 消息 16 / 向量 4 / 经典 4 / 世界书 4 / 预设 19） |
+| 界面 | 顶栏与名牌显示**迁移进来的角色**（谢昭）——`last_active_char=1` 的「下标 → uuid」换算生效 |
+| 再次启动 | **无迁移日志**（标记 + 新库非空两条短路都生效），数据仍在 |
+| 落盘物 | `databases/luzzy.db`(+wal) 与 `files/migration/incoming/{legacy-export.json, manifest.json}` |
+
+> 意义：这是 P4 全链路的**端到端**验收——旧 WebView 数据 → 导出页 → 分块桥 → 收件箱 →
+> 解析 → 迁移器 → Room → 界面。而且它与 JVM 侧用夹具跑出的结论**互相印证**（两条独立路径同解）。
+
+### 11.4 迁移**顺带暴露**的两个真实缺口（迁移的价值正在于此）
+
+1. **正文里的 `{{char}}` / `{{user}}` 未被替换**：上游在渲染期做占位符替换
+   （`replaceUserNamePlaceholder`），Compose 侧还没实现 → 迁进来的 `first_mes` 原样显示
+   `{{char}}`。**这是功能缺口，不是迁移缺陷**（数据是对的，渲染少了一步）；归 P5 功能对账。
+2. **顶栏头像与背景仍是内置演示图**：DESIGN-compose 的顶栏条款要求「角色图裁圆 34dp」，
+   存储里也有真实头像（已抽成文件或内联 base64），但界面还没把它解码出来；
+   背景同理（设计里的 `useCharacterBackground`）。需要位图解码接入 → 归 P5。
+
+   （本轮已修的是**顶栏角色名与状态行**：设计早就要求显示当前角色名，此前一直填内置演示角色，
+   属于实现缺口——迁移进来后「内容是一个角色、标题是另一个角色」太刺眼，顺手补齐。）

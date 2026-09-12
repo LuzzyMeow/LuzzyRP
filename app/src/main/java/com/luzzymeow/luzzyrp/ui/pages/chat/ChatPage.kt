@@ -73,6 +73,7 @@ import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.chat.VanioCard
 import com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
+import com.luzzymeow.luzzyrp.data.legacy.MigrationCoordinator
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
@@ -84,6 +85,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -100,6 +102,14 @@ import androidx.compose.runtime.snapshotFlow
  * 只含真实存在的过往轮次**文本**——不含任何思考节点：那些轮次没有真实产生过节点数据，
  * 编造节点等于造假。节点只由真实事件（检索/工具/推理增量）产生。
  */
+/** 从角色卡 payload 里取「卡作者」（顶栏状态行的数据来源；缺省返回空串）。 */
+private fun characterCreator(character: com.luzzymeow.luzzyrp.data.store.CharacterEntity): String =
+    runCatching {
+        val obj = kotlinx.serialization.json.Json.parseToJsonElement(character.payload)
+        ((obj as? kotlinx.serialization.json.JsonObject)
+            ?.get("creator") as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+    }.getOrDefault("")
+
 private fun demoHistory(): List<ChatMessage> = listOf(
     ChatMessage.User("Vanio？听说你在教堂后面藏了什么……"),
     ChatMessage.Ai(
@@ -197,14 +207,31 @@ fun ChatPage(
         )
     }
     var characterUuid by remember { mutableStateOf<String?>(null) }
+
+    /**
+     * 顶栏与名牌上显示的角色身份。
+     *
+     * DESIGN-compose §12 的顶栏条款原文就是「角色名 Lora 17sp + 状态行 11sp + 角色图裁圆」——
+     * 也就是说**设计早就要求显示当前角色**，此前一直填的是内置演示角色 Vanio，
+     * 属于实现缺口（迁移进来的角色内容配着 Vanio 的名字，看着就是错的）。
+     * 存储里有角色就用真实角色；空库演示态才回落 [VanioCard]。
+     */
+    var characterName by remember { mutableStateOf(VanioCard.Name) }
+    var characterStatus by remember { mutableStateOf("${VanioCard.Subtitle} · 在线") }
     var tree by remember { mutableStateOf(BranchTree.single()) }
     val branchMessages = remember { mutableStateMapOf<String, List<ChatMessage>>() }
     var showBranches by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (branchMessages.isEmpty()) {
+            // 等迁移出结论再读库：否则会在迁移还没写完时按空库渲染成演示数据
+            // （用户先看到演示角色、数据随后「悄悄出现」，或要重启才出现）。
+            MigrationCoordinator.state.first { it !is MigrationCoordinator.State.Running }
             val session = repository.load()
             if (session != null) {
                 characterUuid = session.character.uuid
+                characterName = session.character.name.ifBlank { VanioCard.Name }
+                val creator = characterCreator(session.character)
+                characterStatus = if (creator.isNotBlank()) "$creator · 在线" else "在线"
                 tree = BranchTree(branches = session.branches, activeId = session.activeBranchId)
                 branchMessages.clear()
                 session.messagesByBranch.forEach { (branchId, messages) ->
@@ -222,6 +249,9 @@ fun ChatPage(
                 )
                 branchMessages["branch-1"] = main.take(2)
             }
+            // 迁移报告：一次性提示一行（用既有 Snackbar 组件，不引入新的视觉设计）。
+            // 明细（跳过/失败条目）留在 kv 与日志里，等有了设计过的报告界面再展开。
+            MigrationCoordinator.consumeReport()?.let { snackbarHostState.showSnackbar(it) }
         }
     }
 
@@ -564,14 +594,14 @@ fun ChatPage(
                                 }
                                 Column {
                                     Text(
-                                        text = VanioCard.Name,
+                                        text = characterName,
                                         fontFamily = LuzzyFonts.Lora,
                                         fontSize = 17.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color.White,
                                     )
                                     Text(
-                                        text = "${VanioCard.Subtitle} · 在线",
+                                        text = characterStatus,
                                         fontFamily = LuzzyFonts.Body,
                                         fontSize = 11.sp,
                                         color = Color.White.copy(alpha = 0.75f),
@@ -661,7 +691,7 @@ fun ChatPage(
                         if (inPlaceLive != null) {
                             Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
-                                    name = VanioCard.Name,
+                                    name = characterName,
                                     raw = inPlaceLive.body,
                                     nodes = inPlaceLive.nodes,
                                     isLive = inPlaceLive.generating,
@@ -738,7 +768,7 @@ fun ChatPage(
                         item {
                             Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
-                                    name = VanioCard.Name,
+                                    name = characterName,
                                     raw = turn.body,
                                     nodes = turn.nodes,
                                     isLive = turn.generating,

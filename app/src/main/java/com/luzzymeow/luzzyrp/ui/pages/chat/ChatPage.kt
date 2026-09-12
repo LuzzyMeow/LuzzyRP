@@ -4,14 +4,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -31,6 +44,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luzzymeow.luzzyrp.ui.pages.chat.AvatarCircle
+import com.luzzymeow.luzzyrp.ui.pages.chat.CircleIconButton
+import com.luzzymeow.luzzyrp.ui.pages.chat.InputIsland
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlinx.coroutines.launch
 
@@ -86,8 +102,26 @@ fun ChatPage(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(20.dp),
                 )
-                listOf("对话", "角色", "世界书", "预设", "记忆", "用量", "设置").forEachIndexed { i, item ->
+                val drawerIcons = listOf(
+                    Icons.Filled.ChatBubble to "对话",
+                    Icons.Filled.Face to "角色",
+                    Icons.Filled.MenuBook to "世界书",
+                    Icons.Filled.Tune to "预设",
+                    Icons.Filled.Psychology to "记忆",
+                    Icons.Filled.BarChart to "用量",
+                    Icons.Filled.Settings to "设置",
+                )
+                drawerIcons.forEachIndexed { i, (icon, item) ->
                     ListItem(
+                        leadingContent = {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = if (i == 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        },
                         headlineContent = {
                             Text(
                                 text = item,
@@ -108,20 +142,26 @@ fun ChatPage(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
-                            Text(
-                                text = "Luna",
-                                fontFamily = LuzzyFonts.Lora,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "灯塔守夜人 · 在线",
-                                fontFamily = LuzzyFonts.Body,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            AvatarCircle(initial = "L")
+                            Column {
+                                Text(
+                                    text = "Luna",
+                                    fontFamily = LuzzyFonts.Lora,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "灯塔守夜人 · 在线",
+                                    fontFamily = LuzzyFonts.Body,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     },
                     navigationIcon = {
@@ -134,13 +174,25 @@ fun ChatPage(
                         }
                     },
                     actions = {
-                        IconButton(onClick = onToggleDarkMode) {
-                            Icon(
-                                imageVector = if (darkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                                contentDescription = if (darkMode) "切换亮色" else "切换暗色",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        // 方向板 A 组件语言：圆形描边动作钮（模型 ⌄ / 更多 ⋯）；月亮为 P1 主题验证入口
+                        CircleIconButton(
+                            icon = Icons.Filled.ExpandMore,
+                            contentDescription = "模型（P1 占位）",
+                            onClick = {},
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        CircleIconButton(
+                            icon = Icons.Filled.MoreHoriz,
+                            contentDescription = "更多（P1 占位）",
+                            onClick = {},
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        CircleIconButton(
+                            icon = if (darkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                            contentDescription = if (darkMode) "切换亮色" else "切换暗色",
+                            onClick = onToggleDarkMode,
+                        )
+                        Spacer(Modifier.width(10.dp))
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,

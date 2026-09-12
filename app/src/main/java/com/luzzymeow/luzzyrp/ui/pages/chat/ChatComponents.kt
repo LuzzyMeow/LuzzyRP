@@ -2,6 +2,7 @@ package com.luzzymeow.luzzyrp.ui.pages.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,9 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -208,6 +212,63 @@ fun AiMessage(
     }
 }
 
+/**
+ * 圆形描边图标钮（方向板 A 顶栏组件语言：34dp 圆 + outlineVariant 描边 + 图标居中）。
+ * P1 为占位交互（模型选择/更多菜单 P5 实现），样式先按板落位。
+ */
+@Composable
+fun CircleIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(34.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/** 角色头像圈（方向板 A：珊瑚渐变圆 + Lora 首字母；M3 role 落位）。 */
+@Composable
+fun AvatarCircle(
+    initial: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(34.dp)
+            .background(
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.tertiary,
+                    )
+                ),
+                CircleShape,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = initial,
+            fontFamily = LuzzyFonts.Lora,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
 /** 输入岛：附件钮 + 占位文本 + 38dp 圆形发送键（largeIncreased 圆角，实底）。 */
 @Composable
 fun InputIsland(
@@ -228,16 +289,31 @@ fun InputIsland(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
+            modifier = Modifier.padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(onClick = onToggleTheme, modifier = Modifier.size(30.dp)) {
+            val dashColor = MaterialTheme.colorScheme.outline
+            // 虚线圆圈加号（方向板 A 组件语言；drawBehind 非 composable，先取色）
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .drawBehind {
+                        drawCircle(
+                            color = dashColor,
+                            style = Stroke(
+                                width = 1.2.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(7f, 6f)),
+                            ),
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "附件（P1 占位）",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                 )
             }
             Text(

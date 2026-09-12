@@ -2532,3 +2532,15 @@ who comes into possession of a copy`）：
 
 - **P2 聊天只读链路**：会话列表 + Markdown→Compose 渲染（richtext 链路调研）+
   接 v2.0 Kotlin 传输做流式上屏（`chat/` 包 207 单测原样可用）；真机能看历史、能流式。
+
+#### 追记（同日）：P1 组件保真度补齐（用户反馈「图标/组件不见了」）
+
+- **根因**：图标本身一直在渲染（debug/release 均正常）；缺的是方向板 A 的组件词汇——
+  P1 首版实现把顶栏头像圈、⌄/⋯ 圆形描边动作钮、抽屉 leading 图标、输入岛虚线加号圈
+  全部简化掉了（骨架化过度，设计保真缺口）。
+- **补齐**：`AvatarCircle`（珊瑚渐变圆 + Lora 首字母）/ `CircleIconButton`（34dp 圆 +
+  outlineVariant 描边，⌄ 模型 / ⋯ 更多 / 🌙 主题三个）/ 抽屉 7 项 leading 图标
+  （ChatBubble/Face/MenuBook/Tune/Psychology/BarChart/Settings）/ 输入岛虚线圆圈加号
+  （PathEffect.dashPathEffect，drawBehind 先取色）。
+- **验证**：debug + release（R8）双构建在模拟器截图确认全部渲染
+  （`verify-p1-chat-light/drawer/release.png` 已更新）。

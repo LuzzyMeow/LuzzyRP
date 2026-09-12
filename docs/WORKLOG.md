@@ -2370,3 +2370,23 @@ who comes into possession of a copy`）：
 
 **下一步（等用户选择）**：① 仅借鉴设计语言、独立实现（**我推荐**）；② 整体转 AGPL-3.0
 （需先厘清与 CC BY-NC 4.0 的冲突）；③ 换一个许可宽松（Apache-2.0 / MIT）的 Compose 参考项目。
+
+### 会话 62 追记 7 · 许可决策落档（用户拍板：整体转 AGPL-3.0）
+
+用户在我给出三选项后选择 **②「整体转为 AGPL-3.0，换取 rikkahub 源码级复用」**。已按决策落档，
+不再劝。新增 **`docs/LICENSING.md`**，把许可结构写成可核对的契约：
+
+- **并存而非覆盖**：仓库根 `LICENSE`（上游 CC BY-NC 4.0）**不删不改**（AGENTS 硬性规定），
+  自有代码（Kotlin / ext / tools / docs / 未来 Compose UI / 复用的 rikkahub 代码）以 **AGPL-3.0**，
+  上游 `assets/rphub/**` 保持 CC BY-NC 4.0 原样署名分发。
+- ⚠️ **如实记录一处并存冲突**（非劝阻，是我不该默默交付自相矛盾之物）：
+  CC BY-NC 4.0 的「不得商用」与 AGPL-3.0 第 10 条的「不得限制他人商用」**无法同时成立**。
+  本项目形态（上游资产是经 WebView 加载的独立 web 应用、经 patch 修改后原样分发）
+  **偏向支持"聚合"读法**（AGPL 第 5 条末段明确允许 aggregate），但**不是定论**。
+  **我不作法律判断**；缓解动作（联系上游 / 保持非商业侧载 / 商业化前先解决）已写入 LICENSING §3。
+- **AGPL 新增的持续义务**：分发须提供 Corresponding Source（当前仓库公开可满足；
+  若日后转私有分发则必须随二进制提供）。
+- 待落地动作（**尚未执行**）：新增 `LICENSE-AGPL-3.0` 全文、README 增加「许可」段、
+  复用代码保留原始版权声明与来源标注。
+
+`docs/PLAN-v3.0-compose.md` §6 第 1 条已从"待拍板"改为"已拍板"并指向 LICENSING.md。

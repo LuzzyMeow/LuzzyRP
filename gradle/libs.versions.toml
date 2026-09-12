@@ -6,6 +6,11 @@
 # [v1.5.0 移除] 原「助手」原生 Agent 的依赖（Compose BOM/UI/Material3、Navigation3、
 # Room、DataStore、OkHttp、kotlinx-serialization）与插件（Compose 编译器、KSP、
 # kotlinx-serialization）已按用户指示于 2026-09-11 一并移除。
+#
+# [v3.0 P1 恢复（2026-09-12）] Compose 界面层依赖自 git 历史 52aab12c 回收——
+# 仅恢复 Compose 座所需（BOM/ui/foundation/material3/activity-compose/lifecycle-compose
+# + kotlin.compose 插件）；Navigation3 / KSP / Room / DataStore / serialization 插件
+# 仍不引入（P4/P5 按需再加）。
 # ============================================================
 
 [versions]
@@ -19,6 +24,9 @@ junit = "4.13.2"
 # [v2.0.0] 原生聊天传输层：仅两个运行时依赖（无注解处理器 / 无编译器插件）
 serialization = "1.9.0"
 okhttp = "4.12.0"
+# [v3.0 P1] Compose 座（版本组合自 52aab12c 先例原样回收，已验证可构建）
+kotlin = "2.4.0"
+composeBom = "2026.08.00"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,7 +42,21 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 # OkHttp 保持 4.x 线（5.x 需更新的 Kotlin/Java 目标，与 AGP 内置 Kotlin 组合未验证）
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+
+# [v3.0 P1] Compose 座
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+# [v3.0 P1] Compose 编译器插件（Kotlin 2.x 起由独立插件提供；AGP 9 内置 Kotlin，
+# 故不引入 org.jetbrains.kotlin.android）
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

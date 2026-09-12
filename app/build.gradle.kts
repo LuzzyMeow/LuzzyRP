@@ -13,8 +13,14 @@ import java.util.Properties
 // kotlinx-serialization 插件 + Compose BOM / Room / DataStore / OkHttp / serialization
 // 依赖 + ksp schema 导出 + Compose mapping 生产者版本对齐）已按用户指示于 2026-09-11
 // 彻底移除；本工程回到「最小依赖 WebView 壳」。
+//
+// [v3.0 P1 恢复（2026-09-12）] Compose 座自 git 历史 52aab12c 回收（版本组合已验证）：
+// kotlin.plugin.compose + Compose BOM（ui/foundation/material3/activity-compose/
+// lifecycle-runtime-compose）+ buildFeatures.compose + composeMappingProducerClasspath
+// 钉版本补丁。仅服务新的 ui/ 包（v3.0 Compose 界面）；KSP/Room/DataStore 不引（P4 按需）。
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
 }
 
 // [LuzzyRP v1.2.3] 资产签名自动解压（根治「改 assets 忘 bump EXTRACT_VERSION」）：
@@ -102,6 +108,22 @@ android {
 
     buildFeatures {
         buildConfig = true
+        // [v3.0 P1] Compose 界面层（ui/ 包）
+        compose = true
+    }
+}
+
+// [v3.0 P1，自 52aab12c 回收] AGP 9.2.1 内置 Kotlin 2.2.10，而项目 Kotlin/Compose 插件为
+// 2.4.0：composeMappingProducerClasspath 任务会去解析
+// org.jetbrains.kotlin:compose-group-mapping:2.2.10（可能无此版本可用）→ 钉回项目 Kotlin 版本。
+configurations.configureEach {
+    if (name.contains("composeMappingProducerClasspath")) {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin" && requested.name == "compose-group-mapping") {
+                useVersion(libs.versions.kotlin.get())
+                because("对齐项目 Kotlin 版本，避免解析不到 AGP 内置 Kotlin 对应版本")
+            }
+        }
     }
 }
 
@@ -124,6 +146,17 @@ dependencies {
     // 仅两个运行时依赖；未使用 @Serializable，故不需要 kotlinx-serialization 编译器插件。
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
+
+    // [v3.0 P1] Compose 座（BOM 统一版本；组合自 52aab12c 先例回收）
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 
     // 测试
     testImplementation(libs.junit)

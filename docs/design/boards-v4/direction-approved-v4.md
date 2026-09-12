@@ -22,7 +22,8 @@ AskUserQuestion 回答：**「A · 织机 Loom」**（2026-09-12，会话 63）�
   ExtendColors 五色×十阶 + assistant 无气泡默认/气泡可选 + ChainOfThought 分块 +
   HCT 动态色板机制（CustomTheme 等价物）+ MeshGradient 背景手法 + haze 类玻璃开关；
 - **数值全部重新推导**：HCT seed = 珊瑚陶土 `#CC785C`（TONAL_SPOT，contrast 0）——
-  亮 canvas #FBF6F2 / 暗 #191411；primary 亮 #9A5638 / 暗 #FFB59B；
+  板上数值为设计期手算近似；**P1 实现后的权威生成值**以 `docs/DESIGN-compose.md` §2 为准
+  （亮 canvas `#FFF4F1` / 暗 `#231917`；primary 亮 `#8F4C35` / 暗 `#FFB59D`，快照测试钉死）；
   **零照抄 rikkahub Claude 预设色值**（#C96442/#FAF9F5 等仅作对照不入 token）；
 - **品牌不变量**：Lora 角色名牌 + PuHuiTi/AlibabaSans 本地字体（规定 4）；
   动效 200/140ms ease-out `cubic-bezier(0.23,1,0.32,1)`；

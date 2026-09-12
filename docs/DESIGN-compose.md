@@ -20,26 +20,32 @@ TONAL_SPOT variant，contrast level 0——机制照搬 rikkahub `CustomTheme.kt
 
 ## 2 · Color Palette & Roles（M3 ColorScheme，亮/暗双套）
 
-> 推导方式：HCT（material-color-utilities）TONAL_SPOT，seed `#CC785C`。
-> P1 实现时以 `CustomTheme.generateColorScheme` 等价 Kotlin 代码生成并**逐值核对本表**；
-> 本表为手算近似值（±2 色阶内），**以代码生成结果为准回填修订**。
+> 推导方式：HCT（material-color-utilities 2021 spec）TONAL_SPOT，seed `#CC785C`，contrast 0。
+> **本表为代码生成值权威落档**（`ui/theme/LuzzyTheme.kt` 生成，快照测试
+> `LuzzyPaletteSnapshotTest` 钉死；2026-09-12 P1 以生成结果回填替换早期手算近似值）。
 
 | M3 Role | 亮色 | 暗色 | 用途 |
 |---------|------|------|------|
-| primary | `#9A5638`（T40） | `#FFB59B`（T80） | 主按钮文字/选中图标/强调 |
-| onPrimary | `#FFFFFF` | `#4A1B0B` | |
-| primaryContainer | `#F7E8DE`（T90） | `#6E4230`（T30） | 用户气泡/选中底 |
-| onPrimaryContainer | `#4A2B1E` | `#FFDBCE` | |
-| secondary | `#8A6355`（T40 中性暖） | `#E5B099` | 次级强调 |
-| secondaryContainer | `#F2E2D8` 派生 | `#402E25` 派生 | chip/次级面 |
-| tertiary | `#C08A3E`（amber 系，呼应 highlight） | `#E8C99A` | 荧光笔记号/图表第二族 |
-| surface | `#FBF6F2`（T97 暖纸） | `#191411`（T10 暖黑） | 画布 |
-| surfaceContainerLow | `#F5EDE6` 派生 | `#211A15` 派生 | 列表面 |
-| surfaceContainer | `#F2E7DE` 派生 | `#292019` 派生 | 卡片 |
-| surfaceContainerHigh | `#F2E2D8` 派生 | `#402E25` 派生 | AI 气泡（气泡模式） |
-| outline | `#9A7A66`（T50） | `#C9A18E` | 强描边 |
-| outlineVariant | `#E6CEC0`（T85） | `#5A3E30`（T30） | 发丝线/分隔 |
-| error | `#B03D2E` | `#FFB4A6` | 语义错误 |
+| primary | `#8F4C35`（T40） | `#FFB59D`（T80） | 主按钮文字/选中图标/强调 |
+| onPrimary | `#FFFFFF` | `#55200C` | |
+| primaryContainer | `#FFDBD0`（T90） | `#723520`（T30） | 用户气泡/选中底 |
+| onPrimaryContainer | `#390C00` | `#FFDBD0` | |
+| secondary | `#77574D` | `#E7BDB1` | 次级强调 |
+| secondaryContainer | `#FFDBD0` | `#5D4036` | chip/次级面 |
+| tertiary | `#6A5E2F` | `#D7C68D` | 荧光笔记号族（amber 系） |
+| tertiaryContainer | `#F4E2A7` | `#51461A` | 高亮底 |
+| error | `#BA1A1A` | `#FFB4AB` | 语义错误 |
+| surface | `#FFF4F1`（T97 暖纸） | `#231917`（T10 暖黑） | 画布 |
+| surfaceContainerLowest | `#FFFFFF` | `#140C0A` | |
+| surfaceContainerLow | `#FFF1ED` | `#231917` | 列表面 |
+| surfaceContainer | `#FCEAE5` | `#271D1B` | 卡片 |
+| surfaceContainerHigh | `#F7E4DF` | `#322825` | AI 气泡（气泡模式） |
+| surfaceContainerHighest | `#F1DFDA` | `#3D322F` | |
+| surfaceDim / Bright | `#E8D6D1` / `#FFF8F6` | `#231917` / `#423733` | |
+| surfaceVariant | `#F5DED7` | `#53433F` | |
+| outline | `#85736E`（T50） | `#A08D87` | 强描边 |
+| outlineVariant | `#D8C2BB`（T80） | `#53433F`（T30） | 发丝线/分隔 |
+| inverseSurface / inversePrimary | `#392E2B` / `#FFB59D` | `#F1DFDA` / `#8F4C35` | |
 | scrim | `#000000` | `#000000` | 遮罩 |
 
 **ExtendColors（五色 × 十阶扩展色，结构照搬 rikkahub `Color.kt`）**：red / orange / green /

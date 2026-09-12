@@ -34,6 +34,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- [v3.0 P1] Compose 界面宿主（空壳验证用）：launcher 仍为 MainActivity（WebView），
+             本 Activity 仅经 adb am start 显式启动做 P1-P5 开发验证；P6 切换时才接任 launcher。 -->
+        <activity
+            android:name=".ui.ComposeActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale" />
     </application>
 
 </manifest>

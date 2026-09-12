@@ -2611,3 +2611,19 @@ who comes into possession of a copy`）：
 - **验证**：模拟器截图放大核对——暗色显示太阳、亮色显示月牙（moon 一直正确）。
 - **教训入档**：图标子串匹配必须核对**完整形状语义**，共享前缀的图标族（sun/light-bulb、
   menu 变体）一律以官方 SVG 原文或上游具名 symbol（#icon-xxx）为准。
+
+#### 追记 5（同日）：太阳「圆不圆」——VectorDrawable 紧凑弧 flag 根因（用户指认第二枪）
+
+- **现象**：sun 换官方 path 后中心「圆」仍是缺块碗形（用户原话「你的圆它不圆啊」）。
+- **根因**：Heroicons 官方 SVG 用**紧凑弧 flag 写法**（`a4 4 0 11-8 0`——large-arc/sweep
+  两个 flag 与后续参数零分隔）。浏览器 SVG 解析器接受；**Android VectorDrawable 的
+  pathData 解析器对紧凑 flag 解析错位**，弧参数被吞 → 圆缺块。证据：v0.1.0 原版
+  `ic_lz_sliders` 等的转换结果 flag 均带空格（`a 2 2 0 1 0 0 4`）——当年的转换管线做过
+  规范化，我的提取脚本漏了这步。
+- **修复**：字符级状态机拆 flag（flag = 单字符 0/1），sun/moon + **全量 14 枚**
+  （assistants/conversation/memory/sliders/settings/search/info/refresh/download/
+  external_link/trash/dots_horizontal/sun/moon）规范化——v0.1.0 原版也全有此隐患
+  （LedgerIcons 时代从未被渲染，故未暴露）。
+- **验证**：模拟器放大核对——太阳中心 O 形圆完整、月牙弧线圆滑。
+- **教训入档**：SVG → VectorDrawable 转换**必须**做弧 flag 规范化（flag 为单字符，
+  与参数间强制空格）；「上游/官方原文」仍需过这层转换，原文 ≠ 可直接用。

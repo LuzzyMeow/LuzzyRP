@@ -17,24 +17,21 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 
 /**
@@ -147,7 +144,7 @@ fun ThinkingCardCollapsed(summary: String, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.weight(1f))
             Icon(
-                imageVector = Icons.Filled.ExpandMore,
+                painter = painterResource(LuzzyIcons.ChevronDown),
                 contentDescription = "展开思考",
                 tint = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.size(14.dp),
@@ -218,7 +215,7 @@ fun AiMessage(
  */
 @Composable
 fun CircleIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconRes: Int,
     contentDescription: String,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -231,7 +228,7 @@ fun CircleIconButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = contentDescription,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
@@ -310,7 +307,7 @@ fun InputIsland(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Add,
+                    painter = painterResource(LuzzyIcons.Plus),
                     contentDescription = "附件（P1 占位）",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp),
@@ -330,7 +327,7 @@ fun InputIsland(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    painter = painterResource(LuzzyIcons.Send),
                     contentDescription = "发送（P1 占位）",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(16.dp),

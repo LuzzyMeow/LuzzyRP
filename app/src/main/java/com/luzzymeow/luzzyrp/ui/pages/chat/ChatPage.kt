@@ -12,19 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,9 +28,11 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.chat.AvatarCircle
 import com.luzzymeow.luzzyrp.ui.pages.chat.CircleIconButton
 import com.luzzymeow.luzzyrp.ui.pages.chat.InputIsland
@@ -103,19 +92,19 @@ fun ChatPage(
                     modifier = Modifier.padding(20.dp),
                 )
                 val drawerIcons = listOf(
-                    Icons.Filled.ChatBubble to "对话",
-                    Icons.Filled.Face to "角色",
-                    Icons.Filled.MenuBook to "世界书",
-                    Icons.Filled.Tune to "预设",
-                    Icons.Filled.Psychology to "记忆",
-                    Icons.Filled.BarChart to "用量",
-                    Icons.Filled.Settings to "设置",
+                    LuzzyIcons.Conversation to "对话",
+                    LuzzyIcons.Assistants to "角色",
+                    LuzzyIcons.BookOpen to "世界书",
+                    LuzzyIcons.Sliders to "预设",
+                    LuzzyIcons.Memory to "记忆",
+                    LuzzyIcons.ChartBar to "用量",
+                    LuzzyIcons.Settings to "设置",
                 )
                 drawerIcons.forEachIndexed { i, (icon, item) ->
                     ListItem(
                         leadingContent = {
                             Icon(
-                                imageVector = icon,
+                                painter = painterResource(icon),
                                 contentDescription = null,
                                 tint = if (i == 0) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -167,7 +156,7 @@ fun ChatPage(
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(
-                                Icons.Filled.Menu,
+                                painterResource(LuzzyIcons.Menu),
                                 contentDescription = "打开菜单",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -176,19 +165,19 @@ fun ChatPage(
                     actions = {
                         // 方向板 A 组件语言：圆形描边动作钮（模型 ⌄ / 更多 ⋯）；月亮为 P1 主题验证入口
                         CircleIconButton(
-                            icon = Icons.Filled.ExpandMore,
+                            iconRes = LuzzyIcons.ChevronDown,
                             contentDescription = "模型（P1 占位）",
                             onClick = {},
                         )
                         Spacer(Modifier.width(6.dp))
                         CircleIconButton(
-                            icon = Icons.Filled.MoreHoriz,
+                            iconRes = LuzzyIcons.DotsHorizontal,
                             contentDescription = "更多（P1 占位）",
                             onClick = {},
                         )
                         Spacer(Modifier.width(6.dp))
                         CircleIconButton(
-                            icon = if (darkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                            iconRes = if (darkMode) LuzzyIcons.Sun else LuzzyIcons.Moon,
                             contentDescription = if (darkMode) "切换亮色" else "切换暗色",
                             onClick = onToggleDarkMode,
                         )

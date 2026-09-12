@@ -1,0 +1,14 @@
+<!-- [LuzzyRP v3.0] LuzzyIcons：upstream RP-Hub 同形（Heroicons v1 形状池，MIT）。形状池 = 上游 RP-Hub 内嵌 SVG 同形（Heroicons v1 outline，MIT）+ Heroicons v1 官方补缺（MIT）。stroke 色/tint 由使用方控制。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

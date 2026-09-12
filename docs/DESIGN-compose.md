@@ -83,6 +83,7 @@ primary-600 → success(green) → primary-700 → error → primary-400 → gra
 | 列表/卡片 | `ListItem`/`Card` 容器色 = `surfaceContainer`（同 rikkahub `cardColors` 语义） | rikkahub |
 | 分支指示 | 胶囊 chip `‹ 2/3 ›`（outlineVariant 边），气泡名行右侧 | RP 特有 |
 | 模型商徽标 | `[商名]` 胶囊 chip（`secondaryContainer` 底） | 承袭现行语义 |
+| **图标体系** | **LuzzyIcons**（`ui/icons/`）：主体 = 之前 LuzzyRP（WebView 版）的 `ic_lz_*` VectorDrawable 集合（形状 = 上游 RP-Hub 内嵌 SVG d 路径原样搬运，Heroicons v1 outline 形状池，MIT）——新旧版本图标**同形**；补缺 6 枚取 Heroicons v1.0.6 官方（MIT）。**禁止**引入 material-icons / hugeicons（后者为 rikkahub 本地 jar，源码不可得且素材许可链不透明） | v1.5.0 LedgerIcons 先例延续 |
 | 发送/主按钮 | primary 底 + onPrimary 字；active 加深 | M3 语义 |
 | 荧光笔记号 | tertiary(amber) 低透明度压底，全屏 ≤3 处（手作记号纪律沿袭） | 承袭现行 |
 

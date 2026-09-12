@@ -2544,3 +2544,24 @@ who comes into possession of a copy`）：
   （PathEffect.dashPathEffect，drawBehind 先取色）。
 - **验证**：debug + release（R8）双构建在模拟器截图确认全部渲染
   （`verify-p1-chat-light/drawer/release.png` 已更新）。
+
+#### 追记 2（同日）：图标体系改为「直接复用之前 LuzzyRP 的 ic_lz_*」（用户质疑采纳）
+
+- **用户问**「为什么不能直接复用之前 LuzzyRP / rikkahub / RP-Hub 的图标」——查证结论：
+  ① **能且应该**：仓库 `res/drawable/` 本就有整套 `ic_lz_*`（v0.1.0 起 LedgerIcons 体系，
+  形状 = 上游 RP-Hub 内嵌 SVG d 路径原样搬运，Heroicons v1 outline 形状池 MIT）——助手删除时
+  资源未删，直接可用；② rikkahub 的 hugeicons 是 `app/libs/*.jar` 本地二进制（其源码仓库
+  tarball 无 libs 目录），源码不可得且 HugeIcons 商业素材许可链不透明，不可靠；
+  ③ P1 首版用 material-icons-extended 属占位速通，Filled 实底风格偏离品牌线性语言——已撤。
+- **落地**：新建 `ui/icons/LuzzyIcons.kt` 统一暴露 drawable id（原版 22 枚 + 补缺 6 枚）；
+  补缺（moon/sun/dots_horizontal/book_open/chart_bar）取 Heroicons v1.0.6 官方 SVG 原文
+  （MIT，经 GitHub API tarball）；替换 ChatPage/ChatComponents 全部 material 引用为
+  `painterResource(LuzzyIcons.*)`；**删除 material-icons-extended 依赖**（toml + gradle）。
+  菜单映射全用原版语义图标：对话=conversation(document-text) / 角色=assistants(user-group) /
+  预设=sliders / 记忆=memory(light-bulb) / 设置=settings；世界书=book_open / 用量=chart_bar
+  为新增补缺。
+- **教训**：图标换装前先 `git ls-files res/drawable` 盘点存量——我曾一度用子串匹配重提取
+  并覆盖了原版 menu（原版 = index.html #icon-menu 带底部短横线，比我的匹配更权威），
+  已 `git checkout` 恢复；后续图标工作一律以原版 ic_lz_* 为准、缺了才补 Heroicons 原文。
+- **验证**：debug + release 双构建过；模拟器截图确认抽屉/顶栏/输入岛图标全部为上游同形
+  线性风格（`verify-p1-drawer.png` 已更新）。

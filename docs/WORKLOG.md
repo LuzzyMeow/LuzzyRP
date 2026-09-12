@@ -2668,3 +2668,23 @@ who comes into possession of a copy`）：
   中间帧**，帧级曲线验证留待录屏分析（spec 按设计实现）。
 - **教训**：连拍验证转场动画勿用 `adb exec-out screencap`（单帧传输 400ms+），
   应 `screenrecord` 录屏后逐帧拆（后续动效验证统一走录屏管线）。
+
+#### 追记 8（同日）：转场动画模拟器实录验证（用户要求「需由你模拟机验证」）
+
+- **方法**：`adb screenrecord` 录屏 → ffmpeg 拆帧 → cv2 双探针（抽屉面板亮度 / 新页标题区
+  亮度）逐帧分析。**两个录屏坑**：① `adb shell screenrecord ... &` 后台方式在并发 adb
+  命令（input tap）时被 SIGHUP 杀进程 → 只录到 1 帧；解法 = 设备端
+  `nohup screenrecord ... &`（adb shell 立即返回，设备独立运行）。② 模拟器 screenrecord
+  有效帧率仅 ~10fps（普通模式 9 distinct 帧；`--bugreport` 模式同样上限）——250ms 动画
+  只落 2-3 帧。
+- **实测结论**（`verify-p1v2-tx-midframes.png` 三帧对照）：
+  - **f024**：抽屉收起中（drawer 探针已露出新页内容 133），新页标题区仍 244；
+  - **f025**：**新页 alpha 中间态**（title=237，介于初始 244 与完成 245 之间偏暗——
+    淡入中途透着旧页内容）——**动画渐进性的直接证据，非瞬移**；
+  - **f026**：完成态（title=245，抽屉消失）。
+  - 三帧跨度 ≈ 200-300ms，与 `DrawerCloseMs=250` 设计吻合；抽屉收起与新页淡入并行
+    发生于同段 ✓「同帧起跑、抽屉收完即转场完成」语义验证通过。
+- **边界如实声明**：模拟器 screenrecord ~10fps 上限下，ease-out 曲线的**形状**无法从
+  录屏进一步分辨（曲线由 Compose tween 引擎按 spec 保证）；帧级曲线复验需真机
+  `screenrecord`（小米 60fps）或 CDP 形式，留待 P2 真机回归一并做。
+- 录屏管线经验入档：`nohup` + `--bugreport` + ffmpeg 拆帧 + cv2 探针，后续动效验证复用。

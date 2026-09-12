@@ -3320,3 +3320,55 @@ IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 We
   （注意：`kotlinx-serialization` 目前**只装了运行时**，要用 `@Serializable` 需补编译器插件；
   迁移器刻意只用 JSON DOM API，零构建改动）。
 - **P4-C**：迁移入口接线（谁在什么时候启动迁移 WebView、进度与报告怎么呈现）+ 真机覆盖安装实测。
+
+---
+
+## 会话 70（续 2） · P4-B 存储选型 spike → Room，数据层落地
+
+### 一、spike 结论：**计划里的悲观前提被证伪**
+
+- 计划判据是「先试 Room + KSP + KGP：15 分钟能构建过 → 走 Room；否则回落 JSON 文件存储」，
+  并附带假设：**我们没有 KGP（AGP 9 内置 Kotlin），KSP/Room 未必装得上**。
+- 实跑（KSP `2.3.9` + Room `2.8.5`）：`:app:kspDebugKotlin` **真的执行**、`:app:compileDebugKotlin`
+  通过、**装到模拟器跑仪器化测试 9 例全绿**。→ 「装不上」不成立。
+- 所以**回落 JSON 的理由（构建约束）不适用**，决策不能借它下台。改按**写模式**立论：
+  消息是唯一会被高频增量写的数据（流式生成时一条回复不断变长），整段会话存一列 JSON
+  会导致每次落盘**重写整段历史**（重度用户数 MB）→ 一消息一行 + `scopeId` 索引。
+  其余集合在旧实现里本来就是整表读写，两种方案都够用，**不构成选型依据**。
+- 文档里明确写了「这条决策的前提是消息走行级存储」+「哪一天把消息塞回 JSON 列就该重估」——
+  免得日后被当成随手决定。
+
+### 二、数据层（`data/store/`）
+
+- 八张表：`characters` / `branches` / `branch_meta` / `messages` / `memories` / `records` / `kv` / `attachments`。
+- 两个刻意的设计：
+  1. **消息主键是 `(scopeId, sortIndex)`（位置），不是消息 id**：`first_mes` 那条通常没有 id，
+     而数组顺序才是旧数据的真实身份；用自造 id 做键会在重复导入时产生重复行。
+  2. **`payload` 列按旧结构键名逐字背其余字段**：迁移零丢失的前提，且日后要用新字段**不必改表**。
+- `MigrationWriter`：导入语义定为「**这次导入就是当前状态**」（一个事务里先清内容表再全量写）→
+  幂等不需要逐条比对；**附件先落盘再进事务**（反过来会出现「事务回滚了但文件已在」这类坏状态）；
+  迁移标记由上层在成功后写（避免「导入失败但标记已写」）。
+
+### 三、坑：仪器化测试方法名不能带空格
+
+- 反引号中文用例名（`` fun `迁移导入落到 Room，行数与迁移结果一致`() ``）在 JVM 单测里没问题，
+  但 androidTest 要过 D8：Kotlin 为方法里的 `runBlocking { }` lambda 生成的内部类名
+  `LuzzyStoreTest$迁移导入落到 Room，行数与迁移结果一致$1` **含空格**，
+  而 DEX 040 之前不允许 → `dexBuilderDebugAndroidTest` 直接失败。
+- 报错长这样：`D8: ... Space characters in SimpleName ... are not allowed prior to DEX version 040`
+  夹在一堆 `com.android.tools.r8.internal.*` 栈里，**看不出跟测试名有关**（找了十几分钟）。
+- 纪律：**androidTest 一律 ASCII camelCase**（既有 `ChatUiTest` 就是这么写的，我没跟上）。
+
+### 四、门禁
+
+- 单测 **335** + 仪器化 **16**（7 聊天 UI + 9 数据层）全绿；`ANDROID_SERIAL=emulator-5554 ./gradlew checkChat` 一线跑通。
+- `LuzzyStoreTest` 9 例里最关键的一条是 **关库再开数据仍在** —— 这是「杀进程重启数据还在」的
+  最小证据，也是 P4-B 的验收底线。
+
+### 五、下一步
+
+- **3.3 设置持久化**：主题/字号/供应商/模型/工具开关收敛到统一存储 + 旧 `SharedPreferences`
+  （`luzzy_transport`）自动迁移；**apiKey 仍只存设备本地**。
+- **3.4 UI 接入真实存储**：启动即读、发送/编辑/删除落盘。
+- 未决（写进 §8.5）：`presets` / `worldinfo` 元素无稳定 id，`slot` 用下标 ——
+  **在支持用户增删排序之前必须重做**（插入一条会位移后续所有 slot）。当前只读阶段无影响。

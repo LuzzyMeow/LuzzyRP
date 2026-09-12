@@ -34,6 +34,9 @@ haze = "1.6.2"
 # [v3.0 P2] Markdown 解析（**Apache-2.0**，与 AGPL-3.0 自有代码兼容；rikkahub 同款解析器）。
 # 只引解析器，渲染层自写（不引第三方 Compose Markdown 渲染库）。
 jetbrainsMarkdown = "0.7.3"
+# [v3.0 P4-B spike] 存储选型试验（KSP + Room）。**仅供 spike 判定**，去留取决于构建结论。
+ksp = "2.3.9"
+room = "2.8.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,6 +57,10 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 # OkHttp 保持 4.x 线（5.x 需更新的 Kotlin/Java 目标，与 AGP 内置 Kotlin 组合未验证）
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+# [v3.0 P4-B spike]
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 # [v3.0 P1] Compose 座
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -77,3 +84,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 # [v3.0 P1] Compose 编译器插件（Kotlin 2.x 起由独立插件提供；AGP 9 内置 Kotlin，
 # 故不引入 org.jetbrains.kotlin.android）
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# [v3.0 P4-B spike] 注解处理器插件（Room 需要）
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

@@ -21,6 +21,8 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // [v3.0 P4-B spike] 存储选型试验：Room 需要注解处理器
+    alias(libs.plugins.ksp)
 }
 
 // [LuzzyRP v1.2.3] 资产签名自动解压（根治「改 assets 忘 bump EXTRACT_VERSION」）：
@@ -145,6 +147,10 @@ dependencies {
     // [v2.0.0] 原生聊天传输层（v2.0 薄切：HTTP + SSE + 协议线格式 + 流式装配下沉到 Kotlin）
     // 仅两个运行时依赖；未使用 @Serializable，故不需要 kotlinx-serialization 编译器插件。
     implementation(libs.kotlinx.serialization.json)
+    // [v3.0 P4-B spike] 存储选型试验（去留见 docs/DESIGN-migration.md §8）
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     implementation(libs.okhttp)
 
     // [v3.0 P1] Compose 座（BOM 统一版本；组合自 52aab12c 先例回收）

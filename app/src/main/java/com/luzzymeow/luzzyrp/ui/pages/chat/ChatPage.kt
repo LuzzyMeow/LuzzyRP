@@ -3,6 +3,7 @@ package com.luzzymeow.luzzyrp.ui.pages.chat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -73,11 +75,20 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import com.luzzymeow.luzzyrp.ui.DevHooks
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import com.luzzymeow.luzzyrp.ui.theme.Motion
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 
 /**
  * 演示角色的历史（真实数据源：会话上下文与记忆检索都读它）。
@@ -128,6 +139,8 @@ fun ChatPage(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // 「算不算贴底」的容差：8dp（与 rikkahub 同量级）——避免像素级抖动导致跟随忽开忽关
+    val bottomSlackPx = with(LocalDensity.current) { 8.dp.roundToPx() }
 
     val store = remember { TransportStore(context) }
     var config by remember { mutableStateOf(store.load()) }
@@ -216,6 +229,26 @@ fun ChatPage(
         listState.scrollToItem(lastIndex, lastSize)
     }
 
+    /**
+     * 是否贴着底部（滚动跟随的判据）。
+     *
+     * 与 rikkahub `ChatList.kt:236-243` 同语义：**末项可见且其底边到达视口底**才算在底部。
+     * 比 `!canScrollForward` 精确——后者在「内容刚好占满、无余量可滚」时也算底部，
+     * 而用户其实停在中间（例如气泡很高时）。
+     *
+     * 列表已被 Scaffold 的 `innerPadding` 内缩，故无需再扣输入岛高度。
+     */
+    fun isAtBottom(): Boolean {
+        val info = listState.layoutInfo
+        if (info.totalItemsCount == 0) return true
+        val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return true
+        if (lastVisible.index < info.totalItemsCount - 1) return false
+        return lastVisible.offset + lastVisible.size <= info.viewportEndOffset + bottomSlackPx
+    }
+
+    // 「用户上滑离开了底部」期间的到达内容 → 回底按钮上点一个小圆点（对齐 rikkahub 的新内容提示语义）
+    var unseenWhileAway by remember { mutableStateOf(false) }
+
     // 开页即贴底（聊天页默认停在最新一轮）
     LaunchedEffect(Unit) { pinToBottom() }
 
@@ -242,12 +275,13 @@ fun ChatPage(
             pinToBottom()
             try {
                 engine.run(config = config, history = history, userText = userText).collect { event ->
-                    // 「是否贴底」要在内容变化**之前**判定：变化之后 canScrollForward 会变 true，
+                    // 「是否贴底」要在内容变化**之前**判定：变化之后末项会变高、判据立刻变 false，
                     // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
-                    val follow = !listState.canScrollForward
+                    // 另加 `!isScrollInProgress`：用户正在拖动/惯性滑动时不抢滚动（rikkahub 同条件）。
+                    val follow = isAtBottom() && !listState.isScrollInProgress
                     traceStreamEvent(event)
                     turn.apply(event)
-                    if (follow) pinToBottom()
+                    if (follow) pinToBottom() else unseenWhileAway = true
                 }
             } catch (_: CancellationException) {
                 // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
@@ -487,9 +521,12 @@ fun ChatPage(
                     )
                 },
             ) { innerPadding ->
+                // 内容盒必须自己吃掉 innerPadding：否则它的 BottomEnd 落在**屏幕**右下角，
+                // 「回到底部」按钮会被 bottomBar 的输入岛盖住（实测：按钮存在但看不见）。
+                Box(Modifier.fillMaxSize().padding(innerPadding)) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -566,6 +603,55 @@ fun ChatPage(
                                     isLive = turn.generating,
                                     activeNode = turn.activeNode,
                                     modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                    // ── 回到底部（脱离底部时出现；rikkahub 的 MessageJumper 取其中最必要的一钮）──
+                    // 动效遵 DESIGN 纪律：进入 200ms / 退出 140ms，禁 scale(0)（起点 0.9）
+                    val atBottom by remember { derivedStateOf { isAtBottom() } }
+                    AnimatedVisibility(
+                        visible = !atBottom,
+                        enter = fadeIn(tween(Motion.EnterMs)) +
+                            scaleIn(initialScale = 0.9f, animationSpec = tween(Motion.EnterMs)),
+                        exit = fadeOut(tween(Motion.ExitMs)) +
+                            scaleOut(targetScale = 0.9f, animationSpec = tween(Motion.ExitMs)),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 14.dp, bottom = 10.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f))
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    CircleShape,
+                                )
+                                .clickable {
+                                    unseenWhileAway = false
+                                    scope.launch { pinToBottom() }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(LuzzyIcons.ChevronDown),
+                                contentDescription = if (unseenWhileAway) "回到底部（有新内容）" else "回到底部",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            // 离开底部期间有新内容 → 右上角一个主色小圆点
+                            if (unseenWhileAway) {
+                                Box(
+                                    Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 6.dp, end = 6.dp)
+                                        .size(7.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
                                 )
                             }
                         }

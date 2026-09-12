@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -328,7 +329,13 @@ fun InputIsland(
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            // 键盘避让（2026-09-12 真机取证：`mInputShown=true` 时输入岛被键盘**完全盖住**）——
+            // `ComposeActivity` 开了 `enableEdgeToEdge()`，该模式下 `windowSoftInputMode=adjustResize`
+            // 不再让出键盘高度，必须显式消费 IME inset。
+            // 顺序 `navigationBarsPadding().imePadding()`：insets 会被逐级消费，键盘弹出时
+            // imePadding 只补「IME − 导航栏」的差额，两者相加恰好等于 IME 高度，不会双重留白。
             .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 8.dp, vertical = 8.dp),
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),

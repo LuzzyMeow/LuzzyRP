@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -335,113 +338,93 @@ fun InputIsland(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Column(Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
-            // ── 功能行：左侧成簇的功能入口 + 行尾最弱的模型状态 ──
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                listOf(
-                    Triple(LuzzyIcons.Plus, "附件", onAttach),
-                    Triple(LuzzyIcons.Sliders, "预设", onPresets),
-                    Triple(LuzzyIcons.BookOpen, "世界书", onWorldBook),
-                    Triple(LuzzyIcons.Mcp, "工具", onTools),
-                    Triple(LuzzyIcons.Workspace, "工作区", onWorkspace),
-                ).forEach { (res, desc, action) ->
-                    // 工具开关是唯一有「开/关」状态的入口：开启时用强调色，并在语义里带上状态
-                    // （颜色之外还有无障碍播报，不靠颜色单通道传达，pro-rules）
-                    val toggled = res == LuzzyIcons.Mcp && toolsEnabled
-                    Box(
-                        Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = action),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(res),
-                            contentDescription = if (toggled) "$desc（已开启）" else desc,
-                            tint = if (toggled) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp),
-                        )
+        Column(
+            Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            // ── 输入行（**满宽、在上**）：输入框独占一行，长文本有足够空间 ──
+            BasicTextField(
+                value = text,
+                onValueChange = onTextChange,
+                enabled = !isGenerating,
+                maxLines = 5,
+                textStyle = TextStyle(
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                decorationBox = { inner ->
+                    // 占位与真实输入必须同处一个容器：decorationBox 的测量只认一个子节点，
+                    // 平铺两个兄弟会让命中区域与测量错乱（点不中输入框）。
+                    Box {
+                        if (text.isEmpty()) {
+                            Text(
+                                text = "写点什么……",
+                                fontSize = 14.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
+                        inner()
                     }
-                }
-                Spacer(Modifier.weight(1f))
-                // 模型：纯文字 + 箭头（无底色）——最弱一级，可点开真实模型列表
+                },
+            )
+
+            // ── 功能行（**在输入行下方**）：可横滑的左簇 + 固定右端发送/停止 ──
+            // 架构照 rikkahub `ui/components/ai/ChatInput.kt`（AGPL-3.0，本项目已整体转 AGPL：
+            // 输入在上、动作在下；左簇 weight(1f)+horizontalScroll —— 按钮再多也不会溢出、
+            // 不换行、不挤压固定件，这是「拥挤/溢出」的结构性解法，而非删按钮或缩热区）。
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Row(
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onModelChipClick)
-                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(
-                        text = if (configured) modelLabel else "未配置",
-                        fontSize = 11.5.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        // 「未配置」是问题态，需要被看见 → 用告警色；正常态安静
-                        color = if (configured) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.error,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 96.dp),
+                    // 模型：图标 + 短名（名字限宽省略）——名字有用的同时不挤压别人
+                    ActionSlot(
+                        icon = LuzzyIcons.Chip,
+                        label = if (configured) modelLabel else "未配置",
+                        description = if (configured) "切换模型（当前 $modelLabel）" else "配置供应商",
+                        accent = !configured,
+                        onClick = onModelChipClick,
                     )
-                    Icon(
-                        painter = painterResource(LuzzyIcons.ChevronDown),
-                        contentDescription = if (configured) "切换模型（当前 $modelLabel）" else "配置供应商",
-                        tint = if (configured) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(14.dp),
+                    listOf(
+                        Triple(LuzzyIcons.Plus, "附件", onAttach),
+                        Triple(LuzzyIcons.Sliders, "预设", onPresets),
+                        Triple(LuzzyIcons.BookOpen, "世界书", onWorldBook),
+                    ).forEach { (res, desc, action) ->
+                        ActionSlot(icon = res, description = desc, onClick = action)
+                    }
+                    // 工具开关是唯一带「开/关」状态的入口：开启时用强调色 + 语义里带状态
+                    ActionSlot(
+                        icon = LuzzyIcons.Mcp,
+                        description = if (toolsEnabled) "工具（已开启）" else "工具",
+                        accent = toolsEnabled,
+                        onClick = onTools,
                     )
+                    ActionSlot(icon = LuzzyIcons.Workspace, description = "工作区", onClick = onWorkspace)
                 }
-            }
-            Spacer(Modifier.height(4.dp))
-            // ── 输入行 ──
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BasicTextField(
-                    value = text,
-                    onValueChange = onTextChange,
-                    enabled = !isGenerating,
-                    textStyle = TextStyle(
-                        fontSize = 14.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 10.dp, top = 6.dp, bottom = 6.dp),
-                    decorationBox = { inner ->
-                        // 占位与真实输入必须同处一个容器：decorationBox 的测量只认一个子节点，
-                        // 平铺两个兄弟会让命中区域与测量错乱（点不中输入框）。
-                        Box {
-                            if (text.isEmpty()) {
-                                Text(
-                                    text = "写点什么……",
-                                    fontSize = 14.sp,
-                                    fontFamily = LuzzyFonts.Body,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                            }
-                            inner()
-                        }
-                    },
-                )
-                // 发送 / 停止
+
+                // 发送 / 停止（固定件，永不被左簇挤走）
                 Box(
                     modifier = Modifier
-                        .padding(end = 4.dp)
-                        .size(38.dp)
+                        .size(40.dp)
                         .background(
                             when {
                                 isGenerating -> MaterialTheme.colorScheme.error
                                 canSend -> MaterialTheme.colorScheme.primary
-                                else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                                else -> MaterialTheme.colorScheme.surfaceContainerHigh
                             },
                             CircleShape,
                         )
@@ -459,12 +442,59 @@ fun InputIsland(
                             painter = painterResource(LuzzyIcons.Send),
                             contentDescription = "发送",
                             tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp),
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 功能行里的一个动作槽：**图标 + 可选短名**。
+ *
+ * 热区 44dp（比 rikkahub 的 30dp 大、比 Android 建议的 48dp 小一档；因为左簇可横滑，
+ * 宽度不再是约束，这一档只影响行高——44dp 是 iOS 的官方下限，也是同类的实际常见取值），
+ * 图标 18dp。整行高度由它决定。
+ */
+@Composable
+private fun ActionSlot(
+    icon: Int,
+    description: String,
+    onClick: () -> Unit,
+    label: String? = null,
+    accent: Boolean = false,
+) {
+    val tint = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier
+            .heightIn(min = 44.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            // 纯图标槽的左右内边距压到 5dp：44dp 热区本身已提供间距，再留 10dp 会让图标显得散
+            // （rikkahub 的按钮 30dp + 2dp 间距，节拍更紧——我们靠内边距而非热区来对齐这个节拍）
+            .padding(horizontal = if (label != null) 8.dp else 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = description,
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+        if (label != null) {
+            Text(
+                text = label,
+                fontSize = 11.5.sp,
+                fontFamily = LuzzyFonts.Body,
+                color = tint,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 78.dp),
+            )
         }
     }
 }

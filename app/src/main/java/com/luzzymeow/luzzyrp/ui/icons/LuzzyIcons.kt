@@ -52,4 +52,6 @@ object LuzzyIcons {
     val ChevronRight = R.drawable.ic_lz_chevron_right
     /** 剧情分支（Heroicons v1 `share` = 三节点连线；上游 StoryBranchModal 的路线图同语义）。 */
     val Branch = R.drawable.ic_lz_branch
+    /** 模型（Heroicons v1 `chip` = 芯片；模型选择入口语义图标）。 */
+    val Chip = R.drawable.ic_lz_chip
 }

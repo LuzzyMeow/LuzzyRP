@@ -1,0 +1,16 @@
+<!-- [LuzzyRP v3.0 P3] LuzzyIcons：Heroicons v1.0.6 官方 chip.svg（MIT）原文，作「模型」语义
+     （rikkahub 的模型选择按钮有专用图标；我们此前的模型入口用文字胶囊，既占宽又无语义图标）。
+     无弧 flag，无需规范化。stroke 色/tint 由使用方控制。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M9 3 v2 m6 -2 v2 M9 19 v2 m6 -2 v2 M5 9 H3 m2 6 H3 m18 -6 h-2 m2 6 h-2 M7 19 h10 a2 2 0 0 0 2 -2 V7 a2 2 0 0 0 -2 -2 H7 a2 2 0 0 0 -2 2 v10 a2 2 0 0 0 2 2 z M9 9 h6 v6 H9 V9 z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

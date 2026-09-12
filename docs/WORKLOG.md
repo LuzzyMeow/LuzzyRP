@@ -2653,3 +2653,18 @@ who comes into possession of a copy`）：
   clean 全量 + python 直读 dex 才可信。
 - **验证**（模拟器截图 `docs/design/verify-p1v2-page-*.png` ×7 + drawer/chat）：全部页面
   成型、转场生效、抽屉菜单当前项高亮、关于页数据/署名正确。
+
+#### 追记 7（同日）：页面转场对齐抽屉语义（用户定稿）
+
+- **用户定稿语义**：「点击菜单项 → 菜单栏向左隐藏的**同时**交叉淡化页面（做好不透明度曲线）
+  → 侧边菜单栏完全收入抽屉时转场完成、新页完整呈现」——现行 DESIGN.md「页面交接」条款的
+  Compose 移植。
+- **实现**：`DrawerCloseMs = 250`（对齐 M3 drawer 默认收起时长）单值令牌；转场 =
+  新页 `fadeIn(initialAlpha=0.35 → 1, 250ms ease-out)`（**抬高起点防交叉期灰陷**——
+  v1.5 交接条款既有经验）+ 旧页 `fadeOut(1→0, 250ms)`；菜单点击 = onNavigate +
+  drawerState.close() 同帧触发。**去掉了此前的 scaleIn**（用户强调不透明度曲线，纯淡化）。
+- **验证**：连拍帧序列（`verify-p1v2-tx-strip.png`）——f0 抽屉左移中+新页透出、f1 抽屉
+  收完新页呈现、fend 稳定；**screencap 传输延迟（~400ms/帧）无法捕捉 250ms 内 alpha
+  中间帧**，帧级曲线验证留待录屏分析（spec 按设计实现）。
+- **教训**：连拍验证转场动画勿用 `adb exec-out screencap`（单帧传输 400ms+），
+  应 `screenrecord` 录屏后逐帧拆（后续动效验证统一走录屏管线）。

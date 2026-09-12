@@ -49,6 +49,9 @@ enum class LuzzyRoute(val title: String, val icon: Int) {
     About("关于", LuzzyIcons.Info),
 }
 
+/** 抽屉收起时长（对齐 M3 ModalNavigationDrawer 默认关闭动画 ≈250ms；转场与之同长）。 */
+const val DrawerCloseMs = 250
+
 /**
  * v3.0 应用壳：抽屉（提升到壳层，全页共用）+ AnimatedContent 页面转场。
  *
@@ -113,9 +116,15 @@ fun LuzzyNavShell(
         AnimatedContent(
             targetState = route,
             transitionSpec = {
-                (fadeIn(tween(Motion.EnterMs, easing = Motion.Easing)) +
-                    scaleIn(initialScale = 0.96f, animationSpec = tween(Motion.EnterMs, easing = Motion.Easing)))
-                    .togetherWith(fadeOut(tween(Motion.ExitMs, easing = Motion.Easing)))
+                // DESIGN-compose §13.2（用户 2026-09-12 定稿）：转场时长 = 抽屉收起时长（250ms），
+                // 同帧起跑；新页 alpha 0.35→1（抬高起点防交叉期灰陷，v1.5 交接经验），
+                // 旧页 1→0，同长同曲线（交叉淡化）；禁 scale(0)。
+                (fadeIn(
+                    animationSpec = tween(DrawerCloseMs, easing = Motion.Easing),
+                    initialAlpha = 0.35f,
+                )).togetherWith(
+                    fadeOut(animationSpec = tween(DrawerCloseMs, easing = Motion.Easing)),
+                )
             },
             label = "pageTransition",
         ) { current ->

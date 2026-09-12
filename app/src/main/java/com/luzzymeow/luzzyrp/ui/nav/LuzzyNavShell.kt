@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +50,14 @@ enum class LuzzyRoute(val title: String, val icon: Int) {
     About("关于", LuzzyIcons.Info),
 }
 
-/** 抽屉收起时长（对齐 M3 ModalNavigationDrawer 默认关闭动画 ≈250ms；转场与之同长）。 */
+/** 抽屉收起时长（对齐 M3 ModalNavigationDrawer 默认关闭动画 ≈250ms）。 */
 const val DrawerCloseMs = 250
+
+/** 内容页面转场总时长（两段式：抽屉期主体 + 收完后可感知落定段）。 */
+const val ContentTxMs = 450
+
+/** 旧页淡出时长（随抽屉收起期内完成，避免残影）。 */
+const val OldFadeMs = 200
 
 /**
  * v3.0 应用壳：抽屉（提升到壳层，全页共用）+ AnimatedContent 页面转场。
@@ -116,14 +123,18 @@ fun LuzzyNavShell(
         AnimatedContent(
             targetState = route,
             transitionSpec = {
-                // DESIGN-compose §13.2（用户 2026-09-12 定稿）：转场时长 = 抽屉收起时长（250ms），
-                // 同帧起跑；新页 alpha 0.35→1（抬高起点防交叉期灰陷，v1.5 交接经验），
-                // 旧页 1→0，同长同曲线（交叉淡化）；禁 scale(0)。
+                // DESIGN-compose §13.2（二次修订：250ms 主体被抽屉遮挡 ≈ 硬切，用户实测反馈）。
+                // 内容转场 450ms 两段式：0-250ms 抽屉收起期完成主体（alpha 0.35→0.8+上移大半），
+                // 250-450ms 为抽屉收完后可感知的落定段（渐显至 1 + 上移到位）；
+                // 旧页 fadeOut 200ms 随抽屉期完成。不透明度 ease-out 全程，禁 scale(0)。
                 (fadeIn(
-                    animationSpec = tween(DrawerCloseMs, easing = Motion.Easing),
+                    animationSpec = tween(ContentTxMs, easing = Motion.Easing),
                     initialAlpha = 0.35f,
+                ) + slideInVertically(
+                    animationSpec = tween(ContentTxMs, easing = Motion.Easing),
+                    initialOffsetY = { it / 30 },
                 )).togetherWith(
-                    fadeOut(animationSpec = tween(DrawerCloseMs, easing = Motion.Easing)),
+                    fadeOut(animationSpec = tween(OldFadeMs, easing = Motion.Easing)),
                 )
             },
             label = "pageTransition",

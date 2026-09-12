@@ -229,14 +229,12 @@ primary-600 → success(green) → primary-700 → error → primary-400 → gra
 - **转场（页面交接·用户 2026-09-12 定稿语义）**：**「点击菜单项 → 抽屉向左收起的**同时**
   内容交叉淡化 → 抽屉完全收起的时刻转场恰好完成、新页完整呈现」**（用户原话：「菜单栏向左
   隐藏的同时 交叉淡化页面 做好不透明度曲线…侧边菜单栏完全收入抽屉页面转场完成」）：
-  - **时长单值 = 250ms**（`DrawerCloseMs`，对齐 M3 ModalNavigationDrawer 默认收起时长；
-    与现行 DESIGN.md「转场时长 = 侧栏收起时长」的定稿语义一致——Web 版侧栏 200ms，
-    Compose 抽屉 250ms，各随宿主）；
-  - **不透明度曲线（防灰陷）**：新页 `fadeIn(initialAlpha = 0.35 → 1)`，250ms ease-out
-    `Motion.Easing`——抬高起点，避免交叉期两页同时半透明往底色发灰（现行 DESIGN.md v1.5
-    交接条款的既有经验移植）；旧页 `fadeOut(1 → 0)` 同长同曲线（交叉）；
-  - **同帧起跑**：菜单点击 = `onNavigate(route)` + `drawerState.close()` 同一帧触发
-    （AnimatedContent targetState 切换与抽屉动画并行）；
+  - **时长与分段（2026-09-12 二次修订：用户实测反馈「250ms 像硬切」——淡化主体发生在
+    抽屉遮挡期，被抽屉移动完全掩盖）**：内容转场 **450ms** 两段式——**0-250ms**（抽屉收起期）
+    新页 alpha 0.35→~0.8 + 上移大半，**250-450ms**（抽屉收完后）为**可感知的落定段**
+    （渐显至 1 + 上移到位）；旧页 fadeOut **200ms**（随抽屉期内完成，避免残影）；
+  - **位移分量（可感知的关键）**：新页 `slideInVertically` 自下 **~30dp** 上移——位移比
+    alpha 更易被视觉捕捉；不透明度曲线 ease-out `Motion.Easing` 全程；
   - 禁 `scale(0)`；easing 统一 `Motion.Easing`。rikkahub 的滑动+缩放 push/pop 转场
     **不采用**（其语义面向层级栈导航；LuzzyRP P1 页面为平铺切换，P5 引入详情栈时再议）；
 - **页面底色**：非沉浸页 = `colorScheme.surface` 实底（无背景图）；聊天页保持 §12 沉浸形态。

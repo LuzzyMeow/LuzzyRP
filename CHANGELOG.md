@@ -4,6 +4,32 @@
 > 格式：`### vX.Y.Z — 标题` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v3.0.0 — 全面转 Jetpack Compose（开发中）（上游基线 RP-Hub 1.9.3 · 基线定格）
+
+> **状态：开发中（2026-09-12 起）。** 主计划 `docs/PLAN-v3.0-compose.md`（P0-P6 分期）。
+> 设计语言「**织机 Loom**」（用户 2026-09-12 三方向选定），设计真源 `docs/DESIGN-compose.md`。
+> 上游同步已退役（见 v2.0.0 注意事项），v2.x WebView 版在 P6 切换前保持可发布。
+
+**新增**
+- **P1「空壳可跑」完成（2026-09-12）**：
+  - **Compose 座接线**：Compose BOM（版本组合自助手时代先例 `52aab12c` 回收）+
+    `kotlin.plugin.compose` + buildFeatures.compose + composeMappingProducerClasspath
+    钉版本补丁；新增独立 `ui.ComposeActivity`（**launcher 仍为 WebView 版 MainActivity**，
+    v2.x 用户体验零影响；ComposeActivity 经 adb 显式启动验证，P6 才切换）；
+  - **HCT 动态色板**：vendor material-color-utilities（**Apache-2.0**，`ui/theme/mcu/`，
+    与 AGPL 并存无冲突）→ seed 珊瑚陶土 `#CC785C` → TONAL_SPOT 亮暗双 ColorScheme；
+    权威生成值落档 `DESIGN-compose.md` §2 并以快照测试钉死
+    （亮画布 `#FFF4F1` / 暗画布 `#231917`；primary 亮 `#8F4C35` / 暗 `#FFB59D`）；
+  - **字体本地打包（硬性规定 4）**：8 枚 TTF（Lora×2 / PuHuiTi×3 / AlibabaSans×3）自
+    git 历史恢复落 `res/font/`；Lora display 族 + PuHuiTi 正文族 + API 29+ 中文回退链；
+  - **假数据聊天页**：顶栏（Luna + Lora 名牌体系）/ 无气泡 AI 消息（叙述/动作斜体/对白）/
+    primaryContainer 用户气泡（320dp 上限）/ 思考卡折叠行 / `‹ 2/3 ›` 分支 chip /
+    输入岛（28dp 圆角 + 38dp 圆形发送键 + 导航栏避让）/ Modal 抽屉 /
+    MeshGradient 背景（线性底 + 光斑漂移，无 blur，亮暗两套）+ 动效令牌（200/140ms 贝塞尔）；
+  - **验证**：模拟器（LuzzyRP_Test）装机可见、可滚动、亮暗切换正常、抽屉正常
+    （截图 `docs/design/verify-p1-*.png`）；`assembleDebug` + `assembleRelease`（R8 + luzzy
+    签名，38.3MB，字体 +21MB 为既定接受增量）双过；单测全绿（既有 207 + 新增色板快照）。
+
 ### v2.0.0 — 架构版：KV/prompt 前缀缓存最大化 × 原生 Kotlin 聊天传输后端（B 方案 · 薄切）（上游基线 RP-Hub 1.9.3）
 
 > **状态：开发中（2026-09-11 起）。** 主计划 `docs/PLAN-v2.0.md`。本版是**架构版本**，两条主线：

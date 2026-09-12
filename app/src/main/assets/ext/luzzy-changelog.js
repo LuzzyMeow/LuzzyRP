@@ -90,6 +90,18 @@
   revert 对照，故不下结论**，待真实 Gemini key 复核。
 - 已知未完成：世界书 / 向量召回的「距尾 depth」插入点（\`at_depth\`）与「纯追加」存在**语义冲突**
   （「距尾 N 轮」本质上不是追加式），需要专门设计，本版**未改**。
+- **许可安排变更（2026-09-12，v3.0 立项决定）**：因 v3.0「全面转 Compose」需以
+  [rikkahub](https://github.com/rikkahub/rikkahub)（AGPL-3.0）为 Compose 设计参照并源码级复用，
+  **自有代码自 v3.0 起转为 AGPL-3.0 分发**（新增 \`LICENSE-AGPL-3.0\`；上游
+  \`assets/rphub/**\` 保持 CC BY-NC 4.0 原样署名，根 \`LICENSE\` 未删未改）。并存结构与
+  一处已知冲突（CC BY-NC 非商用 vs AGPL 第 10 条）如实记录于 \`docs/LICENSING.md\` §3；
+  \`HARD_REQUIREMENTS.md\` 合规红线与 README「许可证与合规」段已同步更新。
+  本条**不改变** v2.0.0 的任何构建产物与代码行为（纯许可/文档动作）。
+- **上游同步退役（2026-09-12，用户拍板）**：v3.0 转 Compose 后，上游 RP-Hub 同步
+  **不再执行**，上游基线定格 **1.9.3**；\`tools/sync-upstream.ps1\` 等同步工具、
+  \`tools/patches/\` 与 \`rp-hub-reference/\` **保留不删**（追溯依据），仅停止流程
+  （\`AGENTS.md\` §4 头部退役声明 + \`HARD_REQUIREMENTS.md\` 规定 6 标注退役 + README 表述更新）。
+  \`nsfw_rules\` 不可触碰约束（硬性规定 1）**永久有效**。本条同样**不改变** v2.0.0 构建产物。
 
 **验证**
 - **构建**：\`./gradlew :app:assembleRelease :app:testDebugUnitTest\` → BUILD SUCCESSFUL；

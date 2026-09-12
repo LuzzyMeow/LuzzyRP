@@ -148,7 +148,8 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
 - [x] P0 完整阅读 4 项设计 SKILL 主文档（硬性规定 9）——会话 63 完成（huashu-design SKILL.md / open-design AGENTS.md / ui-ux-pro-max CLAUDE.md / awesome-design-md README.md）
 - [x] P0 三方向差异化初稿 + 用户选定——`docs/design/boards-v4/`（A 织机 Loom / B 暖幕手记·纸页 / C 夜航灯），用户选定 **A · 织机 Loom**（`direction-approved-v4.md`）
 - [x] P0 `docs/DESIGN-compose.md` 定稿（2026-09-12）
-- [ ] P1 空壳可跑
+- [x] P1 空壳可跑（2026-09-12，会话 64：Compose 座 + HCT 主题 + 字体 + 假数据聊天页；
+  模拟器验证通过，截图 `docs/design/verify-p1-*.png`；见 CHANGELOG v3.0.0）
 - [ ] P2 聊天只读 + 原生流式
 - [ ] P3 发送链路
 - [ ] P4 数据层与迁移原型

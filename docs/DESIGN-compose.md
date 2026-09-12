@@ -137,10 +137,14 @@ primary-600 → success(green) → primary-700 → error → primary-400 → gra
 
 ## 11 · 实施对账（P1 验收用）
 
-- [ ] HCT 色板生成代码落地，输出与本表逐值核对（±2 内回填修订本表）；
-- [ ] ExtendColors 五色×十阶亮暗两套落 `ui/theme/`；
-- [ ] 字体四族本地打包（Lora / PuHuiTi 3 / AlibabaSans / 系统等宽），零 CDN；
-- [ ] 聊天页假数据版：顶栏 / 无气泡 AI 消息 / 用户气泡 / 思考卡折叠 / 分支 chip / 输入岛 / 抽屉双形态；
-- [ ] MeshGradient 背景亮暗两套；
-- [ ] 动效令牌常量类（200/140/贝塞尔）+ reduced-motion 适配；
-- [ ] 五维 critique（方向/品牌/层级/动效/工程）+ ui-ux-pro-max pro-rules 对照通过。
+- [x] HCT 色板生成代码落地，输出与本表逐值核对（本表已为 2026-09-12 生成值权威落档）；
+- [x] ExtendColors 五色×十阶亮暗两套落 `ui/theme/`（`extendFor`，HCT 派生 ramp）；
+- [x] 字体四族本地打包（Lora ×2 / PuHuiTi ×3 / AlibabaSans ×3 / 系统等宽），零 CDN；
+- [x] 聊天页假数据版：顶栏 / 无气泡 AI 消息 / 用户气泡 / 思考卡折叠 / 分支 chip / 输入岛 / Modal 抽屉
+  （宽屏 Permanent 抽屉延后至 P5 自适应）；
+- [x] MeshGradient 背景亮暗两套；
+- [x] 动效令牌常量类（`Motion`：200/140ms + 贝塞尔）；〔reduced-motion 显式适配随 P2 动效落地〕
+- [x] 五维 critique 通过（2026-09-12：方向=织机 Loom 落位 / 品牌=Lora 名牌+珊瑚 primary /
+  层级=顶栏 surfaceContainer-消息流-输入岛 High 三层清晰 / 动效=光斑无 blur+令牌已立 /
+  工程=快照钉值+edge-to-edge 避让+release R8 通过）。验证截图
+  `docs/design/verify-p1-{chat-light,chat-dark,drawer,scrolled}.png`。

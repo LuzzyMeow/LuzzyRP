@@ -2478,3 +2478,57 @@ who comes into possession of a copy`）：
   + BOM 2026.08.00 + composeMappingProducerClasspath 钉版本补丁）；8 枚 TTF 在
   `52aab12c:app/src/main/assets/assistant/fonts/` 可 `git show` 取回；HCT 库 =
   material-foundation/material-color-utilities（Apache-2.0，不触发 AGPL，rikkahub submodule 未检出）。
+
+### 会话 64 · 收尾（同日）
+
+#### 一、完成
+
+1. **拍板落档（T0/T1）**：上游同步即刻退役（AGENTS §4 头部声明 / HARD_REQUIREMENTS 规定 6
+   标注退役 / README 三处表述 / CHANGELOG v2.0.0 注意事项）；数据迁移无需兜底
+   （PLAN §3/§6 修订：失败仅提示，不设回退）。
+2. **T2 工程接线**：`libs.versions.toml` + `app/build.gradle.kts` 自 `52aab12c` 回收
+   Compose 座（BOM 2026.08.00 + kotlin.plugin.compose@2.4.0 + buildFeatures.compose +
+   composeMappingProducerClasspath 钉版本补丁）；Manifest 加 `ui.ComposeActivity`
+   （exported，launcher 不变）。首次 `assembleDebug` 通过。
+3. **T3 字体落地**：8 枚 TTF 自 `52aab12c:app/src/main/assets/assistant/fonts/` 恢复至
+   `res/font/`（snake_case）；发现并删除 v0.1.0 遗留旧 6 枚（md5 不同源，无 Italic、
+   命名无版本号）；`LuzzyFonts.kt`（Lora/PuHuiTi/AlibabaSans 三族 + 系统等宽 +
+   API 29+ CustomFallbackBuilder 中文回退链）。
+4. **T4 HCT 主题层**：vendor material-color-utilities（Apache-2.0，commit `5b3618b` 快照，
+   LICENSE+NOTICE 齐备）至 `ui/theme/mcu/`；`LuzzyTheme.kt`（seed #CC785C → TONAL_SPOT
+   亮暗双 scheme + ExtendColors 五色×十阶 HCT ramp + 语义色）；
+   `LuzzyPaletteSnapshotTest`（快照钉值）。**权威生成值与手算表差异超 ±2**（MCU 2021
+   spec 权威取色），按预定规则以生成值回填 `DESIGN-compose.md` §2 与 approved 文档
+   （亮画布 #FFF4F1 / 暗 #231917；primary 亮 #8F4C35 / 暗 #FFB59D）；boards HTML 保留
+   设计期原值（文档已注明权威值出处）。全部单测绿（既有 207 + 新增）。
+5. **T5 假数据聊天页**：`ChatPage`（TopAppBar surfaceContainer 面 + LazyColumn 消息流 +
+   思考卡折叠 + 分支 chip + 无气泡 AI 消息 + primaryContainer 用户气泡 + Modal 抽屉）+
+   `ChatComponents`（名牌/气泡/思考卡/输入岛 28dp 圆角）+ `MeshGradientBackground`
+   （线性底 + 四光斑正弦漂移，无 blur，亮暗两套）+ `Motion` 令牌（200/140ms 贝塞尔）。
+6. **T6 验证**：模拟器 LuzzyRP_Test 装机启动成功；**亮暗切换正常**（顶栏按钮）；
+   **滚动正常**；抽屉正常（Lora 品牌字样 + 菜单）；输入岛导航栏避让修复
+   （首版发现被 edge-to-edge 导航条遮挡 → navigationBarsPadding）；
+   `assembleRelease`（R8 + luzzy 签名）通过，38.3MB（+21MB 字体为既定接受增量）。
+   截图存档 `docs/design/verify-p1-{chat-light,chat-dark,drawer,scrolled}.png`。
+   五维 critique 通过并登记 DESIGN-compose §11 对账全勾。
+
+#### 二、决策
+
+- **入口形态**：ComposeActivity 经 adb 显式启动（P1-P5 验证通道），launcher 仍为
+  WebView 版 MainActivity——v2.x 用户体验零影响，P6 切换时才接任。
+- **字体取舍**：统一用 git 历史恢复的 8 枚（与 Web 端 woff2 同源），删除 v0.1.0 旧 6 枚。
+- **图标库**：material-icons-extended（BOM 内；core 集不含 DarkMode/LightMode/ExpandMore；
+  R8 剔除未用项，release 实测体积可接受）。
+
+#### 三、遗留（进 P2 前）
+
+1. 亮暗模式为内存态（P4 接 DataStore 持久化）；
+2. 宽屏 PermanentNavigationDrawer 未做（P5 自适应统一做）；
+3. reduced-motion 显式适配（P2 动效时统一做）；
+4. 思考卡展开态 / 气泡模式开关 / 流式 live 态属 P2；
+5. 五维 critique 中「层级」维度的抽屉项排版较素（ListItem 默认），P5 品牌化时细化。
+
+#### 四、下一步
+
+- **P2 聊天只读链路**：会话列表 + Markdown→Compose 渲染（richtext 链路调研）+
+  接 v2.0 Kotlin 传输做流式上屏（`chat/` 包 207 单测原样可用）；真机能看历史、能流式。

@@ -2627,3 +2627,29 @@ who comes into possession of a copy`）：
 - **验证**：模拟器放大核对——太阳中心 O 形圆完整、月牙弧线圆滑。
 - **教训入档**：SVG → VectorDrawable 转换**必须**做弧 flag 规范化（flag 为单字符，
   与参数间强制空格）；「上游/官方原文」仍需过这层转换，原文 ≠ 可直接用。
+
+#### 追记 6（同日）：全页面静态稿 + 页面切换转场 + 关于页（用户指令）
+
+- **考察（用户要求「重点考察所有参考项目」）**：① rikkahub——Navigation3 NavDisplay
+  转场参数（push 右滑+缩放 0.7 / 栈底纯 fade / Chat 页 metadata 单独覆盖 fade；抽屉直接
+  navigate 不先关）；CardGroup 设置卡组（圆角 20dp/组内压 4dp/按下动画）；大标题折叠
+  TopAppBar。② WebView 版（自己）——settings-page-header 统一页头、七页完整 IA
+  （角色网格/叠卡+计数徽标、世界书 slider 折叠卡+行卡、预设行卡、记忆引擎/检索/管理三卡、
+  用量 segmented+趋势+日志、设置三渐变头大卡、关于品牌卡+CHANGELOG 卡），摘录入
+  DESIGN-compose §13。
+- **实现**：`ui/nav/LuzzyNavShell.kt`（抽屉提升壳层 + `LuzzyRoute` **enum** +
+  AnimatedContent 转场：fadeIn 200ms + scaleIn 0.96 / fadeOut 140ms——现行 DESIGN.md
+  「页面交接」交叉淡化语义移植，rikkahub 滑动+缩放语义不采用（面向层级栈，P5 再议））；
+  `ui/pages/common/PageKit.kt`（PageHeader/SettingCard/SettingRow/BadgeChip/LuzzySwitch/
+  EmptyState——对齐上游组件语义）；`ui/pages/StaticPages.kt` 七页静态稿（角色/世界书/
+  预设/记忆/用量/设置/关于，假数据对齐上游 IA）；ChatPage drawer 上提（签名加
+  onOpenDrawer）；AboutPage 品牌区 + 版本/上游/许可卡 + v3.0.0 CHANGELOG 要点
+  （真实数据源 ext/luzzy-changelog.js 留待 P5）。
+- **踩坑（本轮最大排障）**：模拟器反复显示旧界面/崩溃——三案叠加：① 模拟器上驻留
+  **旧 release 包**（R8 验证时安装，包名无 .debug，am start 曾用 release 包名把它带到
+  前台并驻留任务栈）→ 模拟器上卸载；② `LuzzyRoute` data object + companion drawerOrder
+  **类初始化次序**导致 drawer 首开 NPE（r.title on null）→ **改 enum**（枚举语义本就更
+  正确，entries 遍历）；③ 增量构建伪影干扰判断（dex 检测曾因 strings 命令缺失误报 0）——
+  clean 全量 + python 直读 dex 才可信。
+- **验证**（模拟器截图 `docs/design/verify-p1v2-page-*.png` ×7 + drawer/chat）：全部页面
+  成型、转场生效、抽屉菜单当前项高亮、关于页数据/署名正确。

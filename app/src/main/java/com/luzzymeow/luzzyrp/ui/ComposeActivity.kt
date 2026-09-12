@@ -4,43 +4,68 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.luzzymeow.luzzyrp.ui.nav.LuzzyNavShell
+import com.luzzymeow.luzzyrp.ui.nav.LuzzyRoute
+import com.luzzymeow.luzzyrp.ui.pages.AboutPage
+import com.luzzymeow.luzzyrp.ui.pages.CharactersPage
+import com.luzzymeow.luzzyrp.ui.pages.MemoryPage
+import com.luzzymeow.luzzyrp.ui.pages.PresetsPage
+import com.luzzymeow.luzzyrp.ui.pages.SettingsPage
+import com.luzzymeow.luzzyrp.ui.pages.UsagePage
+import com.luzzymeow.luzzyrp.ui.pages.WorldInfoPage
 import com.luzzymeow.luzzyrp.ui.pages.chat.ChatPage
 import com.luzzymeow.luzzyrp.ui.pages.chat.MeshGradientBackground
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 
 /**
- * v3.0 Compose 界面宿主（P1 空壳验证）。
+ * v3.0 Compose 界面宿主（P1 静态稿验证）。
  *
  * launcher 仍为 [com.luzzymeow.luzzyrp.MainActivity]（WebView 壳，v2.x 体验零影响）；
- * 本 Activity 仅经 `adb shell am start -n com.luzzymeow.luzzyrp(.debug)/.ui.ComposeActivity`
- * 显式启动做 P1-P5 开发验证，P6 切换时才接任 launcher 并移除 WebView 路径
- * （届时回归「单 Activity」终态）。
+ * 本 Activity 经 `adb shell am start` 显式启动做开发验证，P6 切换时才接任 launcher。
  *
- * 亮暗模式：P1 为内存态 + 手动切换（验证「主题切换正常」）；持久化随 P4 数据层接 DataStore。
+ * 路由：LuzzyNavShell（抽屉壳 + AnimatedContent 页面转场，DESIGN-compose §13.2）；
+ * 聊天页沉浸形态（§12），其余页静态稿（§13.1）。
  */
 class ComposeActivity : ComponentActivity() {
 
     private var darkMode by mutableStateOf<Boolean?>(null)
+    private var route by mutableStateOf<LuzzyRoute>(LuzzyRoute.Chat)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         LuzzyFonts.appContext = applicationContext
         setContent {
+            val currentDark = darkMode ?: isSystemInDarkTheme()
+            val toggleDark: () -> Unit = { darkMode = !currentDark }
             LuzzyTheme(darkTheme = darkMode) {
-                MeshGradientBackground(Modifier.fillMaxSize()) {
-                    val currentDark = darkMode ?: isSystemInDarkTheme()
-                    ChatPage(
-                        darkMode = currentDark,
-                        onToggleDarkMode = { darkMode = !currentDark },
-                    )
+                LuzzyNavShell(
+                    route = route,
+                    onNavigate = { route = it },
+                    darkMode = currentDark,
+                    onToggleDarkMode = toggleDark,
+                ) { onOpenDrawer ->
+                    when (route) {
+                        LuzzyRoute.Chat -> ChatPage(
+                            darkMode = currentDark,
+                            onToggleDarkMode = toggleDark,
+                            onOpenDrawer = onOpenDrawer,
+                        )
+                        LuzzyRoute.Characters -> CharactersPage(onOpenDrawer)
+                        LuzzyRoute.WorldInfo -> WorldInfoPage(onOpenDrawer)
+                        LuzzyRoute.Presets -> PresetsPage(onOpenDrawer)
+                        LuzzyRoute.Memory -> MemoryPage(onOpenDrawer)
+                        LuzzyRoute.Usage -> UsagePage(onOpenDrawer)
+                        LuzzyRoute.Settings -> SettingsPage(onOpenDrawer)
+                        LuzzyRoute.About -> AboutPage(onOpenDrawer)
+                    }
                 }
             }
         }

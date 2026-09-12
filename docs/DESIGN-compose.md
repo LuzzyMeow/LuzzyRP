@@ -197,3 +197,45 @@ primary-600 → success(green) → primary-700 → error → primary-400 → gra
   层级=顶栏 surfaceContainer-消息流-输入岛 High 三层清晰 / 动效=光斑无 blur+令牌已立 /
   工程=快照钉值+edge-to-edge 避让+release R8 通过）。验证截图
   `docs/design/verify-p1-{chat-light,chat-dark,drawer,scrolled}.png`。
+## 13 · 全页面骨架与导航转场（2026-09-12，考察落档）
+
+> **考察来源**（用户要求「重点考察所有参考项目，包括我们自己的项目」）：
+> ① **rikkahub**（`docs/rikkahub-master/`）：Navigation3 `NavDisplay` 转场——push = 新页右滑入
+> 全幅 + 旧页左滑半幅 + scaleOut(0.7)+fadeOut；**栈底返回 = 纯 fadeIn/fadeOut**；Chat 页
+> metadata 单独覆盖为 fade；抽屉点菜单**直接 navigate 不先关抽屉**；设置类页面 = 大标题折叠
+> TopAppBar + **CardGroup**（圆角 20dp 卡组、组内条目圆角压 4dp、按下动画）。② **WebView 版
+> LuzzyRP**（我们自己）：统一页头组件 settings-page-header（汉堡+图标+标题+右侧操作）；
+> 各页 IA 见下表；关于页 = 品牌卡 + CHANGELOG 卡（版本下拉+搜索）+ 回顶 FAB。
+
+### 13.1 页面清单（P1 静态稿 = 侧栏 7 项 + 关于页）
+
+| route | 页 | 骨架要点（上游 IA 翻译） |
+|-------|-----|------------------------|
+| Chat | 对话 | §12 沉浸形态（已落地） |
+| Characters | 角色卡 | 页头（搜索+网格/叠卡切换+添加）→ 角色卡 2 列网格（图 + 名 + 「使用中」徽标 + 世界书/正则计数）→ 空态 |
+| WorldInfo | 世界书 | 页头（导出/导入/新建）→ 激活设置折叠卡（扫描深度 slider ×2）→ 条目行卡（名 + 范围徽标 + toggle + 编辑/删除） |
+| Presets | 预设 | 页头（导出/导入/新建）→ 行卡（名 + 注入位置徽标 + toggle + 编辑/删除） |
+| Memory | 记忆 | 页头（清空红钮）→ 引擎设置折叠卡（toggle + 总结/向量 segmented + slider）→ 检索卡（统计双卡 + 检索行 + 结果列表） |
+| Usage | 用量 | 页头（清空红钮）→ 类型 segmented（4 段）→ 总用量卡 → 趋势图卡（粒度 pill + 系列 chip，P1 静态占位折线）→ 日志列表（模型/类型/耗时 + 输入/输出/消耗三行） |
+| Settings | 设置 | 三大卡（用户设置 / API 连接 / 高级设置），每卡 = 渐变头带 + 内容区（表单/toggle 网格/存储进度）——上游三卡 IA 翻译 |
+| About | 关于（新增） | 品牌区（logo + LuzzyRP + versionName）+ 署名行（基于 RP-Hub 1.9.3 · AGPL-3.0 自有 / CC BY-NC 4.0 上游 · 仅侧载）+ 应用内 CHANGELOG 卡（真实数据源：`assets/ext/luzzy-changelog.js` 的 `window.LuzzyChangelog.md`，P1 简版 markdown 渲染）+ GitHub 页脚 |
+
+### 13.2 导航与转场规格
+
+- **导航**：P1 不引 Navigation3——`LuzzyRoute` sealed 状态 + `AnimatedContent` 容器
+  （`LuzzyNavShell`：ModalNavigationDrawer 包全部页面，抽屉提升到壳层，各页收
+  `onOpenDrawer` 回调；抽屉菜单点击 = setRoute + 关抽屉，同拍执行——rikkahub
+  「直接 navigate」实践 + 我们的「侧栏收起与切页同拍」语义合并）；
+- **转场（页面交接令牌移植）**：进入 = `fadeIn(200ms) + scaleIn(initialScale=0.96f)`；
+  退出 = `fadeOut(140ms)`；easing 统一 `Motion.Easing`——对应现行 DESIGN.md「页面交接」
+  的交叉淡化语义（新页淡入与旧页淡出同帧起跑，AnimatedContent 同帧保证），200/140 令牌，
+  禁 scale(0)（0.96 起步）。rikkahub 的滑动+缩放 push/pop 转场**不采用**（其语义面向
+  层级栈导航；LuzzyRP P1 页面为平铺切换，P5 引入详情栈时再议）；
+- **页面底色**：非沉浸页 = `colorScheme.surface` 实底（无背景图）；聊天页保持 §12 沉浸形态。
+
+### 13.3 通用组件（ui/pages/common/PageKit）
+
+`PageHeader`（汉堡 + LuzzyIcons 页图标 + 20sp Bold 标题 + 右侧动作槽，M3 TopAppBar 透明底）、
+`SettingCard`（card 底 + hairline 边 + 16dp 圆角 + 分组标题）、`SettingRow`（leading icon +
+标题 + 支撑文本 + trailing 控件/toggle/chevron）、`SectionTitle`（12sp uppercase hairlineStrong）、
+`EmptyState`（居中图标 + 主副文）——命名对齐上游组件语义。

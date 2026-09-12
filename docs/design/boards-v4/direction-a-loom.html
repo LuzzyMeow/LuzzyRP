@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方向 A · 织机 Loom — LuzzyRP v3.0 Compose 方向板</title>
+<style>
+@font-face { font-family:'Lora'; src:url('fonts/Lora-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'Lora'; src:url('fonts/Lora-Italic.woff2') format('woff2'); font-weight:400; font-style:italic; }
+@font-face { font-family:'PuHuiTi'; src:url('fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'PuHuiTi'; src:url('fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2'); font-weight:500; }
+@font-face { font-family:'PuHuiTi'; src:url('fonts/AlibabaPuHuiTi-3-85-Bold.woff2') format('woff2'); font-weight:700; }
+@font-face { font-family:'AlibabaSans'; src:url('fonts/AlibabaSans-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'AlibabaSans'; src:url('fonts/AlibabaSans-Medium.woff2') format('woff2'); font-weight:500; }
+@font-face { font-family:'AlibabaSans'; src:url('fonts/AlibabaSans-Bold.woff2') format('woff2'); font-weight:700; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#141413; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  padding:36px 24px; font-family:'PuHuiTi','AlibabaSans',sans-serif; color:#FAF9F5;
+}
+.board-title { font-family:'Lora',serif; font-size:26px; letter-spacing:.02em; margin-bottom:4px; }
+.board-sub { font-size:13px; color:#A5A198; margin-bottom:26px; }
+.stage { display:flex; gap:56px; }
+
+/* ===== 手机框 ===== */
+.phone {
+  width:340px; height:700px; border-radius:36px; overflow:hidden; position:relative;
+  border:1px solid #3E3A34; box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+
+/* ===== 亮色主题（HCT seed #CC785C → TONAL_SPOT 推导） ===== */
+.light {
+  background:#FBF6F2; /* M3 surface：HCT(C=#44 T=97) 暖纸白 */
+}
+.light .topbar {
+  position:absolute; top:0; left:0; right:0; height:64px; z-index:5;
+  background:rgba(247,232,222,.92); /* primaryContainer: HCT seed T90 */
+  backdrop-filter:blur(14px);
+  display:flex; align-items:center; padding:0 12px; gap:10px;
+  border-bottom:1px solid rgba(230,206,192,.9); /* outlineVariant */
+}
+.light .avatar {
+  width:34px; height:34px; border-radius:17px; flex:none;
+  background:linear-gradient(135deg,#E8A18B,#CC785C); /* tertiaryContainer→primary 演示 */
+  display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Lora'; font-size:15px;
+}
+.light .who .nm { font-family:'Lora',serif; font-size:15px; color:#4A2B1E; font-weight:700; }
+.light .who .st { font-size:10.5px; color:#8A6355; }
+.light .actions { margin-left:auto; display:flex; gap:6px; }
+.light .iconbtn {
+  width:34px; height:34px; border-radius:17px; border:1px solid rgba(230,206,192,.9);
+  display:flex; align-items:center; justify-content:center; color:#8A4A32; font-size:14px;
+  background:rgba(255,251,248,.6);
+}
+/* MeshGradient 光斑（rikkahub 手法：线性底 + 漂移光斑，示意静帧） */
+.light .mesh { position:absolute; inset:0; z-index:0;
+  background:
+   radial-gradient(120px 120px at 82% 18%, rgba(204,120,92,.16), transparent 70%),
+   radial-gradient(150px 150px at 12% 42%, rgba(232,161,139,.12), transparent 70%),
+   radial-gradient(170px 170px at 70% 78%, rgba(245,217,168,.18), transparent 70%),
+   linear-gradient(180deg,#FBF6F2 0%,#F8EFE8 60%,#FBF6F2 100%);
+}
+.light .chat { position:absolute; inset:64px 0 92px; overflow:hidden; padding:14px 14px 8px; display:flex; flex-direction:column; gap:12px; z-index:1; }
+.light .bubble-ai {
+  max-width:272px; padding:10px 12px 9px; border-radius:16px;
+  background:rgba(242,226,216,.55); /* surfaceContainerHigh 派生 */
+  border:1px solid rgba(230,206,192,.85);
+}
+.light .nmrow { display:flex; align-items:baseline; gap:6px; margin-bottom:5px; }
+.light .nmrow .nm { font-family:'Lora',serif; font-size:13px; color:#9A5638; font-weight:700; }
+.light .nmrow .br { font-size:9.5px; color:#A8836F; background:rgba(255,251,248,.8); border:1px solid rgba(230,206,192,.7); padding:1px 6px; border-radius:999px; }
+.light .msg { font-size:13.5px; line-height:1.68; color:#41312B; }
+.light .msg .rp { font-style:italic; color:#7A5140; }
+.light .msg .say { color:#41312B; }
+.light .bubble-user {
+  align-self:flex-end; max-width:250px; padding:9px 12px; border-radius:16px;
+  background:#EFCFB9; /* primaryContainer 亮 T90 */
+  color:#4A2B1A; font-size:13.5px; line-height:1.6;
+  border:1px solid rgba(216,164,138,.6);
+}
+/* 思考卡（ChainOfThought 折叠态） */
+.light .cot {
+  border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:8px;
+  background:rgba(255,251,248,.78); border:1px solid rgba(230,206,192,.9); align-self:flex-start;
+  box-shadow:0 1px 3px rgba(74,43,30,.05);
+}
+.light .cot .dot { width:7px; height:7px; border-radius:50%; background:#CC785C; }
+.light .cot .t { font-size:11.5px; color:#8A6355; font-weight:500; }
+.light .cot .ch { margin-left:auto; color:#B08A78; font-size:11px; }
+/* 分支指示 */
+.light .branch { align-self:flex-end; font-size:10px; color:#A8836F; background:rgba(255,251,248,.8); border:1px solid rgba(230,206,192,.7); padding:2px 8px; border-radius:999px; }
+/* 输入岛（M3 largeIncreased 圆角） */
+.light .input {
+  position:absolute; bottom:18px; left:10px; right:10px; z-index:5;
+  border-radius:28px; padding:10px 10px 10px 16px;
+  background:rgba(255,251,248,.92); backdrop-filter:blur(16px);
+  border:1px solid rgba(230,206,192,.85);
+  display:flex; align-items:center; gap:8px;
+  box-shadow:0 4px 14px rgba(74,43,30,.08);
+}
+.light .in-t { flex:1; font-size:13px; color:#B08A78; }
+.light .plus { width:30px; height:30px; border-radius:15px; display:flex; align-items:center; justify-content:center; color:#9A5638; font-size:15px; border:1px dashed rgba(154,86,56,.4); }
+.light .send { width:38px; height:38px; border-radius:19px; background:#B85C3E; /* primary T40 按钮 */ color:#FFF; display:flex; align-items:center; justify-content:center; font-size:15px; box-shadow:0 2px 8px rgba(184,92,62,.4); }
+
+/* ===== 暗色主题 ===== */
+.dark { background:#191411; /* HCT seed T10 暖黑 */ }
+.dark .topbar {
+  position:absolute; top:0; left:0; right:0; height:64px; z-index:5;
+  background:rgba(56,37,28,.9); backdrop-filter:blur(14px);
+  display:flex; align-items:center; padding:0 12px; gap:10px;
+  border-bottom:1px solid rgba(90,62,48,.7);
+}
+.dark .avatar {
+  width:34px; height:34px; border-radius:17px; flex:none;
+  background:linear-gradient(135deg,#D97757,#8A4A32);
+  display:flex; align-items:center; justify-content:center; color:#FFDBCE; font-family:'Lora'; font-size:15px;
+}
+.dark .who .nm { font-family:'Lora',serif; font-size:15px; color:#FFB59B; font-weight:700; }
+.dark .who .st { font-size:10.5px; color:#C9A18E; }
+.dark .actions { margin-left:auto; display:flex; gap:6px; }
+.dark .iconbtn { width:34px; height:34px; border-radius:17px; border:1px solid rgba(120,84,66,.6); display:flex; align-items:center; justify-content:center; color:#E5B099; font-size:14px; background:rgba(40,26,20,.5); }
+.dark .mesh { position:absolute; inset:0; z-index:0;
+  background:
+   radial-gradient(130px 130px at 80% 15%, rgba(122,68,45,.35), transparent 70%),
+   radial-gradient(160px 160px at 10% 45%, rgba(90,52,38,.28), transparent 70%),
+   radial-gradient(180px 180px at 68% 80%, rgba(120,84,45,.18), transparent 70%),
+   linear-gradient(180deg,#221A15 0%,#191411 55%,#150F0C 100%);
+}
+.dark .chat { position:absolute; inset:64px 0 92px; overflow:hidden; padding:14px 14px 8px; display:flex; flex-direction:column; gap:12px; z-index:1; }
+.dark .bubble-ai {
+  max-width:272px; padding:10px 12px 9px; border-radius:16px;
+  background:rgba(64,46,37,.6); border:1px solid rgba(98,70,55,.8);
+}
+.dark .nmrow { display:flex; align-items:baseline; gap:6px; margin-bottom:5px; }
+.dark .nmrow .nm { font-family:'Lora',serif; font-size:13px; color:#E5B099; font-weight:700; }
+.dark .nmrow .br { font-size:9.5px; color:#C9A18E; background:rgba(30,21,16,.7); border:1px solid rgba(98,70,55,.6); padding:1px 6px; border-radius:999px; }
+.dark .msg { font-size:13.5px; line-height:1.68; color:#F3E2D8; }
+.dark .msg .rp { font-style:italic; color:#DCA892; }
+.dark .bubble-user {
+  align-self:flex-end; max-width:250px; padding:9px 12px; border-radius:16px;
+  background:#6E4230; color:#FFE4D6; font-size:13.5px; line-height:1.6; border:1px solid rgba(224,148,111,.5);
+}
+.dark .cot { border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:8px; background:rgba(46,33,26,.8); border:1px solid rgba(98,70,55,.7); align-self:flex-start; }
+.dark .cot .dot { width:7px; height:7px; border-radius:50%; background:#D97757; }
+.dark .cot .t { font-size:11.5px; color:#D4B3A2; font-weight:500; }
+.dark .cot .ch { margin-left:auto; color:#A98272; font-size:11px; }
+.dark .branch { align-self:flex-end; font-size:10px; color:#C9A18E; background:rgba(46,33,26,.8); border:1px solid rgba(98,70,55,.6); padding:2px 8px; border-radius:999px; }
+.dark .input {
+  position:absolute; bottom:18px; left:10px; right:10px; z-index:5;
+  border-radius:28px; padding:10px 10px 10px 16px;
+  background:rgba(38,27,21,.94); backdrop-filter:blur(16px);
+  border:1px solid rgba(98,70,55,.75);
+  display:flex; align-items:center; gap:8px;
+}
+.dark .in-t { flex:1; font-size:13px; color:#A98272; }
+.dark .plus { width:30px; height:30px; border-radius:15px; display:flex; align-items:center; justify-content:center; color:#E5B099; font-size:15px; border:1px dashed rgba(229,176,153,.4); }
+.dark .send { width:38px; height:38px; border-radius:19px; background:#E8906E; color:#4A1B0B; display:flex; align-items:center; justify-content:center; font-size:15px; }
+
+/* 底部信息区 */
+.meta { display:flex; gap:28px; margin-top:30px; max-width:1180px; }
+.mcol { flex:1; }
+.mcol h3 { font-family:'Lora',serif; font-size:14px; color:#F5D9A8; margin-bottom:8px; letter-spacing:.04em; }
+.mcol table { width:100%; border-collapse:collapse; font-size:11.5px; color:#D8CFC7; }
+.mcol td { padding:4px 8px; border-bottom:1px solid rgba(62,58,52,.6); vertical-align:top; }
+.mcol td:first-child { color:#A5A198; white-space:nowrap; }
+.swatches { display:flex; gap:8px; margin-top:22px; flex-wrap:wrap; }
+.sw { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:9.5px; color:#A5A198; }
+.sw i { width:44px; height:28px; border-radius:6px; display:block; border:1px solid rgba(255,255,255,.12); }
+.tagline { margin-top:26px; font-size:13px; color:#C9BFB6; text-align:center; }
+.tagline b { color:#F5D9A8; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="board-title" style="display:none">A</div>
+<div class="board-title" style="font-family:'Lora',serif;font-size:26px;">方向 A · 织机 Loom</div>
+<div class="board-sub">最大复用 rikkahub —— M3 Expressive 座 + HCT 动态色板（seed #CC785C 推导），数值全部重新生成；rikkahub Claude 预设零照抄</div>
+
+<div class="stage">
+  <!-- ============ 亮色 ============ -->
+  <div class="phone light">
+    <div class="mesh"></div>
+    <div class="topbar">
+      <div class="iconbtn" style="font-size:16px">☰</div>
+      <div class="avatar">L</div>
+      <div class="who"><div class="nm">Luna</div><div class="st">灯塔守夜人 · 在线</div></div>
+      <div class="actions"><div class="iconbtn">⌄</div><div class="iconbtn">⋯</div></div>
+    </div>
+    <div class="chat">
+      <div class="cot"><span class="dot"></span><span class="t">思考 · 已折叠 · 1.2s</span><span class="ch">›</span></div>
+      <div class="bubble-ai">
+        <div class="nmrow"><span class="nm">Luna</span><span class="br">‹ 2/3 ›</span></div>
+        <div class="msg">潮水退到第三级石阶时，她把灯芯捻亮了一格。<br>
+        <span class="rp">*指尖还残留着灯油的温度，她望向雾里的航道*</span><br>
+        <span class="say">「你迟到了整整一班潮讯。」</span>她的声音很轻，像怕惊动了塔里的钟。</div>
+      </div>
+      <div class="bubble-user">船在雾里丢了方向……你点的灯，我在岸上看见了。</div>
+      <div class="branch">‹ 2/3 ›</div>
+      <div class="bubble-ai">
+        <div class="nmrow"><span class="nm">Luna</span></div>
+        <div class="msg">她笑了一下，把灯抬高——<span class="rp">*光晕在雾里晕开，像一枚温柔的印章*</span>。</div>
+      </div>
+    </div>
+    <div class="input">
+      <div class="plus">＋</div>
+      <div class="in-t">写点什么……</div>
+      <div class="send">➤</div>
+    </div>
+  </div>
+
+  <!-- ============ 暗色 ============ -->
+  <div class="phone dark">
+    <div class="mesh"></div>
+    <div class="topbar">
+      <div class="iconbtn" style="font-size:16px">☰</div>
+      <div class="avatar">L</div>
+      <div class="who"><div class="nm">Luna</div><div class="st">灯塔守夜人 · 在线</div></div>
+      <div class="actions"><div class="iconbtn">⌄</div><div class="iconbtn">⋯</div></div>
+    </div>
+    <div class="chat">
+      <div class="cot"><span class="dot"></span><span class="t">思考 · 已折叠 · 1.2s</span><span class="ch">›</span></div>
+      <div class="bubble-ai">
+        <div class="nmrow"><span class="nm">Luna</span><span class="br">‹ 2/3 ›</span></div>
+        <div class="msg">潮水退到第三级石阶时，她把灯芯捻亮了一格。<br>
+        <span class="rp">*指尖还残留着灯油的温度，她望向雾里的航道*</span><br>
+        「你迟到了整整一班潮讯。」她的声音很轻。</div>
+      </div>
+      <div class="bubble-user">船在雾里丢了方向……你点的灯，我在岸上看见了。</div>
+      <div class="branch">‹ 2/3 ›</div>
+      <div class="bubble-ai">
+        <div class="nmrow"><span class="nm">Luna</span></div>
+        <div class="msg">她笑了一下，把灯抬高——<span class="rp">*光晕在雾里晕开*</span>。</div>
+      </div>
+    </div>
+    <div class="input">
+      <div class="plus">＋</div>
+      <div class="in-t">写点什么……</div>
+      <div class="send">➤</div>
+    </div>
+  </div>
+</div>
+
+<div class="meta">
+  <div class="mcol">
+    <h3>复用坐标（rikkahub → LuzzyRP）</h3>
+    <table>
+      <tr><td>结构照搬</td><td>M3 Expressive 座（TopAppBar/Scaffold/Drawer）、ExtendColors 五色×十阶、assistant 无气泡默认+气泡可选、ChainOfThought 分块渲染</td></tr>
+      <tr><td>数值重设计</td><td>HCT seed = 珊瑚陶土 #CC785C → TONAL_SPOT 全套推导（零照抄 rikkahub Claude 预设色值）；形状沿用 M3 largeIncreased(28dp)/气泡 16dp；MeshGradient 光斑以 Luzzy 珊瑚/amber 重新配色</td></tr>
+      <tr><td>独立实现</td><td>分支树编辑器、世界书/预设/记忆体系、剧情面板、开屏「开卷」、用量趋势图</td></tr>
+    </table>
+  </div>
+  <div class="mcol">
+    <h3>M3 token 映射（推导，非照抄）</h3>
+    <table>
+      <tr><td>role</td><td>亮（HCT seed #CC785C）</td><td>暗</td></tr>
+      <tr><td>primary</td><td>#9A5638（T40）</td><td>#FFB59B（T80）</td></tr>
+      <tr><td>primaryContainer</td><td>#F7E8DE（T90）</td><td>#6E4230（T30）</td></tr>
+      <tr><td>surface</td><td>#FBF6F2（T97 暖纸）</td><td>#191411（T10 暖黑）</td></tr>
+      <tr><td>surfaceContainerHi</td><td>#F2E2D8 派生</td><td>#402E25 派生</td></tr>
+      <tr><td>outlineVariant</td><td>#E6CEC0（T85）</td><td>#5A3E30（T30）</td></tr>
+      <tr><td>发送键（onPrimary 容器）</td><td>#B85C3E</td><td>#E8906E</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="swatches">
+  <div class="sw"><i style="background:#FBF6F2"></i>#FBF6F2</div>
+  <div class="sw"><i style="background:#EFCFB9"></i>#EFCFB9</div>
+  <div class="sw"><i style="background:#CC785C"></i>#CC785C</div>
+  <div class="sw"><i style="background:#B85C3E"></i>#B85C3E</div>
+  <div class="sw"><i style="background:#F5D9A8"></i>#F5D9A8</div>
+  <div class="sw"><i style="background:#191411"></i>#191411</div>
+  <div class="sw"><i style="background:#6E4230"></i>#6E4230</div>
+  <div class="sw"><i style="background:#E8906E"></i>#E8906E</div>
+  <div class="sw"><i style="background:#FFB59B"></i>#FFB59B</div>
+</div>
+
+<div class="tagline">气质：<b>现代 M3 工具感 × 暖色织机</b>——rikkahub 的骨架，Luzzy 的线；参照 rikkahub 官方默认（AGPL，结构合法复用）× Anthropic 暖意</div>
+</body>
+</html>

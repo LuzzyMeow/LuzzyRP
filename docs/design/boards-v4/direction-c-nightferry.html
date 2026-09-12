@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方向 C · 夜航灯 Nightferry — LuzzyRP v3.0 Compose 方向板</title>
+<style>
+@font-face { font-family:'Lora'; src:url('fonts/Lora-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'Lora'; src:url('fonts/Lora-Italic.woff2') format('woff2'); font-weight:400; font-style:italic; }
+@font-face { font-family:'PuHuiTi'; src:url('fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'PuHuiTi'; src:url('fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2'); font-weight:500; }
+@font-face { font-family:'PuHuiTi'; src:url('fonts/AlibabaPuHuiTi-3-85-Bold.woff2') format('woff2'); font-weight:700; }
+@font-face { font-family:'AlibabaSans'; src:url('fonts/AlibabaSans-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'AlibabaSans'; src:url('fonts/AlibabaSans-Medium.woff2') format('woff2'); font-weight:500; }
+@font-face { font-family:'AlibabaSans'; src:url('fonts/AlibabaSans-Bold.woff2') format('woff2'); font-weight:700; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#141413; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:36px 24px; font-family:'PuHuiTi','AlibabaSans',sans-serif; color:#FAF9F5; }
+.board-title { font-family:'Lora',serif; font-size:26px; margin-bottom:4px; }
+.board-sub { font-size:13px; color:#A5A198; margin-bottom:26px; }
+.stage { display:flex; gap:56px; }
+.phone { width:340px; height:700px; border-radius:36px; overflow:hidden; position:relative; border:1px solid #3E3A34; box-shadow:0 24px 60px rgba(0,0,0,.5); }
+
+/* ============ 暗色优先（dark-first）：深夜舱室 ============ */
+.dark { background:#100E0C; }
+/* 台灯光晕母题：页面顶部一枚暖光，向下渐暗——整页像被一盏阅读灯照亮 */
+.dark .lamp { position:absolute; inset:0;
+  background:
+   radial-gradient(420px 300px at 50% -8%, rgba(214,158,90,.22), transparent 70%),
+   radial-gradient(300px 220px at 88% 30%, rgba(178,116,62,.10), transparent 70%),
+   linear-gradient(180deg,#181410 0%,#13100D 46%,#100E0C 100%); }
+/* 沉浸顶栏：融入背景，无独立面——像舱室墙上的一行小字 */
+.dark .topbar { position:absolute; top:0; left:0; right:0; height:66px; z-index:5;
+  display:flex; align-items:center; padding:0 14px; gap:10px; }
+.dark .hamb { width:36px; height:36px; display:flex; align-items:center; justify-content:center; color:#B89A72; font-size:16px; }
+.dark .who .nm { font-family:'Lora',serif; font-size:16px; color:#E8C99A; }
+.dark .who .st { font-size:10.5px; color:#8E7B5E; }
+.dark .actions { margin-left:auto; display:flex; gap:6px; }
+.dark .iconbtn { width:34px; height:34px; border-radius:17px; display:flex; align-items:center; justify-content:center; font-size:14px; color:#C7A87E; border:1px solid rgba(184,154,114,.28); }
+/* 居中窄栏书卷式消息流（新结构：286px 居中栏，两侧留暗） */
+.dark .chat { position:absolute; inset:66px 0 96px; overflow:hidden; z-index:1;
+  padding:14px 24px 8px; display:flex; flex-direction:column; gap:13px; }
+.dark .chat::before, .dark .chat::after { content:''; position:absolute; top:0; bottom:0; width:22px; z-index:2; pointer-events:none; }
+.dark .chat::before { left:0; background:linear-gradient(90deg,rgba(16,14,12,.9),transparent); }
+.dark .chat::after { right:0; background:linear-gradient(-90deg,rgba(16,14,12,.9),transparent); }
+.dark .msg-open { padding:2px 2px 0; }
+.dark .nmrow { display:flex; align-items:baseline; gap:7px; margin-bottom:5px; }
+.dark .nmrow .nm { font-family:'Lora',serif; font-size:14px; color:#E8C99A; letter-spacing:.02em; }
+.dark .nmrow .br { font-size:9.5px; color:#9A8868; border:1px solid rgba(184,154,114,.3); padding:1px 7px; border-radius:999px; }
+.dark .nmrow .rule { flex:1; height:1px; background:linear-gradient(90deg,rgba(184,154,114,.3),transparent); }
+.dark .msg { font-size:13.5px; line-height:1.78; color:#E4D9C8; max-width:292px; }
+.dark .msg .rp { font-style:italic; color:#A9906C; }
+.dark .msg .say { color:#E4D9C8; }
+.dark .msg .drop { font-family:'Lora',serif; font-size:14.5px; color:#E8C99A; line-height:1.4; } /* 首句 drop 用衬线起头（书页手法） */
+/* AI 无气泡 · 用户气泡是唯一的「实体面」——像一枚灯下便签 */
+.dark .bubble-user { align-self:flex-end; max-width:246px; padding:9px 13px; border-radius:14px 14px 4px 14px;
+  background:rgba(48,38,26,.92); border:1px solid rgba(200,150,86,.4); color:#EFDDBC; font-size:13.5px; line-height:1.62;
+  box-shadow:0 2px 10px rgba(0,0,0,.3); }
+.dark .cot { align-self:flex-start; border-radius:12px; padding:8px 11px; display:flex; align-items:center; gap:8px;
+  background:rgba(30,25,18,.85); border:1px solid rgba(184,154,114,.22); }
+.dark .cot .dot { width:7px; height:7px; border-radius:50%; background:#D69E5A; box-shadow:0 0 6px rgba(214,158,90,.6); }
+.dark .cot .t { font-size:11.5px; color:#9A8868; font-weight:500; }
+.dark .cot .ch { margin-left:auto; color:#7E6C4E; font-size:11px; }
+.dark .branch { align-self:flex-end; font-size:10px; color:#9A8868; border:1px solid rgba(184,154,114,.3); padding:2px 8px; border-radius:999px; }
+/* 输入岛：灯下的一页纸 */
+.dark .input { position:absolute; bottom:18px; left:14px; right:14px; z-index:5;
+  border-radius:22px; padding:10px 10px 10px 16px;
+  background:rgba(36,29,20,.96); border:1px solid rgba(200,150,86,.3);
+  display:flex; align-items:center; gap:8px; box-shadow:0 6px 18px rgba(0,0,0,.4); }
+.dark .in-t { flex:1; font-size:13px; color:#7E6C4E; }
+.dark .plus { width:30px; height:30px; border-radius:15px; display:flex; align-items:center; justify-content:center; color:#D69E5A; font-size:15px; }
+.dark .send { width:38px; height:38px; border-radius:19px; background:#D69E5A; color:#241B0F; display:flex; align-items:center; justify-content:center; font-size:15px; box-shadow:0 2px 10px rgba(214,158,90,.4); }
+
+/* ============ 亮色「白昼甲板」：冷纸白 + ember 印章 ============ */
+.light { background:#F6F3EC; }
+.light .lamp { position:absolute; inset:0; background:
+   radial-gradient(360px 240px at 50% -6%, rgba(201,140,74,.10), transparent 70%),
+   linear-gradient(180deg,#F8F5EF 0%,#F3EFE6 100%); }
+.light .topbar { position:absolute; top:0; left:0; right:0; height:66px; z-index:5; display:flex; align-items:center; padding:0 14px; gap:10px; }
+.light .hamb { width:36px; height:36px; display:flex; align-items:center; justify-content:center; color:#8A744F; font-size:16px; }
+.light .who .nm { font-family:'Lora',serif; font-size:16px; color:#6B5432; }
+.light .who .st { font-size:10.5px; color:#9C8A66; }
+.light .actions { margin-left:auto; display:flex; gap:6px; }
+.light .iconbtn { width:34px; height:34px; border-radius:17px; display:flex; align-items:center; justify-content:center; font-size:14px; color:#7E683F; border:1px solid rgba(138,116,79,.3); }
+.light .chat { position:absolute; inset:66px 0 96px; overflow:hidden; padding:14px 24px 8px; display:flex; flex-direction:column; gap:13px; }
+.light .chat::before, .light .chat::after { content:''; position:absolute; top:0; bottom:0; width:22px; z-index:2; pointer-events:none; }
+.light .chat::before { left:0; background:linear-gradient(90deg,rgba(246,243,236,.9),transparent); }
+.light .chat::after { right:0; background:linear-gradient(-90deg,rgba(246,243,236,.9),transparent); }
+.light .msg-open { padding:2px 2px 0; }
+.light .nmrow { display:flex; align-items:baseline; gap:7px; margin-bottom:5px; }
+.light .nmrow .nm { font-family:'Lora',serif; font-size:14px; color:#6B5432; letter-spacing:.02em; }
+.light .nmrow .br { font-size:9.5px; color:#9C8A66; border:1px solid rgba(138,116,79,.32); padding:1px 7px; border-radius:999px; }
+.light .nmrow .rule { flex:1; height:1px; background:linear-gradient(90deg,rgba(138,116,79,.3),transparent); }
+.light .msg { font-size:13.5px; line-height:1.78; color:#40382C; max-width:292px; }
+.light .msg .rp { font-style:italic; color:#8A744F; }
+.light .drop { font-family:'Lora',serif; font-size:14.5px; color:#5B4526; line-height:1.4; }
+.light .bubble-user { align-self:flex-end; max-width:246px; padding:9px 13px; border-radius:14px 14px 4px 14px;
+  background:#EDE0C4; border:1px solid rgba(178,140,72,.4); color:#4A3E28; font-size:13.5px; line-height:1.62; }
+.light .cot { align-self:flex-start; border-radius:12px; padding:8px 11px; display:flex; align-items:center; gap:8px;
+  background:rgba(255,252,244,.9); border:1px solid rgba(138,116,79,.25); }
+.light .cot .dot { width:7px; height:7px; border-radius:50%; background:#C08A3E; }
+.light .cot .t { font-size:11.5px; color:#9C8A66; font-weight:500; }
+.light .cot .ch { margin-left:auto; color:#A89670; font-size:11px; }
+.light .branch { align-self:flex-end; font-size:10px; color:#9C8A66; border:1px solid rgba(138,116,79,.32); padding:2px 8px; border-radius:999px; }
+.light .input { position:absolute; bottom:18px; left:14px; right:14px; z-index:5;
+  border-radius:22px; padding:10px 10px 10px 16px;
+  background:rgba(252,250,244,.97); border:1px solid rgba(138,116,79,.3);
+  display:flex; align-items:center; gap:8px; box-shadow:0 3px 12px rgba(64,56,44,.08); }
+.light .in-t { flex:1; font-size:13px; color:#A89670; }
+.light .plus { width:30px; height:30px; border-radius:15px; display:flex; align-items:center; justify-content:center; color:#7E683F; font-size:15px; }
+.light .send { width:38px; height:38px; border-radius:19px; background:#5B4A2A; color:#F6F3EC; display:flex; align-items:center; justify-content:center; font-size:15px; }
+
+.meta { display:flex; gap:28px; margin-top:30px; max-width:1180px; }
+.mcol { flex:1; }
+.mcol h3 { font-family:'Lora',serif; font-size:14px; color:#F5D9A8; margin-bottom:8px; letter-spacing:.04em; }
+.mcol table { width:100%; border-collapse:collapse; font-size:11.5px; color:#D8CFC7; }
+.mcol td { padding:4px 8px; border-bottom:1px solid rgba(62,58,52,.6); vertical-align:top; }
+.mcol td:first-child { color:#A5A198; white-space:nowrap; }
+.swatches { display:flex; gap:8px; margin-top:22px; flex-wrap:wrap; }
+.sw { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:9.5px; color:#A5A198; }
+.sw i { width:44px; height:28px; border-radius:6px; display:block; border:1px solid rgba(255,255,255,.12); }
+.tagline { margin-top:26px; font-size:13px; color:#C9BFB6; text-align:center; max-width:900px; line-height:1.6; }
+.tagline b { color:#F5D9A8; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="board-title">方向 C · 夜航灯 Nightferry</div>
+<div class="board-sub">新定观感派（dark-first）—— rikkahub 结构骨架 + 全新「深夜阅读灯」母题：暗色是一间被台灯照亮的舱室，亮色是白昼甲板的冷纸；居中窄栏书卷式消息流为全新布局结构</div>
+
+<div class="stage">
+  <!-- 暗色（此方向的主形态，放左） -->
+  <div class="phone dark">
+    <div class="lamp"></div>
+    <div class="topbar">
+      <div class="hamb">☰</div>
+      <div class="who"><div class="nm">Luna</div><div class="st">灯塔守夜人 · 在线</div></div>
+      <div class="actions"><div class="iconbtn">⌄</div><div class="iconbtn">⋯</div></div>
+    </div>
+    <div class="chat">
+      <div class="cot"><span class="dot"></span><span class="t">思考 · 已折叠 · 1.2s</span><span class="ch">›</span></div>
+      <div class="msg-open">
+        <div class="nmrow"><span class="nm">Luna</span><span class="rule"></span><span class="br">‹ 2/3 ›</span></div>
+        <div class="msg"><span class="drop">潮水退到第三级石阶时，她把灯芯捻亮了一格。</span><br>
+        <span class="rp">*指尖还残留着灯油的温度，她望向雾里的航道*</span><br>
+        「你迟到了整整一班潮讯。」她的声音很轻，像怕惊动了塔里的钟。</div>
+      </div>
+      <div class="bubble-user">船在雾里丢了方向……你点的灯，我在岸上看见了。</div>
+      <div class="branch">‹ 2/3 ›</div>
+      <div class="msg-open">
+        <div class="nmrow"><span class="nm">Luna</span><span class="rule"></span></div>
+        <div class="msg">她笑了一下，把灯抬高——<span class="rp">*光晕在雾里晕开，像一枚温柔的印章*</span>。</div>
+      </div>
+    </div>
+    <div class="input">
+      <div class="plus">＋</div>
+      <div class="in-t">写点什么……</div>
+      <div class="send">➤</div>
+    </div>
+  </div>
+
+  <!-- 亮色（白昼甲板，放右） -->
+  <div class="phone light">
+    <div class="lamp"></div>
+    <div class="topbar">
+      <div class="hamb">☰</div>
+      <div class="who"><div class="nm">Luna</div><div class="st">灯塔守夜人 · 在线</div></div>
+      <div class="actions"><div class="iconbtn">⌄</div><div class="iconbtn">⋯</div></div>
+    </div>
+    <div class="chat">
+      <div class="cot"><span class="dot"></span><span class="t">思考 · 已折叠 · 1.2s</span><span class="ch">›</span></div>
+      <div class="msg-open">
+        <div class="nmrow"><span class="nm">Luna</span><span class="rule"></span><span class="br">‹ 2/3 ›</span></div>
+        <div class="msg"><span class="drop">潮水退到第三级石阶时，她把灯芯捻亮了一格。</span><br>
+        <span class="rp">*指尖还残留着灯油的温度，她望向雾里的航道*</span><br>
+        「你迟到了整整一班潮讯。」她的声音很轻，像怕惊动了塔里的钟。</div>
+      </div>
+      <div class="bubble-user">船在雾里丢了方向……你点的灯，我在岸上看见了。</div>
+      <div class="branch">‹ 2/3 ›</div>
+      <div class="msg-open">
+        <div class="nmrow"><span class="nm">Luna</span><span class="rule"></span></div>
+        <div class="msg">她笑了一下，把灯抬高——<span class="rp">*光晕在雾里晕开，像一枚温柔的印章*</span>。</div>
+      </div>
+    </div>
+    <div class="input">
+      <div class="plus">＋</div>
+      <div class="in-t">写点什么……</div>
+      <div class="send">➤</div>
+    </div>
+  </div>
+</div>
+
+<div class="meta">
+  <div class="mcol">
+    <h3>复用坐标（rikkahub → LuzzyRP）</h3>
+    <table>
+      <tr><td>结构照搬</td><td>Theme/presets 双轨架构、输入岛「附件+输入+发送」布局、ChainOfThought 折叠、流式工程事实（禁 SelectionContainer 等）</td></tr>
+      <tr><td>数值重设计</td><td>全部新定：暗 canvas #100E0C 舱室黑、amber 灯光 #D69E5A 唯一 accent（ember 系，非 coral）、亮模式为冷纸白 #F6F3EC + 墨棕 #5B4A2A；布局引入居中窄栏书卷式（rikkahub 无此结构）</td></tr>
+      <tr><td>独立实现</td><td>全部 RP 特有功能 + 沉浸顶栏（融入背景无独立面）+ 首句衬线 drop（书页起头手法，品牌新签名）</td></tr>
+    </table>
+  </div>
+  <div class="mcol">
+    <h3>M3 token 映射（新定值）</h3>
+    <table>
+      <tr><td>role</td><td>暗（主形态）</td><td>亮（白昼甲板）</td></tr>
+      <tr><td>primary</td><td>#D69E5A（灯光）</td><td>#5B4A2A（墨棕）</td></tr>
+      <tr><td>primaryContainer</td><td>#48371F（灯罩）</td><td>#EDE0C4（便签）</td></tr>
+      <tr><td>surface</td><td>#100E0C（舱室）</td><td>#F6F3EC（冷纸）</td></tr>
+      <tr><td>surfaceContainer</td><td>#241D14 派生</td><td>#FCFAF4 派生</td></tr>
+      <tr><td>outlineVariant</td><td>#B89A72 @.25</td><td>#8A744F @.3</td></tr>
+      <tr><td>onSurface（正文）</td><td>#E4D9C8（灯下纸色）</td><td>#40382C</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="swatches">
+  <div class="sw"><i style="background:#100E0C"></i>#100E0C</div>
+  <div class="sw"><i style="background:#241D14"></i>#241D14</div>
+  <div class="sw"><i style="background:#D69E5A"></i>#D69E5A</div>
+  <div class="sw"><i style="background:#E8C99A"></i>#E8C99A</div>
+  <div class="sw"><i style="background:#E4D9C8"></i>#E4D9C8</div>
+  <div class="sw"><i style="background:#F6F3EC"></i>#F6F3EC</div>
+  <div class="sw"><i style="background:#EDE0C4"></i>#EDE0C4</div>
+  <div class="sw"><i style="background:#5B4A2A"></i>#5B4A2A</div>
+  <div class="sw"><i style="background:#C08A3E"></i>#C08A3E</div>
+</div>
+
+<div class="tagline">气质：<b>深夜航船的阅读灯</b>——比 A 更暗、比 B 更戏剧；暗色优先（RP 夜读场景），灯下只放一枚 accent；参照 Night ferry / 深夜广播 × 纸页书卷（新定，无直接参照 App）</div>
+</body>
+</html>

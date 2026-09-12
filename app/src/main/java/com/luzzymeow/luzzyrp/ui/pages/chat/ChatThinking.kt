@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -595,7 +596,7 @@ fun MessageNerdLine(
     val truncated = com.luzzymeow.luzzyrp.chat.UsageFormat.isTruncated(finishReason)
     if (line == null && !truncated) return
     androidx.compose.foundation.layout.FlowRow(
-        modifier = modifier.fillMaxWidth().padding(top = 2.dp),
+        modifier = modifier.fillMaxWidth().testTag("chat_nerd_line").padding(top = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.Center,
         itemVerticalAlignment = Alignment.CenterVertically,

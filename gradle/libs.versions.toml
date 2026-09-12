@@ -21,6 +21,8 @@ webkit = "1.15.0"
 lifecycle = "2.10.0"
 coroutines = "1.11.0"
 junit = "4.13.2"
+# [v3.0 Stage0] 仪器化（模拟器）UI 测试：androidx.test.ext:junit 稳定版 1.3.0（2026-09-12 核实）
+androidxTestExt = "1.3.0"
 # [v2.0.0] 原生聊天传输层：仅两个运行时依赖（无注解处理器 / 无编译器插件）
 serialization = "1.9.0"
 okhttp = "4.12.0"
@@ -41,6 +43,10 @@ androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecyc
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+# [v3.0 Stage0] Compose UI 测试（版本由 BOM 管）+ 仪器化运行器胶水
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 
 # [v2.0.0] 原生聊天传输层：@Serializable 使用 0 次，故无需 kotlinx-serialization 编译器插件，
 # 只引运行时库（buildJsonObject / parseToJsonElement / JsonObject 树 API）。

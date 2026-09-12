@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -101,6 +102,7 @@ private fun ErrorCard(error: ChatError, onCopy: () -> Unit, onDismiss: () -> Uni
     Column(
         Modifier
             .fillMaxWidth()
+            .testTag("chat_error_card")
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f))
             .border(

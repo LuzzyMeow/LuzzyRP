@@ -638,8 +638,17 @@ AGPL-3.0，形态复用许可兼容。**本轮采用其架构与节拍，未逐�
 
 ### 19.3 门禁（自动化）
 
-- `./gradlew :app:testDebugUnitTest`：**294 例全绿**（本轮新增 11：用量/截断 9 + 结构不变式 2）。
-- 聊天链路相关纯逻辑均有单测：`chat/`（引擎/检索/工具/标记过滤/用量/分支模型）、
-  `ui/pages/chat/ChatMessageTest`、`ui/markdown/*`。
-- **UI 层仍无自动化测试**（无 Compose UI 测试依赖）——这是如实登记的缺口，
-  故 19.2 的手动回归清单是当前唯一保障；引入 UI 测试属后续工作。
+**一条命令**：`ANDROID_SERIAL=emulator-5554 ./gradlew checkChat`
+（= 设备门禁 `verifyEmulatorDevice` → 单测 → 仪器化 UI 测试；详细手册见 `docs/CHAT-REGRESSION.md`）
+
+- **纯逻辑单测 304 例全绿**：`chat/`（引擎/检索/工具/标记过滤/用量/分支模型）、
+  `ui/pages/chat/ChatMessageTest`（模型与候选）、**`ChatTurnStateTest`（状态机 10 例，原为零覆盖）**、
+  `ui/markdown/*`。
+- **仪器化 UI 测试 7 例全绿**（Stage 0 新增能力）：未配置→弹配置框 / 发送键状态 / 流式上屏+用量脚注 /
+  失败→错误卡且不入列表 / 删除先确认 / 世界书真条目 / 工具开关联动。
+  **基座上线即抓到 1 个真缺陷**：用户消息的删除绕过确认框（见 `docs/design/regression-p3.md` §2）。
+- **真机门禁（硬性）**：`connectedDebugAndroidTest` 默认会在**所有已连接设备**上安装执行——
+  曾因此把测试件指向真机（AGP 报告里的设备名 `A9210`）。现由 `verifyEmulatorDevice` 强制
+  `ANDROID_SERIAL=emulator-*`，否则任务直接失败（负向测试已验）。
+- 真实 SSE 节奏 / 断网 / 冷启动 / 手势等 6 项仍属人工，逐项归属见
+  `docs/design/regression-p3.md` §1（十步全部有明确归属，无「大概没问题」）。

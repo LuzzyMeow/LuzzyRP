@@ -168,6 +168,13 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
+
+    // [v3.0 Stage0] 仪器化 UI 测试（只跑模拟器；真机仍只装 release，不装测试件）
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    // 空的测试宿主 Activity（createComposeRule 用），debug 专用、不进 release
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 // [LuzzyRP v1.2.3] 应用内 CHANGELOG 自动同步（硬性规定 5 辅助机制）：
@@ -201,3 +208,41 @@ val genChangelog = tasks.register("genChangelog") {
 }
 
 tasks.named("preBuild") { dependsOn(genChangelog) }
+
+// [v3.0 Stage0] 聊天链路一键回归入口。
+//
+// **真机防护（血的教训）**：`connectedDebugAndroidTest` 默认会在**所有已连接设备**上安装并执行
+// 测试件 —— 首次跑就把测试件指向了真机（AGP 报告里的设备名 A9210）。AGENTS.md 明令「测试一律
+// 模拟器、严禁真机 A9210」，故本任务加硬门：ANDROID_SERIAL 必须是 emulator-*，否则直接失败。
+// 确需多设备（不含真机）时用 -PallowAllDevices=true 显式放行。
+// 配置缓存要求：属性在配置期取成 Provider，执行期只读它（不要在执行期访问 project）
+val allowAllDevicesProvider = providers.gradleProperty("allowAllDevices")
+val verifyEmulatorDevice = tasks.register("verifyEmulatorDevice") {
+    group = "verification"
+    description = "门禁：仪器化测试只允许跑模拟器（ANDROID_SERIAL=emulator-*）"
+    val allowAllProvider = allowAllDevicesProvider
+    doLast {
+        val serial = System.getenv("ANDROID_SERIAL")
+        if (allowAllProvider.orNull == "true") {
+            logger.lifecycle("[verifyEmulatorDevice] 显式放行（-PallowAllDevices=true），会在所有已连接设备上执行")
+            return@doLast
+        }
+        if (serial == null || !serial.startsWith("emulator-")) {
+            throw GradleException(
+                "仪器化测试只允许跑模拟器：请用 `ANDROID_SERIAL=emulator-5554 ./gradlew checkChat`。" +
+                    "（当前 ANDROID_SERIAL=${serial ?: "未设置"}；真机不得安装测试件，见 AGENTS.md §6.1）",
+            )
+        }
+        logger.lifecycle("[verifyEmulatorDevice] OK：目标模拟器 $serial")
+    }
+}
+
+tasks.matching { it.name == "connectedDebugAndroidTest" }.configureEach {
+    dependsOn(verifyEmulatorDevice)
+}
+
+val checkChat = tasks.register("checkChat") {
+    group = "verification"
+    description = "聊天链路回归：纯逻辑单测 + 仪器化 UI 测试（只跑模拟器）"
+    dependsOn(verifyEmulatorDevice, "testDebugUnitTest", "connectedDebugAndroidTest")
+}

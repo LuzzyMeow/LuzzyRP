@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -362,6 +363,7 @@ fun InputIsland(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag("chat_input")
                     .padding(horizontal = 6.dp, vertical = 8.dp),
                 decorationBox = { inner ->
                     // 占位与真实输入必须同处一个容器：decorationBox 的测量只认一个子节点，
@@ -402,6 +404,7 @@ fun InputIsland(
                         label = if (configured) modelLabel else "未配置",
                         description = if (configured) "切换模型（当前 $modelLabel）" else "配置供应商",
                         accent = !configured,
+                        tag = "slot_model",
                         onClick = onModelChipClick,
                     )
                     listOf(
@@ -409,22 +412,34 @@ fun InputIsland(
                         Triple(LuzzyIcons.Sliders, "预设", onPresets),
                         Triple(LuzzyIcons.BookOpen, "世界书", onWorldBook),
                     ).forEach { (res, desc, action) ->
-                        ActionSlot(icon = res, description = desc, onClick = action)
+                        ActionSlot(
+                            icon = res,
+                            description = desc,
+                            tag = "slot_" + desc,
+                            onClick = action,
+                        )
                     }
                     // 工具开关是唯一带「开/关」状态的入口：开启时用强调色 + 语义里带状态
                     ActionSlot(
                         icon = LuzzyIcons.Mcp,
                         description = if (toolsEnabled) "工具（已开启）" else "工具",
                         accent = toolsEnabled,
+                        tag = "slot_tools",
                         onClick = onTools,
                     )
-                    ActionSlot(icon = LuzzyIcons.Workspace, description = "工作区", onClick = onWorkspace)
+                    ActionSlot(
+                        icon = LuzzyIcons.Workspace,
+                        description = "工作区",
+                        tag = "slot_workspace",
+                        onClick = onWorkspace,
+                    )
                 }
 
                 // 发送 / 停止（固定件，永不被左簇挤走）
                 Box(
                     modifier = Modifier
                         .size(40.dp)
+                        .testTag("chat_send")
                         .background(
                             when {
                                 isGenerating -> MaterialTheme.colorScheme.error
@@ -469,6 +484,8 @@ private fun ActionSlot(
     icon: Int,
     description: String,
     onClick: () -> Unit,
+    /** 稳定测试选择器（不掺中文与开/关状态——那会让测试跟着文案碎掉）。 */
+    tag: String,
     label: String? = null,
     accent: Boolean = false,
 ) {
@@ -476,6 +493,7 @@ private fun ActionSlot(
     Row(
         modifier = Modifier
             .heightIn(min = 44.dp)
+            .testTag(tag)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             // 纯图标槽的左右内边距压到 5dp：44dp 热区本身已提供间距，再留 10dp 会让图标显得散

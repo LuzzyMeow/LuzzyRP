@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -142,8 +143,14 @@ fun ChatPage(
     darkMode: Boolean,
     onToggleDarkMode: () -> Unit,
     onOpenDrawer: () -> Unit,
+    /**
+     * 引擎工厂（默认真实传输）。**测试接缝**：仪器化 UI 测试注入假传输，
+     * 就能确定性地驱动「流式上屏 / 工具节点 / 失败态」，不必依赖网络与真实供应商。
+     */
+    engineFactory: () -> ChatEngine = { ChatEngine() },
 ) {
     val hazeState = remember { HazeState() }
+    // 稳定测试选择器（ui-ux-pro-max 的 Compose 栈规约要求 testTag 而非依赖文案）
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -166,7 +173,7 @@ fun ChatPage(
     var editing by remember { mutableStateOf<EditingTarget?>(null) }
     var regeneratingIndexState by remember { mutableStateOf<Int?>(null) }
 
-    val engine = remember { ChatEngine() }
+    val engine = remember { engineFactory() }
     var live by remember { mutableStateOf<LiveTurn?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
 
@@ -591,7 +598,8 @@ fun ChatPage(
                 Box(Modifier.fillMaxSize().padding(innerPadding)) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    // 稳定选择器：岛上还有一条横向滚动的功能行，用 hasScrollAction() 定位列表会匹配到多个
+                    modifier = Modifier.fillMaxSize().testTag("chat_list"),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -661,8 +669,15 @@ fun ChatPage(
                                     onEdit = {
                                         editing = EditingTarget(activeBranchId, i, isAi = false, initial = m.text)
                                     },
-                                    onDelete = { removeMessage(activeBranchId, i, andAfter = false) },
-                                    onDeleteAfter = { removeMessage(activeBranchId, i, andAfter = true) },
+                                    onDelete = {
+                                        pendingDelete = PendingDelete(activeBranchId, i, false, count = 1)
+                                    },
+                                    onDeleteAfter = {
+                                        pendingDelete = PendingDelete(
+                                            activeBranchId, i, true,
+                                            count = (activeMessages.size - i).coerceAtLeast(1),
+                                        )
+                                    },
                                 )
                             }
 
@@ -714,6 +729,7 @@ fun ChatPage(
                         Box(
                             Modifier
                                 .size(40.dp)
+                                .testTag("chat_back_to_bottom")
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f))
                                 .border(

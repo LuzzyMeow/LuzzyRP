@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  仅 debug 变体合并的清单（release 包不含）：开发文本注入接收器。
+  用途见 com.luzzymeow.luzzyrp.ui.DevHooks 的说明——模拟器无中文 IME，
+  UI 端到端验证需要一个把中文文本送进输入框的通道。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <receiver
+            android:name="com.luzzymeow.luzzyrp.DevInputReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.luzzymeow.luzzyrp.DEV_INPUT" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

@@ -2,36 +2,43 @@ package com.luzzymeow.luzzyrp.ui.pages.chat
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,80 +46,52 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.R
+import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.TransportConfig
+import com.luzzymeow.luzzyrp.chat.TransportStore
+import com.luzzymeow.luzzyrp.chat.VanioCard
+import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
+import com.luzzymeow.luzzyrp.chat.llm.LlmRole
+import com.luzzymeow.luzzyrp.ui.DevHooks
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
-/** Vanio 假 RP 对话（贴合角色提示词：恶魔角尾/橙眼/蓝发/红帽斗篷/教堂+苹果；P2 换真实数据）。 */
-private fun vanioScript(): List<FakeMessage> = listOf(
-    FakeMessage.User("Vanio？听说你在教堂后面藏了什么……"),
-    FakeMessage.Ai(
-        paragraphs = listOf(
-            FakeParagraph.Narration("少年被吓得差点把苹果抛出去。他僵着脖子回头，帽檐下的橘色眼睛瞪得溜圆，红斗篷下的蝙蝠翅膀不安分地扑棱了两下。"),
-            FakeParagraph.Speech("嘘——！小声点！要是被嬷嬷听见，我攒了一个秋天的宝贝就全完啦。"),
-            FakeParagraph.Action("左右看了看，把那颗红得发亮的苹果塞进兜里，冲你勾了勾手指"),
-            FakeParagraph.Narration("他蹲在彩绘窗洒下的光斑里，靴尖沾着落叶。看那副神秘兮兮的样子，好像石头缝里真的藏着什么了不得的东西。"),
-        ),
+/**
+ * 演示角色的历史（真实数据源：会话上下文与记忆检索都读它）。
+ *
+ * 只含真实存在的过往轮次**文本**——不含任何思考节点：那些轮次没有真实产生过节点数据，
+ * 编造节点等于造假。节点只由真实事件（检索/工具/推理增量）产生。
+ */
+private fun demoHistory(): List<ChatMessage> = listOf(
+    ChatMessage.User("Vanio？听说你在教堂后面藏了什么……"),
+    ChatMessage.Ai(
+        raw = "少年被吓得差点把苹果抛出去。他僵着脖子回头，帽檐下的橘色眼睛瞪得溜圆，红斗篷下的翅膀不安分地扑棱了两下。\n" +
+            "「嘘——！小声点！要是被嬷嬷听见，我攒了一个秋天的宝贝就全完啦。」\n" +
+            "*左右看了看，把那颗红得发亮的苹果塞进兜里，冲你勾了勾手指*",
     ),
-    FakeMessage.User("行行行，我不喊。所以……到底是什么？"),
-    FakeMessage.Ai(
-        branch = "‹ 2/3 ›",
-        paragraphs = listOf(
-            FakeParagraph.Speech("嘿嘿，想知道？"),
-            FakeParagraph.Action("凑近你的耳边，用气声说道"),
-            FakeParagraph.Narration("「是长在钟楼顶上的、一整树的红苹果。全城只有我知道那棵树在哪——因为呀，」他晃了晃帽子上小小的角，得意地眯起眼，「恶魔的果子，只有恶魔找得到。」"),
-        ),
+    ChatMessage.User("行行行，我不喊。所以……到底是什么？"),
+    ChatMessage.Ai(
+        raw = "「嘿嘿，想知道？」\n" +
+            "*凑近你的耳边，用气声说道*\n" +
+            "「是长在钟楼顶上的、一整树的红苹果。全城只有我知道那棵树在哪——因为呀，」他晃了晃帽子上小小的角，得意地眯起眼，「恶魔的果子，只有恶魔找得到。」",
     ),
 )
 
-private val thinkSteps = listOf(
-    ThinkStep("解析用户意图：追问隐藏物——延续此前「藏苹果」伏笔"),
-    ThinkStep("检索角色设定：Vanio 恶魔少年，怕嬷嬷发现，得意于秘密；决定先受惊再炫耀"),
-    ThinkStep("组织回复节奏：受惊 → 压低声音 → 邀请 → 揭晓「钟楼红苹果树」，保留悬念钩子"),
-)
-
-private val streamingReply = listOf(
-    FakeParagraph.Speech("你就承认了吧，你根本不知道那棵树。"),
-    FakeParagraph.Narration("Vanio 把脸鼓成包子，草莓红的发梢气得一颤一颤。他跳起来要去捂你的嘴，尾巴却先一步出卖了他——尾巴尖正指向钟楼的方向。"),
-    FakeParagraph.Speech("……哎呀！！"),
-)
-
-private enum class GenState { Idle, Thinking, Streaming, Done }
-
-private fun renderStreaming(paragraphs: List<FakeParagraph>, progress: Int): List<FakeParagraph> {
-    val out = mutableListOf<FakeParagraph>()
-    var remain = progress
-    for (p in paragraphs) {
-        if (remain <= 0) break
-        when (p) {
-            is FakeParagraph.Narration -> {
-                out += FakeParagraph.Narration(p.text.take(remain)); remain -= p.text.length
-            }
-            is FakeParagraph.Action -> {
-                out += FakeParagraph.Action(p.text.take(remain)); remain -= p.text.length
-            }
-            is FakeParagraph.Speech -> {
-                out += FakeParagraph.Speech(p.text.take(remain)); remain -= p.text.length
-            }
-        }
-    }
-    return out
-}
-
-private fun FakeParagraph.textLength(): Int = when (this) {
-    is FakeParagraph.Narration -> text.length
-    is FakeParagraph.Action -> text.length
-    is FakeParagraph.Speech -> text.length
-}
-
-/** P1 聊天页 · 沉浸形态（DESIGN-compose §12；抽屉由 LuzzyNavShell 壳层提供）。 */
+/** P2 聊天页 · 沉浸形态 + **真实流式**（DESIGN-compose §12/§14/§15）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatPage(
@@ -122,38 +101,94 @@ fun ChatPage(
 ) {
     val hazeState = remember { HazeState() }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    val messages = remember { mutableStateListOf<FakeMessage>().apply { addAll(vanioScript()) } }
-    var genState by remember { mutableStateOf(GenState.Idle) }
-    var thinkProgress by remember { mutableStateOf(0) }
-    var streamProgress by remember { mutableStateOf(0) }
-    var pendingReply by remember {
-        mutableStateOf(FakeMessage.Ai(paragraphs = listOf(FakeParagraph.Narration(""))))
+    val store = remember { TransportStore(context) }
+    var config by remember { mutableStateOf(store.load()) }
+    var showConfig by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
+
+    val messages = remember { mutableStateListOf<ChatMessage>().apply { addAll(demoHistory()) } }
+    val engine = remember { ChatEngine() }
+    var live by remember { mutableStateOf<LiveTurn?>(null) }
+    var job by remember { mutableStateOf<Job?>(null) }
+
+    /**
+     * 贴底：把末项底部对齐视口底部。
+     *
+     * 传 `scrollOffset = 末项高度` 是常用配方——末项比视口高时（流式气泡长起来之后）
+     * 也会停在**最新内容**那一端，而不是停在气泡顶部看旧文字。
+     */
+    suspend fun pinToBottom() {
+        val total = listState.layoutInfo.totalItemsCount
+        if (total == 0) return
+        val lastIndex = total - 1
+        val lastSize = listState.layoutInfo.visibleItemsInfo
+            .lastOrNull { it.index == lastIndex }?.size ?: 0
+        listState.scrollToItem(lastIndex, lastSize)
     }
 
-    LaunchedEffect(genState) {
-        when (genState) {
-            GenState.Thinking -> {
-                for (i in thinkSteps.indices) {
-                    thinkProgress = i + 1
-                    delay(700)
-                }
-                genState = GenState.Streaming
+    // 开页即贴底（聊天页默认停在最新一轮）
+    LaunchedEffect(Unit) { pinToBottom() }
+
+    fun send() {
+        val userText = input.trim()
+        if (userText.isEmpty() || live != null) return
+        if (!config.configured) {
+            showConfig = true
+            return
+        }
+        input = ""
+        val history = messages.mapNotNull { m ->
+            when (m) {
+                is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
+                is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
+                is ChatMessage.Error -> null
             }
-            GenState.Streaming -> {
-                val total = streamingReply.fold(0) { acc, p -> acc + p.textLength() } + streamingReply.size * 2
-                streamProgress = 0
-                while (streamProgress < total) {
-                    streamProgress += 2
-                    pendingReply = FakeMessage.Ai(paragraphs = renderStreaming(streamingReply, streamProgress))
-                    delay(22)
-                    listState.requestScrollToItem(messages.size + 1)
+        }
+        messages.add(ChatMessage.User(userText))
+
+        val turn = LiveTurn()
+        live = turn
+        job = scope.launch {
+            pinToBottom()   // 发送后立刻让用户看见自己的消息与 live 气泡
+            try {
+                engine.run(config = config, history = history, userText = userText).collect { event ->
+                    // 「是否贴底」要在内容变化**之前**判定：变化之后 canScrollForward 会变 true，
+                    // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
+                    val follow = !listState.canScrollForward
+                    traceStreamEvent(event)
+                    turn.apply(event)
+                    if (follow) pinToBottom()
                 }
-                pendingReply = FakeMessage.Ai(paragraphs = streamingReply)
-                messages.add(pendingReply)
-                genState = GenState.Done
+            } catch (_: CancellationException) {
+                // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
             }
-            else -> Unit
+            val error = turn.error
+            if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
+                messages.add(
+                    ChatMessage.Ai(
+                        raw = turn.body,
+                        thinkNodes = turn.nodes,
+                        finishReason = turn.finishReason,
+                    ),
+                )
+            }
+            if (error != null) messages.add(ChatMessage.Error(error))
+            if (live === turn) live = null
+            job = null
+            pinToBottom()
+        }
+    }
+
+    // 开发注入挂点（release 下无注册者、恒为 null）：见 DevHooks 说明
+    DisposableEffect(Unit) {
+        DevHooks.inputInjector = { input = it }
+        DevHooks.sendTrigger = { send() }
+        onDispose {
+            DevHooks.inputInjector = null
+            DevHooks.sendTrigger = null
         }
     }
 
@@ -213,14 +248,14 @@ fun ChatPage(
                                 }
                                 Column {
                                     Text(
-                                        text = "Vanio",
+                                        text = VanioCard.Name,
                                         fontFamily = LuzzyFonts.Lora,
                                         fontSize = 17.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color.White,
                                     )
                                     Text(
-                                        text = "教堂后的小恶魔 · 在线",
+                                        text = "${VanioCard.Subtitle} · 在线",
                                         fontFamily = LuzzyFonts.Body,
                                         fontSize = 11.sp,
                                         color = Color.White.copy(alpha = 0.75f),
@@ -254,19 +289,21 @@ fun ChatPage(
                 },
                 bottomBar = {
                     InputIsland(
-                        isGenerating = genState == GenState.Thinking || genState == GenState.Streaming,
+                        text = input,
+                        onTextChange = { input = it },
+                        isGenerating = live != null,
+                        modelLabel = config.model.ifBlank { "未配置" },
+                        configured = config.configured,
                         onSendOrStop = {
-                            when (genState) {
-                                GenState.Idle, GenState.Done -> {
-                                    messages.add(FakeMessage.User("……那你倒是说说看？"))
-                                    thinkProgress = 0
-                                    streamProgress = 0
-                                    genState = GenState.Thinking
-                                }
-                                else -> genState = GenState.Idle
+                            if (live != null) {
+                                job?.cancel()
+                                live = null
+                                job = null
+                            } else {
+                                send()
                             }
                         },
-                        onModelChipClick = {},
+                        onModelChipClick = { showConfig = true },
                     )
                 },
             ) { innerPadding ->
@@ -278,58 +315,40 @@ fun ChatPage(
                 ) {
                     items(messages.size) { i ->
                         when (val m = messages[i]) {
-                            is FakeMessage.Ai -> AiMessage(m, modifier = Modifier.fillMaxWidth())
-                            is FakeMessage.User -> UserBubble(m.text)
-                            FakeMessage.Thinking -> Unit
+                            is ChatMessage.Ai -> Column(Modifier.fillMaxWidth()) {
+                                AiMessagePanel(
+                                    name = m.name,
+                                    paragraphs = m.paragraphs,
+                                    nodes = m.thinkNodes,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                MessageActionRow(
+                                    branchIndex = m.branchIndex,
+                                    branchCount = m.branchCount,
+                                )
+                            }
+
+                            is ChatMessage.User -> Column(Modifier.fillMaxWidth()) {
+                                UserBubble(m.text)
+                                MessageActionRow(alignEnd = true)
+                            }
+
+                            is ChatMessage.Error -> ErrorPanel(m.text)
                         }
                     }
-                    if (genState == GenState.Thinking || genState == GenState.Streaming) {
+                    // 生成中：思考节点与正文都在**同一个气泡内**实时生长（§14.3①）
+                    live?.let { turn ->
                         item {
-                            ThinkingCard(
-                                steps = thinkSteps.take(
-                                    if (genState == GenState.Thinking) thinkProgress else thinkSteps.size,
-                                ).ifEmpty { listOf(ThinkStep("…")) },
-                                isLive = genState == GenState.Thinking,
-                                elapsedLabel = "2.1s",
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                    if (genState == GenState.Streaming) {
-                        item {
-                            GlassPanel(modifier = Modifier.fillMaxWidth()) {
-                                Column(
-                                    Modifier.padding(12.dp).fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                ) {
-                                    NameBadgeRow("Vanio", null)
-                                    pendingReply.paragraphs.forEach { p ->
-                                        when (p) {
-                                            is FakeParagraph.Narration -> Text(
-                                                text = p.text,
-                                                fontSize = 13.5.sp, lineHeight = 23.sp,
-                                                fontFamily = LuzzyFonts.Body,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                            is FakeParagraph.Action -> Text(
-                                                text = "*${p.text}*",
-                                                fontSize = 13.5.sp, lineHeight = 23.sp,
-                                                fontFamily = LuzzyFonts.Body,
-                                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                            is FakeParagraph.Speech -> Text(
-                                                text = "「${p.text}」",
-                                                fontSize = 13.5.sp, lineHeight = 23.sp,
-                                                fontFamily = LuzzyFonts.Body,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        }
-                                    }
-                                    if (genState == GenState.Streaming && streamProgress > 0) {
-                                        TypingDots()
-                                    }
-                                }
+                            Column(Modifier.fillMaxWidth()) {
+                                AiMessagePanel(
+                                    name = VanioCard.Name,
+                                    paragraphs = parseChatParagraphs(turn.body),
+                                    nodes = turn.nodes,
+                                    isLive = turn.generating,
+                                    activeNode = turn.activeNode,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                if (!turn.generating) MessageActionRow()
                             }
                         }
                     }
@@ -337,4 +356,152 @@ fun ChatPage(
             }
         }
     }
+
+    if (showConfig) {
+        TransportConfigDialog(
+            initial = config,
+            onDismiss = { showConfig = false },
+            onSave = {
+                config = it
+                store.save(it)
+                showConfig = false
+            },
+        )
+    }
+}
+
+/** 真实错误的如实展示（不伪装成模型输出）。 */
+@Composable
+private fun ErrorPanel(text: String) {    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f))
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.error.copy(alpha = 0.45f),
+                RoundedCornerShape(12.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.5.sp,
+            lineHeight = 19.sp,
+            fontFamily = LuzzyFonts.Body,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+}
+
+/**
+ * 供应商配置（P2：设备本地保存；P4 迁 DataStore + 多供应商管理）。
+ *
+ * 密钥只写本地 SharedPreferences，界面以密文输入 + 打码回显；**不入库、不进构建产物**。
+ */
+@Composable
+private fun TransportConfigDialog(
+    initial: TransportConfig,
+    onDismiss: () -> Unit,
+    onSave: (TransportConfig) -> Unit,
+) {
+    var baseUrl by remember { mutableStateOf(initial.baseUrl) }
+    var apiKey by remember { mutableStateOf(initial.apiKey) }
+    var model by remember { mutableStateOf(initial.model) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "供应商配置",
+                fontFamily = LuzzyFonts.Lora,
+                fontSize = 18.sp,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "OpenAI 兼容协议。配置仅保存在本机（不入库、不进安装包）。",
+                    fontSize = 11.5.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = baseUrl,
+                    onValueChange = { baseUrl = it },
+                    label = { Text("Base URL", fontFamily = LuzzyFonts.Body) },
+                    placeholder = { Text("https://api.deepseek.com", fontSize = 12.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    label = { Text("API Key", fontFamily = LuzzyFonts.Body) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = model,
+                    onValueChange = { model = it },
+                    label = { Text("模型", fontFamily = LuzzyFonts.Body) },
+                    placeholder = { Text("deepseek-flash", fontSize = 12.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (initial.apiKey.isNotBlank()) {
+                    Text(
+                        text = "当前密钥：${initial.maskedKey()}",
+                        fontSize = 11.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(
+                    TransportConfig(
+                        baseUrl = baseUrl.trim(),
+                        apiKey = apiKey.trim(),
+                        model = model.trim(),
+                    ),
+                )
+            }) {
+                Text("保存", fontFamily = LuzzyFonts.Body)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消", fontFamily = LuzzyFonts.Body)
+            }
+        },
+    )
+}
+
+/**
+ * 流式轨迹（**仅 debug 构建**）：每个真实增量打一行 logcat，用于验证
+ * 「1 个 SSE 增量 = 1 次状态更新」而无需在引擎里引入 Android 依赖。
+ *
+ * 取证据：`adb logcat -s LuzzyStream` 后统计行数与相邻时间戳即可还原真实帧到达节奏。
+ */
+private const val StreamTraceTag = "LuzzyStream"
+
+private fun traceStreamEvent(event: ChatEngine.Event) {
+    if (!BuildConfig.DEBUG) return
+    val line = when (event) {
+        is ChatEngine.Event.Recall -> "recall hits=${event.hits.size} range=${event.range}"
+        is ChatEngine.Event.ToolCallStarted -> "tool_start ${event.name}"
+        is ChatEngine.Event.ToolCallArgs -> "tool_args +${event.chunk.length}"
+        is ChatEngine.Event.ToolCallFinished -> "tool_result ${event.name} ${event.result.length}B"
+        is ChatEngine.Event.Reasoning -> "reasoning +${event.chunk.length}"
+        is ChatEngine.Event.Content -> "content +${event.chunk.length}"
+        is ChatEngine.Event.Finished -> "finished ${event.finishReason}"
+        is ChatEngine.Event.Failed -> "failed ${event.message}"
+    }
+    android.util.Log.d(StreamTraceTag, line)
 }

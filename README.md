@@ -15,7 +15,8 @@
 >
 > 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.3**。
 >
-> - **遵循上游开源协议**：沿用上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）**；上游 LICENSE 原样保留于仓库内，本项目的修改与新增部分同样以 CC BY-NC 4.0 发布；
+> - **遵循上游开源协议**：上游 `assets/rphub/**`（含本项目 patch 修改）沿用上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）**，上游 LICENSE 原样保留于仓库内；
+> - **自有代码自 v3.0 起以 AGPL-3.0 分发**：Kotlin 壳与原生传输层、`assets/ext/**` 扩展层、`tools/**`、`docs/**`、未来的 Compose 界面，以及复用的 [rikkahub](https://github.com/rikkahub/rikkahub) 代码，均以 **GNU AGPL-3.0** 分发（并存结构详见 [docs/LICENSING.md](docs/LICENSING.md) 与下方[许可证与合规](#许可证与合规)）；
 > - **保持同步上游更新**：持续跟随上游发版节奏（覆盖式同步 + 登记 patch 重放，见 [AGENTS.md](AGENTS.md) §4 SOP），上游的修复与新能力会陆续并入；
 > - **但本项目有自己的功能**：并非上游的镜像——LuzzyRP 会在上游基础上新增、改造、删减属于自己的功能（品牌化、主题与字体体系、供应商与模型管理、记忆/用量/外观等模块，见 [CHANGELOG](CHANGELOG.md)）；
 > - **会修改前端或后端代码**：本项目的改动**不限于前端**——前端（上游 `index.html` / `assets/` 内的 Vue 应用）与后端 / 原生侧（Kotlin 壳工程、JSBridge 原生能力，必要时含服务端逻辑）均可能按需求修改，上游 `presence-server` 亦不承诺保持原样；
@@ -25,7 +26,7 @@
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.3-4FC08D?logo=vue.js&logoColor=white)
-![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-F5A623)
+![License](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20CC%20BY--NC%204.0-3E6389)
 
 > [!NOTE]
 > **本项目处于快速迭代时期**——版本节奏快，功能与界面可能频繁变动。建议始终更新至最新
@@ -243,7 +244,8 @@ LuzzyRP/
 ├── CHANGELOG.md                  # 更新日志（沿用既有格式）
 ├── AGENTS.md                     # 后续开发 Agent 指南
 ├── HARD_REQUIREMENTS.md          # 硬性规定（10 条）
-├── LICENSE                        # CC BY-NC 4.0
+├── LICENSE                        # 上游 CC BY-NC 4.0（原样保留，覆盖 assets/rphub/**）
+├── LICENSE-AGPL-3.0               # 自有代码许可（v3.0 起，并存结构见 docs/LICENSING.md）
 └── README.md                     # 本文件
 ```
 
@@ -286,12 +288,24 @@ LuzzyRP/
 
 ## 许可证与合规
 
-本项目以 [CC BY-NC 4.0](LICENSE)（署名-非商业性使用 4.0 国际）许可开源，与上游 RP-Hub 一致。
+本项目自 **v3.0 起采用双许可并存（mixed licensing）**，完整契约见 [docs/LICENSING.md](docs/LICENSING.md)：
+
+| 范围 | 许可 |
+|------|------|
+| **上游资产** `app/src/main/assets/rphub/**`（RP-Hub Vue 前端，含本项目 patch 修改） | [CC BY-NC 4.0](LICENSE)（上游许可，原样署名分发） |
+| **自有代码**（Kotlin 壳与原生传输层、`assets/ext/**`、`tools/**`、`docs/**`、未来 Compose 界面、复用的 [rikkahub](https://github.com/rikkahub/rikkahub) 代码） | [AGPL-3.0](LICENSE-AGPL-3.0) |
+
+> [!WARNING]
+> **一处已知并存冲突**：CC BY-NC 4.0 的「不得商用」与 AGPL-3.0 第 10 条的「不得限制他人商用」
+> 无法同时成立。本项目形态（上游资产是经 WebView 加载的独立 web 应用、经 patch 修改后原样分发）
+> 偏向支持 AGPL 第 5 条末段的「聚合」读法，但**这不是法律结论**——详见
+> [docs/LICENSING.md](docs/LICENSING.md) §3。本项目保持**非商业侧载分发**；如需商业化须先解决该冲突。
 
 | 义务 | 落实 |
 |------|------|
 | 署名 | 本 README 顶部二创声明 + 保留上游 LICENSE 文件 |
-| 非商业 | 禁止任何形式的商业化使用（售卖、付费订阅、广告盈利） |
+| 非商业（上游资产部分） | 对上游资产禁止任何形式的商业化使用（售卖、付费订阅、广告盈利） |
+| AGPL 义务（自有代码部分） | 分发时提供对应源码（本仓库公开即满足）；复用代码文件头保留原始版权与来源标注 |
 | 修改声明 | CHANGELOG 与 README 注明上游基线版本与修改范围；本项目**会修改前端或后端 / 原生侧代码**，并持续同步上游更新 |
 | 变更可追溯 | 上游文件内改动一律携带 `[LuzzyRP patch NNN]` 标记并登记于 `tools/patches/`；同步后 `tools/verify-markers.ps1` 全绿 |
 
@@ -306,5 +320,5 @@ LuzzyRP/
 - 请遵守所在地区法律法规，合理使用。
 
 <div align="center">
-<sub>LuzzyRP · Based on RP-Hub by STA1N156 · CC BY-NC 4.0</sub>
+<sub>LuzzyRP · Based on RP-Hub by STA1N156 · AGPL-3.0 (own code) + CC BY-NC 4.0 (upstream assets)</sub>
 </div>

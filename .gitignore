@@ -76,3 +76,6 @@ docs/design/splash-v1/frames/g_*.png
 docs/design/splash-v1/frames/h_*.png
 docs/design/splash-v1/frames/probe*.png
 docs/design/splash-v1/frames/list.txt
+
+# 第三方 AI 助手的本地会话记忆（非本项目内容）
+.workbuddy/

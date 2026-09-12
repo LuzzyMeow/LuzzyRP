@@ -27,7 +27,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `HARD_REQUIREMENTS.md` | 10 条硬性规定（最高约束） | 修改需在 CHANGELOG 声明 |
 | `AGENTS.md` | 本文件 | 与 HARD_REQUIREMENTS 同步演进 |
 | `DESIGN.md` | 设计真源（唯一设计契约，Claude token 体系） | 任何 UI 改动必须遵循；修改需按硬性规定 9 走设计流程 |
-| `LICENSE` | CC BY-NC 4.0 | **禁止删除/改写**（含上游 LICENSE 保留义务） |
+| `LICENSE` | CC BY-NC 4.0（上游资产适用） | **禁止删除/改写**（含上游 LICENSE 保留义务）；v3.0 起双许可并存：自有代码以 `LICENSE-AGPL-3.0`（AGPL-3.0）分发，并存结构与冲突记录见 `docs/LICENSING.md`；**从 rikkahub 复用的代码文件头必须保留原始版权声明与来源标注** |
 | `keystore.properties` | 签名配置（storeFile/storePassword/keyAlias/keyPassword） | **不入库**（.gitignore）；签名密钥库 `keystore/luzzy-release.keystore` 同样不入库，须离线备份——**发布签名必须始终一致，换签 = 老用户无法覆盖升级**（§3.4） |
 | `settings.gradle.kts` / `build.gradle.kts` / `gradle.properties` | 构建配置 | 仅 `:app` 单模块 |
 

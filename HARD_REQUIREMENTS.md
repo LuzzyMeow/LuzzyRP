@@ -95,7 +95,9 @@ RP-Hub 上游文件（`index.html`、`assets/js/*.js`、`assets/css/styles.css`�
 
 ## 合规红线（许可证义务，与规定并行）
 
-- 上游 LICENSE 文件**原样保留**在仓库内，禁止删除或改写；
+- 上游 LICENSE 文件（CC BY-NC 4.0）**原样保留**在仓库内，禁止删除或改写；
 - README 顶部二创署名声明（基于 STA1N156/RP-Hub，上游基线版本）不得移除；
-- 项目保持 CC BY-NC 4.0，禁止任何商业化使用；
+- **双许可并存（v3.0 起，见 `docs/LICENSING.md`）**：上游资产 `assets/rphub/**` 保持 CC BY-NC 4.0 原样署名分发；自有代码（Kotlin / `assets/ext/**` / `tools/**` / `docs/**` / Compose 界面 / 复用的 rikkahub 代码）以 AGPL-3.0 分发——`LICENSE-AGPL-3.0` 不得删除；
+- **复用代码标注义务**：凡从 rikkahub（AGPL-3.0）复用的源码文件，文件头必须保留其原始版权声明并注明来源仓库，违者视为不合格交付；
+- ⚠️ 一处已知并存冲突（CC BY-NC 的非商用限制 vs AGPL 第 10 条）如实记录于 `docs/LICENSING.md` §3，Agent 不作法律判断、不得擅自"简化"为单一许可；
 - **仅侧载分发，禁止上架应用商店**（nsfw_rules 含年龄条款，合规风险）。

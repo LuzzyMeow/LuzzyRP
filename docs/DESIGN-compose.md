@@ -84,6 +84,54 @@ primary-600 → success(green) → primary-700 → error → primary-400 → gra
 | 分支指示 | 胶囊 chip `‹ 2/3 ›`（outlineVariant 边），气泡名行右侧 | RP 特有 |
 | 模型商徽标 | `[商名]` 胶囊 chip（`secondaryContainer` 底） | 承袭现行语义 |
 | **图标体系** | **LuzzyIcons**（`ui/icons/`）：主体 = 之前 LuzzyRP（WebView 版）的 `ic_lz_*` VectorDrawable 集合（形状 = 上游 RP-Hub 内嵌 SVG d 路径原样搬运，Heroicons v1 outline 形状池，MIT）——新旧版本图标**同形**；补缺 6 枚取 Heroicons v1.0.6 官方（MIT）。**禁止**引入 material-icons / hugeicons（后者为 rikkahub 本地 jar，源码不可得且素材许可链不透明） | v1.5.0 LedgerIcons 先例延续 |
+| **聊天页 · 沉浸形态**（2026-09-12，用户拍板「复刻原项目聊天页」，三方向豁免已落档） | 见 §12 | 上游聊天页 + 现行 DESIGN.md 条款翻译 |
+
+## 12 · 聊天页 · 沉浸形态（角色背景版，2026-09-12）
+
+> 用户拍板：以示例角色卡复刻原项目聊天页（全屏角色图背景 / 玻璃半透明气泡 / 流式输出 /
+> 思考卡节点 / 输入框功能 icon）。三方向豁免记录：`docs/design/boards-v4/direction-approved-v4.md`。
+
+### 12.1 层级结构（自底向上）
+
+| 层 | 内容 |
+|----|------|
+| 背景层 | 角色卡图 `Image(ContentScale.Crop, fillMaxSize)`（P1 演示资产 `vanio_card.png`；正式链路 P4 由角色卡导入提供）+ **hazeSource 锚点** |
+| 可读性 scrim | 顶栏黑渐隐 `#141413 .55 → transparent @40%`（上游同款，现行 DESIGN.md「顶栏黑色渐隐」条款）+ 底部 `black .30 → transparent`（护输入岛）+ 暗模式整面 `black .22` |
+| 消息流 | LazyColumn，玻璃气泡族（12.2） |
+| 顶栏 | 沉浸态：透明 + 白字（角色名 Lora 17sp + 状态行 11sp）+ 头像圈（角色图裁圆 34dp）+ 圆形动作钮改**黑玻璃 chip**（`black 28%` 圆底 + 白 icon——上游移动端顶栏按钮语言） |
+| 输入岛 | 玻璃近实底卡（12.4） |
+
+### 12.2 雾纸玻璃气泡（统一雾纸配方的 Compose 翻译）
+
+- 实现：**haze**（`dev.chrisbanes.haze`，rikkahub 同库）：背景层 `hazeSource(state)`，
+  玻璃面 `hazeEffect(HazeStyle(tint, alpha, blurRadius))`；
+- **配方（单点调参常量 `LuzzyGlass`，承袭现行 DESIGN.md「单点变量」纪律）**：
+  - blur = **18dp**；基础 tint alpha = **0.78**；
+  - AI/思考卡 tint：亮 `#F5F0E8` / 暗 `#2B2824`（现行 DESIGN.md 表面色）；
+  - 用户气泡 tint：亮 `#F1E3D9` / 暗 `#3A2E26`（用户气泡底语义）+ 边框 coral-300@.55；
+  - 上游实证：0.74+blur18 在深色立绘上正文 ≥7:1——对比达标；
+- 圆角：气泡 16dp / 思考卡 14dp；文字 onSurface 系（雾纸后 = 纸面底，正常对比）。
+
+### 12.3 思考卡节点 + 假流式（P1 demo；P2 接 v2.0 Kotlin 传输换真流式）
+
+- **状态机** `Idle → Thinking → Streaming → Done`（发送键 ↔ 停止钮切换）；
+- Thinking：思考卡 **live 态**（coral `primary@.45` 描边 + 「思考中…」+ 进度点），推理文本
+  逐字填充（20ms/字）；完成后折叠为「思考 · N.Ns」；
+- Streaming：AI 回复逐字上屏（22ms/字）+ `animateContentSize()`；**气泡容器在流式开始前
+  即存在**（pitfalls 迁移：不留空白首帧）；
+- 思考卡结构（上游 native-thinking-card 同构）：折叠行（dot + 摘要 + chevron，可点展开）+
+  展开面板 = 步骤时间线（每步 = 圆点 + 短文本 + 缩进）——整卡玻璃；
+- 动效一律 200/140ms + `Motion.Easing`；`animateContentSize` 走 spring 默认可接受（尺寸过渡非进出转场）。
+
+### 12.4 输入岛（功能 icon 行复刻）
+
+- 卡：28dp 圆角 + 玻璃近实底（tint `surfaceContainerHigh@.95` + 无 blur——键盘邻接面，
+  承袭上游「输入岛不入玻璃族」语义）+ outlineVariant@.5 边；
+- **功能行**（上游输入岛功能按钮复刻）：`Plus`(附件) / `Sliders`(预设) / `BookOpen`(世界书) /
+  `Mcp`(工具) / `Workspace`(工作区) 五个 34dp 圆钮（onSurfaceVariant icon，按下反馈）+
+  右侧模型 chip（`DeepSeek-V4`，primaryContainer 胶囊 12sp）；
+- 输入行：`BasicTextField` 无边框（占位「写点什么……」outline 色）+ 38dp 圆形发送键
+  （primary 底 / 流式中变停止 = error 底方块 icon）。
 | 发送/主按钮 | primary 底 + onPrimary 字；active 加深 | M3 语义 |
 | 荧光笔记号 | tertiary(amber) 低透明度压底，全屏 ≤3 处（手作记号纪律沿袭） | 承袭现行 |
 

@@ -1,5 +1,8 @@
 package com.luzzymeow.luzzyrp.ui.pages.chat
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,12 +24,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -33,25 +43,40 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import dev.chrisbanes.haze.hazeEffect
 
 /**
- * 聊天页组件（P1 假数据版；规格 = DESIGN-compose §4 组件表）。
+ * 聊天页组件 · 沉浸形态（DESIGN-compose §12；用户 2026-09-12 拍板复刻原项目聊天页）。
  *
- * - 用户气泡：primaryContainer 底 + 16dp 圆角 + 最大宽 320dp + 右对齐；
- * - AI 消息：**无气泡默认**（Markdown 裸排在 surface 上，rikkahub 语义）；
- * - 名牌「Luna」用 Lora 衬线（品牌不变量）+ 分支 chip `‹ 2/3 ›`；
- * - 思考卡：折叠行（dot + 摘要 + chevron）；
- * - 输入岛：largeIncreased(28dp) 圆角 + outlineVariant 边 + 44dp 圆形发送键
- *   （haze 玻璃为 P2+，P1 实底回退——DESIGN-compose §4「性能逃生门」语义）。
+ * 雾纸玻璃配方（单点调参，承袭现行 DESIGN.md「单点变量」纪律）：
+ * blur 18dp + tint alpha 0.78——上游 0.74+blur18 在深色立绘上正文 ≥7:1 的实证配方。
  */
 
-/** 消息数据（P1 假数据；P2 换真实 UIMessage 模型）。 */
+/** 雾纸玻璃单点调参（DESIGN-compose §12.2）。 */
+object LuzzyGlass {
+    const val BlurDp = 18
+    const val TintAlpha = 0.78f
+    const val UserTintAlpha = 0.80f
+}
+
+/** 玻璃 tint 取色（亮/暗两套；调用方在 composable 上下文取）。 */
+@Composable
+fun glassTint(user: Boolean): Color {
+    val dark = com.luzzymeow.luzzyrp.ui.theme.LuzzyThemeColors.isDark
+    return if (user) {
+        if (dark) Color(0xFF3A2E26) else Color(0xFFF1E3D9)
+    } else {
+        if (dark) Color(0xFF2B2824) else Color(0xFFF5F0E8)
+    }
+}
+
+/** 消息数据（P1 假数据 + 假流式；P2 换真实 UIMessage 模型）。 */
 sealed class FakeMessage {
     abstract val name: String
     abstract val branch: String?
 
     data class Ai(
-        override val name: String = "Luna",
+        override val name: String = "Vanio",
         override val branch: String? = null,
         val paragraphs: List<FakeParagraph>,
     ) : FakeMessage()
@@ -73,7 +98,25 @@ sealed class FakeParagraph {
     data class Speech(val text: String) : FakeParagraph()
 }
 
-/** 角色名牌行：Lora 衬线名牌（左）+ 分支 chip（右）。 */
+/** 分支指示 chip：`‹ 2/3 ›`。 */
+@Composable
+fun BranchChip(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f), RoundedCornerShape(50))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontFamily = LuzzyFonts.Body,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 名牌行：Lora 衬线名牌 + 分支 chip。 */
 @Composable
 fun NameBadgeRow(name: String, branch: String?, modifier: Modifier = Modifier) {
     Row(
@@ -88,255 +131,362 @@ fun NameBadgeRow(name: String, branch: String?, modifier: Modifier = Modifier) {
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary,
         )
-        if (branch != null) {
-            BranchChip(branch)
-        }
+        if (branch != null) BranchChip(branch)
         Spacer(Modifier.weight(1f))
     }
 }
 
-/** 分支指示 chip：`‹ 2/3 ›`（outlineVariant 边，胶囊）。 */
+/**
+ * 玻璃气泡容器（雾纸配方）：blur + tint 单点常量。
+ * `hazeEffect` 挂在容器 Surface 上；内容正常排版。
+ */
 @Composable
-fun BranchChip(label: String, modifier: Modifier = Modifier) {
+fun GlassPanel(
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    tint: Color = glassTint(user = false),
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    borderWidth: Int = 1,
+    content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit,
+) {
+    val hazeState = LocalChatHazeState.current
     Box(
         modifier = modifier
-            .background(
-                MaterialTheme.colorScheme.surfaceContainer,
-                RoundedCornerShape(50),
+            .clip(shape)
+            .hazeEffect(
+                state = hazeState,
+                style = dev.chrisbanes.haze.HazeStyle(
+                    backgroundColor = MaterialTheme.colorScheme.surface,
+                    tints = listOf(dev.chrisbanes.haze.HazeTint(tint.copy(alpha = LuzzyGlass.TintAlpha))),
+                    blurRadius = LuzzyGlass.BlurDp.dp,
+                ),
             )
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    ) {
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            fontFamily = LuzzyFonts.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
+            .border(borderWidth.dp, borderColor, shape),
+        content = content,
+    )}
 
-/** 思考卡折叠行（ChainOfThought 折叠态；live 态 P2 接流式时再做）。 */
-@Composable
-fun ThinkingCardCollapsed(summary: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 0.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(7.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-            )
-            Text(
-                text = summary,
-                fontSize = 11.5.sp,
-                fontFamily = LuzzyFonts.Body,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.weight(1f))
-            Icon(
-                painter = painterResource(LuzzyIcons.ChevronDown),
-                contentDescription = "展开思考",
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(14.dp),
-            )
-        }
-    }
-}
-
-/** 用户气泡：primaryContainer + 16dp 圆角 + 320dp 上限 + 右对齐。 */
+/**
+ * 用户气泡：玻璃 tint 用用户气泡底语义（`#F1E3D9` 系），16dp 圆角，320dp 上限，右对齐。
+ */
 @Composable
 fun UserBubble(text: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Surface(
+        GlassPanel(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = 0.dp,
-            modifier = Modifier.widthIn(max = 320.dp),
+            tint = glassTint(user = true),
+            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+            modifier = Modifier.widthIn(max = 320.dp).animateContentSize(
+                animationSpec = tween(com.luzzymeow.luzzyrp.ui.theme.Motion.EnterMs),
+            ),
         ) {
             Text(
                 text = text,
                 fontSize = 13.5.sp,
                 lineHeight = 22.sp,
                 fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
             )
         }
     }
 }
 
-/** AI 消息（无气泡默认）：名牌行 + 段落流（叙述/动作斜体/对白）。 */
+/** AI 消息（玻璃卡）：名牌行 + 段落流（叙述/动作斜体/对白）。 */
 @Composable
 fun AiMessage(
     message: FakeMessage.Ai,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        NameBadgeRow(message.name, message.branch)
-        message.paragraphs.forEach { p ->
-            when (p) {
-                is FakeParagraph.Narration -> Text(
-                    text = p.text,
-                    fontSize = 13.5.sp, lineHeight = 23.sp,
-                    fontFamily = LuzzyFonts.Body,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                is FakeParagraph.Action -> Text(
-                    text = "*${p.text}*",
-                    fontSize = 13.5.sp, lineHeight = 23.sp,
-                    fontFamily = LuzzyFonts.Body,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                is FakeParagraph.Speech -> Text(
-                    text = "「${p.text}」",
-                    fontSize = 13.5.sp, lineHeight = 23.sp,
-                    fontFamily = LuzzyFonts.Body,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+    GlassPanel(
+        modifier = modifier
+            .widthIn(max = 320.dp)
+            .animateContentSize(
+                animationSpec = tween(com.luzzymeow.luzzyrp.ui.theme.Motion.EnterMs),
+            ),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            NameBadgeRow(message.name, message.branch)
+            message.paragraphs.forEach { p ->
+                when (p) {
+                    is FakeParagraph.Narration -> Text(
+                        text = p.text,
+                        fontSize = 13.5.sp, lineHeight = 23.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    is FakeParagraph.Action -> Text(
+                        text = "*${p.text}*",
+                        fontSize = 13.5.sp, lineHeight = 23.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    is FakeParagraph.Speech -> Text(
+                        text = "「${p.text}」",
+                        fontSize = 13.5.sp, lineHeight = 23.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
         }
     }
 }
 
+/** 思考步骤（时间线节点）。 */
+data class ThinkStep(val text: String)
+
 /**
- * 圆形描边图标钮（方向板 A 顶栏组件语言：34dp 圆 + outlineVariant 描边 + 图标居中）。
- * P1 为占位交互（模型选择/更多菜单 P5 实现），样式先按板落位。
+ * 思考卡（上游 native-thinking-card 同构）：
+ * 折叠行（dot + 摘要 + chevron，可点展开）+ 展开时间线；整卡玻璃；live 态 coral 描边。
  */
 @Composable
-fun CircleIconButton(
-    iconRes: Int,
-    contentDescription: String,
-    onClick: () -> Unit = {},
+fun ThinkingCard(
+    steps: List<ThinkStep>,
+    isLive: Boolean,
+    elapsedLabel: String,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .size(34.dp)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+    var expanded by remember { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(com.luzzymeow.luzzyrp.ui.theme.Motion.EnterMs),
+        label = "cotChevron",
+    )
+    GlassPanel(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        borderColor = if (isLive) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        borderWidth = if (isLive) 2 else 1,
     ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp),
-        )
+        Column(Modifier.animateContentSize(animationSpec = tween(com.luzzymeow.luzzyrp.ui.theme.Motion.EnterMs))) {
+            Row(
+                modifier = Modifier
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 12.dp, vertical = 9.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    Modifier
+                        .size(7.dp)
+                        .background(
+                            if (isLive) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            CircleShape,
+                        ),
+                )
+                Text(
+                    text = if (isLive) "思考中…" else "思考 · $elapsedLabel",
+                    fontSize = 11.5.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.weight(1f))
+                androidx.compose.material3.Icon(
+                    painter = painterResource(LuzzyIcons.ChevronDown),
+                    contentDescription = if (expanded) "折叠思考" else "展开思考",
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(14.dp).rotate(chevronRotation),
+                )
+            }
+            if (expanded) {
+                Column(
+                    Modifier.padding(start = 15.dp, end = 12.dp, bottom = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    steps.forEachIndexed { i, step ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                Modifier
+                                    .padding(top = 5.dp)
+                                    .size(5.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = if (isLive && i == steps.lastIndex) 1f else 0.55f),
+                                        CircleShape,
+                                    ),
+                            )
+                            Text(
+                                text = step.text,
+                                fontSize = 12.sp,
+                                lineHeight = 18.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-/** 角色头像圈（方向板 A：珊瑚渐变圆 + Lora 首字母；M3 role 落位）。 */
-@Composable
-fun AvatarCircle(
-    initial: String,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .size(34.dp)
-            .background(
-                androidx.compose.ui.graphics.Brush.linearGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.tertiary,
-                    )
-                ),
-                CircleShape,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = initial,
-            fontFamily = LuzzyFonts.Lora,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimary,
-        )
-    }
+/** 玻璃卡的 haze 状态由聊天页顶层提供。 */
+val LocalChatHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.chrisbanes.haze.HazeState> {
+    error("LocalChatHazeState not provided")
 }
 
-/** 输入岛：附件钮 + 占位文本 + 38dp 圆形发送键（largeIncreased 圆角，实底）。 */
+/**
+ * 输入岛 v2（DESIGN-compose §12.4）：功能 icon 行（上游复刻）+ 输入行 + 发送/停止。
+ * 玻璃近实底（tint surfaceContainerHigh@.95 + 无 blur——键盘邻接面，不入玻璃族）。
+ */
 @Composable
 fun InputIsland(
+    isGenerating: Boolean,
+    onSendOrStop: () -> Unit,
+    onModelChipClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onToggleTheme: () -> Unit = {},
 ) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding() // edge-to-edge 下避让系统导航栏
+            .navigationBarsPadding()
             .padding(horizontal = 10.dp, vertical = 10.dp),
-        shape = RoundedCornerShape(28.dp), // M3 largeIncreased（material3 内部属性，同值落位）
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
         tonalElevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Row(
-            modifier = Modifier.padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val dashColor = MaterialTheme.colorScheme.outline
-            // 虚线圆圈加号（方向板 A 组件语言；drawBehind 非 composable，先取色）
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .drawBehind {
-                        drawCircle(
-                            color = dashColor,
-                            style = Stroke(
-                                width = 1.2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(7f, 6f)),
-                            ),
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+            // ── 功能行 ──
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                listOf(
+                    LuzzyIcons.Plus to "附件",
+                    LuzzyIcons.Sliders to "预设",
+                    LuzzyIcons.BookOpen to "世界书",
+                    LuzzyIcons.Mcp to "工具",
+                    LuzzyIcons.Workspace to "工作区",
+                ).forEach { (res, desc) ->
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .clickable {},
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(res),
+                            contentDescription = desc,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(19.dp),
                         )
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Plus),
-                    contentDescription = "附件（P1 占位）",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp),
-                )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                // 模型 chip
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable(onClick = onModelChipClick)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = "DeepSeek-V4",
+                        fontSize = 12.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
             }
-            Text(
-                text = "写点什么……",
-                fontSize = 13.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.weight(1f),
-            )
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-                contentAlignment = Alignment.Center,
+            Spacer(Modifier.height(4.dp))
+            // ── 输入行 ──
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Send),
-                    contentDescription = "发送（P1 占位）",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(16.dp),
+                androidx.compose.foundation.text.BasicTextField(
+                    value = "",
+                    onValueChange = {},
+                    enabled = !isGenerating,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontSize = 14.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+                    decorationBox = { inner ->
+                        Box {
+                            Text(
+                                text = "写点什么……",
+                                fontSize = 14.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                            inner()
+                        }
+                    },
                 )
+                // 发送 / 停止
+                Box(
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .size(38.dp)
+                        .background(
+                            if (isGenerating) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                            CircleShape,
+                        )
+                        .clickable(onClick = onSendOrStop),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isGenerating) {
+                        Box(
+                            Modifier
+                                .size(12.dp)
+                                .background(MaterialTheme.colorScheme.onError, RoundedCornerShape(2.dp)),
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(LuzzyIcons.Send),
+                            contentDescription = "发送",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-/** 全屏高度占位（滚动验证用间隔）。 */
+/** 流式打字点（三个点呼吸；live 态气泡尾部）。 */
 @Composable
-fun SectionGap() = Spacer(Modifier.height(4.dp))
+fun TypingDots(modifier: Modifier = Modifier) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "typing")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(700),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "typingAlpha",
+    )
+    Row(modifier = modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(3) {
+            Box(
+                Modifier
+                    .size(5.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha), CircleShape),
+            )
+        }
+    }
+}

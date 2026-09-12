@@ -2565,3 +2565,39 @@ who comes into possession of a copy`）：
   已 `git checkout` 恢复；后续图标工作一律以原版 ic_lz_* 为准、缺了才补 Heroicons 原文。
 - **验证**：debug + release 双构建过；模拟器截图确认抽屉/顶栏/输入岛图标全部为上游同形
   线性风格（`verify-p1-drawer.png` 已更新）。
+
+#### 追记 3（同日）：聊天页沉浸形态 · 复刻原项目（用户拍板，三方向豁免）
+
+- **任务**：以示例角色卡 Vanio.png 复刻原项目聊天页（全屏角色背景/玻璃气泡/流式输出/
+  思考卡节点/输入框功能 icon）。硬性规定 9：重读 4 项 SKILL 主文档 + 补读
+  animation-pitfalls/app-prototype；**三方向豁免**（用户明说，原话已落
+  direction-approved-v4.md）；设计决策落 DESIGN-compose §12。
+- **角色卡处理**：Vanio.png 为**非标准 PNG**（NovelAI Diffusion V4.5 导出，IHDR 后
+  chunk 边界错位，无标准 IDAT 可循）——手工收集 IDAT + zlib 解压 + PNG unfilter 五式
+  重建合法 PNG（4.2MB）入 `drawable-nodpi/vanio_card.png`（P1 演示资产，正式链路
+  P4 角色卡导入）。角色提示词从 NovelAI `Comment` 元数据提取（v4 分通道 caption：
+  demon horns/tail、orange eyes、light blue hair、红帽斗篷、教堂+苹果场景）——假对话
+  按此设定编写（教堂藏苹果的小恶魔）。
+- **实现**：haze 1.6.2 依赖（rikkahub 同库）；`LuzzyGlass` 单点调参（blur 18dp +
+  tint alpha .78，承袭现行 DESIGN.md 雾纸配方语义）；层级 = 背景图（hazeSource）+
+  黑渐隐/底部 scrim（+暗模式整面 .22）+ 玻璃气泡族（GlassPanel：AI #F5F0E8 系/
+  用户 #F1E3D9 系 tint）+ 思考卡（折叠行可展开步骤时间线，live 态 coral 描边，
+  逐字 700ms/步）+ 假流式状态机（Idle→Thinking→Streaming→Done，逐字 22ms +
+  animateContentSize + 打字点，发送键↔停止方块）+ 输入岛 v2（功能行 Plus/Sliders/
+  BookOpen/Mcp/Workspace + DeepSeek-V4 模型 chip + BasicTextField + 38dp 发送/停止）。
+- **踩坑与修复**：
+  ① `LocalChatHazeState not provided` 冷启动崩溃——挂了 hazeSource 忘了
+  CompositionLocalProvider（修复）；
+  ② **沉浸顶栏自绘 Row 的 clickable 全部失效**（uiautomator 可见按钮但 input tap
+  不达，M3 IconButton 同样失败）——**换 M3 TopAppBar（transparent colors）+
+  IconButton 后恢复**；根因未明（疑与 hazeSource 层叠 hit-test 相关），P2 复查；
+  ③ 假流式 pendingReply 从未填充（流式气泡恒空、完成入空消息）——循环内以
+  renderStreaming 切片更新（修复）；
+  ④ 整文件重写时函数闭合错位（renderStreaming 被解析为局部函数）→ 手工括号对账
+  不可靠，整文件重写收敛。
+- **验证**（模拟器截图 `docs/design/verify-p1v2-*.png`）：初始沉浸形态 ✓ /
+  思考 live 态（coral 描边+停止钮切换）✓ / 流式逐字上屏+打字点+思考折叠「2.1s」✓ /
+  完成落定 ✓ / 暗色雾纸玻璃 ✓。五维 critique：方向=复刻落位 / 品牌=Lora+ic_lz+珊瑚 /
+  层级=背景-scrim-玻璃-输入岛清晰 / 动效=令牌+打字点 / 工程=单点调参+崩溃修复。
+- **已知取舍**：假流式内容固定（连发两轮出现重复对话，P2 接真传输消失）；
+  主题模式仍内存态（P4 DataStore）；自绘顶栏点击失效根因待查。

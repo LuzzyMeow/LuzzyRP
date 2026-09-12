@@ -51,19 +51,33 @@ enum class LuzzyRoute(val title: String, val icon: Int) {
 }
 
 /**
- * 抽屉收起时长（覆盖 M3 默认 ≈250ms；放慢到 400ms——用户反馈「250ms 像硬切」：
- * 抽屉宽约占屏 80%，淡化主体被移动中的抽屉遮挡，故抽屉与内容同时放慢）。
+ * 抽屉收起动画时长。
+ *
+ * **实测取值（2026-09-12，会话 64）**：App 内按帧采样 `drawerState.offset`，三次实测
+ * 「开始移动 → 完全停止」= **419 / 405 / 409 ms**（frames=11~25, movedFrames≈全部,
+ * endOffset=-945 完全收起）→ 取上界 **420ms** 作为抽屉动画时长。
  */
-const val DrawerCloseMs = 400
+const val DrawerCloseMs = 420
 
-/** 内容转场时长 = 抽屉收起时长（抽屉完全收入时转场恰好完成；等长交叉）。 */
+/**
+ * 内容转场时长 = **实测抽屉收起时长**（用户定稿语义：侧边菜单栏完全收入左侧抽屉时
+ * 页面转场刚好完成）。等长交叉 → 两者同帧起跑、同时结束。
+ */
 const val ContentTxMs = DrawerCloseMs
 
 /** 旧页淡出时长 = 等长交叉（与新页同段完成，不留残影）。 */
 const val OldFadeMs = DrawerCloseMs
 
-/** 转场曲线（ease-out：快起慢收，尾部减速让落定段可感知）。 */
-val TxEasing = Motion.Easing
+/**
+ * 转场曲线：M3 标准对称缓动 `FastOutSlowIn`（cubic-bezier(0.4, 0, 0.2, 1)）。
+ *
+ * **为何不用强 ease-out（2026-09-12 三修，用户续报「还是快」的根因）**：
+ * `cubic-bezier(0.23,1,0.32,1)` 会在时长前 1/4 内完成约 75~80% 的变化——400ms 的动画
+ * 实际感知只有 ~100ms（新页 alpha 在 100ms 时已 0.83），因此视觉上仍是硬切。
+ * 改为对称曲线后，不透明度变化均匀铺满全程，**感知时长 = 实际时长**。
+ * 抽屉与内容**共用同一曲线与同一时长** → 严格同帧起跑、同时完成。
+ */
+val TxEasing = androidx.compose.animation.core.FastOutSlowInEasing
 
 /**
  * v3.0 应用壳：抽屉（提升到壳层，全页共用）+ AnimatedContent 页面转场。
@@ -119,7 +133,7 @@ fun LuzzyNavShell(
                         },
                         modifier = Modifier.clickable {
                             onNavigate(r)
-                            // 用显式 400ms spec 覆盖 M3 默认，与内容转场等长（同帧起跑、同时结束）
+                            // 抽屉与内容转场等长同帧起跑（DESIGN-compose §13.2）
                             scope.launch {
                                 drawerState.animateTo(
                                     DrawerValue.Closed,

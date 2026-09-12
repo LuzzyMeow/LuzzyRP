@@ -674,6 +674,27 @@
 #   - 预期冲突点：上游改生成收尾的 toolCalls 读取方式、`withUsageMetrics` 返回结构、
 #     或 `extractApiErrorMessage` 的错误信封判定时需重打
 #
+# 052-finish-reason-visible.patch（2026-09-11，结束原因 finish_reason 可见化）
+#   - **背景**：三协议里**只有 OpenAI 路径捕获了 `finish_reason`** —— Anthropic
+#     （`message_delta.stop_reason`）与 Gemini（`candidates[0].finishReason`）**从未读取**，
+#     且该字段**从不落盘**、应用内**完全不可见**。后果：「回复被截断」这件事永远无法定性 ——
+#     `length` / `max_tokens` = 撞了输出上限（我们的锅：`max_tokens` 没配够）；
+#     `stop` / `end_turn` = 模型自己收的（与参数无关）。用户只能看到「回复很短/断了」，
+#     却无从判断原因。
+#   - **做法（三处，一条链）**：
+#     ① `api-utils.js`：两个适配器补齐捕获并把 `finishReason` 一路带进 `onUsage` 的 metrics ——
+#        Anthropic 在 `message_delta` 帧读 `delta.stop_reason`（含非流式 `data.stop_reason`）；
+#        Gemini 读 `candidates[0].finishReason`，并把 `MAX_TOKENS` **归一为 `length`**
+#        （与 OpenAI 同义），其余小写透传；`withUsageMetrics` 出口统一带上该字段。
+#     ② `runtime-services.js`：`recordApiUsage` 落盘该字段
+#        （`finishReason: String(meta.finishReason ?? '')`，空串兜底 → 老记录兼容）。
+#     ③ `app.js`：新增 `lastFinishReason` ref（含 setup() 返回列表导出）+ 在 `finish_reason`
+#        为 `length` / `max_tokens` / `MAX_TOKENS`（大小写不敏感）时用既有 `showToast`
+#        明确提示用户「本轮回复因达到输出上限被截断 + 请检查模型的最大输出设置」。
+#   - 门禁：`verify-markers.ps1` 新增 052 共 7 项（3 项标记 + 4 项语义锚点）
+#   - 预期冲突点：上游改三协议适配器的返回契约（`finishReason` 键）、`onUsage` 回调的
+#     metrics 形状、`recordApiUsage` 的记录结构，或生成收尾的 toast 提示位置时需重打
+#
 ## 标记体系与实体重放（2026-09-02 v1.2.1 立；2026-09-09 v1.5.0 修正生成规程）
 # ============================================================
 # 1. 显式标记：上游文件内全部 patch 区域现携带 [LuzzyRP patch NNN] 注释
@@ -702,10 +723,10 @@
 #      007-029-novel-html        novel/index.html          7e8034a1  (2645 B)
 #      009-035-core-utils-js     assets/js/core-utils.js   4f1c2c85  (5390 B)  ← 本版再生成
 #      012-035-index-html        index.html                52135b42  (115116 B) ← 本版再生成
-#      012-036-app-js            assets/js/app.js          79267c03  (202962 B) ← 本版再生成
+#      012-036-app-js            assets/js/app.js          79267c03  (205042 B) ← 本版再生成
 #      012-035-ui-components-js  assets/js/ui-components.js e9a992bc  (26061 B)
-#      012-035-runtime-services-js assets/js/runtime-services.js d2e47294 (7067 B)
-#      015-032-api-utils-js      assets/js/api-utils.js    dc5a47cc  (25283 B) ← 本版再生成
+#      012-035-runtime-services-js assets/js/runtime-services.js d2e47294 (7646 B)
+#      015-032-api-utils-js      assets/js/api-utils.js    dc5a47cc  (28177 B) ← 本版再生成
 #      016-035-data-services-js  assets/js/data-services.js 7858d9fc  (740 B)
 #
 #    ★ 2026-09-11 再生成记录：本版新增的 047/048/050/051 恰好全落在其中 4 枚实体上
@@ -718,6 +739,18 @@
 #           且重放结果 9/9 与工作树 LF 归一逐字节一致。
 #      注意：参考克隆里的基线 blob 是 **CRLF**，而实体头 `index <pre>` 是**LF 归一**后的 blob id
 #      （apply-patches.ps1 的 Get-FileGitBlobIdLfNormalized 同此口径）——故落盘基线必须先 LF 归一。
+#
+#    ★ 2026-09-11 再生成记录（052）：本版新增的 052 恰好落在 **3 枚**实体上
+#      （api-utils.js / runtime-services.js / app.js），故这 3 枚按上述规程**整枚重生成**
+#      （前像 = 4aef0bb 纯净基线的 LF 归一 blob id，逐枚复核与上表一致：
+#      dc5a47cc / d2e47294 / 79267c03）。
+#      双验证结果（均在仓库外干净目录执行，未触碰工作树）：
+#        a. 逆向 3/3：纯净基线 → git apply --ignore-whitespace
+#           --directory=app/src/main/assets/rphub → 与工作树 LF 归一**逐字节等同**；
+#        b. 端到端 9/9：纯净基线全量 → tools/apply-patches.ps1 实跑 → 9 枚全 [OK]，
+#           且重放结果 9/9 与工作树 LF 归一逐字节一致。
+#      `index.html` **不在其中** —— 052 未触碰 index.html（0 处 052 标记），实体 012-035-index-html
+#      保持不动。
 # 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节
 #    一致（verify-markers.ps1 的 R1/R2 项）。
 # 4. 基线参数化（v1.5.0）：apply-patches.ps1 的「纯净基线兜底判定」不再硬编码 commit，

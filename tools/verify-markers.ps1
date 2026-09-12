@@ -198,6 +198,17 @@ $Manifest = @(
     @{ Id = '051-contract-fill';         File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = 'if (!Array.isArray(result.toolCalls)) result.toolCalls = [];';  Min = 1 },
     @{ Id = '051-mark-core';             File = 'assets/js/core-utils.js';        Mode = 'contains';     Needle = '[LuzzyRP patch 051]';  Min = 2 },
     @{ Id = '051-anthropic-events';      File = 'assets/js/core-utils.js';        Mode = 'contains';     Needle = 'ANTHROPIC_STREAM_EVENT_TYPES';  Min = 2 },
+    # 052（结束原因 finish_reason 可见化）：三协议统一捕获 + 落盘 + 截断提示
+    #   此前只有 OpenAI 路径读该字段，Anthropic（message_delta.stop_reason）与
+    #   Gemini（candidates[0].finishReason）从未读取，且该字段从不落盘、应用内不可见 ——
+    #   「回复被截断」永远无法定性（length/max_tokens = 撞输出上限；stop/end_turn = 模型自己收）
+    @{ Id = '052-mark-api';              File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = '[LuzzyRP patch 052]';  Min = 14 },
+    @{ Id = '052-mark-runtime';          File = 'assets/js/runtime-services.js';  Mode = 'contains';     Needle = '[LuzzyRP patch 052]';  Min = 1 },
+    @{ Id = '052-mark-app';              File = 'assets/js/app.js';               Mode = 'contains';     Needle = '[LuzzyRP patch 052]';  Min = 2 },
+    @{ Id = '052-anthropic-stop-reason'; File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = 'message_delta';  Min = 2 },
+    @{ Id = '052-gemini-finish';         File = 'assets/js/api-utils.js';         Mode = 'contains';     Needle = 'MAX_TOKENS';  Min = 2 },
+    @{ Id = '052-record-field';          File = 'assets/js/runtime-services.js';  Mode = 'contains';     Needle = 'finishReason: String(meta.finishReason';  Min = 1 },
+    @{ Id = '052-last-finish-ref';       File = 'assets/js/app.js';               Mode = 'contains';     Needle = 'lastFinishReason';  Min = 3 },
     @{ Id = 'R1-built-in-content';  File = 'assets/js/built-in-content.js';    Mode = 'hash-upstream' },
     @{ Id = 'R2-styles-css';        File = 'assets/css/styles.css';            Mode = 'hash-upstream' },
     @{ Id = 'R3-changelog-sync';    File = '../ext/luzzy-changelog.js';        Mode = 'changelog-sync' }

@@ -298,6 +298,10 @@
                 isStream: meta.isStream === true,
                 durationMs: Number.isFinite(meta.durationMs) ? Math.max(0, meta.durationMs) : null,
                 outputCharacters: Number.isFinite(meta.outputCharacters) ? Math.max(0, meta.outputCharacters) : null,
+                // [LuzzyRP patch 052] 结束原因落盘：'length' = 撞输出上限被截断（我们的锅：max_tokens 没配够）；
+                // 'stop' / 'end_turn' / 'tool_calls' 等 = 模型自己收的（提示词或模型行为的锅）。
+                // 此前该字段被三协议里的两个协议丢弃，且从不落盘，导致「截断」永远查不出责任方。
+                finishReason: String(meta.finishReason ?? ''),
                 ...normalizeApiUsage(usage)
             });
             tokenUsageHistory.value.unshift(record);

@@ -2216,3 +2216,66 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 **⑤ 后续（若要收敛 ③）**
 需一次受控 A/B：同一提示词分别走 JS 路径与原生路径，抓两侧**原始 SSE**逐帧对比，
 定位「content 为空」是服务端行为还是原生解帧差异。这需要用户再授权 2 次真实请求。
+
+### 会话 62 追记 4 · patch 052「结束原因可见化」+ 截断问题定性（真机实测）
+
+**背景**：用户长期反映「对话被截断」，我此前两次归因都错了（先猜「depth≥1 换 system」，再猜
+「推理吃光输出预算」，再猜「max_tokens 没发」）。**根因是我手里根本没有能定性的仪器** ——
+三协议里只有 OpenAI 路径捕获了 `finish_reason`，Anthropic/Gemini 从未读取，且该字段从不落盘、
+应用内完全不可见。所以这一轮先把仪器造出来。
+
+**patch 052 改动（三文件）**
+1. `api-utils.js`：Anthropic 补 `message_delta.stop_reason` / 非流式 `stop_reason` 捕获；
+   Gemini 补 `candidates[0].finishReason` 并把 `MAX_TOKENS` **归一为 `length`**；
+   两适配器把 `finishReason` 一路带出，`withUsageMetrics` 出口与 OpenAI 路径统一放进
+   `onUsage` 的 metrics。
+2. `runtime-services.js`：`recordApiUsage` **落盘**该字段（空串兜底，老记录兼容）。
+3. `app.js`：新增 `lastFinishReason` ref 并导出；`finish_reason` 为 `length`/`max_tokens` 时
+   用既有 `showToast` 明确提示「因达到输出上限被截断 + 请检查模型的最大输出设置」。
+4. 扩展层 `luzzy-chat-offload.js`：原生路径原先在 `usage` 事件就上报记账 —— 而 `finishReason`
+   在 `done` 事件里，那样做**原生路径永远拿不到结束原因**。改为**推迟到 `done` 上报**，
+   并加一次性守卫；已在吐出增量后失败的分支也补上报（不丢用量）。
+
+**真机实测结论（决定性）**
+
+| 记录 | model | output tokens | 耗时 | finishReason |
+|---|---|---|---|---|
+| 最新 | `[Cloud]DeepSeek-V4.1-Flash` | 1254 | 11.4s | **`stop`** |
+| 上一条 | `[Cloud]DeepSeek-V4.1-Flash` | 1143 | 11.7s | **`stop`** |
+| 更早 | `[Cloud]DeepSeek-V4.1-Flash` | 810 | 7.4s | （字段上线前） |
+| 更早 | `deepseek-v4.1-flash`（裸 id） | 16206 | 96.8s | （字段上线前） |
+
+**全部是 `stop`，没有一条 `length`。** 所以：
+- **不是 `max_tokens` 撞上限**（那是 `length`）
+- **不是我们截的**
+- 服务端明确报告「模型正常收尾」
+
+**同时发现两条路由行为差异极大，且都指向供应商侧：**
+
+| 路由 | 行为 | 细节字段上报 |
+|---|---|---|
+| 裸 `deepseek-v4.1-flash` | 输出 **16206** tokens、推理 50159 字、能跑长 | `cached_tokens` / `reasoning_tokens` **都上报** |
+| `[Cloud]DeepSeek-V4.1-Flash` | 三次分别 810 / 1143 / 1254 tokens 就停 | 两者**都是 null** |
+
+同一供应商、两条路由、上报能力完全不同 ⇒ **后端不是同一个**。且 `[Cloud]` 路由「详尽思考计划 +
+3 个字的正文然后 stop」的行为**与自愿收尾不符** —— 所以真正的问题从「谁截断了」变成了
+**「`[Cloud]` 路由为什么不写正文」**，责任指向供应商，而非本项目。
+
+**模型元数据的坑（附带发现并记录）**：裸 `deepseek-v4.1-flash` 这条**没有 `maxOutput`**
+→ `api-utils.js` 的 `...(options.maxTokens ? { max_tokens } : {})` 直接**不发该字段**；
+而用户配的 384K 记在**另一个条目** `[Cloud]DeepSeek-V4.1-Flash` 上（id 不同 → 两条独立条目）。
+建议在模型编辑器里给裸 id 补上「最大输出」；更持久的修法是**兄弟条目元数据回填**（按归一化名匹配），
+**尚未实施**。
+
+**登记与门禁（子代理执行，我已核实）**：三枚实体按纯净基线 `4aef0bb` 重生成
+（逆向逐字节一致 + 端到端重放 9/9 `[OK]`）；`verify-markers.ps1` **151 → 158 PASS / 0 FAIL**。
+
+> **一次被我拦下的误判**：子代理报告称 `parseAnthropicSseChunk` 里
+> `finishReason = (data.delta || {}).stop_reason || null;` 是「死代码，会被下一行覆盖」。
+> **实测核实为误读** —— 两行分属 `data.type === 'message_delta'` 与 `data.type === 'message'`
+> 两个**互斥的 `else if` 分支**，同一帧不可能同时命中，**没有死代码**。
+> 若照其建议「清理」，会把 Anthropic 流式的 stop_reason 捕获直接删掉。
+> 教训：**子代理的「优化建议」同样要过验证**，尤其是涉及删除代码的建议。
+
+**未验证**：Anthropic / Gemini 两路的 `finishReason` 捕获只有静态校验与门禁文本断言，
+**未经真实 API 执行**（本机手边没有这两家的可用端点与额度）；OpenAI 一路已真机验证。

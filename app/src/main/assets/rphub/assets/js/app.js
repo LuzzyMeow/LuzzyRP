@@ -363,6 +363,9 @@ const app = createApp({
         const confirmCallback = ref(null);
         const showNoMemoryNeededModal = ref(false);
         const isGenerating = ref(false);
+        // [LuzzyRP patch 052] 最近一次生成的结束原因（OpenAI finish_reason / Anthropic stop_reason /
+        // Gemini finishReason 归一）。诊断用：区分「被输出上限截断」与「模型自己收」。
+        const lastFinishReason = ref('');
         const isRemoteGenerating = ref(false); // 新增：远程生成状态
         const remoteEstimatedTime = ref(null); // 新增：远程预计时间
         const isReceiving = ref(false);
@@ -6815,6 +6818,19 @@ const app = createApp({
                 }
                 const duration = Date.now() - generationStartTime;
 
+                // [LuzzyRP patch 052] 结束原因可见化 —— 把「谁的锅」变成事实而不是猜测。
+                //  · length / max_tokens：撞了输出上限（我们该调 max_tokens，或该提醒用户模型未配上限）
+                //  · 其余（stop / end_turn / tool_calls / STOP…）：模型自己收的，与参数无关
+                // 此前该字段在应用内完全不可见，用户只能看到「回复很短/断了」却无从判断原因。
+                const finishReason = String(responseResult?.finishReason || '');
+                if (finishReason) {
+                    lastFinishReason.value = finishReason;
+                    if (/^(length|max_tokens|MAX_TOKENS)$/i.test(finishReason)) {
+                        showToast(`本轮回复因达到输出上限被截断（finish_reason=${finishReason}）。`
+                            + '请在模型设置里确认「最大输出」已填写，或调高该值。', 'warning');
+                    }
+                }
+
                 if (assistantMessage) {
                     generatedAssistantMessageId = assistantMessage.id;
                     if (!toolResponse && settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis) {
@@ -11226,7 +11242,7 @@ const app = createApp({
             showCharacterExportModal, openCharacterExportModal, confirmCharacterExport, // Character Export Modal
             updateModalRef, latestUpdateConfig,
             showConfirmModal, confirmMessage, modelMode, isGeminiModel, isTruncationEnabled, isPresetEnabled, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
-            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel, // [LuzzyRP patch 012]
+            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, lastFinishReason, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel, // [LuzzyRP patch 012]
             user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
             showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
             showModelEditor, modelEditorIndex, modelEditorDraft, openModelEditor, confirmModelEditor, cancelModelEditor, modelTypeBadgeClass, // [LuzzyRP patch 040]

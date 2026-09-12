@@ -29,6 +29,14 @@
   （`cached_tokens` / `cache_read_input_tokens` / `cachedContentTokenCount`）」变成可读指标。
 - **Anthropic 显式缓存断点（patch 048）**：Anthropic Messages **没有** OpenAI 那样的自动前缀缓存，
   现在在 system 块末尾与最后一条消息的最后一个文本块上声明 `cache_control:{type:'ephemeral'}`。
+- **结束原因（finish_reason）可见化（patch 052）**：此前三协议里**只有 OpenAI 路径**捕获了
+  `finish_reason`，Anthropic（`message_delta.stop_reason`）与 Gemini（`candidates[0].finishReason`）
+  **从未读取**，且该字段**从不落盘**、应用内**完全不可见** —— 于是「回复被截断」这件事**永远无法定性**。
+  现在：三协议全部捕获并归一（Gemini 的 `MAX_TOKENS` → `length`）→ 写进用量记录 →
+  新增 `lastFinishReason` 状态；一旦是 `length`/`max_tokens`，应用会**主动提示**
+  「本轮因达到输出上限被截断，请检查模型的最大输出设置」。
+  **这一条上线后立刻产生了实际价值**：真机上连续三条记录全部是 `finish_reason = stop`
+  （模型自称正常收尾，非上限截断），从而把「谁截断了对话」这个问题从猜测变成了事实。
 
 **优化**
 - **聊天请求改为「纯追加」形态（patch 047）** —— 这是本版 KV 收益的核心。上游每轮会对

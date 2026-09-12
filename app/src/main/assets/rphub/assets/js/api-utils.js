@@ -365,6 +365,7 @@
             // 在业务层 JSON/模板校验之前记账；部分流式响应后中止也不会漏掉已返回的用量。
             if (receivedPayload) options.onUsage?.(result.usage, {
                 isStream: result.isStream, durationMs: Date.now() - startedAt,
+                finishReason: result.finishReason ?? null,   // [LuzzyRP patch 052]
                 outputCharacters: [...calls.values()].reduce((sum, call) => sum + call.function.arguments.length, 0) + plainContent.length + result.reasoning.length
             });
         }
@@ -514,17 +515,25 @@
             if (apiError) throwApiError(apiError);
             let content = '';
             let reasoning = '';
+            let finishReason = null;
             if (data.type === 'content_block_delta') {
                 const delta = data.delta || {};
                 if (delta.type === 'text_delta') content = delta.text || '';
                 else if (delta.type === 'thinking_delta') reasoning = delta.thinking || '';
+            } else if (data.type === 'message_delta') {
+                // [LuzzyRP patch 052] 捕获 stop_reason：Anthropic 把它放在 message_delta 帧上。
+                // 「被 max_tokens 截断（max_tokens）」与「模型自己收（end_turn / stop_sequence）」
+                // 是两个完全不同的锅，此前三协议里只有 OpenAI 路径捕获了该字段，另两个协议从未读取，
+                // 导致截断问题无法定性。
+                finishReason = (data.delta || {}).stop_reason || null;
             } else if (data.type === 'message') {
+                if (data.stop_reason) finishReason = data.stop_reason;
                 (data.content || []).forEach(block => {
                     if (block.type === 'text') content += block.text || '';
                     else if (block.type === 'thinking') reasoning += block.thinking || '';
                 });
             }
-            return { data, content, reasoning };
+            return { data, content, reasoning, finishReason };
         };
 
         const contentType = response.headers.get('content-type');
@@ -536,6 +545,7 @@
                 let content = '';
                 let reasoning = '';
                 let usage = null;
+                let finishReason = null;
                 for (const line of rawText.split('\n')) {
                     const trimmedLine = line.trim();
                     if (!trimmedLine.startsWith('data: ')) continue;
@@ -546,12 +556,13 @@
                         usage = getApiUsagePayload(chunk.data) || usage;
                         content += chunk.content;
                         reasoning += chunk.reasoning;
+                        if (chunk.finishReason) finishReason = chunk.finishReason;   // [LuzzyRP patch 052]
                     } catch (error) {
                         if (error.isApiError) throw error;
                         if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
                     }
                 }
-                return { content, reasoning, usage, isStream: true };
+                return { content, reasoning, usage, finishReason, isStream: true };
             }
             const data = parsePayloadStrict(rawText, response.status);
             let content = '';
@@ -560,12 +571,14 @@
                 if (block.type === 'text') content += block.text || '';
                 else if (block.type === 'thinking') reasoning += block.thinking || '';
             });
-            return { content, reasoning, usage: getApiUsagePayload(data) || null, isStream: false };
+            return { content, reasoning, usage: getApiUsagePayload(data) || null,
+                     finishReason: data.stop_reason || null, isStream: false };   // [LuzzyRP patch 052]
         }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
         let usage = null;
+        let finishReason = null;   // [LuzzyRP patch 052]
         let pendingContent = '';
         let pendingReasoning = '';
         let flushPromise = Promise.resolve();
@@ -594,6 +607,7 @@
                         usage = getApiUsagePayload(chunk.data) || usage;
                         pendingContent += chunk.content;
                         pendingReasoning += chunk.reasoning;
+                        if (chunk.finishReason) finishReason = chunk.finishReason;   // [LuzzyRP patch 052]
                     } catch (error) {
                         if (error.isApiError) throw error;
                         if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
@@ -601,7 +615,7 @@
                     }
                 }
             }
-            return { content: '', reasoning: '', usage, isStream: true };
+            return { content: '', reasoning: '', usage, finishReason, isStream: true };
         } finally {
             clearInterval(flushInterval);
             flushPending();
@@ -674,13 +688,19 @@
             if (apiError) throwApiError(apiError);
             let content = '';
             let reasoning = '';
+            // [LuzzyRP patch 052] 捕获 finishReason：Gemini 用 candidates[0].finishReason。
+            // 归一成与 OpenAI 同义的 'length'（MAX_TOKENS 即被输出上限截断），其余小写透传。
+            const rawFinish = data.candidates?.[0]?.finishReason || null;
+            const finishReason = rawFinish
+                ? (String(rawFinish).toUpperCase() === 'MAX_TOKENS' ? 'length' : String(rawFinish).toLowerCase())
+                : null;
             const parts = data.candidates?.[0]?.content?.parts || [];
             parts.forEach(part => {
                 if (typeof part.text !== 'string') return;
                 if (part.thought === true) reasoning += part.text;
                 else content += part.text;
             });
-            return { data, content, reasoning };
+            return { data, content, reasoning, finishReason };
         };
 
         const contentType = response.headers.get('content-type');
@@ -692,6 +712,7 @@
                 let content = '';
                 let reasoning = '';
                 let usage = null;
+                let finishReason = null;   // [LuzzyRP patch 052]
                 for (const line of rawText.split('\n')) {
                     const trimmedLine = line.trim();
                     if (!trimmedLine.startsWith('data: ')) continue;
@@ -702,20 +723,23 @@
                         usage = getApiUsagePayload(chunk.data) || usage;
                         content += chunk.content;
                         reasoning += chunk.reasoning;
+                        if (chunk.finishReason) finishReason = chunk.finishReason;   // [LuzzyRP patch 052]
                     } catch (error) {
                         if (error.isApiError) throw error;
                         if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
                     }
                 }
-                return { content, reasoning, usage, isStream: true };
+                return { content, reasoning, usage, finishReason, isStream: true };
             }
             const parsed = parseGeminiChunk(rawText, response.status);
-            return { content: parsed.content, reasoning: parsed.reasoning, usage: getApiUsagePayload(parsed.data) || null, isStream: false };
+            return { content: parsed.content, reasoning: parsed.reasoning, usage: getApiUsagePayload(parsed.data) || null,
+                     finishReason: parsed.finishReason, isStream: false };   // [LuzzyRP patch 052]
         }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
         let usage = null;
+        let finishReason = null;   // [LuzzyRP patch 052]
         let pendingContent = '';
         let pendingReasoning = '';
         let flushPromise = Promise.resolve();
@@ -744,6 +768,7 @@
                         usage = getApiUsagePayload(chunk.data) || usage;
                         pendingContent += chunk.content;
                         pendingReasoning += chunk.reasoning;
+                        if (chunk.finishReason) finishReason = chunk.finishReason;   // [LuzzyRP patch 052]
                     } catch (error) {
                         if (error.isApiError) throw error;
                         if (/error/i.test(payload)) throw new Error(formatApiErrorMessage(response.status, payload));
@@ -751,7 +776,7 @@
                     }
                 }
             }
-            return { content: '', reasoning: '', usage, isStream: true };
+            return { content: '', reasoning: '', usage, finishReason, isStream: true };   // [LuzzyRP patch 052]
         } finally {
             clearInterval(flushInterval);
             flushPending();
@@ -777,6 +802,9 @@
         if (result.finishReason === undefined) result.finishReason = null;
         options.onUsage?.(result.usage, {
             isStream: result.isStream, durationMs: Date.now() - startedAt,
+            // [LuzzyRP patch 052] 三协议统一把结束原因交给记账层（否则无法区分
+            // 「被输出上限截断」与「模型自己收」，截断问题永远无法定性）
+            finishReason: result.finishReason ?? null,
             outputCharacters: (result.content || '').length + (result.reasoning || '').length
         });
         return result;

@@ -26,19 +26,27 @@
     var SUPPORTED_PROTOCOLS = ['openai', 'anthropic', 'gemini'];
 
     /**
-     * 【默认值】原生传输**默认关闭**。
+     * 【默认值】原生传输**默认开启**（v2.0 全面升级：原生 Kotlin 就是默认传输路径）。
      *
-     * 为什么默认关：Kotlin 侧已完成 JVM 层验证（206 条单测，含真 socket 的 SSE 与线格式保真），
-     * 但 **`evaluateJavascript` 的实际投递 / JavaBridge 线程行为 / WebView 生命周期竞态
-     * 只能在真机上确认**（见 `docs/RESEARCH-v2.0-kotlin-transport.md` §6.1）。本仓库的发版纪律
-     * 本就要求「先真机回归再发布」（AGENTS §6.1/§6.3），因此在真机验证通过之前，
-     * 把未验证的路径设为默认走法会违背「用户无感知升级」。
+     * 依据（全部实测，非推断）：
+     *  · Kotlin 侧 207 条 JVM 单测（含 22 条真 socket：连接/分帧/空闲超时/取消/重试）
+     *    + 17 条线格式保真断言；
+     *  · Android 15 模拟器：`delta → usage → delta → done` 四型事件 + 拼回完整回复；
+     *  · 用户真机（小米 / Android 16）：`capabilities` 报三协议、jobId 逐字节回显、
+     *    `error` 终态事件成功回传（证明桥接投递链路可用）。
      *
-     * 开启方式（真机验证时用，无需改代码、无需新增 UI）：
-     *     localStorage.setItem('luzzy_native_transport', '1')   // '0' 可强制关闭
-     * 真机验证通过后，把下面这个常量改成 true 即为默认开启。
+     * 为什么还留 `localStorage` 开关：它**不是**让用户去开的「实验开关」，而是**逃生舱（kill switch）**——
+     * 万一某台设备上原生路径出问题，用户不必等新版本，置 '0' 即刻回到 JS 路径。
+     * 平时**无需任何人碰它**；默认值就是走原生。
+     *     localStorage.setItem('luzzy_native_transport', '0')   // 仅排障时用：强制回 JS
+     *     localStorage.removeItem('luzzy_native_transport')      // 恢复默认（走原生）
+     *
+     * 三重保险（原生出问题也不会让用户卡住）：
+     *  ① 首帧失败静默回落：还没吐出任何增量就失败 → 直接走 JS，用户完全无感；
+     *  ② 本会话熔断：原生一旦出错即停用，后续请求全走 JS，不重复踩同一个坑；
+     *  ③ 上述逃生舱。JS 路径**保留不删不改**，永远是可用的兜底。
      */
-    var ENABLED_BY_DEFAULT = false;
+    var ENABLED_BY_DEFAULT = true;
     var FLAG_KEY = 'luzzy_native_transport';
 
     /** 熔断：本会话内一旦原生出过错，就不再重试原生（避免每条消息都踩同一个坑）。 */
@@ -183,6 +191,25 @@
                 finish(reject, new DOMException('Generation cancelled by user', 'AbortError'));
             };
 
+            /** 用量记账只上报一次（与 JS 路径 finally 里「收到过 payload 就记账」的语义对齐）。 */
+            var usageReported = false;
+            var reportUsage = function () {
+                if (usageReported) return;
+                usageReported = true;
+                if (typeof options.onUsage !== 'function') return;
+                var n = content.length + reasoning.length + toolCalls.reduce(function (sum, call) {
+                    return sum + String((call && call.function && call.function.arguments) || '').length;
+                }, 0);
+                try {
+                    options.onUsage(usage, {
+                        isStream: true,
+                        durationMs: Date.now() - startedAt,
+                        finishReason: finishReason || null,
+                        outputCharacters: n
+                    });
+                } catch (e) { /* 记账失败不得影响生成 */ }
+            };
+
             client.setHandler(jobId, function (evt) {
                 if (settled || !evt || typeof evt !== 'object') return;
                 try {
@@ -204,17 +231,14 @@
                         return;
                     }
                     if (evt.type === 'usage') {
+                        // [v2.0 patch 052] 只暂存，**不立即上报**：结束原因（finishReason）在 done 事件里，
+                        // 若在这里就上报，记账层拿不到它，「截断定性」这件事在原生路径上依然做不到。
                         usage = evt.usage || null;
-                        if (typeof options.onUsage === 'function') {
-                            var n = content.length + reasoning.length + toolCalls.reduce(function (sum, call) {
-                                return sum + String((call && call.function && call.function.arguments) || '').length;
-                            }, 0);
-                            options.onUsage(usage, { isStream: true, durationMs: Date.now() - startedAt, outputCharacters: n });
-                        }
                         return;
                     }
                     if (evt.type === 'done') {
                         finishReason = evt.finishReason || null;
+                        reportUsage();
                         var plainContent = content;
                         finish(resolve, {
                             content: content,
@@ -234,7 +258,9 @@
                         // 原生出过错 → 本会话熔断，后续请求直接走 JS，不再重复踩坑
                         trip(message);
                         // 首帧就失败 → 静默回落 JS 路径，用户完全无感
+                        // （回落时**不**记账：改由 JS 路径自己上报，避免同一次生成记两条）
                         if (!sawDelta && doFallback) { finish(resolve, doFallback()); return; }
+                        reportUsage();   // 已经吐出过增量再失败：本轮的用量不能丢
                         finish(reject, new Error(message));
                     }
                 } catch (e) {

@@ -267,8 +267,8 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 
 ### 4.2 Patch 纪律（硬性规定 2 的展开）
 
-**允许 patch 的点位**（当前登记 001-051，详见 `tools/patches/README.md`；
-**本表 042-046 行待补**——那 5 枚已登记在 `tools/patches/README.md`，此处仅补 047/048/050/051）：
+**允许 patch 的点位**（当前登记 001-052，详见 `tools/patches/README.md`；
+**本表 042-046 行待补**——那 5 枚已登记在 `tools/patches/README.md`，此处仅补 047/048/050/051/052）：
 
 | patch | 点位 | 内容 |
 |-------|------|------|
@@ -317,6 +317,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | 048 | api-utils.js | **Anthropic 显式缓存断点**（2026-09-11）：Anthropic Messages **无** OpenAI 式自动前缀缓存，须显式声明 `cache_control:{type:'ephemeral'}`。新增 `withAnthropicCacheBreakpoint()` 打两个断点：① **system 块末尾**（`system:[{type:'text',text:system,cache_control:{type:'ephemeral'}}]`，单块 ~8KB 是最大稳定前缀）；② **最后一条消息的最后一个文本块**（`[...slice(0,-1), withAnthropicCacheBreakpoint(last)]`，下一轮正好以它为前缀命中，配合 047 收益最大）。只用官方块数组形态、**不改动任何既有文本内容**；拿不到合适文本块时原样返回（静默降级） |
 | 050 | index.html + app.js | **v2.0 B 方案（薄切）· 传输层可卸载到原生 Kotlin**（2026-09-11）：卸载的只是「HTTP + SSE 解帧 + 三协议线格式 + 工具增量拼装 + 取消/超时」，**上下文装配与渲染仍在 JS**（零双真源的前提）。① `index.html` **按依赖顺序**挂载 `ext/luzzy-chat-native.js`（把 `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 包成 `Luzzy.chatNative`）→ `ext/luzzy-chat-offload.js`（适配成与上游 `requestChatCompletion` 同形的可卸载通道）；② `app.js` 的 `requestTrackedChatCompletion` 内新增 `performRequest(opts)` 卸载分支（`window.Luzzy.chatOffload` 存在且 `canHandle(opts)` 为真则走原生）。**降级逐级回落**：扩展层未加载 / 桥不可用 / 协议不支持 / 非流式 / 原生首帧即失败 → 一律回落原 JS 路径（**原路径保留不删不改**） |
 | 051 | app.js + api-utils.js + core-utils.js | **潜伏缺陷修复**（2026-09-11 静态审查发现，Anthropic 协议此前**从未跑通**）：**C1** `responseResult.toolCalls` 无保护解引用——上游 1.9.2 起生成收尾**无条件**读 `responseResult.toolCalls.length`（两处），而 **Anthropic / Gemini 适配器从不返回该键** → 每次收尾必抛 TypeError。双侧修：`api-utils.js` 的 `withUsageMetrics` 出口**补齐返回契约**（`if (!Array.isArray(result.toolCalls)) result.toolCalls = [];`）+ `app.js` 两个调用点加**可选链**。**C4** `extractApiErrorMessage` **无条件**读 `payload.message` / `payload.detail`，而 Anthropic 的 `message_start` 帧按规范**带顶层 `message` 对象** → 每个响应的**第一帧**就被判成 `"API Error: 200 {…}"` 抛出（`parseAnthropicSseChunk` 内立即中断）。修：`core-utils.js` 新增 `ANTHROPIC_STREAM_EVENT_TYPES` 集合（`type:"error"` 故意不在其中）命中即提前放行，真正的错误事件仍照常上抛——**仅新增一个提前返回，不改其它分支行为** |
+| 052 | api-utils.js + runtime-services.js + app.js | **结束原因可见化**（2026-09-11）：三协议里此前**只有 OpenAI 路径捕获 `finish_reason`**——Anthropic（`message_delta.stop_reason`）与 Gemini（`candidates[0].finishReason`）**从未读取**，且该字段**从不落盘**、应用内**完全不可见** → 「回复被截断」永远无法定性（`length`/`max_tokens` = 撞输出上限，我们的锅；`stop`/`end_turn` = 模型自己收的，与参数无关）。① `api-utils.js` 两适配器补齐捕获并把 `finishReason` 一路带进 `onUsage` 的 metrics（Gemini 的 `MAX_TOKENS` **归一为 `length`**），`withUsageMetrics` 出口统一带上该字段；② `runtime-services.js` 的 `recordApiUsage` **落盘**该字段（空串兜底，老记录兼容）；③ `app.js` 新增 `lastFinishReason` ref 并在 `finish_reason` 为 `length`/`max_tokens` 时用既有 `showToast` 明确提示用户「因达到输出上限被截断 + 请检查模型的最大输出设置」。**`index.html` 未触碰**（0 处 052 标记） |
 
 **新增 patch 的规则**：
 

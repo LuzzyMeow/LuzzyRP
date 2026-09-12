@@ -185,6 +185,19 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
   > 详见 `DESIGN-compose.md` §18/§19 + `docs/CHAT-REGRESSION.md` +
   > `docs/design/regression-p3.md`（十步逐条 E/M）+ WORKLOG 会话 67/68/69。
   > 单测 **304 全绿** + UI 测试 **7 全绿**。
-- [ ] P4 数据层与迁移原型（**最高风险**；PLAN 原文要求「P2 起并行」，迄今未开始；含跨角色平铺会话总览）
+- [ ] P4 数据层与迁移原型（**最高风险**；含跨角色平铺会话总览）——设计真源 `docs/DESIGN-migration.md`
+  - [x] **P4-A-2.1 真实旧数据夹具**（会话 70）：模拟器 release 包 + CDP 驱动**前端自身函数**造数据
+        （角色/两轮真实生成/剧情分支/世界书/正则/预设/经典记忆/**真实 3072 维向量记忆**/两人设），
+        导出 `app/src/test/resources/legacy/webview-db-fixture.json`（29 主库键 + 3 旧库键），
+        **密钥已脱敏**；生成脚本随仓库入库 `tools/mig-fixture/`
+  - [x] **P4-A-2.2 通道 go/no-go 探针 → GO**（会话 70）：实测「另一个 `file://` 页面
+        （`files/ext/` 下）能读到 `files/rphub/index.html` 写入的 IndexedDB」——30 键 /
+        3 张角色卡按名字读回 / 写入的探针键事后可在主页面读到。
+        故走**轻量页 `ext/luzzy-migrate.html`**（不启动 Vue）；保底的
+        「打开 index.html 再注入」路径不需要验证、作降级保留
+  - [ ] P4-A-2.3 迁移导出器（`ext/luzzy-migrate.html` + 桥方法分块回传）
+  - [ ] P4-A-2.4 迁移器（Kotlin 纯函数）+ 12 条坑逐条单测 + 幂等
+  - [ ] P4-B 存储选型 spike（Room/KSP 15 分钟判据 → 否则 JSON 文件存储）+ 数据模型 + 设置持久化 + UI 接入
+  - [ ] P4-C 跨角色平铺会话总览 / 预设与世界书编辑 / 真机覆盖安装实测
 - [ ] P5 功能对账补齐（含 Markdown 的 LaTeX/Mermaid/HTML 直通/图片、表格列宽自适应、代码高亮）
 - [ ] P6 切换与发版

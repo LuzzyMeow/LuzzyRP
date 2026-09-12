@@ -3194,3 +3194,73 @@ DSML 文本标记复述工具调用，那段标记作为 `content` 出现在气�
 （不手写样本）→ 2.2 探针验证「隐藏 WebView 打开 `ext/luzzy-migrate.html` 能否读到主页面写入的
 IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 WebView 内 evaluateJavascript 导出」。
 **这两步出结论后我会先回报再继续**。
+
+---
+
+## 会话 70 · 2026-09-12/13 · P4-A 迁移通道：真实夹具 + go/no-go 探针（结论 GO）
+
+**本轮范围**：全链路规划的 Stage 2 前半（2.1 造真实旧数据 → 2.2 通道探针）。
+2.3/2.4（导出器 + Kotlin 迁移器）紧随其后；本轮先落**结论与证据**。
+
+### 一、2.1 真实旧数据夹具（不手写样本）
+
+- **做法**：模拟器 `emulator-5554` 装 release 包（launcher 仍是 WebView 的 `MainActivity`）→
+  `adb forward` 到 `webview_devtools_remote` → CDP **驱动前端自己的函数**造数据。
+  关键认识：**手写样本必然漏字段**。手写会是
+  `{role,name,content}`，而真前端写出来的是
+  `{role,name,content,reasoning,id,shouldAnimate,isCotOpen,isReasoningOpen,
+  isReasoningUserToggled,isReasoningAutoCollapsed,isSelf,isSummaryOpen}`——
+  「瞬态字段白名单」这类要求只有真数据带得出来。
+- **真实入口清单**：`user`/`settings` 响应式赋值（触发 app.js 深度 watcher → `saveData()`）、
+  `editUserApiProvider`+`saveProviderEditor`+`updateProviderKey`、
+  `createNewCharacter`→`saveCharacter`（头像走真实 `handleAvatarUpload`→`compressImage`）、
+  `sendMessage`（**真实调 DeepSeek**，2 轮 + 分支 1 轮）、`createStoryBranch(2)`、
+  `createWorldInfo`/`saveWorldInfo`、`createRegex`/`saveRegex`、`createPreset`/`savePreset`、
+  `startBatchMemoryExtraction`（经典 + 向量两种模式）、`createNewProfile`、`selectCharacter(1)`。
+- **向量记忆是真跑出来的**：本项目没有 embeddings 端点可用（DeepSeek 无此接口、BigModel 的
+  可用但被 `buildApiEndpoint` 强补 `/v1` 拼错）→ 换 **STA1N `gemini-embedding-2`**（3072 维）
+  才成功；`embeddingQ` 4096 字符 base64，`embeddingEncoding=int8:maxabs:v1` 由**应用自身**量化。
+- **产出**：`app/src/test/resources/legacy/webview-db-fixture.json`（29 主库键 + 3 旧库键）。
+  legacy 部分（`silly_tavern_*` 前缀 + 独立旧库）**现行代码无法再生**，是**手工构造**的，
+  已在文档与夹具 `provenance` 里明确标注，不混同。
+- **脱敏是硬步骤**：夹具来自真机态页面，`rp_hub_settings` 带着开发用 API Key 而仓库是公开的。
+  脚本换成 `<REDACTED:name:lenN>`（保留字段与长度），清单写进夹具 `provenance.redaction`，
+  全树兜底扫描残留 0 条。**生成脚本随仓库入库** `tools/mig-fixture/`（含 README 与复现步骤）。
+
+### 二、2.2 通道探针 → **GO**
+
+- **问题**：旧数据活在 WebView 的 IndexedDB（LevelDB 形态），Kotlin 直接解析不现实 →
+  迁移必须在 WebView 里跑 JS。两条路：(a) 轻量页 `ext/luzzy-migrate.html`（依赖「不同
+  `file://` 文件共享 origin」这一假设）；(b) 打开 `rphub/index.html` 再注入（必然同源，
+  但要启动整个 Vue 应用）。
+- **实测**：把探针页推入 `files/ext/`，CDP 把 WebView 从 `rphub/index.html` **导航过去** →
+  `indexedDB.databases()` 看到 `RPHubDB@v1` + `SillyTavernDB@v1`；`getAllKeys()` 拿到 30 键；
+  `rp_hub_characters` 读出 3 张卡（Vanio/谢昭/夏梧）；**写入一个探针键后能在主页面读回**。
+  → **假设成立，(a) 可用**。选 (a)（省 2–3 秒、不启 Vue、迁移逻辑与业务前端隔离），
+  (b) 作降级保留。
+- **成因是配置而非巧合**：`WebViewSetup` 的 `setAllowFileAccessFromFileURLs(true)` +
+  `setAllowUniversalAccessFromFileURLs(true)`。**已立成纪律**：迁移 WebView 必须复用同一套
+  配置，门禁必须断言「键集非空」——那两个开关一旦被收紧，迁移会**静默读不到数据**（不报错）。
+- **探针自身的两个坑（已入 `tools/mig-fixture/README.md`）**：
+  ① `indexedDB.open('不存在的库名')` 是**创建**不是查询 → 得到一个**无对象仓库**的空库，
+  后续 `transaction(['store'])` 抛 `NotFoundError`（AGENTS §7 早有此条，本轮仍踩）；
+  ② `transaction().objectStore().put()` 返回的是 **`IDBRequest` 不是事务**，给它挂
+  `oncomplete` 永不触发 → 首版探针「写成功了但脚本不返回」，看起来像环境问题。
+  两个坑都靠「分步把 stage 写进 `document.title` + `window.__probe`」定位。
+
+### 三、决策与纪律
+
+- 迁移链路**不触发硬性规定 9 的设计 SKILL 门**：规定原文明确把「数据迁移」列为豁免的机械操作；
+  本链路整体无视觉产出。若日后加迁移进度/报告页，那一步单独走设计流程。
+- 旧数据形态与 12 条坑的处置表写死在 `docs/DESIGN-migration.md`（含键命名空间表、
+  `__branch__` 作用域拼接规则、消息无时间戳、瞬态字段白名单、base64 附件、向量四字段保真、
+  `emptyTurns` 的 `<scope>:<mode>` 嵌套键、`last_active_char` 是下标、双库优先级等）。
+
+### 四、遗留 / 下一步
+
+- **2.3** `ext/luzzy-migrate.html`（纯 JS、只读、分块回传 ≤256KB）+ 桥方法
+  `migrateStart/Chunk/Done/Error` + `luzzy-bridge.js` 封装。
+- **2.4** Kotlin 迁移器：`LegacySnapshot` → 目标模型是**纯函数**（夹具 JSON 直接喂，无需模拟器），
+  12 条坑逐条单测 + 幂等（同夹具跑两次逐字段相等）。
+- 设备侧已清理：探针键已删（键数回到 29）、探针页已从 `files/ext/` 移除。
+- 未做：P4-B 存储选型 spike（Room/KSP 15 分钟判据 → 否则 JSON 文件存储 + 原子写）。

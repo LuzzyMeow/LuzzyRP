@@ -121,6 +121,30 @@
   - 手册与报告：`docs/CHAT-REGRESSION.md`（命令 + 十步人工走查 + 写 UI 测试的三个坑）、
     `docs/design/regression-p3.md`（十步逐条 E/M 归属）。
 
+- **P4-A 迁移通道：真实数据夹具 + 通道 go/no-go 探针（2026-09-12，会话 70）**
+  —— 设计真源新增 `docs/DESIGN-migration.md`：
+  - **真实旧数据夹具**：`app/src/test/resources/legacy/webview-db-fixture.json`
+    （29 主库键 + 3 旧库键，139 KB）。**不是手写样本**——模拟器装 release 包后用 CDP
+    驱动**前端自己的函数**造数据：`createNewCharacter`/`saveCharacter`（头像走真实
+    `compressImage`）/ `sendMessage`（**真实调用 DeepSeek**，SSE 流）/ `createStoryBranch`
+    / `createWorldInfo`·`saveWorldInfo` / `startBatchMemoryExtraction`（经典总结 + **真实
+    3072 维嵌入** → 应用自身 `int8:maxabs:v1` 量化落盘）/ `createNewProfile`。
+    含角色 3、会话 2 分支 5+5 条、向量记忆 2+2、经典记忆 2+2、世界书 2+2、预设 19、
+    用量记录 9、人设 2、`last_active_char=1`（非零下标判据）。
+    **密钥已脱敏**（`<REDACTED:name:lenN>` 占位符，保留字段与长度，清单入夹具
+    `provenance.redaction`）；生成脚本随仓库入库 `tools/mig-fixture/`（含复现说明）。
+  - **通道探针结论 = GO**：实测**另一个 `file://` 页面**（`files/ext/` 下）能读到
+    `files/rphub/index.html` 写入的 IndexedDB —— 30 键可见、3 张角色卡按名字读回、
+    写入的探针键事后能在主页面读到。故迁移走**轻量页 `ext/luzzy-migrate.html`**（不启动 Vue）；
+    「打开 index.html 再注入」作为降级保留。成因是 `WebViewSetup` 的
+    `setAllowFileAccessFromFileURLs` + `setAllowUniversalAccessFromFileURLs`——已在文档里
+    立成纪律：迁移 WebView 必须复用同一套配置，且门禁要断言「键集非空」（否则会**静默失效**）。
+  - 文档同时把旧数据的**真实形态**（键命名空间表、作用域拼接规则、消息/记忆/用量字段、
+    `memory_settings.emptyTurns` 的键是 `<scope>:<mode>`）与 **12 条坑的处置表**写死。
+  - `tools/mig-fixture/README.md` 记下本轮实踩的两个坑：①用不存在的库名「探测」会**创建**
+    空库（对象仓库为 0，后续 transaction 直接抛错）；②`transaction().objectStore().put()`
+    返回的是 `IDBRequest`，给它挂 `oncomplete` **永不触发**（首版探针因此卡死）。
+
 **修复**
 - **用户消息的「删除」绕过确认框**（由新 UI 测试基座上线即抓到）：`ChatPage` 里 AI 消息那一支已改为
   弹确认框，**用户消息那一支仍在直接删除** —— 同一功能两条路径行为不一致，纯逻辑单测查不出、

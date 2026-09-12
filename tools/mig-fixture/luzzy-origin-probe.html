@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>origin-probe:boot</title>
+</head>
+<body>
+<h1>origin probe</h1>
+<pre id="out">running…</pre>
+<script>
+// 结论写进 window.__probe（对象）与 document.title（分步），方便 CDP 定位卡在哪一步。
+window.__probe = { stage: 'boot', t0: Date.now() };
+const out = document.getElementById('out');
+const mark = (stage, extra) => {
+    window.__probe.stage = stage;
+    if (extra) Object.assign(window.__probe, extra);
+    document.title = 'origin-probe:' + stage;
+    out.textContent = JSON.stringify(window.__probe, null, 1);
+};
+
+const openDb = (name) => new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    setTimeout(() => done({ error: 'TIMEOUT' }), 15000);
+    const req = indexedDB.open(name);
+    req.onblocked = () => done({ error: 'BLOCKED' });
+    req.onerror = () => done({ error: 'ERR ' + (req.error && req.error.name) });
+    req.onsuccess = () => done({ db: req.result });
+});
+
+(async () => {
+    mark('start', { href: location.href });
+    try {
+        mark('dbnames-query');
+        window.__probe.dbNames = indexedDB.databases
+            ? (await indexedDB.databases()).map((d) => d.name + '@v' + d.version)
+            : 'unsupported';
+        mark('open-rphubdb');
+        const r = await openDb('RPHubDB');
+        window.__probe.openOk = !!r.db;
+        window.__probe.openErr = r.error || null;
+        mark('opened', { openOk: window.__probe.openOk, openErr: window.__probe.openErr });
+        if (r.db) {
+            mark('read-keys');
+            const keys = await new Promise((res, rej) => {
+                const tx = r.db.transaction(['store'], 'readonly').objectStore('store').getAllKeys();
+                tx.onsuccess = () => res(tx.result.map(String));
+                tx.onerror = () => rej(tx.error);
+            });
+            window.__probe.keyCount = keys.length;
+            window.__probe.sampleKeys = keys.slice(0, 8);
+            mark('read-chars');
+            const chars = await new Promise((res) => {
+                const tx = r.db.transaction(['store'], 'readonly').objectStore('store').get('rp_hub_characters');
+                tx.onsuccess = () => res(tx.result);
+                tx.onerror = () => res(undefined);
+            });
+            window.__probe.charCount = Array.isArray(chars) ? chars.length : (chars === undefined ? 'MISSING' : typeof chars);
+            window.__probe.charNames = Array.isArray(chars) ? chars.map((c) => c.name) : null;
+            mark('write-probe-key');
+            await new Promise((res, rej) => {
+                // 注意：transaction().objectStore().put() 返回的是 IDBRequest（没有 oncomplete），
+                // 事务对象必须单独拿；这里两者分明（首版探针就是在这里把 request 当 tx 用、永远不 settle）。
+                const tx = r.db.transaction(['store'], 'readwrite');
+                const req = tx.objectStore('store').put(
+                    { from: 'origin-probe', at: Date.now(), href: location.href },
+                    'rp_hub__probe_from_ext_file');
+                req.onsuccess = () => { window.__probe.putRequestOk = true; };
+                tx.oncomplete = () => res();
+                tx.onerror = () => rej(tx.error);
+                tx.onabort = () => rej(tx.error || new Error('abort'));
+                setTimeout(() => rej(new Error('TX_TIMEOUT')), 10000);
+            });
+            window.__probe.readWrote = 'ok';
+        }
+        mark('done');
+    } catch (e) {
+        mark('error', { message: String(e && (e.message || e)) });
+    }
+})();
+</script>
+</body>
+</html>

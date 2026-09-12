@@ -2390,3 +2390,73 @@ who comes into possession of a copy`）：
   复用代码保留原始版权声明与来源标注。
 
 `docs/PLAN-v3.0-compose.md` §6 第 1 条已从"待拍板"改为"已拍板"并指向 LICENSING.md。
+
+## 2026-09-12 · 会话 63：v3.0 P0 设计语言确定 + 许可落地
+
+### 开始
+
+- **任务**：① 许可落地动作（LICENSING §2 三个待办：LICENSE-AGPL-3.0 全文 / README「许可」段 /
+  复用代码标注规范，另同步 HARD_REQUIREMENTS 合规红线与 AGENTS §1.1 表述、CHANGELOG 登记）；
+  ② P0 全套一轮收口：rikkahub 前端侦察 → 完整阅读 4 项设计 SKILL（硬性规定 9）→
+  三方向差异化初稿（HTML + PNG，沿用 boards 先例）交用户选定 → `docs/DESIGN-compose.md` 定稿。
+- **范围约束**：不写任何 Compose/Kotlin 业务代码（PLAN §5）；不动 v2.x 可构建资产；
+  用户已确认「P0 全套一轮完成」与「许可落地一并执行」两项决策。
+- rikkahub 克隆至 `docs/rikkahub-master/`（已 gitignore，只读参考）。
+
+### 会话 63 · 收尾（同日）
+
+#### 一、完成
+
+1. **许可落地（T1，LICENSING §2 三个待办全部执行）**：
+   - 新增 `LICENSE-AGPL-3.0`（gnu.org 全文 661 行；根 `LICENSE` 未删未改）；
+   - README 四处更新：二创声明（并存表述 + rikkahub 来源）、License 徽章
+     （`AGPL-3.0 + CC BY-NC 4.0`）、目录树（补 LICENSE-AGPL-3.0 行）、「许可证与合规」段
+     重写（双许可表 + ⚠️ 并存冲突 WARNING + AGPL 义务行）、页脚署名行；
+   - `HARD_REQUIREMENTS.md` 合规红线更新：双许可并存 + **复用代码标注义务**
+     （rikkahub 来源文件头保留原始版权声明）+「不得擅自简化为单一许可」；
+   - `AGENTS.md` §1.1 LICENSE 行同步（指向 LICENSING.md）；
+   - CHANGELOG v2.0.0「注意事项」补登记（纯许可/文档动作，不改构建产物）；
+   - `.gitignore` 追加 `.workbuddy/`（第三方 AI 助手本地残留，git check-ignore 验证）。
+2. **rikkahub 侦察（T2）**：git clone 因网络不稳改走 GitHub API tarball（master@`288a034`，
+   45MB）落库 `docs/rikkahub-master/`（已 gitignore，只读）。产出
+   `docs/RESEARCH-v3-rikkahub-design.md`：项目事实（677 kt / M3 Expressive / Koin /
+   haze / 7 预设主题 + HCT 自定义主题）/ ui 包结构 / 主题体系拆解 / 消息渲染
+   （groupMessageParts 分块、流式禁 SelectionContainer 源码注释实证）/ 可复用度三档表。
+3. **4 项设计 SKILL 完整阅读（T3，硬性规定 9）**：huashu-design `SKILL.md`（三方向硬门 +
+   反 slop 清单 + Gate 文件协议）/ open-design `AGENTS.md`（动效哲学 200/140ms +
+   ease-out 贝塞尔 + DESIGN.md 真源模式）/ ui-ux-pro-max `CLAUDE.md`（检索域 +
+   jetpack-compose 栈）/ awesome-design-md `README.md`（DESIGN.md 九节结构）。
+4. **三方向差异化初稿（T4，huashu-design Fallback Phase 3-5）**：`docs/design/boards-v4/`
+   （SPEC.md 共同输入 + 3 HTML 方向板 + 3 PNG 截图 1440×1500 headless Edge +
+   direction-summary.md 对比板）。三方向 = 复用程度光谱：**A 织机 Loom**（最大复用，M3 座 +
+   HCT seed #CC785C 重推导）/ **B 暖幕手记·纸页**（现行 token 直译 M3）/ **C 夜航灯
+   Nightferry**（dark-first 新观感，amber 灯光 + 居中窄栏书卷式）。
+   **用户选定：A · 织机 Loom**（AskUserQuestion，Gate 文件
+   `direction-approved-v4.md` 落档含原话与执行要点）。
+5. **DESIGN-compose.md 定稿（T5）**：`docs/DESIGN-compose.md`（awesome-design-md 九节
+   结构 + 实施对账清单）：M3 role 亮暗双套（HCT 推导，标注 ±2 以代码生成结果回填）、
+   ExtendColors 结构、字体四族（规定 4 落地）、组件规格（无气泡默认 + primaryContainer
+   用户气泡 + largeIncreased 输入岛 + haze 玻璃开关 + 抽屉双形态）、动效令牌（200/140ms +
+   贝塞尔 + MeshGradient 光斑 + 流式禁 SelectionContainer）、Do's & Don'ts（禁照抄
+   rikkahub Claude 预设色值入 token）。PLAN-v3.0 §7 P0 四项全勾，并补记进 P1 前待拍板
+   两件事（上游同步退役时点 / 迁移兜底）。
+
+#### 二、决策
+
+- **克隆通道**：本机 GitHub 443 不稳（三次 connection reset），改用
+  `api.github.com/repos/rikkahub/rikkahub/tarball/master` + tar 解压（symlink 告警可忽略，
+  主体文件完整）；`docs/rikkahub-master/` 旧残缺残留（9 月 3 日助手时代）已清除重建。
+- **三方向的差异化轴**：不是三种配色，而是「复用 rikkahub 的三种取舍」（结构/数值/观感三档）；
+  色值边界各自锁死（A 禁照抄 Claude 预设 / B 只用现行 token / C 只禁紫青霓虹）。
+
+#### 三、遗留（进 P1 前）
+
+1. **待用户拍板**：① 上游同步退役时点；② 数据迁移校验失败兜底（建议回退 WebView 版）；
+2. M3 token 表为手算近似值，P1 实现时以 HCT 代码生成结果逐值核对回填（DESIGN-compose §2 已注明）；
+3. AGPL 复用标注规范待第一批实际复用文件落地时执行（HARD_REQUIREMENTS 已立规）；
+4. v2.0.0 仍未 push（等真机体验 release 包后按 §3.4 发版，与本轮文档改动互不阻塞）。
+
+#### 四、下一步
+
+- 用户拍板 §三.1 两件事 → 进 **P1 空壳可跑**（单 Activity + Compose + 导航 + 主题 +
+  假数据聊天页，验收 = DESIGN-compose §11 实施对账）。

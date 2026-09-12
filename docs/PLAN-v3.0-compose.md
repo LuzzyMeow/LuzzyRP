@@ -137,13 +137,16 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
 ## 7. 进度
 
 - [x] 记录当前工作节点（WORKLOG 会话 62 追记 5）
-- [ ] P0 rikkahub 前端侦察（许可证 / 设计令牌 / 结构 / 可复用度）
-- [ ] P0 完整阅读 4 项设计 SKILL 主文档（硬性规定 9）
-- [ ] P0 三方向差异化初稿 + 用户选定
-- [ ] P0 `docs/DESIGN-compose.md` 定稿
+- [x] P0 rikkahub 前端侦察（许可证 / 设计令牌 / 结构 / 可复用度）——`docs/RESEARCH-v3-rikkahub-design.md`（2026-09-12 会话 63）
+- [x] P0 完整阅读 4 项设计 SKILL 主文档（硬性规定 9）——会话 63 完成（huashu-design SKILL.md / open-design AGENTS.md / ui-ux-pro-max CLAUDE.md / awesome-design-md README.md）
+- [x] P0 三方向差异化初稿 + 用户选定——`docs/design/boards-v4/`（A 织机 Loom / B 暖幕手记·纸页 / C 夜航灯），用户选定 **A · 织机 Loom**（`direction-approved-v4.md`）
+- [x] P0 `docs/DESIGN-compose.md` 定稿（2026-09-12）
 - [ ] P1 空壳可跑
 - [ ] P2 聊天只读 + 原生流式
 - [ ] P3 发送链路
 - [ ] P4 数据层与迁移原型
 - [ ] P5 功能对账补齐
 - [ ] P6 切换与发版
+
+> **进 P1 前仍待用户拍板的两件事**（§6 第 2/3 条）：上游同步退役时点（建议 v3.0 稳定前
+> 继续双轨同步）；数据迁移校验失败的兜底（建议回退 WebView 版本）。

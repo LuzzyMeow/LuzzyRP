@@ -22,6 +22,9 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmTransport
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import com.luzzymeow.luzzyrp.testing.FakeTransport
+import com.luzzymeow.luzzyrp.testing.TestStoreFixture
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -50,13 +53,6 @@ class ChatUiTest {
 
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
-    /** 假传输：按预设脚本回放增量，零网络。 */
-    private class FakeTransport(private val script: List<LlmDelta>) : LlmTransport {
-        override fun stream(request: LlmRequest): Flow<LlmDelta> = flow {
-            script.forEach { emit(it) }
-        }
-    }
-
     private fun writeConfig(configured: Boolean) {
         TransportStore(context).save(
             if (configured) {
@@ -67,8 +63,25 @@ class ChatUiTest {
         )
     }
 
+    /**
+     * 每个用例一个**独立临时库**。
+     *
+     * [P4-B-3.4] 聊天页接真实存储后，如果不注入，「界面初始状态」就取决于设备上
+     * `luzzy.db` 里恰好有没有数据 —— 那是隐藏耦合：本机跑绿、换台机器就红（或反过来）。
+     * 这里注入空库 → 走演示数据分支 → 与接存储之前的行为完全一致，用例断言才站得住。
+     */
+    private lateinit var fixture: TestStoreFixture
+
     @Before
-    fun resetConfig() = writeConfig(configured = false)
+    fun resetConfig() {
+        writeConfig(configured = false)
+        fixture = TestStoreFixture.create(context, "chatui")
+    }
+
+    @After
+    fun tearDown() {
+        fixture.close()
+    }
 
     private fun setChatContent(script: List<LlmDelta> = emptyList()) {
         compose.setContent {
@@ -78,6 +91,7 @@ class ChatUiTest {
                     onToggleDarkMode = {},
                     onOpenDrawer = {},
                     engineFactory = { ChatEngine(FakeTransport(script)) },
+                    sessionRepository = fixture.repository,
                 )
             }
         }

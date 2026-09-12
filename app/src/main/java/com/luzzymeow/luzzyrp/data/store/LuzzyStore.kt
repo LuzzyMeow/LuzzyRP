@@ -86,6 +86,14 @@ class LuzzyStore(private val db: LuzzyDatabase) {
         if (entities.isNotEmpty()) db.messages().upsertAll(entities)
     }
 
+    /** 就地改写正文（编辑消息 / 候选切换）。payload 列不受影响。 */
+    suspend fun updateMessageContent(scopeId: String, sortIndex: Int, content: String) =
+        db.messages().updateContent(scopeId, sortIndex, content)
+
+    /** 删掉单条（「删除此消息」）。 */
+    suspend fun deleteMessageAt(scopeId: String, sortIndex: Int) =
+        db.messages().deleteAt(scopeId, sortIndex)
+
     /** 删掉 `sortIndex >= fromIndex` 的尾部（「删除此消息及之后」）。 */
     suspend fun deleteMessagesFrom(scope: ScopeId, fromIndex: Int) =
         db.messages().deleteFrom(scope.suffix(), fromIndex)

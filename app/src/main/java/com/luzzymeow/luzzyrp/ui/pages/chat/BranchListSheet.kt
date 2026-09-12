@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.chat.BranchStat
@@ -255,7 +256,10 @@ private fun BranchRow(
         }
 
         if (!active) {
-            TextButton(onClick = onSwitch, modifier = Modifier.size(width = 64.dp, height = 48.dp)) {
+            TextButton(
+                onClick = onSwitch,
+                modifier = Modifier.size(width = 64.dp, height = 48.dp).testTag("branch_enter_${branch.id}"),
+            ) {
                 Text("进入", fontFamily = LuzzyFonts.Body, fontSize = 13.sp)
             }
         }

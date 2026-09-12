@@ -69,3 +69,32 @@ ANDROID_SERIAL=emulator-5554 ./gradlew checkChat
 3. **testTag 不能掺中文/开关状态**：用 `slot_tools` 而不是 `slot_工具（已开启）`（后者会随文案与状态变化，
    测试跟着碎）。另外 `hasScrollAction()` 在聊天页会匹配到**两个**滚动容器（消息列表 + 输入岛的横向功能行），
    定位列表必须用 tag。
+
+---
+
+## 4 · 接真实存储之后新增的四个坑（P4-B-3.4 实测，都很贵）
+
+> 前三条都不是「语法错」，而是**测试写法**问题：它们让测试**假红**，且报错信息指向完全无关的地方。
+> 记录在此，避免下次又花半小时从「Room 是不是坏了」开始查。
+
+1. **`Thread.sleep` 轮询会饿死帧**：聊天页的落盘协程跑在 `rememberCoroutineScope()`
+   （AndroidUiDispatcher，**由帧驱动**）上。测试线程一旦 `Thread.sleep` 阻塞轮询，就没人推进帧 →
+   协程永不执行 → 现象是「界面上消息出来了，但库里 8 秒都没写进去」，拆卸时还留下一条
+   `JobCancellationException`（看起来像数据库坏了）。
+   **正确写法**：用 `compose.waitUntil { runBlocking { 查库 } }` 等（帧照常推进）；
+   条件里**只查库、不要调 Compose API**（调了会撞 `performMeasureAndLayout called during measure layout`）。
+2. **`performTextInput` 是追加不是替换**：编辑弹窗里要改已有文字，必须先
+   `performTextClearance()`，否则得到「原标题新标题」拼起来的字符串。
+3. **别用 `substring = true` 做「某条消息可见」的断言**：样例里「分支首句」会让
+   `hasText("首句", substring = true)` 命中主线的断言 → 假绿。要精确匹配。
+4. **一个测试回合可能追加两条消息**：发送会依次落「用户消息」+「助手回复」。
+   断言「条数 == 之前 + 1」只在两次追加之间的一瞬成立 → 会假红。
+   **改成按内容找**（`messages.any { it.content == "…" }`）而不是数数。
+
+另加两条纪律：
+
+- **UI 测试必须注入存储与假传输**：不注入就会去读设备上真实的 `luzzy.db`（初始界面随机器状态变）并
+  发真实网络请求（拖慢用例、把 activity 卡在 PAUSED）。两个接缝：`ChatPage(sessionRepository = …)`、
+  `ChatPage(engineFactory = …)`。
+- **每个用例一个独立临时库**：否则上一个用例写进去的消息会改变下一个用例的初始界面，
+  失败长得像「UI 坏了」，实际是测试互相污染。

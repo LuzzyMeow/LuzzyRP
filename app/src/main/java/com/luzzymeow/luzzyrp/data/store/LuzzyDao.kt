@@ -72,6 +72,16 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun append(entity: MessageEntity)
 
+    /**
+     * 就地改写正文。**只动 content 列**：payload（旧结构多余字段，如 isSelf / avatar /
+     * imageAttachments）原样保留——这是「按行更新」相对「整段删了重插」的关键好处。
+     */
+    @Query("UPDATE messages SET content = :content WHERE scopeId = :scopeId AND sortIndex = :sortIndex")
+    suspend fun updateContent(scopeId: String, sortIndex: Int, content: String)
+
+    @Query("DELETE FROM messages WHERE scopeId = :scopeId AND sortIndex = :sortIndex")
+    suspend fun deleteAt(scopeId: String, sortIndex: Int)
+
     @Query("DELETE FROM messages WHERE scopeId = :scopeId AND sortIndex >= :fromIndex")
     suspend fun deleteFrom(scopeId: String, fromIndex: Int)
 

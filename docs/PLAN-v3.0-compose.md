@@ -214,7 +214,12 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
         记录集合/kv/附件）+ `LuzzyStore` 门面 + `MigrationWriter`（事务内「先清后全量写」→ 幂等；
         附件先落盘再进事务）。`payload` 列按**旧结构键名逐字**背字段 → 迁移零丢失、日后加字段不改表
   - [ ] P4-B-3.3 设置持久化（主题/字号/供应商/模型/工具开关收敛 + 旧 SharedPreferences 迁移；apiKey 仍只存设备本地）
-  - [ ] P4-B-3.4 UI 接入真实存储（启动即读、发送/编辑/删除落盘、杀进程重启数据仍在）
+  - [x] **P4-B-3.4 UI 接入真实存储**（会话 70）：`data/chat/ChatSessionRepository` + 聊天页接真实存储
+        —— 启动即读（**分支按 id 读**：`activeBranchId` 来自 `branch_meta`）、发送/编辑/删除/分支操作落盘、
+        **思考内容复原成思考节点**（否则重启后消息会「少一块」）。验收 = `ChatPersistenceTest`
+        （仪器化 5 例），含「关连接、同一文件重开」这个「杀进程重启」的最小证据。
+        界面不等 IO（写操作走独立协程），但**错误不吞**（打日志）。空库回落演示态且**不落盘**
+        （没有宿主角色 → 不写半套数据）。两个测试接缝：`sessionRepository` / `engineFactory`
   - [ ] P4-C 跨角色平铺会话总览 / 预设与世界书编辑 / 真机覆盖安装实测 / 迁移入口接线（谁启动迁移 WebView、进度与报告怎么呈现）
 - [ ] P5 功能对账补齐（含 Markdown 的 LaTeX/Mermaid/HTML 直通/图片、表格列宽自适应、代码高亮）
 - [ ] P6 切换与发版

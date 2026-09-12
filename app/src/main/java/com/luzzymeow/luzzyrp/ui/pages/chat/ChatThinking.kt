@@ -439,16 +439,21 @@ fun MessageActionRow(
         ),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
+        // 稳定 testTag：仪器化测试据此定位动作（不依赖中文文案 —— 文案会改，测试不该跟着碎）
         listOf(
             Triple(LuzzyIcons.Copy, "复制", onCopy),
             Triple(LuzzyIcons.Refresh, "重新生成", onRegenerate),
             Triple(LuzzyIcons.Edit, "编辑", onEdit),
             Triple(LuzzyIcons.DotsHorizontal, "更多", { menuOpen = true }),
-        ).forEach { (res, desc, action) ->
-            if (action == null) return@forEach
+        ).forEachIndexed { actionIndex, (res, desc, action) ->
+            if (action == null) return@forEachIndexed
             Box(contentAlignment = Alignment.Center) {
                 Box(
-                    Modifier.size(48.dp).clip(CircleShape).clickable(onClick = action),
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .testTag(arrayOf("msg_action_copy", "msg_action_regen", "msg_action_edit", "msg_action_more")[actionIndex])
+                        .clickable(onClick = action),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -559,7 +564,7 @@ fun EditMessageDialog(
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 260.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 260.dp).testTag("edit_message_field"),
                 textStyle = androidx.compose.ui.text.TextStyle(
                     fontSize = 13.sp,
                     lineHeight = 20.sp,
@@ -571,6 +576,7 @@ fun EditMessageDialog(
             TextButton(
                 onClick = { onSave(text) },
                 enabled = text.isNotBlank() && text != initial,
+                modifier = Modifier.testTag("edit_message_confirm"),
             ) { Text("保存", fontFamily = LuzzyFonts.Body) }
         },
         dismissButton = {

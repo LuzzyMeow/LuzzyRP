@@ -71,6 +71,9 @@ import com.luzzymeow.luzzyrp.chat.ChatEngine
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.chat.VanioCard
+import com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository
+import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
+import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import com.luzzymeow.luzzyrp.ui.DevHooks
@@ -148,6 +151,11 @@ fun ChatPage(
      * 就能确定性地驱动「流式上屏 / 工具节点 / 失败态」，不必依赖网络与真实供应商。
      */
     engineFactory: () -> ChatEngine = { ChatEngine() },
+    /**
+     * 会话仓库（默认真实 Room 存储）。**测试接缝**：仪器化测试注入一个指向临时库的仓库，
+     * 就能确定性地验证「启动即读 / 改动落盘 / 重启仍在」，不必依赖设备上的真实数据。
+     */
+    sessionRepository: ChatSessionRepository? = null,
 ) {
     val hazeState = remember { HazeState() }
     // 稳定测试选择器（ui-ux-pro-max 的 Compose 栈规约要求 testTag 而非依赖文案）
@@ -177,24 +185,59 @@ fun ChatPage(
     var live by remember { mutableStateOf<LiveTurn?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
 
-    // ── 剧情分支（上游语义：会话 = 角色 × 分支；P4 换真实存储） ──
-    // 每条分支持有自己的消息列表；在某一分支发送只进该分支。演示数据 = 主线（种子历史）
-    // + 一条**真实从主线分叉**的子分支（消息是主线前两楼的真实副本，不含编造内容）。
+    // ── 剧情分支（上游语义：会话 = 角色 × 分支）──
+    //
+    // [P4-B-3.4] 会话数据现在来自**真实存储**：
+    //   启动 → 载入当前角色的分支与消息；改动 → 按行落盘（追加/改写/删除各只碰自己那一行）。
+    // 存储为空时（首次安装、尚未迁移）回落到内置演示角色，此时 **characterUuid 为 null =
+    // 不落盘**：无宿主角色的消息没有地方可存，与其写半套数据不如明说「这是演示」。
+    val repository = remember(sessionRepository) {
+        sessionRepository ?: ChatSessionRepository(
+            LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)),
+        )
+    }
+    var characterUuid by remember { mutableStateOf<String?>(null) }
     var tree by remember { mutableStateOf(BranchTree.single()) }
     val branchMessages = remember { mutableStateMapOf<String, List<ChatMessage>>() }
     var showBranches by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (branchMessages.isEmpty()) {
-            val main = demoHistory()
-            branchMessages[ChatBranch.MainId] = main
-            tree = tree.addChild(
-                parentId = ChatBranch.MainId,
-                id = "branch-1",
-                name = "教堂后墙",
-                forkFloor = 2,
-                createdAt = 1L,
-            )
-            branchMessages["branch-1"] = main.take(2)
+            val session = repository.load()
+            if (session != null) {
+                characterUuid = session.character.uuid
+                tree = BranchTree(branches = session.branches, activeId = session.activeBranchId)
+                branchMessages.clear()
+                session.messagesByBranch.forEach { (branchId, messages) ->
+                    branchMessages[branchId] = messages
+                }
+            } else {
+                val main = demoHistory()
+                branchMessages[ChatBranch.MainId] = main
+                tree = tree.addChild(
+                    parentId = ChatBranch.MainId,
+                    id = "branch-1",
+                    name = "教堂后墙",
+                    forkFloor = 2,
+                    createdAt = 1L,
+                )
+                branchMessages["branch-1"] = main.take(2)
+            }
+        }
+    }
+
+    /**
+     * 落盘助手：只在**有宿主角色**时写（演示态不落盘）。
+     *
+     * 每个写操作都是独立协程：界面不等 IO（消息立刻上屏），落盘失败只影响持久化，
+     * 不回滚已经呈现的内容 —— 这正是「先让人看到，再保证存住」的顺序。
+     */
+    fun persist(block: suspend (ChatSessionRepository, String) -> Unit) {
+        val uuid = characterUuid ?: return
+        scope.launch {
+            runCatching { block(repository, uuid) }
+                // 界面不等 IO，但**错误不能吞**：吞掉的话「没存住」会表现为「重启后少一条」，
+                // 那时再查就晚了。日志是这条路径唯一的现场。
+                .onFailure { android.util.Log.w("LuzzyChat", "会话落盘失败", it) }
         }
     }
     val activeBranchId = tree.activeId
@@ -203,8 +246,9 @@ fun ChatPage(
         branch.id to BranchStat.of(branchMessages[branch.id].orEmpty().map { it.text() })
     }
 
-    fun appendTo(branchId: String, message: ChatMessage) {
+    fun appendTo(branchId: String, message: ChatMessage, reasoning: String? = null) {
         branchMessages[branchId] = branchMessages[branchId].orEmpty() + message
+        persist { repo, uuid -> repo.append(uuid, branchId, message, reasoning) }
     }
 
     fun appendMessage(message: ChatMessage) = appendTo(activeBranchId, message)
@@ -214,6 +258,7 @@ fun ChatPage(
         if (index !in list.indices) return
         list[index] = message
         branchMessages[branchId] = list
+        persist { repo, uuid -> repo.updateContent(uuid, branchId, index, message.text()) }
     }
 
     fun editMessage(branchId: String, index: Int, transform: (ChatMessage) -> ChatMessage) {
@@ -221,12 +266,14 @@ fun ChatPage(
         if (index !in list.indices) return
         list[index] = transform(list[index])
         branchMessages[branchId] = list
+        persist { repo, uuid -> repo.updateContent(uuid, branchId, index, list[index].text()) }
     }
 
     fun removeMessage(branchId: String, index: Int, andAfter: Boolean) {
         val list = branchMessages[branchId].orEmpty()
         if (index !in list.indices) return
         branchMessages[branchId] = if (andAfter) list.take(index) else list.filterIndexed { i, _ -> i != index }
+        persist { repo, uuid -> repo.delete(uuid, branchId, index, andAfter) }
     }
 
     /**
@@ -543,7 +590,10 @@ fun ChatPage(
                         },
                         actions = {
                             // 剧情分支入口（与上游 openStoryBranchModal 同一位置：聊天页顶栏）
-                            IconButton(onClick = { showBranches = true }) {
+                            IconButton(
+                                onClick = { showBranches = true },
+                                modifier = Modifier.testTag("chat_branches"),
+                            ) {
                                 Icon(
                                     painter = painterResource(LuzzyIcons.Branch),
                                     contentDescription = "剧情分支",
@@ -878,11 +928,20 @@ fun ChatPage(
             stats = branchStats,
             onSwitch = {
                 tree = tree.switchTo(it)
+                persist { repo, uuid -> repo.rememberActiveBranch(uuid, it) }
                 // 进入即收起（上游 StoryBranchModal「进入」同语义：选完就看内容，不再挡着）
                 showBranches = false
             },
-            onRename = { id, name -> tree = tree.rename(id, name) },
-            onDelete = { tree = tree.delete(it) },
+            onRename = { id, name ->
+                tree = tree.rename(id, name)
+                persist { repo, uuid -> repo.renameBranch(uuid, id, name) }
+            },
+            onDelete = { id ->
+                tree = tree.delete(id)
+                // 上游语义：删分支即删该分支的会话数据
+                branchMessages.remove(id)
+                persist { repo, uuid -> repo.deleteBranch(uuid, id) }
+            },
             onDismiss = { showBranches = false },
         )
     }

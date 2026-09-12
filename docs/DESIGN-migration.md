@@ -94,9 +94,21 @@ LevelDB 形态）。Kotlin 侧直接解析不现实 → **迁移必须在一段�
 | `RPHubDB`（兼容读） | `silly_tavern_` | **旧前缀也可能写在新库里**（旧版升上来） |
 
 读取语义（上游 `data-services.js`）：**新键优先，缺失才回落旧键并回写新键**。
-迁移器必须复刻这个优先级：**同键时以 `RPHubDB` 的值为准**，旧库仅补新库没有的键。
-
 对象仓库固定为单库单仓：库名见上表，仓库名恒为 `'store'`，键为字符串。
+
+**迁移器对这一条做了加强（实现时的决定，理由在下面）**：上游的「新键优先」是**整键替换**——
+新库里只要存在 `characters`，旧库（以及同库里旧前缀）的那一份就整体不看。
+对数组型记录那样做**会丢掉整张角色卡**，而角色卡带 `uuid`、身份明确，合并是安全的。所以定为：
+
+- **带稳定身份的记录**（`characters` / `user_profiles`，身份字段 `uuid`）→ **按身份逐条合并**，
+  同 uuid 采用**新库版本**，旧库独有的照常保留；
+- **其余键** → 仍走整键优先（数组元素没有稳定身份，无法安全合并），
+  并在报告里留下「该键被更高优先级来源遮蔽」的可见记录，不做静默覆盖。
+
+为什么这条加强是必要的：夹具里同一份数据同时存在三种来源
+（`rp_hub_characters` 3 张 / 主库 `silly_tavern_characters` 1 张 / 旧库 `silly_tavern_characters` 1 张），
+按整键优先只能留下 3 张、丢 2 张——而它们都是**用户的真实角色卡**。
+`LegacyMigratorTest` 里 `坑10 旧库独有的角色没被丢掉` 就是钉这一条的。
 
 ### 3.2 键命名空间（夹具实测 29 + 3 个键）
 
@@ -213,7 +225,7 @@ sourceText, embeddingQ, embeddingScale, embeddingDims, embeddingEncoding`
 |---|---|---|---|
 | 1 | 分支作用域拼接：**main = 裸 uuid** | 统一用「解析 scope」函数：带 `__branch__` 才拆，不带即 main | 有 |
 | 2 | 旧数字索引键 `chat_<n>`（courtesy v1.x） | 落到 `chat_<uuid>` 时**并入**对应角色，冲突不覆盖新库值 | 有 |
-| 3 | 双库：`RPHubDB` 优先，`SillyTavernDB` 补缺 | 先读新库建索引，旧库逐键只在**新库缺失**时采用 | 有 |
+| 3 | 双库 + 同库里新旧前缀并存 | **带身份字段的数组按身份合并**（同 uuid 取新库版本，旧库独有照常保留）；其余键整键优先并留「被遮蔽」记录（理由见 §3.1） | 有 |
 | 4 | 消息**没有时间戳** | 以数组序为准；新模型给 `sortIndex`，**不允许**按任何时间字段重排 | 有 |
 | 5 | 瞬态字段白名单 | 迁移**丢弃**：`shouldAnimate` `skipReveal` `isCotOpen` `isReasoningOpen` `isReasoningUserToggled` `isReasoningAutoCollapsed` `isSummaryOpen` | 有 |
 | 6 | **base64 附件**（角色/人设头像、消息 `imageAttachments[].dataUrl`） | 超阈值解码成文件存路径，DB 内只留路径；**保留旧字段**供兼容读 | 有 |
@@ -228,58 +240,102 @@ sourceText, embeddingQ, embeddingScale, embeddingDims, embeddingEncoding`
 
 ## 6. 迁移通道协议（2.3）
 
-### 6.1 页面：`app/src/main/assets/ext/luzzy-migrate.html`
+### 6.1 页面：`app/src/main/assets/ext/luzzy-migrate.html`（**已实现**）
 
-- **纯 JS，不启动 Vue、不加载上游脚本**；只做一件事：遍历两库 → 归一 → 分块回传。
-- **只读**：除「写入探针」健康检查外不改动任何记录（G5）。
-- 回传**分块**（每块 ≤256 KB）经桥方法 `migrateChunk(seq, payload)`，结束时 `migrateDone(summary)`；
-  规避 Binder 事务上限（大头像 + 4096 字符向量很容易把单个 bundle 撑爆）。
+- **纯 JS，不启动 Vue、不加载上游脚本**；只做一件事：遍历两库 → 序列化 → 分块回传。
+  这样迁移逻辑与业务前端彻底隔离，上游前端重构也不会影响迁移。
+- **只读**：不写、不删任何旧记录（G5 → 用户可随时回退到 v2.x 版本）。
+- **不做语义解释**：字段怎么理解是 Kotlin 迁移器的事。页面只负责「搬运 + 分块 + 校验」。
+- **健康检查放在最前**：两库都读不到键就**明确失败**，而不是导出一个空文件。
+  这一步是 §2.2 那条纪律的落地——`setAllowFileAccessFromFileURLs` 一旦被收紧，
+  症状是「读不到数据但不报错」，必须有断言把它变成可见的失败。
+- 序列化后整串按字符切片，每片 ≤ `CHUNK_CHARS = 180_000`（Binder 事务上限 1 MB；
+  中文按 UTF-8 占 3 字节 → 最坏约 540 KB，留足余量。`MigrationInboxTest` 有一条断言锁住这个量级）。
+- **测试钩子**：URL 可带 `?chunk=8000` 覆盖分块大小。小样本导出天然只有一块，
+  而「块顺序校验 + 拼接完整性」恰恰只有多块才走到——没有这个开关就只能靠真实用户的
+  MB 级数据去撞运气。
 
 ### 6.2 桥方法（`LuzzyBridge.kt` + `luzzy-bridge.js` 封装，硬性规定 3/§5.4）
 
 | 方法 | 作用 |
 |---|---|
-| `migrateStart()` | 清空上次残留、落盘聚合文件，返回会话 id |
-| `migrateChunk(seq, payload)` | 追加一块（顺序校验，缺块即失败） |
-| `migrateDone(summary)` | 收尾：校验块数/字节数一致 → 交给 Kotlin 迁移器 |
-| `migrateError(message)` | 页面侧异常出口（不吞错） |
+| `migrateStart(sessionId)` | 清空上次残留，返回会话 id |
+| `migrateChunk(seq, payload)` | 追加一块；**序号必须连续**，否则返回 false（缺块拼出的 JSON 可能恰好能解析 → 静默少数据，宁可失败） |
+| `migrateDone(summaryJson)` | 收尾：校验非空 → 算 sha256 → 写 manifest → 返回报告（失败返回空串） |
+| `migrateError(message)` | 页面侧异常出口（不吞错）+ 清掉半成品 |
 
 ### 6.3 落盘位置
 
-`filesDir/migration/incoming/` 下分块 + `manifest.json`（块数、每块 sha256、源库版本）。
+`filesDir/migration/incoming/`：`legacy-export.json`（拼接结果，迁移器的输入）
++ `manifest.json`（块数 / 字符数 / sha256 / `completed` 标记）。
 **迁移成功后**只删 `incoming/`；旧 IndexedDB **保留**（G5）。
+
+### 6.4 设备端实测（2026-09-12，模拟器 `emulator-5554`，release 包）
+
+把 WebView 从 `rphub/index.html` 导航到 `files/ext/luzzy-migrate.html`（真实流程、真实桥），
+原生侧落到文件后拉回本机比对：
+
+| 项 | 结果 |
+|---|---|
+| 迁移页自述 | `完成`：字符 82,992 · 块 1；`migrateDone` 返回 sha256 |
+| manifest | `chunks:1, chars:82992, mainKeys:29, legacyKeys:3, completed:true, elapsedMs:45` |
+| 与测试夹具比对 | **31/32 键逐字节相同**；唯一不同的 `rp_hub_settings` 差异**只有**两个被脱敏的密钥字段（长度保留） |
+| 多块路径（`?chunk=8000`） | 11 块；拼接结果与单块版**内容完全一致**（仅 `capturedAt` 时间戳不同） |
+
+> 意义：夹具（`dump.js` 产出）与**生产导出器**（`luzzy-migrate.html`）是两条独立实现，
+> 它们对同一份真实数据给出相同结果 → 单测用的夹具确实代表生产输入，不是自说自话。
 
 ---
 
-## 7. 迁移器（2.4，Kotlin）
+## 7. 迁移器（2.4，Kotlin，**已实现**）
 
-### 7.1 结构
+### 7.1 结构（与最初设想略有出入，以实现为准）
 
 ```
-MigrationExporter (WebView 侧，JS)  →  MigrationDecoder (Kotlin, 纯函数)
-        ↓                                       ↓
-   manifest + chunks                    LegacySnapshot（内存模型，可测）
-                                                ↓
-                                    LegacyMigrator（纯 Kotlin，无 Android 依赖）
-                                                ↓
-                                       MigrationReport（成功/跳过/失败 + 原因）
-                                                ↓
-                                    目标存储（P4-B 定；见 §8）
+ext/luzzy-migrate.html (JS)  →  MigrationInbox (Kotlin, 分块拼装 + sha256)
+                                        ↓
+                                  LegacyDb.parse（线格式解析，纯函数）
+                                        ↓
+                                  LegacyIndex（多来源合并，纯函数）
+                                        ↓
+                                  LegacyMigrator（纯 Kotlin，无 Android 依赖）
+                                        ↓
+                                  MigratedData（存储无关的迁移产物）+ 跳过/说明清单
+                                        ↓
+                                  目标存储（P4-B 定；见 §8）
 ```
 
-**关键**：`LegacySnapshot` → 目标模型这一段是**纯 Kotlin 纯函数**，夹具 JSON 直接喂进去就能断言
+**关键**：`LegacyDb → MigratedData` 这一段是**纯函数**，夹具 JSON 直接喂进去就能断言
+（`LegacyMigratorTest`，22 例），**不需要模拟器**。
+
+`MigratedData` 里强类型的只有新界面马上要用的部分（角色标识 / 分支 / 消息 / 作用域）；
+记忆 / 世界书 / 预设 / 正则 / 用量等**整条原样搬运**（字段名与旧结构逐字一致），
+因为我方消费方的字段需求要等 P4-B/P4-C 才定，现在定型等于先猜一遍再改一遍。
+
 （G1 的计数、G2 的幂等），**不需要模拟器**。
 
 ### 7.2 幂等（G2）
 
-以「源键 + 记录 id/turn」为幂等键：重复迁移时同键**覆盖为相同值**而非追加；
-迁移完成标记写入后，启动时若标记存在则不再迁移。单测：同一夹具跑两次 → 结果逐字段相等。
+### 7.2 幂等（G2）
 
-### 7.3 报告（G3）
+实现口径比「同键覆盖」更严：**同一份输入跑两次，`MigratedData` 逐字段相等**。
+为此 `MigratedData` 里不出现时间戳、随机 id 或不确定顺序：
 
-`MigrationReport { migrated: {characters, branches, messages, vectorMemories, classicMemories,
-worldEntries, presets, regexes, usageRecords, profiles}, skipped: [{key, reason}], failed: [...] }`。
-**跳过与失败都进报告**，UI 只提示不阻断（用户已拍板：**不设回退**）。
+- 角色缺 `uuid` 时用**内容哈希**补（`UUID.nameUUIDFromBytes`），而不是随机 UUID
+  —— 随机会让第二次迁移多出一张角色卡；
+- 合并/遍历顺序全部确定（新库在前 + 数组内保持原序）；
+- `ExtractedAsset.equals` 按**字节内容**比（默认的 `ByteArray` 比较是引用比较，会让幂等判据假红）。
+
+「迁移完成标记」在存储层（P4-B）落，启动时若标记存在则不再迁移。
+
+### 7.3 报告与「不丢」口径（G3）
+
+`MigratedData` 带三样可读的东西：
+`skipped: [{key, reason}]`（坏记录只跳过不中断）、
+`notes: [...]`（不丢数据但需要人看一眼的情况：从旧库补回、补了 uuid、用了数字索引回落、
+孤立作用域补了占位角色…）、以及 `assets: [ExtractedAsset]`（待落文件的 base64）。
+
+`counts()` 给出各表条数，**就是 G1 的比对面**。UI 只提示不阻断（用户已拍板：**不设回退**）。
 
 ---
 
@@ -287,7 +343,9 @@ worldEntries, presets, regexes, usageRecords, profiles}, skipped: [{key, reason}
 
 先试 **Room + KSP + KGP**：15 分钟内能构建通过 → 走 Room（照 rikkahub 的
 「node 一行 + messages 用 JSON 列」模型，避免为消息建表）。
-**否则回落 JSON 文件存储**：`kotlinx.serialization`（已是依赖，零新增）
+**否则回落 JSON 文件存储**：`kotlinx.serialization`（**目前只装了运行时**，
+故若要用 `@Serializable` 需补 serialization 编译器插件——迁移器刻意没走这条路，
+它只用 JSON DOM API，零构建改动）
 + 分文件 + **原子写**（临时文件 + rename）+ 内存索引。
 若走回落，**必须**把「不选 Room 是因为 AGP 9 内置 Kotlin 下 KSP/KGP 构建约束」写进本文件 §8，
 以免日后被当成随手决定。
@@ -298,6 +356,9 @@ worldEntries, presets, regexes, usageRecords, profiles}, skipped: [{key, reason}
 
 | 门 | 判据 | 现状 |
 |---|---|---|
-| 迁移器单测 | 用夹具跑 §5 的 12 条 + G1 计数 + G2 幂等 | **待建**（2.4） |
-| 通道健康检查 | 迁移 WebView 打开后键集非空（§2.2 的配置前提） | **待建**（2.3） |
+| 迁移器单测 | 用夹具跑 §5 的 12 条 + G1 计数 + G2 幂等 | **已建**：`LegacyMigratorTest` 22 例（含夹具计数量级断言、幂等逐字段相等、坏数据只跳过、孤立作用域不丢） |
+| 分块协议单测 | 序号连续性 + 拼接完整性 + sha256 + 半成品清理 | **已建**：`MigrationInboxTest` 9 例 |
+| 通道健康检查 | 迁移页读到的键集非空（§2.2 的配置前提） | **已建**：导出器第一步即断言，读空明确失败（§6.1） |
+| 导出器端到端 | 设备上真实跑通、与夹具一致 | **已验证**（§6.4）：31/32 键逐字节相同，多块路径内容一致 |
 | 真机覆盖安装 | v2.x release → v3.0 release 覆盖安装，数据完好 | **待做**（阶段 4） |
+| 迁移入口接线 | 谁在什么时候启动迁移 WebView、进度与报告怎么呈现 | **待做**（P4-B/P4-C） |

@@ -195,9 +195,17 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
         3 张角色卡按名字读回 / 写入的探针键事后可在主页面读到。
         故走**轻量页 `ext/luzzy-migrate.html`**（不启动 Vue）；保底的
         「打开 index.html 再注入」路径不需要验证、作降级保留
-  - [ ] P4-A-2.3 迁移导出器（`ext/luzzy-migrate.html` + 桥方法分块回传）
-  - [ ] P4-A-2.4 迁移器（Kotlin 纯函数）+ 12 条坑逐条单测 + 幂等
+  - [x] **P4-A-2.3 迁移导出器**（会话 70）：`ext/luzzy-migrate.html`（纯 JS、不启动 Vue、**只读**、
+        整串切片分块 ≤180k 字符）+ 桥方法 `migrateStart/Chunk/Done/Error` + `luzzy-bridge.js` 封装
+        + Kotlin `MigrationInbox`（分块拼装、序号强校验、sha256、manifest）。
+        **设备端实测通过**：单块 82,992 字符与 11 块（`?chunk=8000`）拼接结果**内容完全一致**；
+        导出物与测试夹具 **31/32 键逐字节相同**（唯一差异是夹具里被脱敏的两个密钥字段）
+  - [x] **P4-A-2.4 迁移器**（会话 70）：`data/legacy/` 五个文件（键/作用域解析、两库多来源索引、
+        线格式解析、迁移器、收件箱），**纯 Kotlin 无 Android 依赖**；12 条坑逐条处理并单测
+        （`LegacyMigratorTest` 22 例 + `MigrationInboxTest` 9 例，全绿）；
+        幂等口径为「同一输入跑两次结果逐字段相等」。**顺带修掉一个真缺陷**：
+        上游式「整键优先」会把旧库/旧前缀里的角色卡整张丢掉 → 改为带身份字段的记录按 uuid 合并
   - [ ] P4-B 存储选型 spike（Room/KSP 15 分钟判据 → 否则 JSON 文件存储）+ 数据模型 + 设置持久化 + UI 接入
-  - [ ] P4-C 跨角色平铺会话总览 / 预设与世界书编辑 / 真机覆盖安装实测
+  - [ ] P4-C 跨角色平铺会话总览 / 预设与世界书编辑 / 真机覆盖安装实测 / 迁移入口接线（谁启动迁移 WebView、进度与报告怎么呈现）
 - [ ] P5 功能对账补齐（含 Markdown 的 LaTeX/Mermaid/HTML 直通/图片、表格列宽自适应、代码高亮）
 - [ ] P6 切换与发版

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuzzyRP 数据迁移</title>
+<style>
+    body { background:#231917; color:#F6EFEA; font-family:system-ui,sans-serif;
+           margin:0; padding:24px; font-size:14px; line-height:1.7; }
+    h1 { font-size:16px; margin:0 0 12px; font-weight:600; letter-spacing:.02em; }
+    #stage { color:#FFB59D; font-variant-numeric:tabular-nums; }
+    #detail { color:#D8C6BE; white-space:pre-wrap; word-break:break-all; font-size:12px; }
+    .err { color:#FF8A80; }
+</style>
+</head>
+<body>
+<h1>LuzzyRP · 旧数据导出</h1>
+<p id="stage">准备中…</p>
+<div id="detail"></div>
+
+<script>
+// ============================================================================
+// 旧数据导出器（v3.0 P4-A，设计见 docs/DESIGN-migration.md §6）
+//
+// 职责**只有一件**：把两个 IndexedDB 里的原始记录读出来，分块交给原生侧。
+// - 不启动 Vue、不加载任何上游脚本（迁移逻辑与业务前端彻底隔离，也不受前端重构影响）；
+// - **只读**：不写、不删任何旧记录（迁移不破坏源 → 用户可回退到 v2.x 版本）；
+// - 不做任何语义解释：字段怎么理解是 Kotlin 迁移器的事。这里只做「搬运 + 分块 + 校验」。
+//
+// 为什么能读到主页面（files/rphub/index.html）写的数据：实测「不同 file:// 文件的
+// IndexedDB 共享同一 origin」成立（依赖 WebViewSetup 的
+// setAllowFileAccessFromFileURLs + setAllowUniversalAccessFromFileURLs）。这两个开关一旦被
+// 收紧，本页会**读不到数据但不报错** → 所以下面第一步就是键集健康检查，读空即明确失败。
+// ============================================================================
+(function () {
+    'use strict';
+
+    var MAIN_DB = 'RPHubDB';
+    var LEGACY_DB = 'SillyTavernDB';
+    // 与 Kotlin 侧 MigrationInbox.CHUNK_CHARS 对齐（Binder 事务上限 1MB）
+    var DEFAULT_CHUNK_CHARS = 180000;
+    var OPEN_TIMEOUT_MS = 8000;
+
+    // 分块大小可经 URL 覆盖（`?chunk=8000`）：只为**测多块路径**。
+    // 小样本导出天然只有一块，而「块顺序校验 + 拼接完整性」恰恰是多块才走到的分支，
+    // 没有这个开关就只能靠真实用户的几 MB 数据去撞运气。
+    function chunkCharsFromLocation() {
+        var match = /[?&]chunk=(\d+)/.exec(location.search || '');
+        var value = match ? parseInt(match[1], 10) : DEFAULT_CHUNK_CHARS;
+        if (!isFinite(value) || value < 512) return DEFAULT_CHUNK_CHARS;
+        return value;
+    }
+    var CHUNK_CHARS = chunkCharsFromLocation();
+
+    var stageEl = document.getElementById('stage');
+    var detailEl = document.getElementById('detail');
+
+    function say(stage, detail) {
+        stageEl.textContent = stage;
+        if (detail !== undefined) detailEl.textContent = String(detail);
+        document.title = 'migrate:' + stage;
+    }
+
+    function bridge() {
+        return (typeof window.LuzzyBridge !== 'undefined') ? window.LuzzyBridge : null;
+    }
+
+    function fail(message) {
+        say('失败', message);
+        detailEl.className = 'err';
+        var b = bridge();
+        if (b && typeof b.migrateError === 'function') b.migrateError(String(message));
+    }
+
+    /** 打开数据库；**不传版本**（不触发升级、不留副作用）。库不存在 → 返回 null。 */
+    function openDb(name) {
+        return new Promise(function (resolve) {
+            var settled = false;
+            var done = function (value) { if (!settled) { settled = true; resolve(value); } };
+            setTimeout(function () { done({ error: 'TIMEOUT' }); }, OPEN_TIMEOUT_MS);
+            var request;
+            try {
+                request = indexedDB.open(name);
+            } catch (e) {
+                return done({ error: String(e && e.message || e) });
+            }
+            request.onblocked = function () { done({ error: 'BLOCKED' }); };
+            request.onerror = function () { done({ error: name + ' 打开失败' }); };
+            request.onsuccess = function () { done({ db: request.result }); };
+        });
+    }
+
+    function listDatabases() {
+        if (typeof indexedDB.databases !== 'function') return Promise.resolve(null);
+        return indexedDB.databases().then(function (list) {
+            return list.map(function (item) { return item.name + '@v' + item.version; });
+        }).catch(function () { return null; });
+    }
+
+    /** 全量读一个库；返回 { version, entries, keys }。仓库不存在时 entries 为空。 */
+    function readAll(db) {
+        var entries = {};
+        var keys = [];
+        return new Promise(function (resolve, reject) {
+            if (!db.objectStoreNames.contains('store')) {
+                // 旧库被早期探针误建过「无对象仓库」的空库：按空表对待，不报错
+                return resolve({ entries: entries, keys: keys });
+            }
+            var request = db.transaction(['store'], 'readonly').objectStore('store').openCursor();
+            request.onerror = function () { reject(request.error); };
+            request.onsuccess = function () {
+                var cursor = request.result;
+                if (!cursor) return resolve({ entries: entries, keys: keys });
+                var key = String(cursor.key);
+                keys.push(key);
+                // 注意：这里必须保留原值（含 Date/ArrayBuffer 之类的结构化克隆对象），
+                // 由 JSON.stringify 在其自身语义下序列化；迁移器只接受已序列化形态。
+                entries[key] = cursor.value;
+                cursor.continue();
+            };
+        });
+    }
+
+    function chunkCountFor(text) {
+        return Math.max(1, Math.ceil(text.length / CHUNK_CHARS));
+    }
+
+    async function run() {
+        say('检查通道');
+        var b = bridge();
+        if (!b || typeof b.migrateStart !== 'function') {
+            return fail('原生桥不可用（LuzzyBridge.migrateStart 缺失）：本页必须由 LuzzyRP 应用打开');
+        }
+        var databaseNames = await listDatabases();
+
+        say('打开旧库');
+        var mainOpen = await openDb(MAIN_DB);
+        if (mainOpen.error) return fail('主库打开失败：' + mainOpen.error);
+        var legacyOpen = await openDb(LEGACY_DB);   // 不存在是正常的（更早版本才用旧库名）
+
+        say('读取记录');
+        var mainRead = await readAll(mainOpen.db);
+        var legacyRead = legacyOpen.db ? await readAll(legacyOpen.db) : { entries: {}, keys: [] };
+
+        // 健康检查（DESIGN-migration §2.2）：两个库都空 = 通道没共享到 origin，明确失败而不是导出空文件
+        if (mainRead.keys.length === 0 && legacyRead.keys.length === 0) {
+            return fail('读不到任何键：迁移页面没有共享到主页面的存储 origin。'
+                + '请检查 WebViewSetup 的 setAllowFileAccessFromFileURLs / setAllowUniversalAccessFromFileURLs。');
+        }
+
+        var payload = {
+            fixtureVersion: 1,
+            capturedAt: new Date().toISOString(),
+            exporter: 'luzzy-migrate.html v1',
+            databases: {}
+        };
+        payload.databases[MAIN_DB] = { version: mainOpen.db.version, entries: mainRead.entries };
+        payload.databases[LEGACY_DB] = legacyOpen.db
+            ? { version: legacyOpen.db.version, entries: legacyRead.entries }
+            : { version: null, entries: {} };
+
+        say('序列化', mainRead.keys.length + ' + ' + legacyRead.keys.length + ' 个键');
+        var json;
+        try {
+            json = JSON.stringify(payload);
+        } catch (e) {
+            return fail('序列化失败：' + (e && e.message || e));
+        }
+
+        var sessionId = 'mig-' + Date.now();
+        var started = b.migrateStart(sessionId);
+        if (!started) return fail('migrateStart 未返回会话 id（原生侧无法落盘）');
+
+        var total = chunkCountFor(json);
+        say('回传中', '0 / ' + total + ' 块');
+        for (var seq = 0; seq < total; seq++) {
+            var slice = json.substr(seq * CHUNK_CHARS, CHUNK_CHARS);
+            var ok = b.migrateChunk(seq, slice);
+            if (!ok) return fail('第 ' + seq + ' 块被原生侧拒绝（顺序错乱或落盘失败）');
+            if (seq % 5 === 0 || seq === total - 1) {
+                say('回传中', (seq + 1) + ' / ' + total + ' 块 · ' + json.length + ' 字符');
+            }
+            // 让出主线程：大导出时避免长时间阻塞（也让进度可见）
+            if (seq % 5 === 4) await new Promise(function (r) { setTimeout(r, 0); });
+        }
+
+        say('收尾');
+        var summary = {
+            mainKeys: mainRead.keys.length,
+            legacyKeys: legacyRead.keys.length,
+            mainVersion: mainOpen.db.version,
+            legacyVersion: legacyOpen.db ? legacyOpen.db.version : null
+        };
+        var report = b.migrateDone(JSON.stringify(summary));
+        if (!report) return fail('migrateDone 失败：导出文件未通过校验（可能块数不足）');
+
+        say('完成', '字符 ' + json.length + ' · 块 ' + total + '\n' + report);
+    }
+
+    // 桥注入是同步完成的（addJavascriptInterface 早于 loadUrl），但仍延一拍让页面先画出状态
+    setTimeout(function () {
+        run().catch(function (e) {
+            fail('未捕获异常：' + (e && (e.stack || e.message) || e));
+        });
+    }, 50);
+})();
+</script>
+</body>
+</html>

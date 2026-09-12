@@ -115,3 +115,25 @@ node scrub.mjs           app/src/test/resources/legacy/webview-db-fixture.json
      但应用侧 `buildApiEndpoint` 会强制补 `/v1`（`baseUrl` 不以 `/v1` 结尾时），
      拼出 `…/paas/v4/v1/embeddings` → 404。**用 baseUrl 已含 `/v1` 的供应商**（STA1N）即可绕开。
    - DeepSeek 嵌入：其开放平台**不提供** embeddings 端点（实测 404）。
+
+---
+
+## 6. 验证「生产导出器」的脚本
+
+`run-exporter.mjs`：把设备 WebView 导航到 `files/ext/luzzy-migrate.html`（**真实导出器、真实桥**），
+等它跑完，再把原生侧拼好的导出文件拉回本机并解析。
+
+```bash
+node tools/mig-fixture/run-exporter.mjs out/device-export.json          # 默认分块（≈180k 字符/块）
+node tools/mig-fixture/run-exporter.mjs out/small.json                  # 先把 PAGE 改成 ?chunk=8000
+```
+
+配合两条使用要点：
+
+- **多块路径必须单独走一遍**：小样本导出天然只有一块，而「序号连续性校验 + 拼接完整性」
+  只有多块才走到。`?chunk=8000` 会把同一份数据切成十几块，用来验证拼接无损
+  （判据：与单块版内容逐字节一致，仅 `capturedAt` 时间戳不同）。
+- **拉回来的文件里有真实密钥**（`rp_hub_settings.apiKey` 等）：那是真机态数据，
+  **别提交、别外传**，用完就删。要入库的只有脱敏后的夹具。
+
+`README` 里这套脚本的产出物（`.workbuddy/mig/*`、`out/*`）都不入库。

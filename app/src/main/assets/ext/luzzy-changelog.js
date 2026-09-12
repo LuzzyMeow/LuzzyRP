@@ -126,7 +126,58 @@
   - 手册与报告：\`docs/CHAT-REGRESSION.md\`（命令 + 十步人工走查 + 写 UI 测试的三个坑）、
     \`docs/design/regression-p3.md\`（十步逐条 E/M 归属）。
 
+- **P4-A 迁移通道：真实数据夹具 + 通道 go/no-go 探针（2026-09-12，会话 70）**
+  —— 设计真源新增 \`docs/DESIGN-migration.md\`：
+  - **真实旧数据夹具**：\`app/src/test/resources/legacy/webview-db-fixture.json\`
+    （29 主库键 + 3 旧库键，139 KB）。**不是手写样本**——模拟器装 release 包后用 CDP
+    驱动**前端自己的函数**造数据：\`createNewCharacter\`/\`saveCharacter\`（头像走真实
+    \`compressImage\`）/ \`sendMessage\`（**真实调用 DeepSeek**，SSE 流）/ \`createStoryBranch\`
+    / \`createWorldInfo\`·\`saveWorldInfo\` / \`startBatchMemoryExtraction\`（经典总结 + **真实
+    3072 维嵌入** → 应用自身 \`int8:maxabs:v1\` 量化落盘）/ \`createNewProfile\`。
+    含角色 3、会话 2 分支 5+5 条、向量记忆 2+2、经典记忆 2+2、世界书 2+2、预设 19、
+    用量记录 9、人设 2、\`last_active_char=1\`（非零下标判据）。
+    **密钥已脱敏**（\`<REDACTED:name:lenN>\` 占位符，保留字段与长度，清单入夹具
+    \`provenance.redaction\`）；生成脚本随仓库入库 \`tools/mig-fixture/\`（含复现说明）。
+  - **通道探针结论 = GO**：实测**另一个 \`file://\` 页面**（\`files/ext/\` 下）能读到
+    \`files/rphub/index.html\` 写入的 IndexedDB —— 30 键可见、3 张角色卡按名字读回、
+    写入的探针键事后能在主页面读到。故迁移走**轻量页 \`ext/luzzy-migrate.html\`**（不启动 Vue）；
+    「打开 index.html 再注入」作为降级保留。成因是 \`WebViewSetup\` 的
+    \`setAllowFileAccessFromFileURLs\` + \`setAllowUniversalAccessFromFileURLs\`——已在文档里
+    立成纪律：迁移 WebView 必须复用同一套配置，且门禁要断言「键集非空」（否则会**静默失效**）。
+  - 文档同时把旧数据的**真实形态**（键命名空间表、作用域拼接规则、消息/记忆/用量字段、
+    \`memory_settings.emptyTurns\` 的键是 \`<scope>:<mode>\`）与 **12 条坑的处置表**写死。
+  - \`tools/mig-fixture/README.md\` 记下本轮实踩的两个坑：①用不存在的库名「探测」会**创建**
+    空库（对象仓库为 0，后续 transaction 直接抛错）；②\`transaction().objectStore().put()\`
+    返回的是 \`IDBRequest\`，给它挂 \`oncomplete\` **永不触发**（首版探针因此卡死）。
+
+- **P4-A 迁移通道实现：导出器 + 迁移器**（2026-09-12，会话 70）
+  - **导出器** \`ext/luzzy-migrate.html\`：纯 JS、**不启动 Vue**、**只读**（不写不删任何旧记录，
+    用户可随时回退 v2.x）；整串序列化后按字符切片，每块 ≤180k 字符（Binder 事务上限 1 MB，
+    中文按 UTF-8 占 3 字节 → 最坏约 540 KB）。
+    **第一步是通道健康检查**：两库都读不到键就明确失败——\`setAllowFileAccessFromFileURLs\`
+    一旦被收紧，症状是「读不到数据但不报错」，必须有断言把它变成可见的失败。
+    另留 \`?chunk=8000\` 测试钩子：小样本导出天然只有一块，而块顺序与拼接完整性只有多块才走到。
+  - **桥方法**：\`migrateStart / migrateChunk / migrateDone / migrateError\`（+ \`luzzy-bridge.js\` 封装，
+    硬性规定 §5.4）；新增 Kotlin \`MigrationInbox\`（分块拼装 + **序号强校验** + sha256 + manifest）。
+    序号必须连续是数据完整性判据：缺块拼出来的 JSON 有可能**恰好能解析**，然后静默少掉一段会话。
+  - **迁移器**（\`data/legacy/\`，**纯 Kotlin、无 Android 依赖**）：键/作用域解析、两库多来源索引、
+    线格式解析、\`LegacyMigrator\`。12 条坑逐条处理。
+    设计要点：强类型只覆盖新界面马上要用的部分（角色/分支/消息/作用域），
+    记忆/世界书/预设/正则/用量**整条原样搬运**（字段名逐字一致）——消费方字段需求要等 P4-B/P4-C 才定。
+    幂等口径为「同一输入跑两次 \`MigratedData\` 逐字段相等」：缺 uuid 的角色按**内容哈希**补 id
+    （随机 UUID 会让第二次迁移多出一张卡），顺序全部确定，\`ExtractedAsset\` 按字节内容比较。
+  - **设备端实测**（模拟器 release 包）：导出 29 主库键 + 3 旧库键；单块 82,992 字符与
+    11 块（\`?chunk=8000\`）拼接结果**内容完全一致**；导出物与测试夹具 **31/32 键逐字节相同**，
+    唯一差异是夹具里被脱敏的两个密钥字段（长度保留）。
+  - 单测 **+31**（\`LegacyMigratorTest\` 22 + \`MigrationInboxTest\` 9），全绿。
+
 **修复**
+- **上游式「整键优先」会丢掉整张角色卡**（迁移器实现时发现并修）：上游 \`dbGetWithLegacy\` 的
+  「新键优先」是**整键替换**——新库里只要存在 \`characters\`，旧库（及同库旧前缀）的那一份就整体不看。
+  对数组型记录那样做会丢数据。改为：**带稳定身份字段的记录（角色/人设，按 \`uuid\`）逐条合并**
+  （同 uuid 取新库版本，旧库独有照常保留）；其余键仍走整键优先并留下「被遮蔽」的可见记录。
+  夹具里同一份数据同时有 \`rp_hub_characters\`(3) / 主库 \`silly_tavern_characters\`(1) /
+  旧库 \`silly_tavern_characters\`(1)，按整键优先只能留 3 张、丢 2 张——而它们都是用户的真实角色卡。
 - **用户消息的「删除」绕过确认框**（由新 UI 测试基座上线即抓到）：\`ChatPage\` 里 AI 消息那一支已改为
   弹确认框，**用户消息那一支仍在直接删除** —— 同一功能两条路径行为不一致，纯逻辑单测查不出、
   人工走查也容易漏。修复后两条路径一致。

@@ -118,6 +118,60 @@
     };
 
     // ------------------------------------------------------------------
+    // v3.0 数据迁移通道（使用方：ext/luzzy-migrate.html）
+    //
+    // 迁移页**不经 Vue、不加载 luzzy-bridge.js**（它与业务前端隔离），所以本封装的主要
+    // 消费方是原生侧调试入口与后续的迁移 UI。封装仍必须存在（AGENTS §5.4：新增桥接方法
+    // 必须同步本文件），且降级要明确——「没桥」不等于「成功导出了空数据」。
+    // ------------------------------------------------------------------
+    Luzzy.migrateAvailable = function () {
+        return !!(bridge
+            && typeof bridge.migrateStart === 'function'
+            && typeof bridge.migrateChunk === 'function'
+            && typeof bridge.migrateDone === 'function');
+    };
+    /** 开始一次导出，返回会话 id；不可用时返回空串。 */
+    Luzzy.migrateStart = function (sessionId) {
+        if (!Luzzy.migrateAvailable()) return '';
+        try {
+            const id = bridge.migrateStart(String(sessionId));
+            return typeof id === 'string' ? id : '';
+        } catch (e) {
+            return '';
+        }
+    };
+    /** 追加一块；返回是否被接受（false = 顺序错乱/落盘失败，调用方须停止）。 */
+    Luzzy.migrateChunk = function (seq, payload) {
+        if (!Luzzy.migrateAvailable()) return false;
+        try {
+            return bridge.migrateChunk(Number(seq) | 0, String(payload)) === true;
+        } catch (e) {
+            return false;
+        }
+    };
+    /** 收尾；返回原生报告对象，失败返回 null。 */
+    Luzzy.migrateDone = function (summary) {
+        if (!Luzzy.migrateAvailable()) return null;
+        try {
+            const raw = bridge.migrateDone(typeof summary === 'string' ? summary : JSON.stringify(summary || {}));
+            if (typeof raw !== 'string' || raw === '') return null;
+            return JSON.parse(raw);
+        } catch (e) {
+            return null;
+        }
+    };
+    /** 失败出口（不吞错）。 */
+    Luzzy.migrateError = function (message) {
+        if (!Luzzy.migrateAvailable() || typeof bridge.migrateError !== 'function') return false;
+        try {
+            bridge.migrateError(String(message));
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+
+    // ------------------------------------------------------------------
     // [v1.5.0 移除] 原「助手」桥接封装（Luzzy.openAssistant / openAssistantAt /
     // openRpSidebar / isAssistantVisible / push·getAssistantConfig /
     // setAssistantThemeMode / onAssistantVisibilityChanged）已随助手功能

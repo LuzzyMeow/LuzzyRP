@@ -10,6 +10,7 @@ import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.chat.ChatEventSink
 import com.luzzymeow.luzzyrp.chat.ChatJobs
 import com.luzzymeow.luzzyrp.chat.ChatJsCall
+import com.luzzymeow.luzzyrp.data.legacy.MigrationInbox
 
 /**
  * JSBridge 原生实现（AGENTS.md §5.4 新增桥接方法流程的落点）。
@@ -160,6 +161,85 @@ class LuzzyBridge(private val context: Context) {
         } catch (e: Exception) {
             // 无可处理该 scheme 的应用时静默失败（前端侧有降级提示路径）
         }
+    }
+
+    // ---------- v3.0 数据迁移通道（JS 侧：assets/ext/luzzy-migrate.html + luzzy-bridge.js 封装） ----------
+    //
+    // 旧数据活在 WebView 的 IndexedDB 里（LevelDB 形态），Kotlin 直接解析不现实 → 迁移必须由
+    // 跑在 WebView 里的 JS 把数据「读出来」。通道形状：开始 → 若干块 → 结束。
+    // 分块是**硬要求**：真实用户的全量导出有几 MB，一次传会撞 Binder 事务上限（1 MB），
+    // 而这类失败在数据量小时看不出来（详见 docs/DESIGN-migration.md §6）。
+    //
+    // 本组方法只往 `filesDir/migration/incoming/` 写文件，**不碰旧库**（迁移不破坏源，G5）。
+
+    private val migrationInbox: MigrationInbox by lazy {
+        MigrationInbox(java.io.File(context.filesDir, "migration"))
+    }
+
+    /** 开始一次导出，返回会话 id（页面后续回传）。 */
+    @JavascriptInterface
+    fun migrateStart(sessionId: String): String = try {
+        migrationInbox.start(sessionId)
+    } catch (e: Throwable) {
+        android.util.Log.w(TAG, "migrateStart 失败：${e.javaClass.simpleName}")
+        ""
+    }
+
+    /**
+     * 追加一块。返回 false = 被拒（顺序错乱/无会话），页面必须停下并调 [migrateError]。
+     * 顺序校验存在的理由：缺块拼出来的 JSON 可能**恰好能被解析**，然后悄悄少掉一部分数据。
+     */
+    @JavascriptInterface
+    fun migrateChunk(seq: Int, payload: String): Boolean = try {
+        migrationInbox.appendChunk(seq, payload)
+    } catch (e: Throwable) {
+        false
+    }
+
+    /** 收尾。返回 JSON 报告（块数/字符数/sha256），失败返回空串。 */
+    @JavascriptInterface
+    fun migrateDone(summaryJson: String): String = try {
+        val summary = parseMigrationSummary(summaryJson)
+        val result = migrationInbox.finish(summary)
+        if (result == null) {
+            ""
+        } else {
+            """{"chunks":${result.chunkCount},"chars":${result.charCount},"sha256":"${result.sha256}",""" +
+                """"path":"${result.file.name}"}"""
+        }
+    } catch (e: Throwable) {
+        android.util.Log.w(TAG, "migrateDone 失败：${e.javaClass.simpleName}")
+        ""
+    }
+
+    /** 页面侧异常出口（不吞错）：清掉半成品并记录。 */
+    @JavascriptInterface
+    fun migrateError(message: String) {
+        android.util.Log.w(TAG, "迁移导出失败：$message")
+        try {
+            migrationInbox.abandon()
+        } catch (_: Throwable) {
+            // 清理失败不影响「已经失败」这个结论
+        }
+    }
+
+    /** 迁移收件箱的上次结果（原生侧读报告用）。 */
+    fun migrationResult(): MigrationInbox.Result? = migrationInbox.last
+
+    private fun parseMigrationSummary(json: String): MigrationInbox.Summary? = try {
+        val obj = kotlinx.serialization.json.Json.parseToJsonElement(json)
+            as? kotlinx.serialization.json.JsonObject ?: return null
+        fun intOf(key: String): Int? =
+            (obj[key] as? kotlinx.serialization.json.JsonPrimitive)
+                ?.let { runCatching { it.content.toInt() }.getOrNull() }
+        MigrationInbox.Summary(
+            mainKeys = intOf("mainKeys") ?: -1,
+            legacyKeys = intOf("legacyKeys") ?: -1,
+            mainVersion = intOf("mainVersion"),
+            legacyVersion = intOf("legacyVersion"),
+        )
+    } catch (e: Throwable) {
+        null
     }
 
     companion object {

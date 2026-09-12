@@ -1,0 +1,17 @@
+<!-- [LuzzyRP v3.0 P2] LuzzyIcons：Heroicons v1.0.6 官方 share.svg（MIT）原文，作「剧情分支」语义
+     （v1 的 share 是「三节点连线」图形，正是分支/路线图的隐喻；上游 StoryBranchModal 用的是同语义 SVG 路线图）。
+     弧 flag 已按 VectorDrawable 要求做空格规范化（紧凑写法 `a3 3 0 110-2.684` 会被解析错位）。
+     stroke 色/tint 由使用方控制。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M8.684 13.342 C8.886 12.938 9 12.482 9 12 c0 -.482 -.114 -.938 -.316 -1.342 m0 2.684 a3 3 0 1 1 0 -2.684 m0 2.684 l6.632 3.316 m-6.632 -6 l6.632 -3.316 m0 0 a3 3 0 1 0 5.367 -2.684 3 3 0 0 0 -5.367 2.684 z m0 9.316 a3 3 0 1 0 5.368 2.684 3 3 0 0 0 -5.368 -2.684 z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

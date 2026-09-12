@@ -401,7 +401,9 @@ fun ThinkingCard(
 
 /**
  * 消息操作行（§14.2）：复制 / 重新生成 / 编辑 / 更多 / **多结果切换**（`‹ n/m ›`）。
- * 位于气泡正下方；图标 16dp + onSurfaceVariant + 32dp 圆热区。
+ * 位于气泡正下方；图标 18dp + onSurfaceVariant，**热区 48dp**（pro-rules：Android 触控目标
+ * 下限 48dp；此前 32dp 不合规，交付前清单核对时改掉）。FlowRow 保证 4 图标 + 切换器
+ * 在 336dp 气泡宽度下自动换行。
  */
 @Composable
 fun MessageActionRow(
@@ -427,22 +429,22 @@ fun MessageActionRow(
             LuzzyIcons.DotsHorizontal to "更多",
         ).forEach { (res, desc) ->
             Box(
-                Modifier.size(32.dp).clip(CircleShape).clickable {},
+                Modifier.size(48.dp).clip(CircleShape).clickable {},
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(res),
                     contentDescription = desc,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
         if (branchCount > 1) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(start = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.padding(start = 4.dp),
             ) {
                 Icon(
                     painter = painterResource(LuzzyIcons.ChevronLeft),
@@ -450,7 +452,7 @@ fun MessageActionRow(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                         .copy(alpha = if (branchIndex <= 0) 0.5f else 1f),
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .clickable(enabled = branchIndex > 0) { onBranchChange(branchIndex - 1) },
                 )
@@ -466,7 +468,7 @@ fun MessageActionRow(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                         .copy(alpha = if (branchIndex >= branchCount - 1) 0.5f else 1f),
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .clickable(enabled = branchIndex < branchCount - 1) {
                             onBranchChange(branchIndex + 1)

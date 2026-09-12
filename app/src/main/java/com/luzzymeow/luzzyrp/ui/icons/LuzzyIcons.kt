@@ -50,4 +50,6 @@ object LuzzyIcons {
     val Copy = R.drawable.ic_lz_copy
     val Edit = R.drawable.ic_lz_edit
     val ChevronRight = R.drawable.ic_lz_chevron_right
+    /** 剧情分支（Heroicons v1 `share` = 三节点连线；上游 StoryBranchModal 的路线图同语义）。 */
+    val Branch = R.drawable.ic_lz_branch
 }

@@ -158,6 +158,10 @@ dependencies {
     implementation(libs.haze.materials)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // [v3.0 P2] GFM Markdown 解析器（JetBrains，**Apache-2.0**，与 AGPL-3.0 自有代码兼容）。
+    // 只引解析器：AST → Compose 的渲染层自写（不引第三方 Compose 渲染库，避免再叠一层版本耦合）。
+    implementation(libs.jetbrains.markdown)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // 测试

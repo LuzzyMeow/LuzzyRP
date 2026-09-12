@@ -36,9 +36,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.R
+import com.luzzymeow.luzzyrp.chat.BranchStat
+import com.luzzymeow.luzzyrp.chat.BranchTree
+import com.luzzymeow.luzzyrp.chat.ChatBranch
 import com.luzzymeow.luzzyrp.chat.ChatEngine
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
@@ -109,10 +114,41 @@ fun ChatPage(
     var showConfig by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
 
-    val messages = remember { mutableStateListOf<ChatMessage>().apply { addAll(demoHistory()) } }
     val engine = remember { ChatEngine() }
     var live by remember { mutableStateOf<LiveTurn?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
+
+    // ── 剧情分支（上游语义：会话 = 角色 × 分支；P4 换真实存储） ──
+    // 每条分支持有自己的消息列表；在某一分支发送只进该分支。演示数据 = 主线（种子历史）
+    // + 一条**真实从主线分叉**的子分支（消息是主线前两楼的真实副本，不含编造内容）。
+    var tree by remember { mutableStateOf(BranchTree.single()) }
+    val branchMessages = remember { mutableStateMapOf<String, List<ChatMessage>>() }
+    var showBranches by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (branchMessages.isEmpty()) {
+            val main = demoHistory()
+            branchMessages[ChatBranch.MainId] = main
+            tree = tree.addChild(
+                parentId = ChatBranch.MainId,
+                id = "branch-1",
+                name = "教堂后墙",
+                forkFloor = 2,
+                createdAt = 1L,
+            )
+            branchMessages["branch-1"] = main.take(2)
+        }
+    }
+    val activeBranchId = tree.activeId
+    val activeMessages = branchMessages[activeBranchId].orEmpty()
+    val branchStats = tree.branches.associate { branch ->
+        branch.id to BranchStat.of(branchMessages[branch.id].orEmpty().map { it.text() })
+    }
+
+    fun appendTo(branchId: String, message: ChatMessage) {
+        branchMessages[branchId] = branchMessages[branchId].orEmpty() + message
+    }
+
+    fun appendMessage(message: ChatMessage) = appendTo(activeBranchId, message)
 
     /**
      * 贴底：把末项底部对齐视口底部。
@@ -132,6 +168,9 @@ fun ChatPage(
     // 开页即贴底（聊天页默认停在最新一轮）
     LaunchedEffect(Unit) { pinToBottom() }
 
+    // 切换分支后列表内容整体更换：回到最新一轮
+    LaunchedEffect(activeBranchId) { pinToBottom() }
+
     fun send() {
         val userText = input.trim()
         if (userText.isEmpty() || live != null) return
@@ -140,14 +179,16 @@ fun ChatPage(
             return
         }
         input = ""
-        val history = messages.mapNotNull { m ->
+        val history = activeMessages.mapNotNull { m ->
             when (m) {
                 is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
                 is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
                 is ChatMessage.Error -> null
             }
         }
-        messages.add(ChatMessage.User(userText))
+        // 记住本轮所属分支：生成期间用户切到别的分支时，结果仍落在**发起的那条分支**上
+        val turnBranchId = activeBranchId
+        appendTo(turnBranchId, ChatMessage.User(userText))
 
         val turn = LiveTurn()
         live = turn
@@ -167,7 +208,8 @@ fun ChatPage(
             }
             val error = turn.error
             if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
-                messages.add(
+                appendTo(
+                    turnBranchId,
                     ChatMessage.Ai(
                         raw = turn.body,
                         thinkNodes = turn.nodes,
@@ -175,7 +217,7 @@ fun ChatPage(
                     ),
                 )
             }
-            if (error != null) messages.add(ChatMessage.Error(error))
+            if (error != null) appendTo(turnBranchId, ChatMessage.Error(error))
             if (live === turn) live = null
             job = null
             pinToBottom()
@@ -273,6 +315,14 @@ fun ChatPage(
                             }
                         },
                         actions = {
+                            // 剧情分支入口（与上游 openStoryBranchModal 同一位置：聊天页顶栏）
+                            IconButton(onClick = { showBranches = true }) {
+                                Icon(
+                                    painter = painterResource(LuzzyIcons.Branch),
+                                    contentDescription = "剧情分支",
+                                    tint = Color.White.copy(alpha = 0.92f),
+                                )
+                            }
                             IconButton(onClick = onToggleDarkMode) {
                                 Icon(
                                     painter = painterResource(if (darkMode) LuzzyIcons.Sun else LuzzyIcons.Moon),
@@ -313,12 +363,12 @@ fun ChatPage(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(messages.size) { i ->
-                        when (val m = messages[i]) {
+                    items(activeMessages.size) { i ->
+                        when (val m = activeMessages[i]) {
                             is ChatMessage.Ai -> Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
                                     name = m.name,
-                                    paragraphs = m.paragraphs,
+                                    raw = m.raw,
                                     nodes = m.thinkNodes,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
@@ -342,7 +392,7 @@ fun ChatPage(
                             Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
                                     name = VanioCard.Name,
-                                    paragraphs = parseChatParagraphs(turn.body),
+                                    raw = turn.body,
                                     nodes = turn.nodes,
                                     isLive = turn.generating,
                                     activeNode = turn.activeNode,
@@ -355,6 +405,21 @@ fun ChatPage(
                 }
             }
         }
+    }
+
+    if (showBranches) {
+        BranchListSheet(
+            tree = tree,
+            stats = branchStats,
+            onSwitch = {
+                tree = tree.switchTo(it)
+                // 进入即收起（上游 StoryBranchModal「进入」同语义：选完就看内容，不再挡着）
+                showBranches = false
+            },
+            onRename = { id, name -> tree = tree.rename(id, name) },
+            onDelete = { tree = tree.delete(it) },
+            onDismiss = { showBranches = false },
+        )
     }
 
     if (showConfig) {

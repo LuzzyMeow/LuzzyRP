@@ -29,6 +29,9 @@ kotlin = "2.4.0"
 composeBom = "2026.08.00"
 # [v3.0 P1] 背景实时模糊（玻璃气泡；rikkahub 同库）
 haze = "1.6.2"
+# [v3.0 P2] Markdown 解析（**Apache-2.0**，与 AGPL-3.0 自有代码兼容；rikkahub 同款解析器）。
+# 只引解析器，渲染层自写（不引第三方 Compose Markdown 渲染库）。
+jetbrainsMarkdown = "0.7.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -58,6 +61,10 @@ haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials", version.ref = "haze" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+
+# [v3.0 P2] GFM Markdown 解析器（JetBrains，Apache-2.0）。Gradle 元数据会在 Android 上
+# 解析到 JVM 变体（markdown-jvm）。
+jetbrains-markdown = { group = "org.jetbrains", name = "markdown", version.ref = "jetbrainsMarkdown" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -23,10 +23,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,11 +37,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
+import com.luzzymeow.luzzyrp.ui.markdown.MarkdownText
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyThemeColors
 import com.luzzymeow.luzzyrp.ui.theme.Motion
@@ -78,7 +80,7 @@ sealed class ChatMessage {
 
     data class Ai(
         override val name: String = "Vanio",
-        /** 模型原始输出（回填上下文与分段渲染共用同一份文本，避免二次拼接失真）。 */
+        /** 模型原始输出（回填上下文与渲染共用同一份文本，避免二次拼接失真）。 */
         val raw: String,
         /** 思考节点（常驻于消息；生成完成也不消失）。 */
         val thinkNodes: List<ThinkNode> = emptyList(),
@@ -86,9 +88,7 @@ sealed class ChatMessage {
         val branchIndex: Int = 0,
         val branchCount: Int = 1,
         val finishReason: String? = null,
-    ) : ChatMessage() {
-        val paragraphs: List<ChatParagraph> by lazy { parseChatParagraphs(raw) }
-    }
+    ) : ChatMessage()
 
     data class User(val text: String) : ChatMessage() {
         override val name: String = "你"
@@ -100,42 +100,14 @@ sealed class ChatMessage {
     }
 }
 
-/** AI 消息段落（叙述 / 动作斜体 / 对白）。 */
-sealed class ChatParagraph {
-    data class Narration(val text: String) : ChatParagraph()
-    data class Action(val text: String) : ChatParagraph()
-    data class Speech(val text: String) : ChatParagraph()
+/** 消息纯文本（分支统计/检索用；与渲染同源，不再二次拼接）。 */
+fun ChatMessage.text(): String = when (this) {
+    is ChatMessage.User -> text
+    is ChatMessage.Ai -> raw
+    is ChatMessage.Error -> text
 }
 
-/**
- * 正文分段（P2 轻量渲染器：逐行分类）。
- *
- * 与 WebView 版完整 Markdown 渲染的差距如实记录：本版只做「对白 / 动作 / 叙述」三分类，
- * 不做 Markdown 内联标记、列表、代码块；P5 接完整渲染器时替换本函数。
- * 流式期间不完整行也能分类（未闭合的 `「` 视为对白进行中），故逐字渲染无闪烁跳变。
- */
-fun parseChatParagraphs(text: String): List<ChatParagraph> {
-    if (text.isEmpty()) return emptyList()
-    return text.split('\n')
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .map { line ->
-            when {
-                line.length >= 2 && line.startsWith("*") && line.endsWith("*") ->
-                    ChatParagraph.Action(line.trim('*').trim())
-
-                line.startsWith("「") -> ChatParagraph.Speech(
-                    line.removePrefix("「").let { if (it.endsWith("」")) it.dropLast(1) else it },
-                )
-
-                line.startsWith("\"") -> ChatParagraph.Speech(
-                    line.removePrefix("\"").let { if (it.endsWith("\"")) it.dropLast(1) else it },
-                )
-
-                else -> ChatParagraph.Narration(line)
-            }
-        }
-}
+/** AI 消息段落已由 Markdown 渲染器接管（[com.luzzymeow.luzzyrp.ui.markdown.MarkdownText]）。 */
 
 /** 分支指示 chip：`‹ 2/3 ›`。 */
 @Composable
@@ -226,7 +198,7 @@ fun UserBubble(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * AI 消息面板（玻璃卡）：**思考节点卡在气泡内部**（§14.3①）+ 名牌 + 段落流。
+ * AI 消息面板（玻璃卡）：**思考节点卡在气泡内部**（§14.3①）+ 名牌 + Markdown 正文。
  *
  * 生成中（[isLive]）不挂 `animateContentSize`——逐字增长期间让内容自然撑开，
  * 避免每个增量都触发一次尺寸动画（那是掉帧来源）；节点的展开/收起各自带动画。
@@ -234,7 +206,7 @@ fun UserBubble(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun AiMessagePanel(
     name: String,
-    paragraphs: List<ChatParagraph>,
+    raw: String,
     nodes: List<ThinkNode> = emptyList(),
     isLive: Boolean = false,
     activeNode: Int = -1,
@@ -261,28 +233,10 @@ fun AiMessagePanel(
                 )
             }
             NameBadgeRow(name)
-            paragraphs.forEach { p ->
-                when (p) {
-                    is ChatParagraph.Narration -> Text(
-                        text = p.text,
-                        fontSize = 13.5.sp, lineHeight = 23.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    is ChatParagraph.Action -> Text(
-                        text = "*${p.text}*",
-                        fontSize = 13.5.sp, lineHeight = 23.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    is ChatParagraph.Speech -> Text(
-                        text = "「${p.text}」",
-                        fontSize = 13.5.sp, lineHeight = 23.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+            // 正文交给 Markdown 渲染器：`*动作*` 是 emphasis 斜体、`「对白」`是普通文本
+            // ——与上游 marked 渲染一致（此前的「对白/动作/叙述」三分类是自造语义）。
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                MarkdownText(content = raw, modifier = Modifier.fillMaxWidth())
             }
             if (isLive) TypingDots()
         }

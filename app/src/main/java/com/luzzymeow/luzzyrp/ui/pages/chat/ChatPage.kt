@@ -119,6 +119,14 @@ private fun demoHistory(): List<ChatMessage> = listOf(
     ),
 )
 
+/** 待确认的删除（T6）：写清会删几条、不可恢复，而不是点了就删。 */
+private data class PendingDelete(
+    val branchId: String,
+    val index: Int,
+    val andAfter: Boolean,
+    val count: Int,
+)
+
 /** 编辑目标（操作行「编辑」开弹窗时携带）。 */
 private data class EditingTarget(
     val branchId: String,
@@ -249,6 +257,16 @@ fun ChatPage(
     // 「用户上滑离开了底部」期间的到达内容 → 回底按钮上点一个小圆点（对齐 rikkahub 的新内容提示语义）
     var unseenWhileAway by remember { mutableStateOf(false) }
 
+    /**
+     * 悬浮错误卡（**不进消息列表**）：生成失败不再作为一条「消息」插入对话——
+     * 那会污染上下文回填、被算进分支楼数，也把真实失败伪装成了发言。
+     */
+    val chatErrors = remember { mutableStateListOf<ChatError>() }
+
+    // 破坏性操作先确认（T6）：删除按条数说明后果；编辑用户消息后询问是否按新内容重跑
+    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
+    var pendingRerunIndex by remember { mutableStateOf<Int?>(null) }
+
     // 开页即贴底（聊天页默认停在最新一轮）
     LaunchedEffect(Unit) { pinToBottom() }
 
@@ -287,6 +305,13 @@ fun ChatPage(
                 // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
             }
             onFinish(turn)
+            // 截断可见化（T5）：结束原因若为输出上限，用一句可操作的话告诉用户——
+            // 此前 finishReason 只是被存下来、应用内完全看不见，「回复为什么断了」无法定性。
+            if (com.luzzymeow.luzzyrp.chat.UsageFormat.isTruncated(turn.finishReason)) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("回复因达到输出上限被截断；可在供应商配置里提高最大输出")
+                }
+            }
             if (live === turn) {
                 live = null
                 regeneratingIndexState = null
@@ -308,7 +333,6 @@ fun ChatPage(
             when (m) {
                 is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
                 is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
-                is ChatMessage.Error -> null
             }
         }
         // 记住本轮所属分支：生成期间用户切到别的分支时，结果仍落在**发起的那条分支**上
@@ -321,11 +345,51 @@ fun ChatPage(
                 appendTo(
                     turnBranchId,
                     ChatMessage.Ai(
-                        results = listOf(AiResult(turn.body, turn.nodes, turn.finishReason)),
+                        results = listOf(
+                            AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                        ),
                     ),
                 )
             }
-            if (error != null) appendTo(turnBranchId, ChatMessage.Error(error))
+            if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
+        }
+    }
+
+    /**
+     * 在 [userIndex] 这条用户消息之后**追加**一条新回复（编辑用户消息后重跑走这里）。
+     *
+     * 与 [regenerate] 的区别：那里是「同一位置换个候选」，这里是「这条之后重新说一遍」——
+     * 调用前应先截断其后楼层（UI 的确认框已写明）。
+     */
+    fun regenerateFrom(userIndex: Int) {
+        if (live != null) return
+        if (!config.configured) {
+            showConfig = true
+            return
+        }
+        val prefix = activeMessages.take(userIndex + 1)
+        val userText = prefix.lastOrNull() as? ChatMessage.User ?: return
+        val history = prefix.dropLast(1).mapNotNull { m ->
+            when (m) {
+                is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
+                is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
+                else -> null
+            }
+        }
+        val turnBranchId = activeBranchId
+        runTurn(history = history, userText = userText.text, regeneratingIndex = null) { turn ->
+            val error = turn.error
+            if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
+                appendTo(
+                    turnBranchId,
+                    ChatMessage.Ai(
+                        results = listOf(
+                            AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                        ),
+                    ),
+                )
+            }
+            if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
         }
     }
 
@@ -347,7 +411,6 @@ fun ChatPage(
             when (m) {
                 is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
                 is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
-                is ChatMessage.Error -> null
             }
         }
         val turnBranchId = activeBranchId
@@ -356,14 +419,16 @@ fun ChatPage(
             if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
                 editMessage(turnBranchId, messageIndex) { current ->
                     if (current is ChatMessage.Ai) {
-                        current.withResult(AiResult(turn.body, turn.nodes, turn.finishReason))
+                        current.withResult(
+                            AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                        )
                     } else {
                         current
                     }
                 }
                 scope.launch { snackbarHostState.showSnackbar("已生成第 ${target.resultCount + 1} 个结果") }
             }
-            if (error != null) appendTo(turnBranchId, ChatMessage.Error(error))
+            if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
         }
     }
 
@@ -556,6 +621,11 @@ fun ChatPage(
                                     nodes = m.thinkNodes,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
+                                MessageNerdLine(
+                                    usage = m.current.usage,
+                                    elapsedMs = m.current.elapsedMs,
+                                    finishReason = m.finishReason,
+                                )
                                 MessageActionRow(
                                     branchIndex = m.index,
                                     branchCount = m.resultCount,
@@ -569,8 +639,15 @@ fun ChatPage(
                                     onEdit = {
                                         editing = EditingTarget(activeBranchId, i, isAi = true, initial = m.raw)
                                     },
-                                    onDelete = { removeMessage(activeBranchId, i, andAfter = false) },
-                                    onDeleteAfter = { removeMessage(activeBranchId, i, andAfter = true) },
+                                    onDelete = {
+                                        pendingDelete = PendingDelete(activeBranchId, i, false, count = 1)
+                                    },
+                                    onDeleteAfter = {
+                                        pendingDelete = PendingDelete(
+                                            activeBranchId, i, true,
+                                            count = (activeMessages.size - i).coerceAtLeast(1),
+                                        )
+                                    },
                                 )
                             }
 
@@ -589,7 +666,6 @@ fun ChatPage(
                                 )
                             }
 
-                            is ChatMessage.Error -> ErrorPanel(m.text)
                         }
                     }
                     // 新消息的 live 面板（重新生成时已被就地渲染，避免出现两个 live）
@@ -609,18 +685,31 @@ fun ChatPage(
                     }
                 }
 
-                    // ── 回到底部（脱离底部时出现；rikkahub 的 MessageJumper 取其中最必要的一钮）──
-                    // 动效遵 DESIGN 纪律：进入 200ms / 退出 140ms，禁 scale(0)（起点 0.9）
+                    // ── 底部覆盖层：错误卡栈 + 回到底部（同列排布，天然不重叠）──
                     val atBottom by remember { derivedStateOf { isAtBottom() } }
+                    Column(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                    ChatErrorCards(
+                        errors = chatErrors,
+                        onDismiss = { id -> chatErrors.removeAll { it.id == id } },
+                        onDismissAll = { chatErrors.clear() },
+                        onCopy = { copyMessage(it) },
+                    )
+                    // 回到底部（脱离底部时出现；rikkahub 的 MessageJumper 取其中最必要的一钮）
+                    // 动效遵 DESIGN 纪律：进入 200ms / 退出 140ms，禁 scale(0)（起点 0.9）
                     AnimatedVisibility(
                         visible = !atBottom,
                         enter = fadeIn(tween(Motion.EnterMs)) +
                             scaleIn(initialScale = 0.9f, animationSpec = tween(Motion.EnterMs)),
                         exit = fadeOut(tween(Motion.ExitMs)) +
                             scaleOut(targetScale = 0.9f, animationSpec = tween(Motion.ExitMs)),
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 14.dp, bottom = 10.dp),
+                        modifier = Modifier.padding(end = 6.dp),
                     ) {
                         Box(
                             Modifier
@@ -656,6 +745,7 @@ fun ChatPage(
                             }
                         }
                     }
+                    }
                 }
             }
         }
@@ -676,8 +766,64 @@ fun ChatPage(
                 }
                 editing = null
                 if (!target.isAi) {
-                    scope.launch { snackbarHostState.showSnackbar("已修改；可对该回复点「重新生成」按新内容重跑") }
+                    // 改用户消息通常就是要「按新内容重说一遍」→ 先问，再决定是否截断其后并重跑
+                    pendingRerunIndex = target.index
                 }
+            },
+        )
+    }
+
+    pendingDelete?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("删除消息", fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
+            text = {
+                Text(
+                    text = if (pending.count == 1) {
+                        "将删除 1 条消息，不可恢复。"
+                    } else {
+                        "将删除 ${pending.count} 条消息（这条及其之后的全部楼层），不可恢复。"
+                    },
+                    fontFamily = LuzzyFonts.Body,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    removeMessage(pending.branchId, pending.index, pending.andAfter)
+                    pendingDelete = null
+                }) {
+                    Text("删除", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("取消", fontFamily = LuzzyFonts.Body) }
+            },
+        )
+    }
+
+    pendingRerunIndex?.let { index ->
+        AlertDialog(
+            onDismissRequest = { pendingRerunIndex = null },
+            title = { Text("按新内容重新生成？", fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
+            text = {
+                Text(
+                    text = "你的消息已修改。若现在重新生成，这条消息之后的楼层会被删除。",
+                    fontFamily = LuzzyFonts.Body,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingRerunIndex = null
+                    removeMessage(activeBranchId, index + 1, andAfter = true)
+                    regenerateFrom(index)
+                }) { Text("重新生成", fontFamily = LuzzyFonts.Body) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRerunIndex = null }) { Text("只改内容", fontFamily = LuzzyFonts.Body) }
             },
         )
     }
@@ -734,31 +880,6 @@ fun ChatPage(
                 store.save(it)
                 showConfig = false
             },
-        )
-    }
-}
-
-/** 真实错误的如实展示（不伪装成模型输出）。 */
-@Composable
-private fun ErrorPanel(text: String) {    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 2.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f))
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.error.copy(alpha = 0.45f),
-                RoundedCornerShape(12.dp),
-            )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
-        Text(
-            text = text,
-            fontSize = 12.5.sp,
-            lineHeight = 19.sp,
-            fontFamily = LuzzyFonts.Body,
-            color = MaterialTheme.colorScheme.onErrorContainer,
         )
     }
 }
@@ -868,6 +989,9 @@ private fun traceStreamEvent(event: ChatEngine.Event) {
         is ChatEngine.Event.ToolCallFinished -> "tool_result ${event.name} ${event.result.length}B"
         is ChatEngine.Event.Reasoning -> "reasoning +${event.chunk.length}"
         is ChatEngine.Event.Content -> "content +${event.chunk.length}"
+        is ChatEngine.Event.Usage ->
+            "usage in=${event.info.input} out=${event.info.output} cached=${event.info.cached}"
+
         is ChatEngine.Event.Finished -> "finished ${event.finishReason}"
         is ChatEngine.Event.Failed -> "failed ${event.message}"
     }

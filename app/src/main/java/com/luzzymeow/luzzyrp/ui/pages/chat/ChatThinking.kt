@@ -577,3 +577,44 @@ fun EditMessageDialog(
         },
     )
 }
+
+/**
+ * 消息脚注（对齐 rikkahub `ChatMessageNerdLine` 的语义）：用量 / 耗时 / 截断提示。
+ *
+ * 位置 = 操作行**下方**最一行，字号最小、颜色最弱——它是「想知道的人能查」的信息，
+ * 不是阅读主体的一部分。没有任何数据时**整行不渲染**（不留空行）。
+ */
+@Composable
+fun MessageNerdLine(
+    usage: com.luzzymeow.luzzyrp.chat.UsageInfo?,
+    elapsedMs: Long?,
+    finishReason: String?,
+    modifier: Modifier = Modifier,
+) {
+    val line = com.luzzymeow.luzzyrp.chat.UsageFormat.line(usage, elapsedMs)
+    val truncated = com.luzzymeow.luzzyrp.chat.UsageFormat.isTruncated(finishReason)
+    if (line == null && !truncated) return
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = modifier.fillMaxWidth().padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.Center,
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        line?.let {
+            Text(
+                text = it,
+                fontSize = 10.5.sp,
+                fontFamily = LuzzyFonts.Mono,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        if (truncated) {
+            Text(
+                text = "· " + com.luzzymeow.luzzyrp.chat.UsageFormat.TruncationNotice,
+                fontSize = 10.5.sp,
+                fontFamily = LuzzyFonts.Body,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}

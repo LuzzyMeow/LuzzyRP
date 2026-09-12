@@ -2981,7 +2981,71 @@ who comes into possession of a copy`）：
 
 ---
 
-## 2026-09-12 · 会话 67：聊天页图标做实质功能（用户：「可以吗还是要留到后面」）
+## 2026-09-12 · 会话 68：聊天链路收口（用户：「现在开始计划 P2」）
+
+### 开始
+
+用户说「现在开始计划 P2」。**先核对账目再动手**（避免又记错期次）：`PLAN-v3.0` 的 P2 三项已完成、
+P3 大部分完成、P4 未开始。据此确认用户意图 = **把聊天链路收口**（用户从三选项里选了这项）。
+计划落盘并经用户批准（8 项任务 + 明确不做清单）。
+
+### 一、完成（T1–T7 全部落地，T8 收尾）
+
+1. **T1 输入区键盘避让（真缺陷，先取证后修）**：真机上 `mInputShown=true` 时**输入岛被键盘
+   完全盖住**（截图存档）——根因是 `ComposeActivity` 开了 `enableEdgeToEdge()`，该模式下
+   `windowSoftInputMode=adjustResize` 不再让出键盘高度。修：`navigationBarsPadding().imePadding()`
+   （insets 逐级消费，不双重留白）。**修复后键盘弹出时输入岛完整可见**。
+2. **T2 滚动跟随精确化 + 回到底部**：`isAtBottom()`（末项可见且底边到达视口底 +8dp 容差）
+   替代 `!canScrollForward`；跟随即 `isAtBottom() && !isScrollInProgress`（内容变化前判定）；
+   新增 40dp 回底圆钮 + 「离开底部期间有新内容」主色小圆点。
+   **期间修掉一处我自己引入的布局缺陷**：内容 Box 没吃 `innerPadding` → 按钮落到屏幕右下角、
+   被 bottomBar 的输入岛盖住（按钮存在但看不见）；靠临时 logcat（atBottom/末项底边/视口底）
+   定位——判定本身是对的，错的是位置。
+3. **T3 错误改悬浮卡栈**：`ChatMessage.Error` 变体**退场**（错误不再是「消息」），改
+   `ChatErrorCards`（可复制/单条关闭/多条全部清除，输入岛上方）。**顺带修掉一个真口径缺陷**：
+   错误此前被 `BranchStat.of` 当作一条消息 → **分支楼数/字数被算多**；现在类型层面不可能。
+4. **T4 用量脚注**：引擎补 `Event.Usage`（传输层早已解析 usage + `include_usage` 也早开着，
+   只是没人接出来）→ `AiResult(usage, elapsedMs)` → 消息脚注
+   `输入 742（缓存 512） · 输出 134 · 2.3s · 59 tok/s`（真机实测值）。缓存字段按供应商
+   差异探测（DeepSeek `prompt_cache_hit_tokens` / OpenAI `prompt_tokens_details.cached_tokens`），
+   取不到就是 null——**不猜**。
+5. **T5 截断可见化**：`finishReason ∈ {length, max_tokens}` → 脚注追加告警色
+   「已截断（达到输出上限）」+ 一次 Snackbar 提示提高最大输出（此前该字段存了却从不渲染）。
+6. **T6 操作安全**：删除（单条 / 及其后）先弹确认，写明条数与不可恢复；**编辑用户消息后**
+   弹确认「按新内容重新生成？（其后楼层会被删除）」，选「只改内容」则只改文本——
+   为此新增 `regenerateFrom(userIndex)`（追加式重跑，区别于 `regenerate` 的同位换候选）。
+7. **T7 正文可选中复制**：静止消息挂 `SelectionContainer`，**流式期间不挂**
+   （rikkahub 的并发修改崩溃纪律）。
+8. **T8 收尾**：`DESIGN-compose §19` 写死**验收标准表**（操作→期望→证据）+ **10 步回归清单**
+   + 门禁现状；单测 **294 全绿**（本轮新增 11：用量/截断 9 + 结构不变式 2）。
+
+### 二、真机验证（全部有截图/logcat 证据）
+
+| 项 | 证据 |
+|---|---|
+| 键盘避让 | `verify-p4-ime-before.png`（完全被盖）→ `verify-p4-ime-after.png`（完整可见） |
+| 回底按钮 | `verify-p4-scrollbottom.png`；点击后消失且回到最新（前后帧 diff 确认） |
+| 新内容圆点 | `verify-p4-newcontent-dot.png`（离开底部时收到流式内容 → 主色点出现） |
+| 用量脚注 | `verify-p4-nerdline.png`（真实数字，非编造） |
+| 删除确认 | `verify-p4-delete-confirm.png`（「将删除 1 条消息，不可恢复。」+ 红色删除） |
+| 滚动判定 | logcat：贴底 `bot=1633 ≤ vpEnd=1659` / 离开底部 `bot=1760 > vpEnd=1659` |
+
+### 三、决策与不做清单（照计划）
+
+- **不做**（理由已落 DESING §19 与计划）：附件/图片消息（P5 图片管线）、消息多选导出（P5）、
+  消息队列与会话规模预警（P4 之后）、MessageJumper 四钮全套（只做回底一个）、
+  **思考链折叠改「保留最后 2 步」**（与用户 2026-09-12 定的折叠语义冲突，用户要求优先）、
+  助手消息去气泡 / 放开宽度上限（雾纸玻璃气泡与限宽是用户认可的复刻形态）。
+- **模型「槽位」语义**（上游快捷面板）不单独做：我们已有真实模型列表选择器，重复功能不叠加。
+
+### 四、教训
+
+- **有成熟参考实现先去看它**再一次成立：T2 的 `isAtBottom`、T3 的错误卡栈、T4 的脚注、
+  T7 的选择容器纪律，全部直接对应 rikkahub 的既有做法（已在 `docs/LICENSING.md` §5 逐笔登记）。
+- **坐标靠目测会连续点错**（本轮点 ⋯ 点了两次才中）：Compose 的 contentDescription 不进
+  uiautomator dump，只能用截图坐标；**点击后用「画面是否变化 / logcat 是否有事件」验证是否真命中**，
+  不要看一眼就下结论。
+- heredoc 追加中文文档又踩了「shell 包装行写进文件」的老坑（坑表已记）——追加后必须 `tail` 复核。
 
 ### 开始
 

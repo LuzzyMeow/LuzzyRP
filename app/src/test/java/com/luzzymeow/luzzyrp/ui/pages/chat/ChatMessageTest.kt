@@ -68,4 +68,32 @@ class ChatMessageTest {
     fun `用户消息可就地改写`() {
         assertEquals("改后", ChatMessage.User("原话").edited("改后").text)
     }
+
+    @Test
+    fun `消息类型只有两种——错误已移出消息流（结构上不可能再被算作楼层）`() {
+        // 悬浮错误卡改造（T3）后的不变式：错误不再是「消息」，
+        // 因此 BranchStat.of 无论怎么写都不会把错误算成楼层。
+        // 用 Java 反射而非 sealedSubclasses（后者要 kotlin-reflect，不为一条测试加依赖）
+        val base = ChatMessage::class.java
+        val variants = base.declaredClasses
+            .filter { base.isAssignableFrom(it) && it != base }
+            .map { it.simpleName }
+            .sorted()
+        assertEquals(listOf("Ai", "User"), variants)
+    }
+
+    @Test
+    fun `候选可携带用量与耗时（脚注数据源），默认不伪造`() {
+        assertEquals(null, AiResult(raw = "x").usage)
+        assertEquals(null, AiResult(raw = "x").elapsedMs)
+        val withUsage = AiResult(
+            raw = "x",
+            usage = com.luzzymeow.luzzyrp.chat.UsageInfo(input = 10, output = 20, cached = 8),
+            elapsedMs = 1_500L,
+        )
+        assertEquals(
+            "输入 10（缓存 8） · 输出 20 · 1.5s · 13 tok/s",
+            com.luzzymeow.luzzyrp.chat.UsageFormat.line(withUsage.usage, withUsage.elapsedMs),
+        )
+    }
 }

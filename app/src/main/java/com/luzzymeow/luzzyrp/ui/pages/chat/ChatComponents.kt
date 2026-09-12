@@ -83,6 +83,10 @@ data class AiResult(
     val raw: String,
     val thinkNodes: List<ThinkNode> = emptyList(),
     val finishReason: String? = null,
+    /** 该次生成的真实用量（供应商给出才有）。 */
+    val usage: com.luzzymeow.luzzyrp.chat.UsageInfo? = null,
+    /** 该次生成的墙钟耗时（脚注用）。 */
+    val elapsedMs: Long? = null,
 )
 
 /** 消息数据（P2：真实发送与真实流式产出；`demoScript()` 为演示角色的历史数据）。 */
@@ -131,18 +135,12 @@ sealed class ChatMessage {
         /** 就地改写内容（「编辑」用）。 */
         fun edited(text: String): User = copy(text = text)
     }
-
-    /** 真实失败（网络/协议/未配置）——如实展示，不伪装成模型输出。 */
-    data class Error(val text: String) : ChatMessage() {
-        override val name: String = "错误"
-    }
 }
 
 /** 消息纯文本（分支统计/检索用；与渲染同源，不再二次拼接）。 */
 fun ChatMessage.text(): String = when (this) {
     is ChatMessage.User -> text
     is ChatMessage.Ai -> raw
-    is ChatMessage.Error -> text
 }
 
 /** AI 消息段落已由 Markdown 渲染器接管（[com.luzzymeow.luzzyrp.ui.markdown.MarkdownText]）。 */

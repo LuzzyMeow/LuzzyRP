@@ -35,6 +35,14 @@ class LiveTurn {
     var error by mutableStateOf<String?>(null)
     var finishReason by mutableStateOf<String?>(null)
 
+    /** 本轮真实用量（流末尾由供应商给出）与墙钟耗时（脚注用）。 */
+    var usage by mutableStateOf<com.luzzymeow.luzzyrp.chat.UsageInfo?>(null)
+
+    /** 发起时刻（`apply` 首次被调用时打点，避免构造时机与网络时刻混淆）。 */
+    private var startedAtMs = 0L
+    var elapsedMs by mutableStateOf<Long?>(null)
+        private set
+
     private var reasoningStartMs = 0L
     private var reasoningEndMs = 0L
 
@@ -64,6 +72,7 @@ class LiveTurn {
 
     /** 应用一个引擎事件（唯一的状态入口）。 */
     fun apply(event: ChatEngine.Event) {
+        if (startedAtMs == 0L) startedAtMs = System.currentTimeMillis()
         when (event) {
             is ChatEngine.Event.Recall -> {
                 recall = ThinkNode.MemoryRecall(
@@ -111,7 +120,12 @@ class LiveTurn {
                 body += event.chunk
             }
 
+            is ChatEngine.Event.Usage -> {
+                usage = event.info
+            }
+
             is ChatEngine.Event.Finished -> {
+                elapsedMs = System.currentTimeMillis() - startedAtMs
                 reasoningDone = true
                 generating = false
                 activeNode = -1

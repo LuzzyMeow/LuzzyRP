@@ -48,6 +48,9 @@ class ChatEngine(
         /** 正文增量。 */
         data class Content(val chunk: String) : Event
 
+        /** 本轮的用量（供应商在流末尾给出；取不到就不发）。 */
+        data class Usage(val info: UsageInfo) : Event
+
         data class Finished(val finishReason: String?) : Event
 
         data class Failed(val message: String) : Event
@@ -133,6 +136,8 @@ class ChatEngine(
                         d.argumentsChunk?.takeIf { it.isNotEmpty() }?.let { emit(Event.ToolCallArgs(it)) }
                     }
                 }
+                // 用量：供应商在流末尾给（OpenAI 已开 stream_options.include_usage）
+                UsageInfo.from(delta)?.let { emit(Event.Usage(it)) }
                 delta.finishReason?.let { finishReason = it }
             }
 

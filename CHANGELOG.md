@@ -85,6 +85,29 @@
     自动取消上一次，主线程不解析。
   - 未做（如实记录）：LaTeX / Mermaid / HTML 直通 / 图片；表格列宽等分（长表格会挤）；代码块无语法高亮。
 
+- **聊天链路收口（2026-09-12，按用户批准的计划 T1–T8）**：
+  - **键盘避让（真缺陷）**：真机取证 `mInputShown=true` 时**输入岛被键盘完全盖住** ——
+    `ComposeActivity` 开了 `enableEdgeToEdge()`，该模式下 `windowSoftInputMode=adjustResize`
+    不再让出键盘高度，必须显式消费 IME inset。修：`navigationBarsPadding().imePadding()`。
+  - **滚动跟随精确化 + 回到底部**：`isAtBottom()`（末项可见且底边到达视口底）替代
+    `!canScrollForward`；跟随即 `isAtBottom() && !isScrollInProgress`；新增回底圆钮
+    （脱离底部时出现，进入 200/退出 140ms）与「离开底部期间有新内容」主色圆点。
+  - **错误改悬浮卡栈**：错误不再作为一条「消息」插入对话（可复制/单条关闭/多条全部清除），
+    **顺带修掉一个真口径缺陷**——错误此前被 `BranchStat.of` 算作一条消息，导致分支
+    **楼数/字数被算多**；现在类型层面不可能（`ChatMessage` 只有 Ai/User，有单测钉死）。
+  - **用量/耗时脚注**：传输层早已解析 usage 且 `include_usage` 早已开启，但引擎从不把它变成事件、
+    UI 从不渲染 → 补 `Event.Usage` + `AiResult(usage, elapsedMs)` + 消息脚注
+    `输入 742（缓存 512） · 输出 134 · 2.3s · 59 tok/s`（真机实测值）；缓存字段按供应商差异
+    探测（DeepSeek `prompt_cache_hit_tokens` / OpenAI `prompt_tokens_details.cached_tokens`），
+    取不到即 null。
+  - **截断可见化**：`finish_reason ∈ {length, max_tokens}` → 脚注告警色「已截断（达到输出上限）」
+    + 一次 Snackbar 提示提高最大输出（此前该字段存了却完全不可见）。
+  - **操作安全**：删除（单条 / 及其后）先弹确认并写明条数；**编辑用户消息后**弹确认
+    「按新内容重新生成？（其后楼层会被删除）」，可选「只改内容」（新增 `regenerateFrom`）。
+  - **正文可选中复制**：静止消息挂 `SelectionContainer`，**流式期间不挂**（防并发修改崩溃）。
+  - **验收标准写死**：`DESIGN-compose §19` 给出「操作 → 期望 → 证据」验收表 + 10 步回归清单。
+  - 单测 **294 全绿**（本轮新增 11：用量/截断 9 + 结构不变式 2）。
+
 **修复**
 - **消息操作行触控目标不合规**：图标热区原为 32dp，低于 Android 48dp 下限
   （ui-ux-pro-max pro-rules）。改为 **48dp 热区 / 18dp 图标**（分支列表动作按钮同样 48dp）。

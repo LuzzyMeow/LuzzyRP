@@ -78,9 +78,15 @@ fun MarkdownText(
     }
     if (blocks.isEmpty()) return
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokens.blockGap)) {
-        blocks.forEach { MarkdownBlockView(it, tokens, depth = 0) }
+    val content: @Composable () -> Unit = {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(tokens.blockGap)) {
+            blocks.forEach { MarkdownBlockView(it, tokens, depth = 0) }
+        }
     }
+
+    // 静止消息可长按选择/复制；**流式期间不挂**——内容每帧都在变，选择容器与并发修改
+    // 抢同一段文本会崩（rikkahub `ChatMessage.kt:418-428` 的实证教训，我们照此纪律）。
+    if (live) content() else SelectionContainer { content() }
 }
 
 @Composable

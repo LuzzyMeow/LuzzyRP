@@ -245,3 +245,154 @@ primary-600 → success(green) → primary-700 → error → primary-400 → gra
 `SettingCard`（card 底 + hairline 边 + 16dp 圆角 + 分组标题）、`SettingRow`（leading icon +
 标题 + 支撑文本 + trailing 控件/toggle/chevron）、`SectionTitle`（12sp uppercase hairlineStrong）、
 `EmptyState`（居中图标 + 主副文）——命名对齐上游组件语义。
+
+## 14 · 思考节点卡片 + 消息操作行（2026-09-12 修订：节点入气泡 + 逐节点时序）
+
+> 修订依据 = 用户 2026-09-12 四条指示：① 节点必须位于**模型输出气泡内部**；② 子节点内容
+> 过长时**卡内滚动**，不无限延伸；③ 子节点时序 = **自动展开 → 内容流式 → 完成后自动收起**；
+> ④ 真流式（非模拟请求，逐字更新）。
+>
+> 形态考察来源 `docs/rikkahub-master/.../ui/components/message/`（ChainOfThought.kt /
+> ChatMessageCot.kt / ChatMessageReasoning.kt / ChatMessageTools.kt / ChatMessageActions.kt /
+> ChatMessageBranch.kt）。**形态对齐 rikkahub，语义按 LuzzyRP 自己的模型**——关键差异：
+> rikkahub **无**「记忆注入」节点（其 memory 只是模型主动写记忆的工具调用），
+> 而我们有 WebView 版 patch 031 的「记忆召回」节点，故第二类按我们自己的语义建模。
+
+### 14.1 容器与位置（①）
+
+- **位置**：思考卡是 AI 气泡（`AiMessagePanel`）内的**第一个子块**，与名牌、正文同处
+  **同一块玻璃面板**——不再是气泡上方的独立卡。理由：思考属于这条回复本身。
+- **容器**：内嵌子卡 —— 12dp 圆角 + `surfaceContainerHighest @ alpha 0.45` + hairline 边；
+  **live 态**边宽 1.5dp、色 `primary @ 0.40`（生成中可见的「进行中」标识）。
+  **不用玻璃**：气泡本体已是雾纸玻璃，内层再叠 haze 只会糊成一片。
+- **时间线竖线** 1dp `#BEB6A8 @ 0.35` @ x=12dp（上下各留 18dp）；内容缩进 32dp 对齐 label。
+- `animateContentSize` **只挂静态态**：live 态逐字增长期间若每增量都触发尺寸动画，
+  就是明确的掉帧来源——live 时让内容自然撑开。
+- 摘要行：live = `思考中…` + 点呼吸；完成 = `<首节点语义> · N 步`（≥2 节点时）
+  + `再显示 N 步` / `收起` + chevron 旋转（0↔180°，200ms）。
+
+### 14.2 三类节点
+
+| # | 节点 | 图标（LuzzyIcons） | 标题 | 展开内容 | live 态 |
+|---|------|------------------|------|---------|---------|
+| ① | **工具调用** | `Sliders` | `调用工具 {名}` | 入参（等宽 10sp）+ 结果（等宽 11sp）；**参数逐 delta 写入** | 图标槽换点呼吸（`DotLoading` 10dp，alpha 0.3↔1，700ms Reverse） |
+| ② | **记忆召回**（LuzzyRP 语义，patch 016/031 同源） | `Memory`（灯泡） | `记忆召回 · {N} 片`，extra = 相关度区间 `0.09~0.26` | 每片：`第 N 轮` chip + `相关度 x%` chip + 正文 | 检索是本地瞬时完成，故进入即完成态 |
+| ③ | **头脑风暴**（模型 `reasoning` 字段） | `Info` | 生成中 `思考中…`；完成 `思考了 {x.x} 秒`（真实计时） | reasoning 正文，**逐 delta 写入** | 点呼吸 + 正文实时增长 |
+
+### 14.3 逐节点时序（③ 的核心）
+
+`activeIndex` = **当前正在产出内容的节点下标**；该节点自动展开、内容流入，下标移走即自动收起。
+
+| 触发（真实事件） | activeIndex | 可见表现 |
+|---|---|---|
+| 会话检索完成（发请求之前） | 召回节点 | 该节点自动展开，展示真实分片与相关度区间 |
+| 模型开始吐 `reasoning_content` | 头脑风暴节点 | 召回节点自动收起；该节点展开，正文**逐 delta 写入** |
+| 模型发出 `tool_calls` | 工具调用节点 | 前者收起；参数区逐 delta 写入；本地执行完追加「结果」 |
+| 正文开始（reasoning 结束） | `-1` | **全部自动收起** = 用户所说的「流式输出完成思考内容后自动折叠」；正文接管气泡 |
+| finished / failed / 取消 | `-1` | 卡片整体收起为一行摘要，**节点随消息常驻**（不消失） |
+
+- 实现：`ThinkingCard(nodes, isLive, activeIndex)`，`isOpen[i] = 用户手动覆盖 ?: (i == activeIndex)`。
+- **用户手动点击优先于自动态**（`opens` map 记录覆盖），自动态不会覆盖用户意图。
+
+### 14.4 溢出策略（② 的核心）
+
+`NodeBodyMaxHeight = 200.dp` + `verticalScroll`：超出部分**卡内滚动**——不把消息流撑爆，
+也不截断内容（对比 rikkahub 的 100dp 渐隐 Preview：我们选择「可滚动」而非「后文不可达」）。
+实测：同一节点 body 内上滑 → 内层内容滚动、外层消息列表不动。
+
+### 14.5 消息操作行（气泡正下方，左对齐 / 用户消息右对齐）
+
+`FlowRow`（**不是 Row**：4 个图标 + 分支切换器在 336dp 气泡宽度下会溢出，FlowRow 自动换行）
+间距 2dp，图标 16dp / `onSurfaceVariant` / 点击热区 32dp 圆。
+
+| 序 | 图标 | 功能 |
+|----|------|------|
+| 1 | `Copy` | 复制全文 |
+| 2 | `Refresh` | 重新生成 |
+| 3 | `Edit` | 编辑 |
+| 4 | `DotsHorizontal` | 更多 |
+| 5 | `‹ n/m ›` | **多结果切换**：`branchCount > 1` 才出现；两端禁用态 alpha 0.5 |
+
+**分支语义（重要）**：切换器**只在真有多个结果时出现**——P2 每次生成只有 1 条结果，
+故当前不显示；P3 把「重新生成」实现为累积分支（`branchIndex/branchCount` 已进消息模型）后自然出现。
+**气泡内不再渲染分支 chip**：同一信息显示两遍是缺陷（用户 2026-09-12 指认，已修）。
+
+---
+
+## 15 · 真流式链路（P2，2026-09-12）
+
+**零模拟纪律**：界面上每一次变化都必须对应一次真实事件——没有 `delay()` 造的假打字，
+没有预置的假节点，没有假工具结果。
+
+### 15.1 链路结构
+
+```
+用户发送
+  └─ RecallEngine.search(历史, 输入)            ← 本机真实检索（CJK 二元组 + 拉丁词重叠打分）
+       └─ 命中 → 召回块注入 system + 时间线留「记忆召回」节点（真实分片/相关度）
+  └─ ChatEngine.run(...) → OpenAiTransport → SseClient（OkHttp，真实 HTTP + SSE）
+       ├─ delta.reasoning_content → Event.Reasoning → LiveTurn.reasoning += chunk（逐字）
+       ├─ delta.tool_calls[...]   → Event.ToolCallArgs → 工具节点参数 += chunk（逐字）
+       │    └─ finish_reason=tool_calls → WorldBookTool.execute(真实参数) → 结果回填
+       │         └─ assistant(tool_calls) + tool(result) 入消息 → **再发一次真实请求**（最多 3 轮）
+       ├─ delta.content           → Event.Content → LiveTurn.body += chunk（逐字）
+       └─ finish_reason           → Event.Finished → 落盘为消息（节点随消息常驻）
+```
+
+**「1 字 = 1 次更新」的实现**：每个 `LlmDelta` 触发一次且仅一次状态追加（`LiveTurn.apply`），
+不插值、不节流、不合并；界面看到的增长与 SSE 帧一一对应。引擎层保持纯 Kotlin（无 Android 依赖），
+日志/追踪放在 UI 层（见 §15.4）。
+
+### 15.2 三类节点的真实数据源
+
+| 节点 | 数据源 | 真到什么程度 |
+|------|--------|------------|
+| 记忆召回 | `RecallEngine` 对**真实会话历史**做词面重叠检索 | 分片文本与相关度都是真算的；P4 换嵌入检索时替换实现即可 |
+| 工具调用 | 模型**自主**发出 `tool_calls` → `WorldBookTool` 用**模型给的参数**检索角色世界书 | 参数由模型流式发出（实测 20~37 个增量分片）、结果由本机真实执行 |
+| 头脑风暴 | SSE 帧的 `reasoning_content` 字段 | 真实逐字，非事后补写 |
+
+> 语义如实记录：P2 的「记忆召回」是词面重叠检索（不需要嵌入模型、可离线、可单测），
+> 与 WebView 版的向量召回在**用途**上同源、在**算法**上不同；P4 数据层建成后替换实现。
+
+### 15.3 供应商配置
+
+- 界面入口：输入岛右侧模型 chip → 「供应商配置」对话框（Base URL / API Key / 模型）。
+- 存储：`SharedPreferences("luzzy_transport")`，**仅设备本地**；不入库、不进安装包、不写日志
+  （展示一律 `maskKey()` 打码）。P4 迁 DataStore 并做多供应商管理。
+- 端点拼接：`chatEndpoint()` 补 `/chat/completions`（已含路径或已含 `/v1` 两种写法都兼容）。
+- 未配置时：发送被拦回配置对话框（不静默失败）；真实失败以 `ChatMessage.Error` 如实展示，
+  不伪装成模型输出。
+
+### 15.4 真机验证证据（模拟器 × 真实端点 × 4 次真请求）
+
+| 轮次 | 记忆召回 | reasoning 增量 | 工具调用 | 参数增量 | 工具结果 | 正文增量 | 总事件 | 时长 |
+|------|---------|---------------|---------|---------|---------|---------|--------|------|
+| 1 | 1 | 19 | 1 | 20 | 1 | 108 | 151 | 4.0s |
+| 2 | 1 | 323 | **2** | 37 | 2 | 106 | 472 | 5.5s |
+| 3 | 1 | 139 | 1 | 21 | 1 | 111 | 275 | 5.7s |
+| 4 | 1 | 23 | 1 | 20 | 1 | 140 | 187 | 2.8s |
+
+- **正文 465 个增量中 267 个是单字符**（reasoning 504 个中 191 个单字符）→ 确实逐字到达、逐字追加。
+- 工具参数分片实测（模型给的真实参数）：`{"keywords": ["钟楼", "苹果树", "来历", "种树"]}`；
+  本地执行结果 `{"matched":["钟楼红苹果树"],"entries":1,...}` 被回填后，模型的回复确实引用了
+  世界书内容（「三十年前一位路过的恶魔随手种下」「靠钟声与月光结果」）。
+- 证据截图：`docs/design/verify-p2-final.png`（节点在气泡内且常驻）、
+  `verify-p2-nodes-expanded.png`（三类节点）、`verify-p2-node-tool.png`（真实入参+结果）、
+  `verify-p2-node-brainstorm.png` + `verify-p2-node-scroll.png`（200dp 卡内滚动前后）、
+  `verify-p2-live-reasoning.png`（live 态节点内正文流式）。
+
+### 15.5 开发注入钩子（仅 debug 源集）
+
+模拟器只有英文 IME（`adb shell input text` 遇 CJK 直接抛 NPE），而本应用内容全是中文——
+没有注入通道就无法对 UI 做端到端验证。故：
+
+- `ui/DevHooks.kt`（main 源集）：两个恒为 null 的挂点（`inputInjector` / `sendTrigger`），
+  **release 下无注册者、零行为**；
+- `src/debug/`（不进 release 包）：`DevInputReceiver` 收 adb 广播后调用挂点。
+
+```
+adb shell am broadcast -a com.luzzymeow.luzzyrp.DEV_INPUT \
+  -n com.luzzymeow.luzzyrp.debug/com.luzzymeow.luzzyrp.DevInputReceiver \
+  --es text '那棵苹果树……' --ez send true
+```
+

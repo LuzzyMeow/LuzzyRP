@@ -2342,3 +2342,31 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 - 完成 rikkahub 前端侦察（许可证 / 设计令牌 / 目录结构 / 可复用度）；
 - 完整阅读 4 项设计 SKILL 主文档（硬性规定 9，不可跳过）；
 - 产出**三方向差异化初稿**交你选定 → 才进入 P1（空壳可跑）。
+
+### 会话 62 追记 6 · **阻塞发现：rikkahub 是 AGPL-3.0，"直接复用其前端"不成立**
+
+用户指示的第一步是「直接复用 rikkahub 的前端」。我把许可证当作**前置闸门**先查了 ——
+读取 rikkahub 仓库 `LICENSE` 原文，结论：
+
+> **`GNU AFFERO GENERAL PUBLIC LICENSE, Version 3, 19 November 2007`**
+
+**AGPL-3.0 是最强的一档 copyleft，且比 GPL 更严**（第 13 条对网络交互另设义务）。
+按第 5 条 c 款（`You must license the entire work, as a whole, under this License to anyone
+who comes into possession of a copy`）：
+
+- **复制 rikkahub 的任何源码 → 整个 LuzzyRP（整件作品）必须转为 AGPL-3.0 分发**，
+  包括上游 RP-Hub 的 Vue 前端；
+- LuzzyRP 是 RP-Hub（**CC BY-NC 4.0**）的二创，把 AGPL-3.0 代码并进来会同时受两套条款约束，
+  **存在实质冲突** —— 这不是我能判断的范畴，必须由用户拍板；
+- **借鉴设计语言 / 视觉风格 / 交互范式并独立实现 → 不触发 copyleft**
+  （版权保护"表达"而非"思想/功能/风格"）；
+- ⚠️ 但**照抄具体 token 数值（色值、尺寸）与组件结构**接近"表达"，风险高于"借鉴风格"，
+  应当**重新设计**而非照搬。
+
+**因此计划已修正**：把「直接复用 rikkahub 的前端」改为
+**「以 rikkahub 为设计参照，产出 LuzzyRP 自己的设计语言并独立实现」**。
+这既达成用户目标（"确定整体设计语言"本来就属于设计层），又不动摇项目的许可基础。
+已写入 `docs/PLAN-v3.0-compose.md` §1 与 §6 第 1 条（待用户拍板）。
+
+**下一步（等用户选择）**：① 仅借鉴设计语言、独立实现（**我推荐**）；② 整体转 AGPL-3.0
+（需先厘清与 CC BY-NC 4.0 的冲突）；③ 换一个许可宽松（Apache-2.0 / MIT）的 Compose 参考项目。

@@ -283,17 +283,26 @@ val LocalChatHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.c
 }
 
 /**
- * 输入岛（§12.4）：功能行 + 输入行 + 发送/停止。
+ * 输入岛（§12.4 / §18.3）：**功能行 + 输入行** 两段式。
+ *
  * 玻璃近实底（tint surfaceContainerHigh@.95 + 无 blur——键盘邻接面，不入玻璃族）。
  *
- * **排版依据（2026-09-12 用户报「太臃肿」后按上游实测重排）**：上游 RP-Hub 这一行是
- * 4 个 `w-8 h-8`（32dp）小圆钮 + 图标 `w-4 h-4`（16dp），且**模型选择器不在这一行**
- * （在快捷面板里）。本版据此：
- * ① 功能行只留**有真实去向**的入口（世界书 / 工具）——附件/预设/工作区依赖 P4/P5，
- *    在实现前**不放图标**（装饰性 icon 是 huashu 明令的 slop；点不动的图标更是欺骗）；
- * ② 模型 chip 退到行尾并**限宽 128dp + 单行省略**（此前不限宽导致换行压到图标行上）；
- * ③ 图标热区仍保持 48dp（Android 触控下限），但**取消图标间的人工间距**——视觉更紧、
- *    热区不重叠；行高与内边距一并收紧。
+ * **2026-09-12 用户报「太臃肿」后的重排（第二次修订）**：第一次我误把「臃肿」当成
+ * 「组件太多」而删掉了三个入口——那是改需求。入口全部保留，改的是**分区与视觉层级**：
+ *
+ * ```
+ * 功能行：[附件][预设][世界书][工具][工作区]  ←——— 次级工具，统一规格、彼此相邻
+ *                                        deepseek-flash ⌄   ← 状态信息，最弱（纯文字+箭头，无底色）
+ * 输入行：[ 写点什么……                      ] [ ➤ ]        ← 主体与主操作
+ * ```
+ *
+ * - **功能行**：5 个入口统一 48dp 热区 / 17dp 图标、**彼此相邻不留缝**（热区不重叠、
+ *   视觉成簇不散）；未实现的三项**照样可点**，点击给出「需要哪一期」的如实说明——
+ *   保留入口但不说谎，比删掉入口或装死都更合适；
+ * - **模型**：从「实心珊瑚胶囊」降为**纯文字 + 下拉箭头**，只占一行尾部——
+ *   这样「最强对比」留给输入框与发送键（此前胶囊比输入框还抢眼，层级是反的），
+ *   同时箭头补上了「可点开选择」的可供性（此前无任何可供性提示）；
+ * - **输入行**：正文 14sp 为主体，发送键是唯一实心色块 = 主操作。
  */
 @Composable
 fun InputIsland(
@@ -304,8 +313,11 @@ fun InputIsland(
     configured: Boolean,
     onSendOrStop: () -> Unit,
     onModelChipClick: () -> Unit,
+    onAttach: () -> Unit,
+    onPresets: () -> Unit,
     onWorldBook: () -> Unit,
     onTools: () -> Unit,
+    onWorkspace: () -> Unit,
     toolsEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -324,16 +336,21 @@ fun InputIsland(
         ),
     ) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
-            // ── 功能行：左侧紧凑图标簇 + 行尾模型 chip ──
+            // ── 功能行：左侧成簇的功能入口 + 行尾最弱的模型状态 ──
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 listOf(
+                    Triple(LuzzyIcons.Plus, "附件", onAttach),
+                    Triple(LuzzyIcons.Sliders, "预设", onPresets),
                     Triple(LuzzyIcons.BookOpen, "世界书", onWorldBook),
                     Triple(LuzzyIcons.Mcp, "工具", onTools),
+                    Triple(LuzzyIcons.Workspace, "工作区", onWorkspace),
                 ).forEach { (res, desc, action) ->
-                    val active = res == LuzzyIcons.Mcp && toolsEnabled
+                    // 工具开关是唯一有「开/关」状态的入口：开启时用强调色，并在语义里带上状态
+                    // （颜色之外还有无障碍播报，不靠颜色单通道传达，pro-rules）
+                    val toggled = res == LuzzyIcons.Mcp && toolsEnabled
                     Box(
                         Modifier
                             .size(48.dp)
@@ -343,37 +360,40 @@ fun InputIsland(
                     ) {
                         Icon(
                             painter = painterResource(res),
-                            contentDescription = if (active) "$desc（已开启）" else desc,
-                            tint = if (active) MaterialTheme.colorScheme.primary
+                            contentDescription = if (toggled) "$desc（已开启）" else desc,
+                            tint = if (toggled) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(17.dp),
                         )
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                // 模型 chip：**次级信息**，正常态安静（中性底/次级文字），只有「未配置」才用告警色
-                // ——实心珊瑚胶囊会盖过输入框，最强对比没给最重要的内容（视觉层级反了）。
-                // 限宽 + 单行省略：不限宽会换行并压住图标行（实测）。
-                Box(
+                // 模型：纯文字 + 箭头（无底色）——最弱一级，可点开真实模型列表
+                Row(
                     Modifier
-                        .widthIn(max = 128.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(
-                            if (configured) MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
-                            else MaterialTheme.colorScheme.errorContainer,
-                        )
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable(onClick = onModelChipClick)
-                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(
-                        text = if (configured) modelLabel else "未配置供应商",
+                        text = if (configured) modelLabel else "未配置",
                         fontSize = 11.5.sp,
                         fontFamily = LuzzyFonts.Body,
-                        fontWeight = FontWeight.Normal,
+                        // 「未配置」是问题态，需要被看见 → 用告警色；正常态安静
                         color = if (configured) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onErrorContainer,
+                        else MaterialTheme.colorScheme.error,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 96.dp),
+                    )
+                    Icon(
+                        painter = painterResource(LuzzyIcons.ChevronDown),
+                        contentDescription = if (configured) "切换模型（当前 $modelLabel）" else "配置供应商",
+                        tint = if (configured) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp),
                     )
                 }
             }

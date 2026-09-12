@@ -338,6 +338,11 @@ fun ChatPage(
         scope.launch { snackbarHostState.showSnackbar("已复制到剪贴板") }
     }
 
+    /** 依赖后续期的入口：给如实说明，而不是静默无反应。 */
+    fun pendingFeatureHint(feature: String, reason: String) {
+        scope.launch { snackbarHostState.showSnackbar("$feature：需要$reason，届时开放") }
+    }
+
     // 开发注入挂点（release 下无注册者、恒为 null）：见 DevHooks 说明
     DisposableEffect(Unit) {
         DevHooks.inputInjector = { input = it }
@@ -471,10 +476,14 @@ fun ChatPage(
                                 send()
                             }
                         },
-                        // 模型 chip：已配置时开「真实模型列表」面板，未配置时去填配置
+                        // 模型：已配置时开「真实模型列表」面板，未配置时去填配置
                         onModelChipClick = { if (config.configured) showModels = true else showConfig = true },
                         onWorldBook = { showWorldBook = true },
                         onTools = { showTools = true },
+                        // 依赖后续期的入口**保留**，点击给出如实说明（不装死、也不删组件）
+                        onAttach = { pendingFeatureHint("附件", "P5 的图片管线（选图 + 图片消息）") },
+                        onPresets = { pendingFeatureHint("预设", "P4 的数据层（预设是用户数据）") },
+                        onWorkspace = { pendingFeatureHint("工作区", "P5 的工作区特性") },
                     )
                 },
             ) { innerPadding ->

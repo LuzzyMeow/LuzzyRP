@@ -95,8 +95,10 @@ class ChatEngine(
         }
 
         var round = 0
+        // 工具调用被写成文本时的协议噪声过滤（逐轮独立：每轮正文各自成段）
         while (round < MaxRounds) {
             round++
+            val markup = ToolMarkupFilter.Stream()
             val acc = ToolCallAccumulator()
             val announced = mutableSetOf<Int>()
             var finishReason: String? = null
@@ -112,12 +114,16 @@ class ChatEngine(
                     temperature = config.temperature,
                     maxTokens = config.maxTokens,
                     stream = true,
-                    tools = WorldBookTool.schemas,
+                    // 工具开关是**真实请求差异**：关闭后不发 tools，模型无从请求工具
+                    tools = if (config.toolsEnabled) WorldBookTool.schemas else emptyList(),
                 ),
             ).collect { delta ->
                 delta.error?.let { error = it.message }
                 delta.reasoning?.takeIf { it.isNotEmpty() }?.let { emit(Event.Reasoning(it)) }
-                delta.content?.takeIf { it.isNotEmpty() }?.let { emit(Event.Content(it)) }
+                delta.content?.takeIf { it.isNotEmpty() }?.let { chunk ->
+                    // 先过协议噪声过滤：DSML 工具标记绝不进正文
+                    markup.accept(chunk).takeIf { it.isNotEmpty() }?.let { emit(Event.Content(it)) }
+                }
                 if (delta.toolCalls.isNotEmpty()) {
                     acc.accept(delta.toolCalls)
                     delta.toolCalls.forEach { d ->
@@ -134,6 +140,9 @@ class ChatEngine(
                 emit(Event.Failed(it))
                 return@flow
             }
+
+            // 本轮正文尾巴（被行缓冲扣住的部分）先放出去，再决定是续跑工具还是收尾
+            markup.flush().takeIf { it.isNotEmpty() }?.let { emit(Event.Content(it)) }
 
             // ── ③ 模型请求了工具：真实执行 → 结果回填 → 再请求一轮 ──
             if (finishReason == FinishToolCalls && !acc.isEmpty()) {

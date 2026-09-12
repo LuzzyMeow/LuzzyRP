@@ -74,24 +74,58 @@ fun glassTint(user: Boolean): Color {
     }
 }
 
+/** 一条候选结果 = 一次**真实生成**的产出（多结果切换器的单位）。 */
+data class AiResult(
+    val raw: String,
+    val thinkNodes: List<ThinkNode> = emptyList(),
+    val finishReason: String? = null,
+)
+
 /** 消息数据（P2：真实发送与真实流式产出；`demoScript()` 为演示角色的历史数据）。 */
 sealed class ChatMessage {
     abstract val name: String
 
     data class Ai(
         override val name: String = "Vanio",
-        /** 模型原始输出（回填上下文与渲染共用同一份文本，避免二次拼接失真）。 */
-        val raw: String,
-        /** 思考节点（常驻于消息；生成完成也不消失）。 */
-        val thinkNodes: List<ThinkNode> = emptyList(),
-        /** 多结果：当前索引 / 总数（>1 时气泡下方显示切换器；P3 由「重新生成」累积）。 */
-        val branchIndex: Int = 0,
-        val branchCount: Int = 1,
-        val finishReason: String? = null,
-    ) : ChatMessage()
+        /**
+         * 候选结果列表。首次生成为 1 条；「重新生成」**真实再跑一次请求**并追加，
+         * 切换器（`‹ n/m ›`）随之出现——不是把同一段文本复制成多份。
+         */
+        val results: List<AiResult>,
+        /** 当前展示的候选下标。 */
+        val index: Int = 0,
+    ) : ChatMessage() {
+        val current: AiResult
+            get() = results.getOrElse(index.coerceIn(0, (results.size - 1).coerceAtLeast(0))) {
+                AiResult(raw = "")
+            }
+
+        val raw: String get() = current.raw
+        val thinkNodes: List<ThinkNode> get() = current.thinkNodes
+        val finishReason: String? get() = current.finishReason
+        val resultCount: Int get() = results.size
+
+        /** 追加候选并切到新结果（「重新生成」用）。 */
+        fun withResult(result: AiResult): Ai = copy(results = results + result, index = results.size)
+
+        /** 切换候选（越界即忽略）。 */
+        fun selectResult(target: Int): Ai =
+            if (target in results.indices) copy(index = target) else this
+
+        /** 就地改写当前候选文本（「编辑」用；思考节点属该次生成的历史，保留）。 */
+        fun editCurrent(text: String): Ai {
+            if (results.isEmpty()) return copy(results = listOf(AiResult(text)), index = 0)
+            val updated = results.toMutableList()
+            updated[index.coerceIn(0, updated.lastIndex)] = current.copy(raw = text)
+            return copy(results = updated)
+        }
+    }
 
     data class User(val text: String) : ChatMessage() {
         override val name: String = "你"
+
+        /** 就地改写内容（「编辑」用）。 */
+        fun edited(text: String): User = copy(text = text)
     }
 
     /** 真实失败（网络/协议/未配置）——如实展示，不伪装成模型输出。 */
@@ -249,8 +283,17 @@ val LocalChatHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.c
 }
 
 /**
- * 输入岛（§12.4）：功能 icon 行 + 输入行 + 发送/停止。
+ * 输入岛（§12.4）：功能行 + 输入行 + 发送/停止。
  * 玻璃近实底（tint surfaceContainerHigh@.95 + 无 blur——键盘邻接面，不入玻璃族）。
+ *
+ * **排版依据（2026-09-12 用户报「太臃肿」后按上游实测重排）**：上游 RP-Hub 这一行是
+ * 4 个 `w-8 h-8`（32dp）小圆钮 + 图标 `w-4 h-4`（16dp），且**模型选择器不在这一行**
+ * （在快捷面板里）。本版据此：
+ * ① 功能行只留**有真实去向**的入口（世界书 / 工具）——附件/预设/工作区依赖 P4/P5，
+ *    在实现前**不放图标**（装饰性 icon 是 huashu 明令的 slop；点不动的图标更是欺骗）；
+ * ② 模型 chip 退到行尾并**限宽 128dp + 单行省略**（此前不限宽导致换行压到图标行上）；
+ * ③ 图标热区仍保持 48dp（Android 触控下限），但**取消图标间的人工间距**——视觉更紧、
+ *    热区不重叠；行高与内边距一并收紧。
  */
 @Composable
 fun InputIsland(
@@ -261,6 +304,9 @@ fun InputIsland(
     configured: Boolean,
     onSendOrStop: () -> Unit,
     onModelChipClick: () -> Unit,
+    onWorldBook: () -> Unit,
+    onTools: () -> Unit,
+    toolsEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val canSend = text.isNotBlank()
@@ -268,8 +314,8 @@ fun InputIsland(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        shape = RoundedCornerShape(28.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
         tonalElevation = 0.dp,
         border = BorderStroke(
@@ -277,54 +323,57 @@ fun InputIsland(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-            // ── 功能行 ──
+        Column(Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
+            // ── 功能行：左侧紧凑图标簇 + 行尾模型 chip ──
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+                Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 listOf(
-                    LuzzyIcons.Plus to "附件",
-                    LuzzyIcons.Sliders to "预设",
-                    LuzzyIcons.BookOpen to "世界书",
-                    LuzzyIcons.Mcp to "工具",
-                    LuzzyIcons.Workspace to "工作区",
-                ).forEach { (res, desc) ->
+                    Triple(LuzzyIcons.BookOpen, "世界书", onWorldBook),
+                    Triple(LuzzyIcons.Mcp, "工具", onTools),
+                ).forEach { (res, desc, action) ->
+                    val active = res == LuzzyIcons.Mcp && toolsEnabled
                     Box(
                         Modifier
-                            .size(34.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .clickable {},
+                            .clickable(onClick = action),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             painter = painterResource(res),
-                            contentDescription = desc,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(19.dp),
+                            contentDescription = if (active) "$desc（已开启）" else desc,
+                            tint = if (active) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                // 模型 chip（真实当前模型；未配置时提示点击配置）
+                // 模型 chip：**次级信息**，正常态安静（中性底/次级文字），只有「未配置」才用告警色
+                // ——实心珊瑚胶囊会盖过输入框，最强对比没给最重要的内容（视觉层级反了）。
+                // 限宽 + 单行省略：不限宽会换行并压住图标行（实测）。
                 Box(
                     Modifier
+                        .widthIn(max = 128.dp)
                         .clip(RoundedCornerShape(50))
                         .background(
-                            if (configured) MaterialTheme.colorScheme.primaryContainer
+                            if (configured) MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
                             else MaterialTheme.colorScheme.errorContainer,
                         )
                         .clickable(onClick = onModelChipClick)
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
                 ) {
                     Text(
                         text = if (configured) modelLabel else "未配置供应商",
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontFamily = LuzzyFonts.Body,
-                        fontWeight = FontWeight.Medium,
-                        color = if (configured) MaterialTheme.colorScheme.onPrimaryContainer
+                        fontWeight = FontWeight.Normal,
+                        color = if (configured) MaterialTheme.colorScheme.onSurfaceVariant
                         else MaterialTheme.colorScheme.onErrorContainer,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -346,7 +395,7 @@ fun InputIsland(
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+                        .padding(start = 10.dp, top = 6.dp, bottom = 6.dp),
                     decorationBox = { inner ->
                         // 占位与真实输入必须同处一个容器：decorationBox 的测量只认一个子节点，
                         // 平铺两个兄弟会让命中区域与测量错乱（点不中输入框）。

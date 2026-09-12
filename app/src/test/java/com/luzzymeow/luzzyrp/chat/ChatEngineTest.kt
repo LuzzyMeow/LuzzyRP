@@ -178,4 +178,15 @@ class ChatEngineTest {
         assertEquals("HTTP 401", events.filterIsInstance<ChatEngine.Event.Failed>().single().message)
         assertNotNull(events)
     }
+
+    @Test
+    fun `工具开关是真实请求差异：关闭后请求体不带 tools`() = runTest {
+        val on = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
+        ChatEngine(on).run(config, emptyList(), "你好").toList()
+        assertTrue("开启时请求应带工具定义", on.requests.first().tools.isNotEmpty())
+
+        val off = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
+        ChatEngine(off).run(config.copy(toolsEnabled = false), emptyList(), "你好").toList()
+        assertTrue("关闭时请求不应带任何工具定义", off.requests.first().tools.isEmpty())
+    }
 }

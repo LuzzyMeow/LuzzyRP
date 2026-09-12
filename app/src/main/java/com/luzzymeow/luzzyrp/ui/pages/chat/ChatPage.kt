@@ -26,6 +26,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,8 +50,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -84,16 +88,32 @@ import kotlinx.coroutines.launch
 private fun demoHistory(): List<ChatMessage> = listOf(
     ChatMessage.User("Vanio？听说你在教堂后面藏了什么……"),
     ChatMessage.Ai(
-        raw = "少年被吓得差点把苹果抛出去。他僵着脖子回头，帽檐下的橘色眼睛瞪得溜圆，红斗篷下的翅膀不安分地扑棱了两下。\n" +
-            "「嘘——！小声点！要是被嬷嬷听见，我攒了一个秋天的宝贝就全完啦。」\n" +
-            "*左右看了看，把那颗红得发亮的苹果塞进兜里，冲你勾了勾手指*",
+        results = listOf(
+            AiResult(
+                raw = "少年被吓得差点把苹果抛出去。他僵着脖子回头，帽檐下的橘色眼睛瞪得溜圆，红斗篷下的翅膀不安分地扑棱了两下。\n" +
+                    "「嘘——！小声点！要是被嬷嬷听见，我攒了一个秋天的宝贝就全完啦。」\n" +
+                    "*左右看了看，把那颗红得发亮的苹果塞进兜里，冲你勾了勾手指*",
+            ),
+        ),
     ),
     ChatMessage.User("行行行，我不喊。所以……到底是什么？"),
     ChatMessage.Ai(
-        raw = "「嘿嘿，想知道？」\n" +
-            "*凑近你的耳边，用气声说道*\n" +
-            "「是长在钟楼顶上的、一整树的红苹果。全城只有我知道那棵树在哪——因为呀，」他晃了晃帽子上小小的角，得意地眯起眼，「恶魔的果子，只有恶魔找得到。」",
+        results = listOf(
+            AiResult(
+                raw = "「嘿嘿，想知道？」\n" +
+                    "*凑近你的耳边，用气声说道*\n" +
+                    "「是长在钟楼顶上的、一整树的红苹果。全城只有我知道那棵树在哪——因为呀，」他晃了晃帽子上小小的角，得意地眯起眼，「恶魔的果子，只有恶魔找得到。」",
+            ),
+        ),
     ),
+)
+
+/** 编辑目标（操作行「编辑」开弹窗时携带）。 */
+private data class EditingTarget(
+    val branchId: String,
+    val index: Int,
+    val isAi: Boolean,
+    val initial: String,
 )
 
 /** P2 聊天页 · 沉浸形态 + **真实流式**（DESIGN-compose §12/§14/§15）。 */
@@ -113,6 +133,17 @@ fun ChatPage(
     var config by remember { mutableStateOf(store.load()) }
     var showConfig by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
+
+    // 功能面板（真实现）：模型切换 / 工具开关 / 世界书只读
+    var showModels by remember { mutableStateOf(false) }
+    var showTools by remember { mutableStateOf(false) }
+    var showWorldBook by remember { mutableStateOf(false) }
+
+    // 操作行接线的宿主状态
+    val snackbarHostState = remember { SnackbarHostState() }
+    val clipboard = LocalClipboardManager.current
+    var editing by remember { mutableStateOf<EditingTarget?>(null) }
+    var regeneratingIndexState by remember { mutableStateOf<Int?>(null) }
 
     val engine = remember { ChatEngine() }
     var live by remember { mutableStateOf<LiveTurn?>(null) }
@@ -150,6 +181,26 @@ fun ChatPage(
 
     fun appendMessage(message: ChatMessage) = appendTo(activeBranchId, message)
 
+    fun replaceMessage(branchId: String, index: Int, message: ChatMessage) {
+        val list = branchMessages[branchId].orEmpty().toMutableList()
+        if (index !in list.indices) return
+        list[index] = message
+        branchMessages[branchId] = list
+    }
+
+    fun editMessage(branchId: String, index: Int, transform: (ChatMessage) -> ChatMessage) {
+        val list = branchMessages[branchId].orEmpty().toMutableList()
+        if (index !in list.indices) return
+        list[index] = transform(list[index])
+        branchMessages[branchId] = list
+    }
+
+    fun removeMessage(branchId: String, index: Int, andAfter: Boolean) {
+        val list = branchMessages[branchId].orEmpty()
+        if (index !in list.indices) return
+        branchMessages[branchId] = if (andAfter) list.take(index) else list.filterIndexed { i, _ -> i != index }
+    }
+
     /**
      * 贴底：把末项底部对齐视口底部。
      *
@@ -171,6 +222,46 @@ fun ChatPage(
     // 切换分支后列表内容整体更换：回到最新一轮
     LaunchedEffect(activeBranchId) { pinToBottom() }
 
+    /**
+     * 跑一轮真实生成（发送与重新生成共用）。
+     *
+     * [onFinish] 拿到收尾后的 [LiveTurn] 自行决定落库方式：新消息追加、或作为候选并入既有消息。
+     * [regeneratingIndex] 非空时，live 面板**就地**渲染在那条消息的位置（而不是列表末尾），
+     * 让「重新生成」看起来是在原处重写，而不是凭空冒出新气泡。
+     */
+    fun runTurn(
+        history: List<LlmMessage>,
+        userText: String,
+        regeneratingIndex: Int?,
+        onFinish: (LiveTurn) -> Unit,
+    ) {
+        val turn = LiveTurn()
+        live = turn
+        regeneratingIndexState = regeneratingIndex
+        job = scope.launch {
+            pinToBottom()
+            try {
+                engine.run(config = config, history = history, userText = userText).collect { event ->
+                    // 「是否贴底」要在内容变化**之前**判定：变化之后 canScrollForward 会变 true，
+                    // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
+                    val follow = !listState.canScrollForward
+                    traceStreamEvent(event)
+                    turn.apply(event)
+                    if (follow) pinToBottom()
+                }
+            } catch (_: CancellationException) {
+                // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
+            }
+            onFinish(turn)
+            if (live === turn) {
+                live = null
+                regeneratingIndexState = null
+            }
+            job = null
+            pinToBottom()
+        }
+    }
+
     fun send() {
         val userText = input.trim()
         if (userText.isEmpty() || live != null) return
@@ -190,38 +281,61 @@ fun ChatPage(
         val turnBranchId = activeBranchId
         appendTo(turnBranchId, ChatMessage.User(userText))
 
-        val turn = LiveTurn()
-        live = turn
-        job = scope.launch {
-            pinToBottom()   // 发送后立刻让用户看见自己的消息与 live 气泡
-            try {
-                engine.run(config = config, history = history, userText = userText).collect { event ->
-                    // 「是否贴底」要在内容变化**之前**判定：变化之后 canScrollForward 会变 true，
-                    // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
-                    val follow = !listState.canScrollForward
-                    traceStreamEvent(event)
-                    turn.apply(event)
-                    if (follow) pinToBottom()
-                }
-            } catch (_: CancellationException) {
-                // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
-            }
+        runTurn(history = history, userText = userText, regeneratingIndex = null) { turn ->
             val error = turn.error
             if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
                 appendTo(
                     turnBranchId,
                     ChatMessage.Ai(
-                        raw = turn.body,
-                        thinkNodes = turn.nodes,
-                        finishReason = turn.finishReason,
+                        results = listOf(AiResult(turn.body, turn.nodes, turn.finishReason)),
                     ),
                 )
             }
             if (error != null) appendTo(turnBranchId, ChatMessage.Error(error))
-            if (live === turn) live = null
-            job = null
-            pinToBottom()
         }
+    }
+
+    /** 重新生成：[messageIndex] 处必须是 AI 消息——**真实再跑一次请求**并把结果作为新候选追加。 */
+    fun regenerate(messageIndex: Int) {
+        if (live != null) return
+        if (!config.configured) {
+            showConfig = true
+            return
+        }
+        val target = activeMessages.getOrNull(messageIndex) as? ChatMessage.Ai ?: return
+        val prefix = activeMessages.take(messageIndex)
+        val userText = prefix.filterIsInstance<ChatMessage.User>().lastOrNull()?.text
+        if (userText.isNullOrBlank()) {
+            scope.launch { snackbarHostState.showSnackbar("这条之前没有用户消息，无法重新生成") }
+            return
+        }
+        val history = prefix.mapNotNull { m ->
+            when (m) {
+                is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
+                is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
+                is ChatMessage.Error -> null
+            }
+        }
+        val turnBranchId = activeBranchId
+        runTurn(history = history, userText = userText, regeneratingIndex = messageIndex) { turn ->
+            val error = turn.error
+            if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
+                editMessage(turnBranchId, messageIndex) { current ->
+                    if (current is ChatMessage.Ai) {
+                        current.withResult(AiResult(turn.body, turn.nodes, turn.finishReason))
+                    } else {
+                        current
+                    }
+                }
+                scope.launch { snackbarHostState.showSnackbar("已生成第 ${target.resultCount + 1} 个结果") }
+            }
+            if (error != null) appendTo(turnBranchId, ChatMessage.Error(error))
+        }
+    }
+
+    fun copyMessage(text: String) {
+        clipboard.setText(AnnotatedString(text))
+        scope.launch { snackbarHostState.showSnackbar("已复制到剪贴板") }
     }
 
     // 开发注入挂点（release 下无注册者、恒为 null）：见 DevHooks 说明
@@ -273,6 +387,8 @@ fun ChatPage(
 
             Scaffold(
                 containerColor = Color.Transparent,
+                // 操作反馈（复制/已生成第 N 个结果/未开放功能提示）——pro-rules：每个可点元素都要有反馈
+                snackbarHost = { SnackbarHost(snackbarHostState) },
                 topBar = {
                     TopAppBar(
                         title = {
@@ -344,16 +460,21 @@ fun ChatPage(
                         isGenerating = live != null,
                         modelLabel = config.model.ifBlank { "未配置" },
                         configured = config.configured,
+                        toolsEnabled = config.toolsEnabled,
                         onSendOrStop = {
                             if (live != null) {
                                 job?.cancel()
                                 live = null
+                                regeneratingIndexState = null
                                 job = null
                             } else {
                                 send()
                             }
                         },
-                        onModelChipClick = { showConfig = true },
+                        // 模型 chip：已配置时开「真实模型列表」面板，未配置时去填配置
+                        onModelChipClick = { if (config.configured) showModels = true else showConfig = true },
+                        onWorldBook = { showWorldBook = true },
+                        onTools = { showTools = true },
                     )
                 },
             ) { innerPadding ->
@@ -366,6 +487,21 @@ fun ChatPage(
                     // 稳定 key：分支 id + 下标。切换分支时整列 key 变化 → 强制重建条目，
                     // 避免上一条分支的条目状态（如代码块展开态）泄漏到新分支（pro-rules 亦要求列表带 key）
                     items(activeMessages.size, key = { i -> "$activeBranchId#$i" }) { i ->
+                        // 重新生成时就地渲染 live 面板：看起来是「原处重写」，而非凭空冒出新气泡
+                        val inPlaceLive = live?.takeIf { regeneratingIndexState == i }
+                        if (inPlaceLive != null) {
+                            Column(Modifier.fillMaxWidth()) {
+                                AiMessagePanel(
+                                    name = VanioCard.Name,
+                                    raw = inPlaceLive.body,
+                                    nodes = inPlaceLive.nodes,
+                                    isLive = inPlaceLive.generating,
+                                    activeNode = inPlaceLive.activeNode,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            return@items
+                        }
                         when (val m = activeMessages[i]) {
                             is ChatMessage.Ai -> Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
@@ -375,21 +511,43 @@ fun ChatPage(
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 MessageActionRow(
-                                    branchIndex = m.branchIndex,
-                                    branchCount = m.branchCount,
+                                    branchIndex = m.index,
+                                    branchCount = m.resultCount,
+                                    onBranchChange = { target ->
+                                        editMessage(activeBranchId, i) { cur ->
+                                            if (cur is ChatMessage.Ai) cur.selectResult(target) else cur
+                                        }
+                                    },
+                                    onCopy = { copyMessage(m.raw) },
+                                    onRegenerate = { regenerate(i) },
+                                    onEdit = {
+                                        editing = EditingTarget(activeBranchId, i, isAi = true, initial = m.raw)
+                                    },
+                                    onDelete = { removeMessage(activeBranchId, i, andAfter = false) },
+                                    onDeleteAfter = { removeMessage(activeBranchId, i, andAfter = true) },
                                 )
                             }
 
                             is ChatMessage.User -> Column(Modifier.fillMaxWidth()) {
                                 UserBubble(m.text)
-                                MessageActionRow(alignEnd = true)
+                                MessageActionRow(
+                                    alignEnd = true,
+                                    onCopy = { copyMessage(m.text) },
+                                    // 用户消息没有「重新生成」（重生成是模型输出的动作）
+                                    onRegenerate = null,
+                                    onEdit = {
+                                        editing = EditingTarget(activeBranchId, i, isAi = false, initial = m.text)
+                                    },
+                                    onDelete = { removeMessage(activeBranchId, i, andAfter = false) },
+                                    onDeleteAfter = { removeMessage(activeBranchId, i, andAfter = true) },
+                                )
                             }
 
                             is ChatMessage.Error -> ErrorPanel(m.text)
                         }
                     }
-                    // 生成中：思考节点与正文都在**同一个气泡内**实时生长（§14.3①）
-                    live?.let { turn ->
+                    // 新消息的 live 面板（重新生成时已被就地渲染，避免出现两个 live）
+                    live?.takeIf { regeneratingIndexState == null }?.let { turn ->
                         item {
                             Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
@@ -400,13 +558,61 @@ fun ChatPage(
                                     activeNode = turn.activeNode,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
-                                if (!turn.generating) MessageActionRow()
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    editing?.let { target ->
+        EditMessageDialog(
+            initial = target.initial,
+            title = if (target.isAi) "编辑这条回复" else "编辑你的消息",
+            onDismiss = { editing = null },
+            onSave = { text ->
+                editMessage(target.branchId, target.index) { cur ->
+                    when {
+                        target.isAi && cur is ChatMessage.Ai -> cur.editCurrent(text)
+                        !target.isAi && cur is ChatMessage.User -> cur.edited(text)
+                        else -> cur
+                    }
+                }
+                editing = null
+                if (!target.isAi) {
+                    scope.launch { snackbarHostState.showSnackbar("已修改；可对该回复点「重新生成」按新内容重跑") }
+                }
+            },
+        )
+    }
+
+    if (showModels) {
+        ModelPickerSheet(
+            config = config,
+            onSelect = { id ->
+                config = config.copy(model = id)
+                store.save(config)
+                showModels = false
+                scope.launch { snackbarHostState.showSnackbar("已切换到 $id（下一条请求即生效）") }
+            },
+            onDismiss = { showModels = false },
+        )
+    }
+
+    if (showTools) {
+        ToolsSheet(
+            config = config,
+            onToggle = { enabled ->
+                config = config.copy(toolsEnabled = enabled)
+                store.save(config)
+            },
+            onDismiss = { showTools = false },
+        )
+    }
+
+    if (showWorldBook) {
+        WorldBookSheet(onDismiss = { showWorldBook = false })
     }
 
     if (showBranches) {

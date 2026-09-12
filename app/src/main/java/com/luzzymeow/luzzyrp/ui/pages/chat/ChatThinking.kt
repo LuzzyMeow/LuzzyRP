@@ -28,9 +28,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -404,15 +409,26 @@ fun ThinkingCard(
  * 位于气泡正下方；图标 18dp + onSurfaceVariant，**热区 48dp**（pro-rules：Android 触控目标
  * 下限 48dp；此前 32dp 不合规，交付前清单核对时改掉）。FlowRow 保证 4 图标 + 切换器
  * 在 336dp 气泡宽度下自动换行。
+ *
+ * 全部为**真实现**（2026-09-12 用户要求「做实质功能」）：
+ * 复制走系统剪贴板、编辑开就地编辑弹窗、重新生成真实再跑一次请求并累积候选、
+ * 更多菜单提供「复制 Markdown 源码 / 删除此消息 / 删除此消息及之后」。
+ * [onRegenerate] 为 null 表示该消息不可重新生成（如用户消息），此时该项不出现。
  */
 @Composable
 fun MessageActionRow(
     branchIndex: Int = 0,
     branchCount: Int = 1,
     onBranchChange: (Int) -> Unit = {},
+    onCopy: () -> Unit = {},
+    onRegenerate: (() -> Unit)? = null,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onDeleteAfter: () -> Unit = {},
     alignEnd: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     androidx.compose.foundation.layout.FlowRow(
         modifier = modifier.fillMaxWidth().padding(top = 2.dp),
         verticalArrangement = Arrangement.Center,
@@ -423,21 +439,68 @@ fun MessageActionRow(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         listOf(
-            LuzzyIcons.Copy to "复制",
-            LuzzyIcons.Refresh to "重新生成",
-            LuzzyIcons.Edit to "编辑",
-            LuzzyIcons.DotsHorizontal to "更多",
-        ).forEach { (res, desc) ->
-            Box(
-                Modifier.size(48.dp).clip(CircleShape).clickable {},
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(res),
-                    contentDescription = desc,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
+            Triple(LuzzyIcons.Copy, "复制", onCopy),
+            Triple(LuzzyIcons.Refresh, "重新生成", onRegenerate),
+            Triple(LuzzyIcons.Edit, "编辑", onEdit),
+            Triple(LuzzyIcons.DotsHorizontal, "更多", { menuOpen = true }),
+        ).forEach { (res, desc, action) ->
+            if (action == null) return@forEach
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape).clickable(onClick = action),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(res),
+                        contentDescription = desc,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                DropdownMenu(expanded = menuOpen && res == LuzzyIcons.DotsHorizontal, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("复制 Markdown 源码", fontFamily = LuzzyFonts.Body, fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(LuzzyIcons.Copy),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onCopy()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("删除此消息", fontFamily = LuzzyFonts.Body, fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(LuzzyIcons.Trash),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onDelete()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("删除此消息及之后", fontFamily = LuzzyFonts.Body, fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(LuzzyIcons.ChevronRight),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onDeleteAfter()
+                        },
+                    )
+                }
             }
         }
         if (branchCount > 1) {
@@ -477,4 +540,40 @@ fun MessageActionRow(
             }
         }
     }
+}
+
+/** 就地编辑弹窗（用户消息/AI 消息共用；纯文本编辑，Markdown 源码即所见）。 */
+@Composable
+fun EditMessageDialog(
+    initial: String,
+    title: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var text by remember(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 260.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    fontFamily = LuzzyFonts.Body,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(text) },
+                enabled = text.isNotBlank() && text != initial,
+            ) { Text("保存", fontFamily = LuzzyFonts.Body) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消", fontFamily = LuzzyFonts.Body) }
+        },
+    )
 }

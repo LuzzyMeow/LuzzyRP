@@ -18,6 +18,13 @@ data class TransportConfig(
     val model: String = "",
     val temperature: Double? = null,
     val maxTokens: Int = DefaultMaxTokens,
+    /**
+     * 是否向模型暴露工具（当前仅 `world_info_lookup`）。
+     *
+     * **真实影响请求体**：关闭后 `tools` 字段不再发送，模型无法请求工具，
+     * 思考时间线上也就不会出现工具节点（不是把 UI 藏起来骗人）。
+     */
+    val toolsEnabled: Boolean = true,
 ) {
     /** 是否已可发起真实请求。 */
     val configured: Boolean get() = baseUrl.isNotBlank() && apiKey.isNotBlank() && model.isNotBlank()
@@ -59,12 +66,14 @@ class TransportStore(context: Context) {
         baseUrl = prefs.getString(KEY_BASE_URL, "").orEmpty(),
         apiKey = prefs.getString(KEY_API_KEY, "").orEmpty(),
         model = prefs.getString(KEY_MODEL, "").orEmpty(),
+        toolsEnabled = prefs.getBoolean(KEY_TOOLS, true),
     )
 
     fun save(config: TransportConfig) = prefs.edit {
         putString(KEY_BASE_URL, config.baseUrl)
         putString(KEY_API_KEY, config.apiKey)
         putString(KEY_MODEL, config.model)
+        putBoolean(KEY_TOOLS, config.toolsEnabled)
     }
 
     private companion object {
@@ -72,5 +81,6 @@ class TransportStore(context: Context) {
         const val KEY_BASE_URL = "base_url"
         const val KEY_API_KEY = "api_key"
         const val KEY_MODEL = "model"
+        const val KEY_TOOLS = "tools_enabled"
     }
 }

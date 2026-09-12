@@ -141,6 +141,30 @@ class MarkdownParserTest {
     }
 
     @Test
+    fun `非空内容必产出块（静态气泡不会先画空壳再撑开）`() {
+        // 「滚动回看时气泡突然弹出」的修复依赖这条不变式：只要内容非空，解析就必然有块，
+        // 于是首次组合那一帧就已经是完整高度，不存在「空壳 → 撑开」的中间帧。
+        val corpus = listOf(
+            "普通一句话",
+            "*斜体动作*",
+            "**强调**",
+            "「对白」",
+            "`code`",
+            "```\nunclosed",
+            "---",
+            "> 引用",
+            "- 列表",
+            "# 标题",
+            "<div>html</div>",
+            "| a | b |\n| - | - |\n| 1 | 2 |",
+            "  ",
+        )
+        corpus.filter { it.isNotBlank() }.forEach { text ->
+            assertTrue("「$text」解析为空块，会让气泡先画空壳", MarkdownParser.parse(text).isNotEmpty())
+        }
+    }
+
+    @Test
     fun `长文解析耗时在预算内（流式逐字上屏的成本门）`() {
         val long = buildString {
             repeat(100) { i ->

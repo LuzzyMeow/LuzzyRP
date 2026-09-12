@@ -412,9 +412,28 @@ adb shell am broadcast -a com.luzzymeow.luzzyrp.DEV_INPUT \
 |---|---|---|
 | 解析器 | `org.jetbrains:markdown:0.7.3` | **Apache-2.0**（与 AGPL-3.0 自有代码兼容），GFM flavour；rikkahub 同款 |
 | 渲染 | **自写** AST → Compose | 不引第三方 Compose Markdown 渲染库（避免再叠一层版本耦合） |
-| 解析线程 | `Dispatchers.Default` + 以内容为 key | 内容一变即取消上一次解析（对齐 rikkahub 的 `mapLatest`），主线程不解析 |
-| 解析成本 | **4090 字 / 6.29ms**（实测，`MarkdownParserTest` 的成本门 <60ms） | 故流式逐字期间**全量重解析**在预算内，不引入前缀缓存 |
+| 解析时机 | **静态消息：同步 + 记忆化**（`MarkdownMemo` LRU 24）；**流式生成中：后台解析** | 见下方 16.2.1 —— 这是「滚动回看时气泡突然弹出」的修复点 |
+| 解析成本 | **4090 字 / 6.29ms**（实测，`MarkdownParserTest` 的成本门 <60ms） | 同步路径只在首次遇到该内容时付费，之后滚动来回都是缓存命中 |
 | 文本颜色 | 读 `LocalContentColor` | 引用块/嵌套结构只需改一次局部颜色即可整体变淡 |
+
+#### 16.2.1 为什么静态消息必须同步解析（2026-09-12 用户实测反馈）
+
+**症状**：从最底部往上滑回看较早的气泡时，该气泡「突然弹出」——先以矮壳出现、再撑开，
+视觉割裂。
+
+**根因**：LazyColumn 会把划出视口的气泡**销毁、滚回来重建**。原实现用
+`produceState(initialValue = emptyList())` **异步**解析，于是重建的那一帧 `blocks` 为空
+→ 气泡只画出名牌（矮壳）→ 解析完成后内容出现，叠上外层 `animateContentSize(200ms)`
+就是肉眼可见的「弹出」。
+
+**修复**：静态消息改为 `remember(content) { MarkdownMemo.blocksOf(content) }` ——
+**首次组合那一帧内容就已就绪**，不存在空壳中间帧；记忆化保证同一内容只在首次付费
+（滚动来回都是命中，LRU 24 足够覆盖一屏 + 预取）。流式生成中仍走后台解析
+（内容每个增量都在变、必然 miss，不必占主线程；且流式期间文本本来就在长，无「弹出」观感）。
+
+**守卫**：`MarkdownParserTest` 增一条不变式——**非空内容必产出块**（否则空壳仍可能出现）；
+`MarkdownMemoTest` 钉住「同内容返回同一实例」与「容量有界」。列表条目同时补上稳定 key
+（`分支id#下标`），避免切换分支时条目状态（如代码块展开态）泄漏。
 
 ### 16.3 排版 token（`ui/markdown/MarkdownStyle.kt`，唯一取值处）
 

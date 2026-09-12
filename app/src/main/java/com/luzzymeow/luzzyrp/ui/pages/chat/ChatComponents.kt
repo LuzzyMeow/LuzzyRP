@@ -236,7 +236,7 @@ fun AiMessagePanel(
             // 正文交给 Markdown 渲染器：`*动作*` 是 emphasis 斜体、`「对白」`是普通文本
             // ——与上游 marked 渲染一致（此前的「对白/动作/叙述」三分类是自造语义）。
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                MarkdownText(content = raw, modifier = Modifier.fillMaxWidth())
+                MarkdownText(content = raw, live = isLive, modifier = Modifier.fillMaxWidth())
             }
             if (isLive) TypingDots()
         }

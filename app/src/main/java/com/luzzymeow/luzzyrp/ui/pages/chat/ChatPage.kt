@@ -363,7 +363,9 @@ fun ChatPage(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(activeMessages.size) { i ->
+                    // 稳定 key：分支 id + 下标。切换分支时整列 key 变化 → 强制重建条目，
+                    // 避免上一条分支的条目状态（如代码块展开态）泄漏到新分支（pro-rules 亦要求列表带 key）
+                    items(activeMessages.size, key = { i -> "$activeBranchId#$i" }) { i ->
                         when (val m = activeMessages[i]) {
                             is ChatMessage.Ai -> Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(

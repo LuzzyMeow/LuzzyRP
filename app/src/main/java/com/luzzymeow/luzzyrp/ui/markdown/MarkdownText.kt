@@ -50,10 +50,13 @@ import kotlinx.coroutines.withContext
 /**
  * Markdown 渲染（AST → Compose）。
  *
- * 解析在 [Dispatchers.Default] 上做、并按内容做 key：内容一变即取消上一次解析
- * （对齐 rikkahub 的 `mapLatest` 做法，丢弃积压的中间版本，主线程不解析）。
- * 实测 4090 字单次解析 **6.29ms**（见 `MarkdownParserTest` 的成本门），
- * 故流式逐字期间全量重解析在预算内，不引入前缀缓存。
+ * **解析时机分两条路（这是「滚动时气泡突然弹出」的修复点）**：
+ * - **静态消息（[live] = false）**：**同步**解析 + 记忆化（[MarkdownMemo]）。
+ *   LazyColumn 滚动会把划出屏幕的气泡销毁、滚回来重建——异步解析会让重建那一帧只画出
+ *   「只有名牌」的矮气泡，下一帧才撑开，叠上 `animateContentSize` 就是肉眼可见的「弹出」。
+ *   同步解析保证**首次组合那一帧内容就已就绪**，且缓存命中时零成本。
+ * - **流式生成中（[live] = true）**：仍走后台解析（内容每个增量都在变、必然 miss，
+ *   不必占用主线程）；流式期间文本本来就在长，不存在「弹出」观感问题。
  *
  * 文本颜色读 [LocalContentColor]：这样引用块/嵌套结构只要改一次 LocalContentColor
  * 就能整体变淡，不需要把样式逐层往下传。
@@ -62,10 +65,16 @@ import kotlinx.coroutines.withContext
 fun MarkdownText(
     content: String,
     modifier: Modifier = Modifier,
+    live: Boolean = false,
 ) {
     val tokens = LocalMarkdownTokens.current
-    val blocks by produceState(initialValue = emptyList<MdBlock>(), content) {
-        value = withContext(Dispatchers.Default) { MarkdownParser.parse(content) }
+    val blocks = if (live) {
+        val parsed by produceState(initialValue = emptyList<MdBlock>(), content) {
+            value = withContext(Dispatchers.Default) { MarkdownMemo.blocksOf(content) }
+        }
+        parsed
+    } else {
+        remember(content) { MarkdownMemo.blocksOf(content) }
     }
     if (blocks.isEmpty()) return
 

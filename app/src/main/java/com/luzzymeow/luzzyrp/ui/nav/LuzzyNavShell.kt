@@ -54,10 +54,10 @@ enum class LuzzyRoute(val title: String, val icon: Int) {
 const val DrawerCloseMs = 250
 
 /** 内容页面转场总时长（两段式：抽屉期主体 + 收完后可感知落定段）。 */
-const val ContentTxMs = 450
+const val ContentTxMs = 250
 
 /** 旧页淡出时长（随抽屉收起期内完成，避免残影）。 */
-const val OldFadeMs = 200
+const val OldFadeMs = 250
 
 /**
  * v3.0 应用壳：抽屉（提升到壳层，全页共用）+ AnimatedContent 页面转场。
@@ -130,9 +130,6 @@ fun LuzzyNavShell(
                 (fadeIn(
                     animationSpec = tween(ContentTxMs, easing = Motion.Easing),
                     initialAlpha = 0.35f,
-                ) + slideInVertically(
-                    animationSpec = tween(ContentTxMs, easing = Motion.Easing),
-                    initialOffsetY = { it / 30 },
                 )).togetherWith(
                     fadeOut(animationSpec = tween(OldFadeMs, easing = Motion.Easing)),
                 )

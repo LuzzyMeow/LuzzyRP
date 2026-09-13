@@ -3728,47 +3728,86 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 ---
 
-## 📍 当前工作节点（会话 71 收尾 · 供下次接手直接续）
+## 会话 73 · 2026-09-13 · P5 启动：DSH 调查 + A 批走至暂停点（快照落盘接线回退待重做）
 
-> **接手第一件事读这一节**（AGENTS §3.1「读 WORKLOG 末尾」）。HEAD `8a2433aa`，工作区干净。
+**用户指令**：调查 deepseek-harness（DSH）架构；实现完整 Agent Loop；KV 缓存与性能最大优化；实现上游功能。
+四个拍板：注入策略**全保真改道为 DSH 式尾部快照**／**撤掉工作区入口**／**五个假数据页全部接真库**／**设计门继续豁免三方向**。
+
+**DSH 调查（核心结论，源码在 /tmp/dsh-src）**
+- 第一原则：**前缀稳定是涌现的，不是管理出来的**（append-only 日志 + 每节点纯函数投影）；
+- 会变的内容一律**尾部 user 快照**（变了才发 + 作废声明 + 去重：内容没变就一条都不发）；
+- 上游 7 个 position 里 3 个（at_depth/user_top/assistant_top）随轮次漂移，与纯追加**数学上不可兼得**
+  ——WebView 版 patch 047 早已登记此冲突（CHANGELOG.md:407），本次用 DSH 方案收掉。
+- 完整 Agent Loop 要素清单（turn/step、finish_reason 驱动、配对完整、中断保留、压缩）已提炼，见计划 §1.4。
+
+**已落地（提交 62f79c26 / cb012be7 / d5e008ff / 532b6ecc，均已 push）**
+- 纯函数层 4 文件（PromptAssembler / WorldBookActivator / PromptSections / RuntimeSnapshots）+ 51 JVM 测试全绿；
+- `WorldBookTool` 换真库；人设字段裁决（description+personality 都进 prompt——上游只看后者会让真实卡人设全丢）；
+- **A5 真缺陷修复**：温度/最大输出从未持久化（load/save 都漏）→ 已补读写；
+- A4 schema 字节稳定门禁两条；`TransportStore` 漏存问题的修复说明。
+
+**A6/A7 已回退（两处真缺陷，重做方案三步写在 PLAN §11）**
+1. 快照落盘位置错：追加在列表末尾 ≠ 请求中的位置（用户消息之前）→ 纯追加没达成；
+2. 新增 `ChatMessage.Snapshot` 后仪器化测试出现 Compose 运行时崩溃。
+正确接法（下次照做）：`send()` 先取 bundle（IO）→ **先落快照、再落用户消息** → 再跑 turn；
+快照用 payload 标记持久化 + `toChatMessage` 认回 + 界面不渲染但进请求（`fromHistory` 已有）；
+验收加**字节级断言** `turn1 请求 ⊂ turn2 请求`。
+
+**两处要更正的本会话说法**
+- 「主线程读库只在真机崩」**不成立**：Room 的 suspend DAO 自己切线程，`allowMainThreadQueries`
+  只影响同步调用。`forTest` 移除该放宽仍然正确（让测试与生产同纪律），但理由要改；
+- 「SnapshotStateObserver 多线程」在**stash 基线（已知全绿的 cb012be7）同样复现** →
+  判定为**模拟器环境劣化**（冷启动数小时 + 几十次装卸 + 无 GPU 软渲染），处置 = 干净重启后重跑。
+
+**⚠️ 环境损坏（我造成，需恢复）**：排查中我**卸载了模拟器上的应用**（release 包 + 迁移数据集随卸载清空）。
+恢复：重装 release → 把夹具 `app/src/test/resources/legacy/webview-db-fixture.json` 推到
+`filesDir/migration/incoming/legacy-export.json`（需 root，模拟器支持）→ 启动触发迁移 → 核对数字。
+真实数据在用户手机上，未受影响。
+
+**门禁现状**：单测全绿（434，含新增 51+9）；仪器化在**长跑多轮的模拟器**上偶发
+`SnapshotStateObserver`/`performMeasureAndLayout` 红——stash 基线同样复现 = 环境劣化，
+处置 = 干净重启模拟器（本会话实测：重启后首跑曾绿 65/65）。
+
+---
+
+---
+
+## 📍 当前工作节点（会话 73 暂停 · 供下次接手直接续）
+
+> **接手第一件事读这一节**（AGENTS §3.1）。HEAD `532b6ecc`（已 push），工作区干净。
+> **本轮主文档**：`docs/PLAN-v3.0-p5-agent-loop.md`（四批任务 + DSH 证据 + §11 暂停点与重做方案）。
 
 ### 状态
 
 | 项 | 值 |
 |---|---|
-| 五阶段计划位置 | **Stage 0/1/2/3 全部完成；Stage 4（P4-C）4 项里完成 3 项**（4.1 会话总览页 / **4.2 预设与世界书编辑（本会话）** / 4.4 验收标准） |
-| HEAD | `08d2eeb7` ＋ 本会话「计划落档 + W0-W5 实现 + W6/W7 文档」共 7 次提交（最新见 `git log -1`） |
-| 门禁 | 单测全绿 + 仪器化 **65/65** 绿；`ANDROID_SERIAL=emulator-5554 ./gradlew checkChat`（约 1m50s） |
-| 最新发布 | 仍是 **v1.4.0**；v2.0.0 / v3.0.0 都**未发版** |
-| 设计真源 | `DESIGN-compose.md`（UI，已到 §23）／`DESIGN-migration.md`（数据层）／`PLAN-v3.0-presets-worldbook.md`（本批计划，已标执行结果） |
+| 五阶段 | Stage 0-3 完成；Stage 4 完成 3/4（剩真机覆盖安装，等用户授权）；**P5 批 A 走到暂停点** |
+| HEAD | `532b6ecc` |
+| 门禁 | **单测全绿（434）**；仪器化在长跑模拟器上偶发红（stash 基线同样复现 = 环境劣化，重启处置） |
+| 最新发布 | 仍是 v1.4.0；v3.0.0 未发版 |
+| 设计真源 | `DESIGN-compose.md`（§24/§25 待回填）／`PLAN-v3.0-p5-agent-loop.md`（本轮计划） |
 
-### Stage 4（P4-C）剩余一项
+### 下一步（按序，第 1 步是恢复现场）
 
-- **真机覆盖安装实测**（计划 4.3）：模拟器侧已端到端跑通（迁移数字与 JVM 夹具测试一致；
-  本会话还重跑过一次迁移验证 W0 的旧键裁决）；**真机那一步需用户授权**——会替换其日常应用
-  （小米 A9210 / `PA921BMGL3190210G`）。步骤与回滚见 `DESIGN-compose §20.4`；
-  迁移报告**页**（视觉产出）另需设计门，归 P5。
-  ⚠️ 该机**未安装 debug 包**，只有 release，注意别用 debug 装。
+1. **恢复模拟器数据集**（⚠️ 会话 73 误卸载了应用，数据清空）：
+   重装 release → root 下把 `app/src/test/resources/legacy/webview-db-fixture.json`
+   推到 `filesDir/migration/incoming/legacy-export.json` → 启动触发迁移 → 核对
+   `角色 5 · 会话 16 条 · 记忆 8 · 世界书 2 · 忽略遗留世界书 2 条 · 预设 19`。
+2. **A6/A7 重做**（照 PLAN §11 三步，勿从零摸索）。
+3. **门禁**：干净重启模拟器后 `checkChat` 全绿 + `ChatUiTest` 连跑 3 次稳定。
+4. A7 观测层 `CacheObserver.kt` + A8 用量页命中率。
+5. 批 B（完整 Agent Loop）→ 批 C（五个假数据页 + 缺陷）→ 批 D（字号/导入导出/报告页/文档）。
 
-### 顺着计划再往后（P5 / P6）
+### 用户将连真机测试（注意）
 
-- **P5 功能对账**：**预设与世界书的「生效」**（拼进 system/User/AI、检索与 at_depth 注入——上游消费链见
-  `PLAN-v3.0-presets-worldbook.md` 附录 A）、真实角色图解码（现为 monogram 降级）、Markdown 的 LaTeX /
-  Mermaid / HTML 直通 / 图片、表格列宽自适应、代码高亮、**用户可调字号**（需设计门）、
-  **迁移报告页**（需设计门）、附件 / 工作区两个入口的真实功能、多候选 `‹ n/m ›` 持久化、导入导出。
-- **P6 切换与发版**：launcher 从 `MainActivity`（WebView）切到 `ComposeActivity` → 发 v3.0.0。
-- 计划外明确不做：WebDAV/S3 备份、FTS 全文搜索、模型「槽位」语义。
+- 真机 = 小米 A9210 / adb `PA921BMGL3190210G`；**只装 release 包**（无 debug 包）；
+  覆盖安装步骤与回滚见 `DESIGN-compose §20.4`；
+- 真机连上后 `adb devices` 会同时有真机与模拟器 → **仪器化测试必须
+  `ANDROID_SERIAL=emulator-5554`**（已有门禁强制），adb 操作真机要显式 `-s PA921BMGL3190210G`；
+- 真机上的数据是用户的真实数据：**写任何东西之前先问**（本会话教训：我在模拟器上
+  卸载应用前没有确认——模拟器数据可以丢，真机数据绝不能动）。
 
 ### 待用户拍板
 
-1. **真机覆盖安装**（仍待授权）：是否授权我在其手机上 `install -r` v3.0 包并触发迁移
-   （同签名、数据保留、旧库只读）；步骤与回滚见 `DESIGN-compose §20.4`。
-2. **下一步做哪个**：(a) 推进 **P5 功能对账**（建议先做**世界书检索注入 + 预设拼装**，因为这两块的数据
-   现在已经能编辑，用户会立刻期待它生效）；(b) 做 P6 的 launcher 切换并发 v3.0.0（但 P5 未对账就发版偏早）。
-   我的建议是 (a)。
-
-### 本轮改动过的环境（非代码，需知悉）
-
-- AVD `LuzzyRP_Test`：`hw.ramSize` **1536M → 4096M**（原值备份 `config.ini.bak-perf`）；
-  GPU 两项试过 `host`/`angle_indirect` 均无法启动，**已恢复原值**。
-- 两条纪律进 `AGENTS.md` §7 坑表：**① 卡顿先做系统应用基线对照再决定查谁；② 仪器化测试莫名超时先看模拟器资源**。
+1. **真机覆盖安装实测**（Stage 4 剩余）：是否授权 `install -r` 并触发迁移。
+2. P5 批 A 完成后：真机试一轮确认回复质量（PLAN §10 停止点 1）。

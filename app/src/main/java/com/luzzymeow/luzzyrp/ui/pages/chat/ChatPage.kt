@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -107,6 +109,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 
 /**
  * 缓存观测的 logcat tag（真机验收的探针通道）。
@@ -439,18 +442,59 @@ fun ChatPage(
     }
 
     /**
+     * 是否跟随尾部（流式期间自动贴底）。
+     *
+     * ## 为什么不能「逐帧用几何判据判」
+     *
+     * 旧写法是每次内容到达都算一次 `follow = isAtBottom() && !isScrollInProgress`。
+     * 真机实测（2026-09-13，`df97f3c4`）它**在流式期间必然失效**：内容在长、布局在变，
+     * 只要有一次采样落在「刚长高、还没来得及贴底」的那一帧上，`follow` 就变 false；
+     * 而 false 之后没有任何东西把它翻回来（贴底只发生在 follow 为真时）→ **一次抖动 = 永久停止跟随**。
+     * 采样证据：一次真实生成里，界面从第 3 个采样点起「回到底部」按钮常驻（= 判 false），
+     * 文字继续在视口下方长出，用户看到的就是「感觉不到逐字」+「划到底也不吸附」。
+     *
+     * ## 现在的判据：只认**用户手势**
+     *
+     * 跟随的唯一关闭信号是「用户主动拖动列表」（[DragInteraction]）——那是「我在翻旧消息，
+     * 别抢我的滚动位置」的真实表达。程序化滚动、内容长高、布局抖动都不再影响它。
+     * 手势结束时若正好停在底部（含惯性滑完），跟随自动恢复；点「回到底部」也恢复。
+     */
+    var followTail by remember { mutableStateOf(true) }
+
+    /**
      * 贴底：把末项底部对齐视口底部。
      *
      * 传 `scrollOffset = 末项高度` 是常用配方——末项比视口高时（流式气泡长起来之后）
      * 也会停在**最新内容**那一端，而不是停在气泡顶部看旧文字。
+     *
+     * ## ⚠️ 为什么还要补一次 `scrollBy`（2026-09-13 真机实测）
+     *
+     * 真机（小米 25098PN5AC / 1080×2400 / 420dpi）实测：末项比视口高时，
+     * `scrollToItem(末项, 末项高度)` 只滚到**离真正的底还差约 235px**的地方就停了
+     * （「按项定位 + 偏移」的语义在超高项上被夹在某个中间位置，不是末尾）。
+     *
+     * 后果不是「差 235px 好看不好看」，而是**跟随整条链断掉**：
+     * `isAtBottom()` 判 false → `follow` 从此为 false → 流式期间界面**不再滚**，
+     * 新流出的文字长在视口下方 → 用户看到的是「感觉不到逐字」+「划到底也不吸附」。
+     *
+     * 所以这里的做法是**量缺口再补滚**：滚完读一次真实布局，算出「末项底边 − 视口底边」
+     * 的像素差，用 `scrollBy`（相对位移，不受按项定位语义影响）补上。最多两轮，
+     * 确定性收敛；一轮就到位的常见情形（矮气泡）零额外开销。
      */
     suspend fun pinToBottom() {
         val total = listState.layoutInfo.totalItemsCount
         if (total == 0) return
         val lastIndex = total - 1
-        val lastSize = listState.layoutInfo.visibleItemsInfo
-            .lastOrNull { it.index == lastIndex }?.size ?: 0
-        listState.scrollToItem(lastIndex, lastSize)
+        repeat(2) {
+            val lastSize = listState.layoutInfo.visibleItemsInfo
+                .lastOrNull { it.index == lastIndex }?.size ?: 0
+            listState.scrollToItem(lastIndex, lastSize)
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull { it.index == lastIndex } ?: return
+            val gap = last.offset + last.size - info.viewportEndOffset
+            if (gap <= bottomSlackPx) return
+            listState.scrollBy(gap.toFloat())
+        }
     }
 
     /**
@@ -470,6 +514,23 @@ fun ChatPage(
         return lastVisible.offset + lastVisible.size <= info.viewportEndOffset + bottomSlackPx
     }
 
+    // 用户拖动 → 停止跟随；松手后（等惯性滑完）若停在底部 → 恢复跟随。
+    // 只认 DragInteraction 而不是 `isScrollInProgress`：后者包含**我们自己**发起的滚动，
+    // 用它做判据等于「贴底动作本身把跟随关掉」（同一类自噬缺陷）。
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> followTail = false
+                is DragInteraction.Stop, is DragInteraction.Cancel -> {
+                    snapshotFlow { listState.isScrollInProgress }.first { !it }
+                    if (isAtBottom()) followTail = true
+                }
+
+                else -> Unit
+            }
+        }
+    }
+
     // 「用户上滑离开了底部」期间的到达内容 → 回底按钮上点一个小圆点（对齐 rikkahub 的新内容提示语义）
     var unseenWhileAway by remember { mutableStateOf(false) }
 
@@ -483,11 +544,30 @@ fun ChatPage(
     var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
     var pendingRerunIndex by remember { mutableStateOf<Int?>(null) }
 
-    // 开页即贴底（聊天页默认停在最新一轮）
-    LaunchedEffect(Unit) { pinToBottom() }
-
-    // 切换分支后列表内容整体更换：回到最新一轮
-    LaunchedEffect(activeBranchId) { pinToBottom() }
+    /**
+     * 开页 / 切分支后贴底：**等数据真的进了列表再贴**（2026-09-13 真机实测修正）。
+     *
+     * 旧写法是两次裸的 `LaunchedEffect(Unit) { pinToBottom() }` / `LaunchedEffect(activeBranchId)`：
+     * 消息是在另一个 `LaunchedEffect` 里**异步**读出来的（先等迁移出结论，再读库），
+     * 这两次 pin 都跑在数据到达之前——那时 `totalItemsCount == 0`，`pinToBottom()` 首行就返回，
+     * 而它**不会自己重试**。真机实测的后果：打开长会话时用户落在**顶部**，
+     * `isAtBottom()` 判 false（「回到底部」按钮常驻），跟随也就无从开启。
+     *
+     * 现在以「本分支当前条数」为键：0 → N 的那一次变化才是「数据到了」；
+     * 再等列表渲染出条目、留一帧给布局（末项尺寸要参与定位），然后贴底。
+     * [pinnedBranch] 保证**只在本分支首次到位时贴一次**：此后每次新增消息都会让本效果重启，
+     * 但那时用户可能在翻旧消息，抢滚动位置是不对的（跟随由发送/生成路径自己管）。
+     */
+    var pinnedBranch by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(activeBranchId, activeMessages.size) {
+        if (activeMessages.isEmpty() || pinnedBranch == activeBranchId) return@LaunchedEffect
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
+        withFrameNanos { }
+        pinnedBranch = activeBranchId
+        // 换到一条分支 = 换了一屏内容：默认跟随尾部（否则新分支会以「不跟随」的姿态打开）
+        followTail = true
+        pinToBottom()
+    }
 
     /**
      * 分支消息**按需装载**（P4-C 性能专项）。
@@ -614,16 +694,20 @@ fun ChatPage(
             try {
                 engine.run(config = config, request = prepared.plan.request, toolRunner = runner)
                     .collect { event ->
-                        // 「是否贴底」要在内容变化**之前**判定：变化之后末项会变高、判据立刻变 false，
-                        // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
-                        // 另加 `!isScrollInProgress`：用户正在拖动/惯性滑动时不抢滚动（rikkahub 同条件）。
-                        val follow = isAtBottom() && !listState.isScrollInProgress
+                        // 跟随 = 「用户没有主动离开尾部」（见 followTail 的说明）。
+                        // 这里**不再**逐帧算几何判据：流式期间内容在长，那样必然抖成 false 且回不来。
                         traceStreamEvent(event)
                         turn.apply(event)
                         // 压缩（B5）：把水位线**立刻**落库（不是等 onFinish）——它决定下一轮请求
                         // 从哪里开始，晚一轮落就是多付一次摘要调用、多断一次前缀。
                         if (event is AgentLoop.Event.Compacted) recordCompaction(branchId, prepared, event)
-                        if (follow) pinToBottom() else unseenWhileAway = true
+                        if (followTail) {
+                            // 跟随中：内容在长 → 每轮都贴回底部（这是「真流式」能被看见的前提）
+                            unseenWhileAway = false
+                            pinToBottom()
+                        } else {
+                            unseenWhileAway = true
+                        }
                     }
             } catch (_: CancellationException) {
                 // 用户点「停止」：保留已真实到达的正文与节点（不丢弃），并**记账**——
@@ -666,6 +750,7 @@ fun ChatPage(
         // 记住本轮所属分支：生成期间用户切到别的分支时，结果仍落在**发起的那条分支**上
         val turnBranchId = activeBranchId
         val state = activeMessages.toList()
+        followTail = true
         job = scope.launch {
             val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = true)
 
@@ -720,6 +805,8 @@ fun ChatPage(
         // 会出现两次（既挤占上下文、也让模型以为用户说了两遍）。
         val state = prefix.dropLast(1)
         val turnBranchId = activeBranchId
+        // 用户主动发话 → 恢复跟随（新内容在尾部，他要看到自己的消息与回复）
+        followTail = true
         job = scope.launch {
             val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
             runTurn(prepared, branchId = turnBranchId, regeneratingIndex = null) { turn ->
@@ -756,6 +843,8 @@ fun ChatPage(
         // 同上：这条用户消息由本轮输入带上，历史里不再收一份
         val state = prefix.dropLast(1)
         val turnBranchId = activeBranchId
+        // 用户主动发话 → 恢复跟随（新内容在尾部，他要看到自己的消息与回复）
+        followTail = true
         job = scope.launch {
             val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
             runTurn(prepared, branchId = turnBranchId, regeneratingIndex = messageIndex) { turn ->
@@ -1106,7 +1195,9 @@ fun ChatPage(
                     // 回到底部（脱离底部时出现；rikkahub 的 MessageJumper 取其中最必要的一钮）
                     // 动效遵 DESIGN 纪律：进入 200ms / 退出 140ms，禁 scale(0)（起点 0.9）
                     AnimatedVisibility(
-                        visible = !atBottom,
+                        // 「我不在底部」**且**「我没在跟随」才出按钮：跟随中几何判据会有单帧抖动
+                        // （内容刚长高、贴底还没跑），只看 atBottom 会让按钮在流式期间一闪一闪。
+                        visible = !atBottom && !followTail,
                         enter = fadeIn(tween(Motion.EnterMs)) +
                             scaleIn(initialScale = 0.9f, animationSpec = tween(Motion.EnterMs)),
                         exit = fadeOut(tween(Motion.ExitMs)) +
@@ -1126,6 +1217,8 @@ fun ChatPage(
                                 )
                                 .clickable {
                                     unseenWhileAway = false
+                                    // 点它 = 「我要回尾部」→ 恢复跟随，而不是只滚一次
+                                    followTail = true
                                     scope.launch { pinToBottom() }
                                 },
                             contentAlignment = Alignment.Center,
@@ -1242,6 +1335,11 @@ fun ChatPage(
                 store.save(config)
                 showModels = false
                 scope.launch { snackbarHostState.showSnackbar("已切换到 $id（下一条请求即生效）") }
+            },
+            onConfigure = {
+                // 从模型面板进配置：先收起面板再开对话框（两个弹层叠着会互相盖）
+                showModels = false
+                showConfig = true
             },
             onDismiss = { showModels = false },
         )

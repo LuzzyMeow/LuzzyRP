@@ -71,6 +71,7 @@ import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 fun ModelPickerSheet(
     config: TransportConfig,
     onSelect: (String) -> Unit,
+    onConfigure: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -190,6 +191,15 @@ fun ModelPickerSheet(
                         }
                     }
                 }
+            }
+
+            // 供应商配置入口（2026-09-13 真机实测补的真缺陷）：配置**已存在**时，模型 chip 只打开
+            // 本面板，而全应用没有第二个入口 → Base URL / 密钥 / 模型 / 上下文窗口全都改不了
+            // （只有「未配置」时才会弹出配置对话框）。动作行沿用世界书 / 预设面板既有的
+            // [SheetAction]（不新造组件、不新造视觉）。
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetAction("供应商配置", onConfigure)
+                SheetAction("关闭", onDismiss, subtle = true)
             }
         }
     }

@@ -110,6 +110,17 @@ data class LlmMessage(
      * 2. 观测层（`CacheObserver`）区分「真实历史」与「运行时快照」。
      */
     val runtimeSnapshot: Boolean = false,
+    /**
+     * 这条消息来自**存储里的第几行**（[fromHistory] 为真时才有意义）。
+     *
+     * 与 [fromHistory] 同类：**不参与任何协议序列化**。用途只有一个——压缩（B5）之后要把
+     * 「简报取代了哪一段」落库，而落库位置是**存储下标**：引擎只认请求消息，所以由装配层
+     * （`RequestBuilder.historyOf`）把「请求消息 → 存储行」的对应关系带上，
+     * 免得引擎为了写库去持有第二份会话状态。
+     *
+     * 一条 AI 消息可能展开成多条（`ToolTrail.expand`：调用 + 结果 + 正文），它们共享同一个下标。
+     */
+    val sourceIndex: Int? = null,
 ) {
     /**
      * 归一消息 → OpenAI 形态对象（[raw] 优先，无 raw 时按字段合成）。

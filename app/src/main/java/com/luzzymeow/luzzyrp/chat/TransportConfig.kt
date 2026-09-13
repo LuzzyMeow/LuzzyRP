@@ -25,6 +25,17 @@ data class TransportConfig(
      * 思考时间线上也就不会出现工具节点（不是把 UI 藏起来骗人）。
      */
     val toolsEnabled: Boolean = true,
+    /**
+     * 模型的**上下文窗口**（tokens）——压缩（B5）唯一的门槛输入。
+     *
+     * 取默认值时是**保守值**：宁可早压缩（多付一次摘要调用），也不要撞供应商的溢出报错——
+     * 溢出的表现是「这一轮直接失败」，用户看到的是报错而不是回复。
+     * 填对了只影响压缩时机；**填 0 或负数 = 关闭自动压缩**（不压缩，让供应商直接报错）。
+     *
+     * 天花板（如实登记）：我们**不猜**各家模型的窗口大小（同一家的不同版本也不同，
+     * 猜错了是静默的错误行为），所以默认值只是一个安全的floor；用户可在供应商配置里填真实值。
+     */
+    val contextWindow: Int = DefaultContextWindow,
 ) {
     /** 是否已可发起真实请求。 */
     val configured: Boolean get() = baseUrl.isNotBlank() && apiKey.isNotBlank() && model.isNotBlank()
@@ -47,6 +58,31 @@ data class TransportConfig(
 
     companion object {
         const val DefaultMaxTokens: Int = 1200
+
+        /**
+         * 默认上下文窗口（tokens）。
+         *
+         * 32,768 是「大多数主流模型都不会低于它」的安全floor：压缩线落在 ~26K tokens，
+         * 对 64K/128K 的模型只是提前一点，对 32K 的模型正好够用。
+         * 用户填了真实值就按真实值走（见 [TransportConfig.contextWindow]）。
+         */
+        const val DefaultContextWindow: Int = 32_768
+
+        /**
+         * 解析用户输入的上下文窗口（纯函数，可单测）。
+         *
+         * 返回 **null = 输入非法**：界面据此把错误贴在该字段上并拦住保存。
+         * 刻意**不静默回退成默认值**——那正是本版刚修掉的那类缺陷（用户以为自己填的生效了，
+         * 实际被悄悄换掉）；也不钳值，因为「我填了 100000 却变成 0」同样是静默改写用户意图。
+         *
+         * 宽容之处：千分位与空白一律忽略（用户从别处复制 `65,536` 是常见动作）。
+         */
+        fun parseContextWindow(text: String): Int? {
+            val cleaned = text.filterNot { it.isWhitespace() || it == ',' || it == '，' || it == '_' }
+            if (cleaned.isEmpty()) return null
+            val value = cleaned.toIntOrNull() ?: return null
+            return value.takeIf { it >= 0 }
+        }
 
         /** 打码：保留首 4 位 + 长度，便于用户确认填对了哪一把。 */
         fun maskKey(key: String): String {
@@ -74,6 +110,7 @@ class TransportStore(context: Context) {
             .takeIf { it != TEMPERATURE_UNSET }?.toDouble(),
         maxTokens = prefs.getInt(KEY_MAX_TOKENS, TransportConfig.DefaultMaxTokens),
         toolsEnabled = prefs.getBoolean(KEY_TOOLS, true),
+        contextWindow = prefs.getInt(KEY_CONTEXT_WINDOW, TransportConfig.DefaultContextWindow),
     )
 
     fun save(config: TransportConfig) = prefs.edit {
@@ -85,6 +122,7 @@ class TransportStore(context: Context) {
         else putFloat(KEY_TEMPERATURE, config.temperature.toFloat())
         putInt(KEY_MAX_TOKENS, config.maxTokens)
         putBoolean(KEY_TOOLS, config.toolsEnabled)
+        putInt(KEY_CONTEXT_WINDOW, config.contextWindow)
     }
 
     private companion object {
@@ -95,6 +133,7 @@ class TransportStore(context: Context) {
         const val KEY_TOOLS = "tools_enabled"
         const val KEY_TEMPERATURE = "temperature"
         const val KEY_MAX_TOKENS = "max_tokens"
+        const val KEY_CONTEXT_WINDOW = "context_window"
 
         /** 哨兵值：区分「没存过」与「存了 0.0」（0.0 是合法温度）。 */
         const val TEMPERATURE_UNSET = Float.MIN_VALUE

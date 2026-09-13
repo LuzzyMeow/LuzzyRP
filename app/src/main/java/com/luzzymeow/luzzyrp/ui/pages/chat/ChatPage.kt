@@ -56,6 +56,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -118,6 +120,7 @@ private const val TAG_CACHE = "LuzzyCache"
 /** 落盘条目的**抗混淆**标签（`::class.simpleName` 在 release 包会被 R8 改名，日志就不可读了）。 */
 private fun appendLabel(message: ChatMessage): String = when (message) {
     is ChatMessage.Snapshot -> "Snapshot"
+    is ChatMessage.Compacted -> "Compacted"
     is ChatMessage.User -> "User"
     is ChatMessage.Ai -> "Ai"
 }
@@ -376,7 +379,9 @@ fun ChatPage(
      * 表现是「点了第 3 条的删除，删掉的是第 4 条」这类静默错位。
      */
     val visibleMessages = remember(activeMessages) {
-        activeMessages.withIndex().filterNot { it.value is ChatMessage.Snapshot }
+        activeMessages.withIndex().filterNot {
+            it.value is ChatMessage.Snapshot || it.value is ChatMessage.Compacted
+        }
     }
 
     /** 从存储下标 [from] 起**可见的**条数（删除确认文案用；不能把看不见的快照算进去）。 */
@@ -391,6 +396,21 @@ fun ChatPage(
     fun appendTo(branchId: String, message: ChatMessage, reasoning: String? = null) {
         branchMessages[branchId] = branchMessages[branchId].orEmpty() + message
         persist { repo, uuid -> repo.append(uuid, branchId, message, reasoning) }
+    }
+
+    /**
+     * 在**中间**插入一条（B5 的压缩水位线）。
+     *
+     * 与 [appendTo] 的差别只有位置：水位线的语义是「这条之前的历史都被它取代」，
+     * 所以它必须落在「最后一条被裁掉的历史」与「第一条保留的消息」之间。
+     * 界面不受影响——它是隐藏行（`visibleMessages` 把它滤掉），用户照样看得见全部历史。
+     */
+    fun insertAt(branchId: String, index: Int, message: ChatMessage) {
+        val list = branchMessages[branchId].orEmpty().toMutableList()
+        val at = index.coerceIn(0, list.size)
+        list.add(at, message)
+        branchMessages[branchId] = list
+        persist { repo, uuid -> repo.insertAt(uuid, branchId, at, message) }
     }
 
     fun appendMessage(message: ChatMessage) = appendTo(activeBranchId, message)
@@ -507,7 +527,10 @@ fun ChatPage(
             when (message) {
                 is ChatMessage.User -> message.text
                 is ChatMessage.Ai -> message.raw
+                // 快照与压缩简报都不是「最近说过的话」：前者是运行时事实，后者是旧对话的摘要，
+                // 拿它们去匹配世界书关键词会误触发条目。
                 is ChatMessage.Snapshot -> null
+                is ChatMessage.Compacted -> null
             }
         }
         val bundle = withContext(Dispatchers.IO) {
@@ -537,6 +560,33 @@ fun ChatPage(
     }
 
     /**
+     * 压缩水位线落库（B5）。
+     *
+     * 位置算得出来是因为装配层给每条请求消息带了**存储下标**（`LlmMessage.sourceIndex`）：
+     * 被裁掉的历史条数 + 第一条保留消息的下标 = 水位线该插在哪一行。
+     * 全部历史都被裁掉时（[AgentLoop.Event.Compacted.dropped] 等于历史总条数），
+     * 水位线落在**最后一条历史之后**——本轮刚落的快照/用户消息就在那里，正好排在它后面。
+     *
+     * 拿不到下标（无宿主角色的演示态、或历史为空）就**不落库**：宁可下一轮重新压缩，
+     * 也不能把水位线写到一个猜出来的位置——那会让「保留的近期对话」凭空消失。
+     */
+    suspend fun recordCompaction(
+        branchId: String,
+        prepared: PreparedTurn,
+        event: AgentLoop.Event.Compacted,
+    ) {
+        val history = prepared.plan.history
+        val at = history.getOrNull(event.dropped)?.sourceIndex
+            ?: history.lastOrNull()?.sourceIndex?.plus(1)
+            ?: return
+        Log.i(
+            TAG_CACHE,
+            "压缩落库 idx=$at 裁=${event.dropped} 条 · 估算 ${event.tokensBefore}→${event.tokensAfter} tokens",
+        )
+        insertAt(branchId, at, ChatMessage.Compacted(event.summary))
+    }
+
+    /**
      * 跑一轮真实生成（发送与重新生成共用）。
      *
      * [prepared] 已经把请求与落盘顺序都算好了（见 [prepareTurn] / [RequestBuilder]），
@@ -545,9 +595,13 @@ fun ChatPage(
      * [onFinish] 拿到收尾后的 [LiveTurn] 自行决定落库方式：新消息追加、或作为候选并入既有消息。
      * [regeneratingIndex] 非空时，live 面板**就地**渲染在那条消息的位置（而不是列表末尾），
      * 让「重新生成」看起来是在原处重写，而不是凭空冒出新气泡。
+     *
+     * [branchId] 必须显式传入（而不是读 `activeBranchId`）：生成期间用户可以切分支，
+     * 而压缩水位线必须落回**发起这一轮的那条分支**，否则会写错分支（静默串话）。
      */
     fun runTurn(
         prepared: PreparedTurn,
+        branchId: String,
         regeneratingIndex: Int?,
         onFinish: (LiveTurn) -> Unit,
     ) {
@@ -566,6 +620,9 @@ fun ChatPage(
                         val follow = isAtBottom() && !listState.isScrollInProgress
                         traceStreamEvent(event)
                         turn.apply(event)
+                        // 压缩（B5）：把水位线**立刻**落库（不是等 onFinish）——它决定下一轮请求
+                        // 从哪里开始，晚一轮落就是多付一次摘要调用、多断一次前缀。
+                        if (event is AgentLoop.Event.Compacted) recordCompaction(branchId, prepared, event)
                         if (follow) pinToBottom() else unseenWhileAway = true
                     }
             } catch (_: CancellationException) {
@@ -627,7 +684,7 @@ fun ChatPage(
             )
             prepared.plan.appends.forEach { appendTo(turnBranchId, it) }
 
-            runTurn(prepared, regeneratingIndex = null) { turn ->
+            runTurn(prepared, branchId = turnBranchId, regeneratingIndex = null) { turn ->
                 val error = turn.error
                 if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
                     appendTo(
@@ -665,7 +722,7 @@ fun ChatPage(
         val turnBranchId = activeBranchId
         job = scope.launch {
             val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
-            runTurn(prepared, regeneratingIndex = null) { turn ->
+            runTurn(prepared, branchId = turnBranchId, regeneratingIndex = null) { turn ->
                 val error = turn.error
                 if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
                     appendTo(
@@ -701,7 +758,7 @@ fun ChatPage(
         val turnBranchId = activeBranchId
         job = scope.launch {
             val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
-            runTurn(prepared, regeneratingIndex = messageIndex) { turn ->
+            runTurn(prepared, branchId = turnBranchId, regeneratingIndex = messageIndex) { turn ->
                 val error = turn.error
                 if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
                     editMessage(turnBranchId, messageIndex) { current ->
@@ -1008,6 +1065,9 @@ fun ChatPage(
                             // 保留这个分支是为了让 sealed 的**穷尽性检查继续生效**：
                             // 将来给 ChatMessage 加第四个变体时，编译器仍会在这里拦下来。
                             is ChatMessage.Snapshot -> Unit
+
+                            // 同上：压缩水位线也是隐藏行（不渲染、但进请求）
+                            is ChatMessage.Compacted -> Unit
                         }
                     }
                     // 新消息的 live 面板（重新生成时已被就地渲染，避免出现两个 live）
@@ -1271,6 +1331,12 @@ private fun TransportConfigDialog(
     var baseUrl by remember { mutableStateOf(initial.baseUrl) }
     var apiKey by remember { mutableStateOf(initial.apiKey) }
     var model by remember { mutableStateOf(initial.model) }
+    // 数值字段用**文本**存草稿，由 [TransportConfig.parseContextWindow] 一处解析：
+    // 用 Int 状态就得在「删到空」时凭空选一个替代值（那是替用户做决定，也正是本次修的
+    // 「静默丢配置」同类问题）。解析不出来 = 把错误贴在该字段上并拦住保存。
+    var contextWindow by remember { mutableStateOf(initial.contextWindow.toString()) }
+    val parsedContextWindow = TransportConfig.parseContextWindow(contextWindow)
+    val focus = LocalFocusManager.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1314,6 +1380,41 @@ private fun TransportConfigDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // 上下文窗口与模型同属「请求参数」簇，故紧跟模型；「当前密钥」是脚注，留在末尾。
+                OutlinedTextField(
+                    value = contextWindow,
+                    onValueChange = { contextWindow = it },
+                    label = { Text("上下文窗口（tokens）", fontFamily = LuzzyFonts.Body) },
+                    placeholder = { Text("${TransportConfig.DefaultContextWindow}", fontSize = 12.sp) },
+                    singleLine = true,
+                    isError = parsedContextWindow == null,
+                    // 错误**贴在字段上**（而不是只在按钮上禁用）：用户才知道该改哪个框
+                    supportingText = if (parsedContextWindow == null) {
+                        {
+                            Text(
+                                text = "请填 0 或正整数（例如 ${TransportConfig.DefaultContextWindow}）",
+                                fontSize = 12.sp,
+                                fontFamily = LuzzyFonts.Body,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    // 填错只影响压缩时机（B5），所以文案给的是「怎么填」而不是警告
+                    text = "模型能吃多长的上下文。不确定就保持 ${TransportConfig.DefaultContextWindow}；" +
+                        "填 0 关闭自动压缩。",
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.outline,
+                )
                 if (initial.apiKey.isNotBlank()) {
                     Text(
                         text = "当前密钥：${initial.maskedKey()}",
@@ -1325,15 +1426,25 @@ private fun TransportConfigDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                onSave(
-                    TransportConfig(
-                        baseUrl = baseUrl.trim(),
-                        apiKey = apiKey.trim(),
-                        model = model.trim(),
-                    ),
-                )
-            }) {
+            TextButton(
+                // 字段非法时**拦住保存**（错误已贴在字段上，用户知道要改哪个框）
+                enabled = parsedContextWindow != null,
+                onClick = {
+                    // 收起键盘再收尾：数字键盘紧贴输入框，不收回的话保存/取消会被压住
+                    focus.clearFocus()
+                    onSave(
+                        // ★ 必须用 copy：新建一个 TransportConfig 会把没在这张表单上的字段
+                        // （温度 / 最大输出 / 工具开关 / 上下文窗口之外的一切）**重置为默认值**。
+                        // 那是一次静默的配置丢失（A5 修的是「存不下来」，这里修的是「存不对」）。
+                        initial.copy(
+                            baseUrl = baseUrl.trim(),
+                            apiKey = apiKey.trim(),
+                            model = model.trim(),
+                            contextWindow = parsedContextWindow ?: initial.contextWindow,
+                        ),
+                    )
+                },
+            ) {
                 Text("保存", fontFamily = LuzzyFonts.Body)
             }
         },
@@ -1366,6 +1477,12 @@ private fun traceStreamEvent(event: AgentLoop.Event) {
             "usage in=${event.info.input} out=${event.info.output} cached=${event.info.cached}"
 
         is AgentLoop.Event.StepStarted -> "step turn=${event.turn} step=${event.step}"
+        is AgentLoop.Event.Compacted ->
+            "compacted ${event.reason} 裁=${event.dropped} 留=${event.kept} " +
+                "tokens=${event.tokensBefore}→${event.tokensAfter} 简报=${event.summaryChars}字" +
+                (event.summaryUsage?.cached?.let { "（摘要缓存 $it/${event.summaryUsage?.input}）" }.orEmpty())
+
+        is AgentLoop.Event.CompactionFailed -> "compaction_failed ${event.reason} ${event.detail}"
         is AgentLoop.Event.Finished -> "finished ${event.reason.id}${event.wire?.let { " ($it)" }.orEmpty()}"
         is AgentLoop.Event.Failed -> "failed ${event.message}"
     }

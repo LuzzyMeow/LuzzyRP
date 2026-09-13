@@ -44,6 +44,17 @@ import kotlinx.coroutines.flow.flow
  * | step 数达 [maxSteps] | [FinishReason.StepLimit]（**我们的加法**，DSH 无上限） |
  *
  * 取消（协程被 cancel）不是终止原因：那时 Flow 已经死了，收尾与落库由调用方负责（见 B4）。
+ *
+ * ## 压缩（B5）与重试（B6）
+ *
+ * | 时机 | 动作 | 上限 |
+ * |---|---|---|
+ * | 每个 step **发请求之前** | 估算达 `contextWindow × 0.8` → 摘要 + 裁历史 | 一轮 1 次 |
+ * | 供应商报**上下文溢出** | 强制压缩后重发该 step | 一轮 1 次 |
+ * | **网络类**失败且本次尝试无内容上屏 | 原样重发该 step | 一轮 1 次 |
+ *
+ * 三条都只做一次：安全阀是计数（[MAX_RETRIES]），不是布尔——数字才能进日志与事件。
+ * 压缩只切断前缀缓存**一次**（压缩后的序列继续纯追加），这正是它值得付一次摘要调用的原因。
  */
 class AgentLoop(
     private val transport: LlmTransport = OpenAiTransport(),
@@ -127,6 +138,40 @@ class AgentLoop(
         data class Finished(val reason: FinishReason, val wire: String? = null) : Event
 
         data class Failed(val message: String) : Event
+
+        /**
+         * **压缩记账**（B5）：一次压缩成功落地。
+         *
+         * 为什么连「裁了几条」都要报出来：一是调用方要拿 [dropped] 把简报**落库到正确位置**
+         * （水位线 = 「这条之前的历史都被它取代了」，见 `ChatMessage.Compacted`）；
+         * 二是压缩是**会切断前缀缓存**的少数事件之一，界面上迟早要能看到「这轮为什么变慢了」。
+         *
+         * [dropped] 的口径是「相对**本轮请求的原始历史**」——所以一轮最多压缩一次（见 `run` 内的
+         * `compactions` 记账约束）：第二次的 `dropped` 会变成相对已压缩的序列，落库位置就错了。
+         */
+        data class Compacted(
+            /** [REASON_THRESHOLD] 或 [REASON_OVERFLOW]。 */
+            val reason: String,
+            /** 摘要正文（调用方要把它落库成水位线行——不落库，下一轮就得重新摘要）。 */
+            val summary: String,
+            /** 被裁掉的**历史**消息条数（调用方据此算出水位线的存储位置）。 */
+            val dropped: Int,
+            /** 保留的历史消息条数。 */
+            val kept: Int,
+            val tokensBefore: Int,
+            val tokensAfter: Int,
+            val summaryChars: Int,
+            /** 摘要请求自身的用量（含缓存命中 → 「摘要吃了一次缓存」可核）。 */
+            val summaryUsage: UsageInfo? = null,
+        ) : Event
+
+        /**
+         * 压缩**没做成**（摘要为空 / 摘要请求失败 / 没有可裁的历史）。
+         *
+         * 必须让它可见：静默失败会让用户以为「上下文已经压缩过了」，
+         * 而真相是下一轮照样可能溢出——那种不可见的状态最难查。
+         */
+        data class CompactionFailed(val reason: String, val detail: String) : Event
     }
 
     private val _state = MutableStateFlow<State>(State.Idle)
@@ -163,6 +208,58 @@ class AgentLoop(
         val executed = toolRunner ?: this@AgentLoop.toolRunner
         var step = 0
 
+        // ── B5/B6 的记账：三类动作各只允许一次 ──
+        // 「压缩 → 还超 → 再压缩」与「失败 → 重发 → 还失败 → 再重发」都会变成烧钱的死循环，
+        // 所以安全阀用计数而不是布尔：数字能进日志与事件，布尔不能。
+        var compactions = 0
+        var overflowRetries = 0
+        var networkRetries = 0
+
+        /**
+         * 压缩一次并用简报重建消息（B5）。失败返回 null = **保持原样继续**（不丢上下文）。
+         *
+         * 失败一律降级而不是中断：压缩是**优化**，上下文太长时宁可让供应商报错（用户看得见），
+         * 也不能因为摘要调用失败就把对话本身弄丢。
+         */
+        suspend fun compactNow(reason: String): List<LlmMessage>? {
+            val plan = Compaction.plan(messages, Compaction.keepTokens(config.contextWindow)) ?: return null
+            val summary = StringBuilder()
+            var usage: UsageInfo? = null
+            var summaryError: String? = null
+            try {
+                // 摘要请求：**与正式请求同头同工具**，只有 messages 不同（= 原前缀 + 指令）
+                // → 服务端前缀缓存正好命中（DSH region.ts:515-524 同法）。
+                transport.stream(llmRequest(plan.summaryRequest, config)).collect { delta ->
+                    delta.content?.takeIf { it.isNotEmpty() }?.let { summary.append(it) }
+                    UsageInfo.from(delta)?.let { usage = it }
+                    delta.error?.let { summaryError = it.message }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                summaryError = e.javaClass.simpleName
+            }
+            val text = summary.toString().trim()
+            if (summaryError != null || text.isEmpty()) {
+                emit(Event.CompactionFailed(reason, summaryError ?: "摘要为空"))
+                return null
+            }
+            val rebuilt = Compaction.rebuild(messages, plan.cut, text)
+            emit(
+                Event.Compacted(
+                    reason = reason,
+                    summary = text,
+                    dropped = plan.dropped,
+                    kept = plan.kept,
+                    tokensBefore = plan.tokensBefore,
+                    tokensAfter = ContextBudget.estimate(rebuilt),
+                    summaryChars = text.length,
+                    summaryUsage = usage,
+                ),
+            )
+            return rebuilt
+        }
+
         while (true) {
             // step 上限：**在开新 step 之前**判，这样「跑满 50 步」是明确终止而不是第 51 次请求
             if (step >= maxSteps) {
@@ -170,61 +267,112 @@ class AgentLoop(
                 emit(Event.Finished(FinishReason.StepLimit))
                 return@flow
             }
+
+            // ── B5 压缩门（**发请求之前**）：达上下文窗口的 80% 就压缩，一轮最多一次 ──
+            if (compactions == 0 && Compaction.needed(messages, config.contextWindow)) {
+                compactNow(REASON_THRESHOLD)?.let {
+                    messages = it
+                    compactions++
+                }
+            }
+
             step++
             _state.value = State.Running(turn = 1, step = step)
             emit(Event.StepStarted(turn = 1, step = step))
 
-            val markup = ToolMarkupFilter.Stream()
-            val acc = ToolCallAccumulator()
-            val announced = mutableSetOf<Int>()
+            // ── 一次 step 的真实请求；B6 的两类重试都在这里闭环 ──
             var wireFinish: String? = null
-            var error: String? = null
+            // 成功那一次尝试里模型请求的工具（重试时会被重新算一遍，所以放在外层取结果）
+            var calls: List<ToolCall> = emptyList()
+            var stepFailure: com.luzzymeow.luzzyrp.chat.llm.LlmError? = null
+            while (true) {
+                // 每次尝试都用**全新的**过滤器与累加器：重发时它们必须是空的
+                val markup = ToolMarkupFilter.Stream()
+                val acc = ToolCallAccumulator()
+                val announced = mutableSetOf<Int>()
+                var attemptFailure: com.luzzymeow.luzzyrp.chat.llm.LlmError? = null
+                // 「这一次尝试有没有东西上屏」——重发的**唯一**安全前提（否则会重复输出）
+                var attemptVisible = false
+                wireFinish = null
 
-            val llmRequest = LlmRequest(
-                messages = messages,
-                protocol = Protocol,
-                baseUrl = config.chatEndpoint(),
-                apiKey = config.apiKey,
-                model = config.model,
-                temperature = config.temperature,
-                maxTokens = config.maxTokens,
-                stream = true,
-                // 工具开关是**真实请求差异**：关闭后不发 tools，模型无从请求工具
-                tools = if (config.toolsEnabled) WorldBookTool.schemas else emptyList(),
-            )
-            // 观测层（A7）：**只统计不干预**——它自己吞掉一切异常，绝不打断生成。
-            CacheObserver.onRequest(llmRequest)
+                val llmRequest = llmRequest(messages, config)
+                // 观测层（A7）：**只统计不干预**——它自己吞掉一切异常，绝不打断生成。
+                CacheObserver.onRequest(llmRequest)
 
-            transport.stream(llmRequest).collect { delta ->
-                error = delta.error?.let { it.message } ?: error
-                delta.reasoning?.takeIf { it.isNotEmpty() }?.let { emit(Event.Reasoning(it)) }
-                delta.content?.takeIf { it.isNotEmpty() }?.let { chunk ->
-                    // 先过协议噪声过滤：DSML 工具标记绝不进正文
-                    markup.accept(chunk).takeIf { it.isNotEmpty() }?.let { emit(Event.Content(it)) }
-                }
-                if (delta.toolCalls.isNotEmpty()) {
-                    acc.accept(delta.toolCalls)
-                    delta.toolCalls.forEach { d ->
-                        if (announced.add(d.index) && !d.name.isNullOrBlank()) {
-                            emit(Event.ToolCallStarted(d.name))
+                transport.stream(llmRequest).collect { delta ->
+                    delta.error?.let { attemptFailure = it }
+                    delta.reasoning?.takeIf { it.isNotEmpty() }?.let {
+                        attemptVisible = true
+                        emit(Event.Reasoning(it))
+                    }
+                    delta.content?.takeIf { it.isNotEmpty() }?.let { chunk ->
+                        // 先过协议噪声过滤：DSML 工具标记绝不进正文
+                        markup.accept(chunk).takeIf { it.isNotEmpty() }?.let {
+                            attemptVisible = true
+                            emit(Event.Content(it))
                         }
-                        d.argumentsChunk?.takeIf { it.isNotEmpty() }?.let { emit(Event.ToolCallArgs(it)) }
+                    }
+                    if (delta.toolCalls.isNotEmpty()) {
+                        attemptVisible = true
+                        acc.accept(delta.toolCalls)
+                        delta.toolCalls.forEach { d ->
+                            if (announced.add(d.index) && !d.name.isNullOrBlank()) {
+                                emit(Event.ToolCallStarted(d.name))
+                            }
+                            d.argumentsChunk?.takeIf { it.isNotEmpty() }?.let { emit(Event.ToolCallArgs(it)) }
+                        }
+                    }
+                    // 用量：供应商在流末尾给（OpenAI 已开 stream_options.include_usage）
+                    UsageInfo.from(delta)?.let {
+                        CacheObserver.onUsage(it)
+                        emit(Event.Usage(it))
+                    }
+                    delta.finishReason?.let { wireFinish = it }
+                }
+
+                // 本轮正文尾巴（被行缓冲扣住的部分）先放出去，再决定后续
+                markup.flush().takeIf { it.isNotEmpty() }?.let { emit(Event.Content(it)) }
+
+                // 这次尝试请求到的工具（粘性 max-tokens 的判据在后面，所以先算出来）
+                calls = if (wireFinish == FinishToolCalls) acc.build() else emptyList()
+
+                val error = attemptFailure
+                if (error == null) break
+
+                // ── B6 ①：上下文溢出 → **先压缩再重发**（只一次）──
+                // 溢出的报错几乎总是「请求还没被处理」就返回的，所以这一次尝试没有任何内容上屏；
+                // 但仍然按「什么都没上屏」为条件，避免个别供应商先吐半截再报错时重复输出。
+                //
+                // `compactions == 0` 是**记账约束**而不只是省一次调用：压缩事件里的 `dropped`
+                // 是「相对本轮原始历史」的条数，落库方据此算水位线位置；一轮里压第二次，
+                // 那个数就变成相对「已压缩后的序列」，水位线会插到错误的位置（静默丢上下文）。
+                if (RetryPolicy.classify(error) == RetryPolicy.Kind.ContextOverflow &&
+                    overflowRetries < MAX_RETRIES && !attemptVisible && compactions == 0
+                ) {
+                    overflowRetries++
+                    val compacted = compactNow(REASON_OVERFLOW)
+                    if (compacted != null) {
+                        messages = compacted
+                        compactions++
+                        continue
                     }
                 }
-                // 用量：供应商在流末尾给（OpenAI 已开 stream_options.include_usage）
-                UsageInfo.from(delta)?.let {
-                    CacheObserver.onUsage(it)
-                    emit(Event.Usage(it))
+
+                // ── B6 ②：网络类失败 → 只在「什么都没上屏」时重发（只一次）──
+                if (RetryPolicy.classify(error) == RetryPolicy.Kind.Network &&
+                    networkRetries < MAX_RETRIES && !attemptVisible
+                ) {
+                    networkRetries++
+                    continue
                 }
-                delta.finishReason?.let { wireFinish = it }
+
+                stepFailure = error
+                break
             }
 
-            // 本轮正文尾巴（被行缓冲扣住的部分）先放出去，再决定后续
-            markup.flush().takeIf { it.isNotEmpty() }?.let { emit(Event.Content(it)) }
-
-            if (error != null) {
+            if (stepFailure != null) {
                 _state.value = State.Idle
-                emit(Event.Failed(error!!))
+                emit(Event.Failed(stepFailure!!.message))
                 return@flow
             }
 
@@ -236,7 +384,6 @@ class AgentLoop(
                 return@flow
             }
 
-            val calls = if (wireFinish == FinishToolCalls) acc.build() else emptyList()
             if (calls.isEmpty()) {
                 _state.value = State.Idle
                 emit(Event.Finished(FinishReason.Completed, wireFinish))
@@ -287,11 +434,46 @@ class AgentLoop(
         }
     }
 
+    /**
+     * 组装**线格式请求**（三协议共用的那一半）。
+     *
+     * 摘要请求（B5）与正式请求共用本函数，**只有 `messages` 不同**——这正是
+     * 「摘要也吃一次前缀缓存」的前提：协议 / 端点 / 模型 / 采样值 / 工具集
+     * 任一不同，服务端的缓存纪元就断在那一项上。
+     */
+    private fun llmRequest(messages: List<LlmMessage>, config: TransportConfig): LlmRequest = LlmRequest(
+        messages = messages,
+        protocol = Protocol,
+        baseUrl = config.chatEndpoint(),
+        apiKey = config.apiKey,
+        model = config.model,
+        temperature = config.temperature,
+        maxTokens = config.maxTokens,
+        stream = true,
+        // 工具开关是**真实请求差异**：关闭后不发 tools，模型无从请求工具
+        tools = if (config.toolsEnabled) WorldBookTool.schemas else emptyList(),
+    )
+
     companion object {
         const val Protocol = "openai"
 
         /** `finish_reason` 值：模型请求工具（OpenAI 线格式）。 */
         const val FinishToolCalls = "tool_calls"
+
+        /** 压缩原因：达阈值触发（[Compaction.THRESHOLD]）。 */
+        const val REASON_THRESHOLD = "threshold"
+
+        /** 压缩原因：供应商报了上下文溢出，压缩后重发（B6）。 */
+        const val REASON_OVERFLOW = "overflow"
+
+        /**
+         * 每类重试的上限。
+         *
+         * **1 次，不是 3 次**：传输层已经在连接层退避重试过 2 次（`OpenAiTransport`），
+         * 引擎再退避就是在同一个故障上叠时间；而流式生成失败时用户已经等了一轮，
+         * 「再试一次」是体验与成本的折中（DSH 的重试也在调用层之上只做一次）。
+         */
+        const val MAX_RETRIES: Int = 1
 
         /** 撞输出上限的结束原因（三协议归一：OpenAI `length` / Anthropic `max_tokens`）。 */
         val TRUNCATED = setOf("length", "max_tokens")

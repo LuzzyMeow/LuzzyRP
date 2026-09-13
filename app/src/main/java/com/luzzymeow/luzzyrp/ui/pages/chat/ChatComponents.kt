@@ -194,6 +194,28 @@ sealed class ChatMessage {
     data class Snapshot(val text: String) : ChatMessage() {
         override val name: String = "运行时上下文"
     }
+
+    /**
+     * **压缩简报**（B5）——一条**水位线**：它**之前**的历史都被它取代（不再进请求）。
+     *
+     * ## 为什么压缩结果必须落盘（而不是只活在引擎内存里）
+     *
+     * 引擎每轮都从存储重建请求（A6「请求 = 状态的纯函数」）。若简报只活在那一轮的内存里，
+     * 下一轮请求又会带上整段历史 → 于是**每轮都要重新摘要**（白花钱），而且每轮的请求前缀
+     * 都断在开头（把批 A 挣来的前缀缓存全部还回去）。落盘之后：前缀 = 头 + 简报 + 最近尾部，
+     * 之后继续纯追加——**压缩只切断前缀一次**。
+     *
+     * ## 语义与位置
+     *
+     * - 语义是**行位置**（「这条之前的历史被取代」），不是「被取代的下标集合」——
+     *   位置对编辑 / 删除天然免疫；连水位线本身被删掉都只是「恢复整段历史」（自愈）。
+     * - 位置由落库方决定：紧跟在**最后一条被裁掉的历史**之后、第一条保留的消息之前
+     *   （`ChatPage` 用 `AgentLoop.Event.Compacted.dropped` 数出来，见 `LlmMessage.sourceIndex`）。
+     * - **不渲染**（与 [Snapshot] 同理）：简报是给模型的运行时事实，不是对话内容。
+     */
+    data class Compacted(val text: String) : ChatMessage() {
+        override val name: String = "对话简报"
+    }
 }
 
 /** 消息纯文本（分支统计/检索用；与渲染同源，不再二次拼接）。 */
@@ -201,17 +223,19 @@ fun ChatMessage.text(): String = when (this) {
     is ChatMessage.User -> text
     is ChatMessage.Ai -> raw
     is ChatMessage.Snapshot -> text
+    is ChatMessage.Compacted -> text
 }
 
 /**
- * 会话日志里**给人看**的那部分（把尾部快照滤掉）。
+ * 会话日志里**给人看**的那部分（把尾部快照与压缩简报滤掉）。
  *
- * 用途有三处，判据同一条：快照不是对话内容。
- * ① 列表渲染（否则每条用户消息前会冒出一段 `Current runtime context…`）；
+ * 用途有三处，判据同一条：快照 / 简报都不是对话内容。
+ * ① 列表渲染（否则每条用户消息前会冒出一段 `Current runtime context…`，或一段对话简报）；
  * ② 楼数/字数统计（否则分支列表的「N 楼」直接翻倍）；
  * ③ 「删除这条及之后」的条数说明（不能把看不见的行算进去让用户以为会多删）。
  */
-fun List<ChatMessage>.visibleMessages(): List<ChatMessage> = filterNot { it is ChatMessage.Snapshot }
+fun List<ChatMessage>.visibleMessages(): List<ChatMessage> =
+    filterNot { it is ChatMessage.Snapshot || it is ChatMessage.Compacted }
 
 /** AI 消息段落已由 Markdown 渲染器接管（[com.luzzymeow.luzzyrp.ui.markdown.MarkdownText]）。 */
 

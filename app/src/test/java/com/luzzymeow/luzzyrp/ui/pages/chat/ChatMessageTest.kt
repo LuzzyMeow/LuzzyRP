@@ -71,18 +71,35 @@ class ChatMessageTest {
     }
 
     @Test
-    fun `消息类型有三种——错误已移出消息流，运行时快照独立成一种`() {
+    fun `消息类型有四种——错误已移出消息流，快照与压缩简报各独立成一种`() {
         // 悬浮错误卡改造（T3）后的不变式：错误不再是「消息」，
         // 因此 BranchStat.of 无论怎么写都不会把错误算成楼层。
         // A6 起多出第三种：**尾部快照**（给模型的运行时上下文）。它必须是独立变体而不是
         // 复用 User——否则「界面不渲染」「不计楼数」这些判据只能靠字符串前缀去猜。
+        // B5 起多出第四种：**压缩简报**（水位线）。同理：它既不是发言，也不能被算进楼层。
         // 用 Java 反射而非 sealedSubclasses（后者要 kotlin-reflect，不为一条测试加依赖）
         val base = ChatMessage::class.java
         val variants = base.declaredClasses
             .filter { base.isAssignableFrom(it) && it != base }
             .map { it.simpleName }
             .sorted()
-        assertEquals(listOf("Ai", "Snapshot", "User"), variants)
+        assertEquals(listOf("Ai", "Compacted", "Snapshot", "User"), variants)
+    }
+
+    @Test
+    fun `压缩简报有独立文本通道，也被 visibleMessages 滤出给人看的列表`() {
+        val summary = ChatMessage.Compacted("简报：他们在找钟楼上的红苹果树。")
+        assertEquals("简报正文原样可读", "简报：他们在找钟楼上的红苹果树。", summary.text())
+
+        val log: List<ChatMessage> = listOf(
+            ChatMessage.User("第一句"),
+            summary,
+            ChatMessage.Ai(results = listOf(AiResult(raw = "回复"))),
+        )
+        val visible = log.visibleMessages()
+        assertEquals("水位线不得出现在给人看的列表里", 2, visible.size)
+        assertTrue(visible.none { it is ChatMessage.Compacted })
+        assertEquals(listOf("第一句", "回复"), visible.map { it.text() })
     }
 
     @Test

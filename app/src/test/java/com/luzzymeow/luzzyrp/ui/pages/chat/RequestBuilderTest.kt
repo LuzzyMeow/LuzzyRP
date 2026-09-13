@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages.chat
 
+import com.luzzymeow.luzzyrp.chat.Compaction
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.RuntimeSnapshots
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
@@ -342,5 +343,93 @@ class RequestBuilderTest {
         val first = RequestBuilder.plan(state, "第二问", input(null)).messages.map { wire(it) }
         val second = RequestBuilder.plan(state, "第二问", input(null)).messages.map { wire(it) }
         assertEquals(first, second)
+    }
+
+    // ---------------------------------------------------------------- 压缩水位线（B5）
+
+    /** 一段「被压缩过」的会话：水位线之前的历史不再进请求，简报取而代之。 */
+    private fun compactedState(): List<ChatMessage> = listOf(
+        ChatMessage.User("很早以前说的话"),
+        ChatMessage.Ai(results = listOf(AiResult(raw = "很早以前的回复"))),
+        ChatMessage.Compacted("角色是谢昭，用户在找钟楼上的红苹果树。"),
+        ChatMessage.User("那棵树是谁种的"),
+        ChatMessage.Ai(results = listOf(AiResult(raw = "没人记得了。"))),
+    )
+
+    @Test
+    fun `水位线之前的历史不进请求`() {
+        val plan = RequestBuilder.plan(compactedState(), "还在吗", input(null))
+        val contents = plan.messages.map { it.content }
+
+        assertTrue(
+            "被取代的历史必须消失（否则等于没压缩，白付一次摘要调用）",
+            contents.none { it.contains("很早以前") },
+        )
+        assertTrue("水位线之后的对话必须还在", contents.any { it == "那棵树是谁种的" })
+    }
+
+    @Test
+    fun `简报以运行时上下文的形态进请求且排在保留段之前`() {
+        val plan = RequestBuilder.plan(compactedState(), "还在吗", input(null))
+        val summaryIndex = plan.messages.indexOfFirst { it.content.contains("对话简报") }
+        val keptIndex = plan.messages.indexOfFirst { it.content == "那棵树是谁种的" }
+
+        assertTrue("简报必须在请求里", summaryIndex >= 0)
+        assertTrue("简报必须排在保留的对话之前（实际 $summaryIndex vs $keptIndex）", summaryIndex < keptIndex)
+        val summary = plan.messages[summaryIndex]
+        assertTrue("它不是用户发言（召回轮号据此跳过）", summary.runtimeSnapshot)
+        assertEquals("wire 上仍是 user 消息", LlmRole.USER, summary.role)
+    }
+
+    @Test
+    fun `水位线之前的快照不算「已发过」——压缩后要能重发运行时上下文`() {
+        // 场景：整段历史（含最后一条快照）都被压缩取代。若仍拿那条快照当「已发过」，
+        // 模型就永久丢失运行时上下文，而且不报错——这类静默失效必须被钉住。
+        val state = listOf(
+            ChatMessage.User("很久以前"),
+            ChatMessage.Snapshot(RuntimeSnapshots.HEADER + "\n\n旧的运行时上下文"),
+            ChatMessage.Compacted("简报正文"),
+            ChatMessage.User("刚才说的"),
+        )
+        assertNull("被取代的快照不得算作已发出", RequestBuilder.lastSnapshotText(state))
+        val plan = RequestBuilder.plan(state, "还在吗", input(null))
+        assertNotNull("于是本轮应当重发一条新快照", plan.snapshotText)
+    }
+
+    @Test
+    fun `水位线之后的快照照旧算「已发过」（不重复发）`() {
+        val state = listOf(
+            ChatMessage.Compacted("简报正文"),
+            ChatMessage.User("刚才说的"),
+            ChatMessage.Snapshot(RuntimeSnapshots.HEADER + "\n\n现在的运行时上下文"),
+        )
+        assertEquals(
+            RuntimeSnapshots.HEADER + "\n\n现在的运行时上下文",
+            RequestBuilder.lastSnapshotText(state),
+        )
+    }
+
+    @Test
+    fun `每条历史消息都带上存储下标——压缩后要靠它把水位线写回库`() {
+        val state = compactedState()
+        val plan = RequestBuilder.plan(state, "还在吗", input(null))
+        val history = RequestBuilder.historyOf(state)
+
+        assertEquals("水位线之前的 2 条被摘掉，其余（含水位线自己）都在", 3, history.size)
+        assertEquals("第一条就是水位线那一行", 2, history.first().sourceIndex)
+        assertEquals(
+            "水位线本身以简报形态进请求（正文由 Compaction.summaryMessage 单点定义）",
+            Compaction.summaryMessage("角色是谢昭，用户在找钟楼上的红苹果树。").content,
+            history.first().content,
+        )
+        assertEquals("末条是最后一行", state.lastIndex, history.last().sourceIndex)
+        assertTrue(
+            "展开出的多条共享同一个存储下标",
+            RequestBuilder.historyOf(
+                listOf(aiWithTrail("答", listOf(com.luzzymeow.luzzyrp.chat.ToolStep("t", "{}", "r")))),
+            ).all { it.sourceIndex == 0 },
+        )
+        // 请求消息里的下标必须原样带到引擎（压缩事件据此算落库位置）
+        assertEquals(history.map { it.sourceIndex }, plan.messages.filter { it.fromHistory }.map { it.sourceIndex })
     }
 }

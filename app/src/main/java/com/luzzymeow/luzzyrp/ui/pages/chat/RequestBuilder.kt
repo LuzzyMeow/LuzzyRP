@@ -1,6 +1,7 @@
 package com.luzzymeow.luzzyrp.ui.pages.chat
 
 import com.luzzymeow.luzzyrp.chat.ChatRequest
+import com.luzzymeow.luzzyrp.chat.Compaction
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.RecallEngine
 import com.luzzymeow.luzzyrp.chat.ToolTrail
@@ -109,9 +110,37 @@ object RequestBuilder {
         )
     }
 
-    /** 会话日志里**最后一条**已发出的快照文本（没有则为 null）。 */
-    fun lastSnapshotText(state: List<ChatMessage>): String? =
-        state.filterIsInstance<ChatMessage.Snapshot>().lastOrNull()?.text
+    /**
+     * 会话日志里**最后一条**已发出的快照文本（没有则为 null）。
+     *
+     * 只看**未被压缩取代**的那一段：被取代的快照已经不在请求里了，若还拿它当「已发过」，
+     * 模型就会在压缩之后**永久丢失**运行时上下文（不报错、不崩溃，最难查的那一类）。
+     */
+    fun lastSnapshotText(state: List<ChatMessage>): String? {
+        val from = compactionWatermark(state).coerceAtLeast(0)
+        if (from >= state.size) return null
+        return state.subList(from, state.size).filterIsInstance<ChatMessage.Snapshot>().lastOrNull()?.text
+    }
+
+    /**
+     * 「被压缩取代」的水位线：最后一条 [ChatMessage.Compacted] 的下标（没有则 -1）。
+     *
+     * 水位线**本身留在请求里**（它就是那份简报），**它之前**的历史才被取代——
+     * 所以 [historyOf] 的起点是「水位线下标」而不是「水位线下标 + 1」。
+     *
+     * ## 为什么水位线是一条**消息**而不是一个下标记录
+     *
+     * 压缩（B5）把最老的一段历史换成了简报。模型此后**看不到**那一段——按 DSH 的第一原则
+     * 「Model-visible ⟺ durably referenced」，这件事必须落在日志里，否则下一轮请求又会把
+     * 整段历史带上：于是每轮都要重新摘要（多花钱）、且每轮的前缀都断在开头
+     * （把批 A 挣来的前缀缓存全部还回去）。
+     *
+     * 用**行位置**表达语义（「这条之前的历史都被取代」）而不是记「被取代的下标集合」，
+     * 是因为位置对编辑 / 删除 / 分支天然免疫：删掉中间一条、或删掉水位线本身，
+     * 语义都不会错（删掉水位线 = 恢复整段历史，自愈）。
+     */
+    fun compactionWatermark(state: List<ChatMessage>): Int =
+        state.indexOfLast { it is ChatMessage.Compacted }
 
     /**
      * 会话消息 → 请求消息。
@@ -127,21 +156,32 @@ object RequestBuilder {
      *
      * 全部标 `fromHistory = true`：历史段**不参与相邻同 role 合并**
      * （合并会让一条消息的内容取决于它的邻居，下一轮邻居一变就改写了已进历史的字节）。
+     *
+     * 水位线之前的历史**不进请求**（被简报取代，见 [compactionWatermark]）；
+     * 每条消息都带上 [LlmMessage.sourceIndex]，压缩后调用方才能把水位线落回存储。
      */
     fun historyOf(state: List<ChatMessage>): List<LlmMessage> {
-        val out = ArrayList<LlmMessage>(state.size)
+        // 起点是**水位线本身**：它之前的历史被取代，它自己就是那份简报（见 compactionWatermark）
+        val from = compactionWatermark(state)
+        val out = ArrayList<LlmMessage>(state.size - from.coerceAtLeast(0))
         state.forEachIndexed { index, message ->
-            when (message) {
-                is ChatMessage.User -> out += LlmMessage(role = LlmRole.USER, content = message.text)
-                is ChatMessage.Ai -> out += ToolTrail.expand(index, message.raw, message.current.toolTrail)
-                is ChatMessage.Snapshot -> out += LlmMessage(
-                    role = LlmRole.USER,
-                    content = message.text,
-                    runtimeSnapshot = true,
+            if (index < from) return@forEachIndexed
+            val emitted = when (message) {
+                is ChatMessage.User -> listOf(LlmMessage(role = LlmRole.USER, content = message.text))
+                is ChatMessage.Ai -> ToolTrail.expand(index, message.raw, message.current.toolTrail)
+                is ChatMessage.Snapshot -> listOf(
+                    LlmMessage(role = LlmRole.USER, content = message.text, runtimeSnapshot = true),
                 )
+
+                // 简报：正文形态只有 [Compaction.summaryMessage] 一处定义（抬头 + 标记），
+                // 这里直接调它，免得压缩路径与「重启后重读」路径拼出两种字节。
+                is ChatMessage.Compacted -> listOf(Compaction.summaryMessage(message.text))
             }
+            // 同一存储行展开出的多条消息共享同一个存储下标：压缩后写水位线要用它
+            // （`ToolTrail.expand` 会把一条 AI 消息展开成 调用 + 结果 + 正文 三条）。
+            emitted.forEach { out += it.copy(fromHistory = true, sourceIndex = index) }
         }
-        return out.map { if (it.fromHistory) it else it.copy(fromHistory = true) }
+        return out
     }
 
     /**

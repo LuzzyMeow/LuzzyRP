@@ -189,11 +189,39 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         )
     }
 
-    /** 追加一条消息（发送、生成收尾）。[sortIndex] 由调用方给出，避免边追加边查计数导致跳号。 */
+    /**
+     * 追加一条消息（发送、生成收尾）。
+     *
+     * [sortIndex] 取 **`MAX(sortIndex)+1` 而不是 `COUNT(*)**`：删除一条中间消息时索引**不重排**
+     * （见 [delete]），于是「条数」会指向一个**已存在**的行，而主键是 `(scopeId, sortIndex)`
+     * 且插入用的是 `REPLACE` → 新消息会把那条老消息**静默覆盖掉**（丢的是一条用户数据）。
+     * `MAX+1` 永远指向空位。
+     */
     suspend fun append(characterUuid: String, branchId: String, message: ChatMessage, reasoning: String? = null) {
         val scope = scopeOf(characterUuid, branchId)
-        val nextIndex = store.messageCount(scope)
+        val nextIndex = store.nextMessageIndex(scope)
         store.appendMessage(encodeMessage(scope.suffix(), nextIndex, message, reasoning))
+    }
+
+    /**
+     * 在**指定位置**插入一条（B5 的压缩水位线用）。
+     *
+     * 为什么必须插在中间：水位线的语义是「这条之前的历史都被它取代」——追加到末尾等于
+     * 「整段历史都被取代」，连要保留的近期对话也一并丢掉（模型会立刻失忆）。
+     *
+     * 腾位**从大到小**逐个 UPDATE：主键是 `(scopeId, sortIndex)`，正序挪会撞上还没挪的那一行。
+     * 一次压缩只做一次，代价可接受（且整段包在一个事务里）。
+     */
+    suspend fun insertAt(characterUuid: String, branchId: String, index: Int, message: ChatMessage) {
+        val scope = scopeOf(characterUuid, branchId)
+        store.transaction {
+            val moving = store.messages(scope)
+                .map { it.sortIndex }
+                .filter { it >= index }
+                .sortedDescending()
+            moving.forEach { store.moveMessage(scope.suffix(), it, it + 1) }
+            store.appendMessage(encodeMessage(scope.suffix(), index, message, reasoning = null))
+        }
     }
 
     /** 就地改写正文（编辑消息、候选切换）。**只动 content 列，payload 原样保留。** */
@@ -304,6 +332,15 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         const val ROLE_SNAPSHOT = "snapshot"
 
         /**
+         * 压缩简报行的 `role` 取值（B5）。
+         *
+         * 与 [ROLE_SNAPSHOT] 同样的理由：它不是消息、不是用户发言，只是给模型的运行时事实。
+         * 独立 role 之后 `WHERE role = 'user'` 与 `role IN ('user','assistant')` 两类聚合
+         * 天然把它排除（见 `MessageDao.scopeStats`），不必在 SQL 里写脆判据。
+         */
+        const val ROLE_COMPACTED = "compacted"
+
+        /**
          * payload 里的私有标记键（**不改表**：payload 本来就是「其余字段的 JSON」）。
          *
          * 与 [ROLE_SNAPSHOT] 双保险：认回时两者任一命中即算快照。将来若有人用别的写法
@@ -317,9 +354,10 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         /** payload 里存**「这次生成被中断」**（B4）的私有键。 */
         const val PAYLOAD_INTERRUPTED_KEY = "luzzyInterrupted"
 
-        /** 存储行 role：快照独立成一种；其余按 user/assistant。 */
+        /** 存储行 role：快照与压缩简报各独立成一种；其余按 user/assistant。 */
         fun roleOf(message: ChatMessage): String = when (message) {
             is ChatMessage.Snapshot -> ROLE_SNAPSHOT
+            is ChatMessage.Compacted -> ROLE_COMPACTED
             is ChatMessage.User -> "user"
             is ChatMessage.Ai -> "assistant"
         }
@@ -432,6 +470,7 @@ internal fun encodeMessage(
  */
 internal fun decodeMessage(entity: MessageEntity): ChatMessage = when {
     ChatSessionRepository.isSnapshotRow(entity) -> ChatMessage.Snapshot(entity.content)
+    entity.role == ChatSessionRepository.ROLE_COMPACTED -> ChatMessage.Compacted(entity.content)
     entity.role == "user" -> ChatMessage.User(entity.content)
     else -> {
         val inline = com.luzzymeow.luzzyrp.chat.CotParser.parse(entity.content)

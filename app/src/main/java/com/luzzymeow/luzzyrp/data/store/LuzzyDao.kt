@@ -83,6 +83,19 @@ interface MessageDao {
     suspend fun append(entity: MessageEntity)
 
     /**
+     * 下一条消息的空位下标：`MAX(sortIndex)+1`。
+     *
+     * **不是 `COUNT(*)`**：删除单条时索引不重排（见 [deleteAt]），于是「条数」会落在一条
+     * **已存在**的行上，而插入用的是 REPLACE → 新消息会把那条老消息覆盖掉（静默丢一条数据）。
+     */
+    @Query("SELECT COALESCE(MAX(sortIndex) + 1, 0) FROM messages WHERE scopeId = :scopeId")
+    suspend fun nextSortIndex(scopeId: String): Int
+
+    /** 挪动一条消息的下标（中间插入时腾位；主键含 sortIndex，故只能逐行挪，且调用方须从大到小）。 */
+    @Query("UPDATE messages SET sortIndex = :to WHERE scopeId = :scopeId AND sortIndex = :from")
+    suspend fun moveMessage(scopeId: String, from: Int, to: Int)
+
+    /**
      * 就地改写正文。**只动 content 列**：payload（旧结构多余字段，如 isSelf / avatar /
      * imageAttachments）原样保留——这是「按行更新」相对「整段删了重插」的关键好处。
      */

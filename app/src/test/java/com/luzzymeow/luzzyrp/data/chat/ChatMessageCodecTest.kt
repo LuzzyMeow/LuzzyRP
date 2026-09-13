@@ -218,4 +218,40 @@ class ChatMessageCodecTest {
                 .single().result == null)
         assertFalse(ChatSessionRepository.interruptedOf("不是 JSON"))
     }
+
+    // ---------------------------------------------------------------- B5：压缩水位线
+
+    @Test
+    fun `压缩简报落盘时 role 独立成一种，正文逐字保留`() {
+        val summary = ChatMessage.Compacted("角色是谢昭；用户在找钟楼上的红苹果树。")
+        assertEquals(ChatSessionRepository.ROLE_COMPACTED, ChatSessionRepository.roleOf(summary))
+        assertEquals(
+            "简报正文必须逐字落盘（它就是请求里那一条的来源）",
+            "角色是谢昭；用户在找钟楼上的红苹果树。",
+            row(summary).content,
+        )
+        assertEquals("独立 role 让它天然被楼数统计排除", "compacted", row(summary).role)
+    }
+
+    @Test
+    fun `压缩水位线能逐字往返（重启后仍认得回来）`() {
+        val original = ChatMessage.Compacted("简报：他们正在找那棵树。")
+        assertEquals(original, decodeMessage(row(original)))
+    }
+
+    @Test
+    fun `简报不会被误认成用户发言或 AI 消息`() {
+        val entity = MessageEntity(
+            scopeId = "char-1",
+            sortIndex = 7,
+            id = null,
+            role = ChatSessionRepository.ROLE_COMPACTED,
+            name = "对话简报",
+            content = "[对话简报]\n\n简报",
+            reasoning = null,
+            payload = "{}",
+        )
+        val restored = decodeMessage(entity)
+        assertTrue("认错的后果是「用户以为自己说过这段话」", restored is ChatMessage.Compacted)
+    }
 }

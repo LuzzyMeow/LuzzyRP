@@ -171,6 +171,13 @@ class LiveTurn {
                 generating = false
                 activeNode = -1
             }
+
+            // 压缩（B5）改的是**发给模型的序列**，不是对话本身——简报跟尾部快照一样不进列表，
+            // 所以界面上没有要改的东西。落库记账由调用方做（`ChatPage` 用 `dropped` 写水位线）。
+            is AgentLoop.Event.Compacted -> Unit
+
+            // 压缩失败：引擎已把它变成事件（不静默）；界面呈现留给设计流程（AGENTS §13）。
+            is AgentLoop.Event.CompactionFailed -> Unit
         }
     }
 }

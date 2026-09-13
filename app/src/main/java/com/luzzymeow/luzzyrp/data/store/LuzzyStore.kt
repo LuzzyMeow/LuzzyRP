@@ -71,6 +71,23 @@ class LuzzyStore(private val db: LuzzyDatabase) {
 
     suspend fun messageCount(scope: ScopeId): Int = db.messages().countOf(scope.suffix())
 
+    /**
+     * 下一条消息的空位下标（`MAX(sortIndex)+1`）。
+     *
+     * **不要用 [messageCount]**：删除单条时索引不重排，条数会落在一条已存在的行上，
+     * 而插入用的是 REPLACE → 会把那条老消息覆盖掉（静默丢数据）。
+     */
+    suspend fun nextMessageIndex(scope: ScopeId): Int = db.messages().nextSortIndex(scope.suffix())
+
+    /**
+     * 挪动一条消息的下标。
+     *
+     * 只在**中间插入**时用（B5 的压缩水位线），且必须配合 [transaction] 从大到小逐个挪：
+     * 主键是 `(scopeId, sortIndex)`，正序挪会撞上还没挪的那一行。
+     */
+    suspend fun moveMessage(scopeId: String, from: Int, to: Int) =
+        db.messages().moveMessage(scopeId, from, to)
+
     /** 全部有消息的作用域（跨角色平铺会话总览要用）。 */
     suspend fun conversationScopes(): List<ScopeId> = db.messages().scopes().mapNotNull { raw ->
         val at = raw.indexOf("__branch__")
@@ -87,9 +104,8 @@ class LuzzyStore(private val db: LuzzyDatabase) {
     /**
      * 追加一条消息。
      *
-     * **必须由调用方给出 [sortIndex]**（= 当前条数），而不是在这里查 count：
-     * 流式生成期间若一边追加一边查计数，会出现「同一条被写两次」或「跳号」。
-     * 顺序是旧数据的唯一身份，宁可在调用点算准。
+     * **[sortIndex] 由调用方给出**（取 [nextMessageIndex]，不是条数）：流式生成期间若一边追加
+     * 一边查计数，会出现「同一条被写两次」或「跳号」。顺序是旧数据的唯一身份，宁可在调用点算准。
      */
     suspend fun appendMessage(entity: MessageEntity) = db.messages().append(entity)
 

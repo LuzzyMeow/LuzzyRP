@@ -50,6 +50,9 @@ data class WorldEntry(
     /** 无关键词且非常驻 → 这条永远不会被触发。列表里如实提示，但不阻止保存。 */
     val neverTriggers: Boolean get() = !constant && keys.isEmpty()
 
+    /** 没名字的条目也要能读——显示名回落，但**不写回**存储（不替用户编造名字）。 */
+    val displayName: String get() = comment.ifBlank { "未命名条目" }
+
     /** `constant` 为真时不需要关键词；`useRegex` 为真时按正则匹配。 */
     val triggerSummary: String
         get() = when {

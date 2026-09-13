@@ -241,79 +241,10 @@ private fun CharacterCard(name: String, desc: String, inUse: Boolean) {
 }
 
 // ───────────────────────── 世界书页 ─────────────────────────
+//
+// 2026-09-13（W2）**已迁出**：真页面在 `ui/pages/world/WorldInfoPage.kt`（真数据 + 编辑器）。
+// 这里的静态稿删除，不做「两处定义」的过渡态——旧稿留着就会有人改错文件。
 
-@Composable
-fun WorldInfoPage(onOpenDrawer: () -> Unit) {
-    PageScaffold("世界书", LuzzyIcons.BookOpen, onOpenDrawer, actions = {
-        HeaderAction(LuzzyIcons.Download, "导出")
-        HeaderAction(LuzzyIcons.Plus, "新建条目")
-        Spacer(Modifier.width(8.dp))
-    }) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(12.dp),
-        ) {
-            item {
-                SettingCard(Modifier.padding(bottom = 12.dp)) {
-                    SettingRow("全局激活", "扫描深度 / 最大扫描深度", trailing = { LuzzySwitch(true) })
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        SliderStat("扫描深度", "4")
-                        SliderStat("最大扫描深度", "12")
-                    }
-                }
-            }
-            item { SectionTitle("条目 · 3") }
-            item {
-                EntryRow("钟楼红苹果树", "全局", Color(0xFF8B5CF6), true, "关键词：苹果 / 钟楼 / 恶魔果子")
-            }
-            item {
-                EntryRow("嬷嬷的巡视路线", "绑定", Color(0xFFD4A017), true, "关键词：嬷嬷 / 巡视 / 被发现")
-            }
-            item {
-                EntryRow("雾季航行规则", "全局", Color(0xFF8B5CF6), false, "关键词：雾 / 灯塔 / 航道")
-            }
-        }
-    }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.RowScope.SliderStat(label: String, value: String) {
-    Column(Modifier.weight(1f)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = value,
-                fontSize = 12.sp,
-                fontFamily = LuzzyFonts.Body,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth(0.4f)
-                    .height(4.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
-            )
-        }
-    }
-}
 
 // ───────────────────────── 预设页 ─────────────────────────
 

@@ -776,19 +776,23 @@ fun ChatPage(
             }
 
             Scaffold(
-                // 输入法抬起时输入岛应跟着上移（2026-09-13 真机实测缺陷，用户报告）。
+                // ★ 输入法抬起时输入岛必须跟着上移。
                 //
-                // ⚠️ **本行尚未修好该缺陷，如实登记**：`ComposeActivity` 开了 `enableEdgeToEdge()`
-                // （`setDecorFitsSystemWindows(false)`），Manifest 的
-                // `windowSoftInputMode="adjustResize"` 因此**不再生效**，窗口不会被顶起来 ——
-                // 必须由应用自己消费 IME inset。这里加 `imePadding()` 是标准做法，
-                // 但真机（小米 25098PN5AC / Android 16）实测 **IME inset 根本没被投递**：
-                // 键盘弹起（`mImeWindowVis=3`）时 `WindowInsets.ime.getBottom() = 1px`，
-                // 于是 `imePadding()` 无东西可消费，输入岛仍被键盘盖住（用户看不见自己在打什么）。
-                // 结论：**根因在 inset 投递一侧**（MIUI / Android 15+ 的 IME layering，
-                // 该窗口同时是 imeLayeringTarget / imeInputTarget / imeControlTarget），
-                // 需要单独立项排查；留这一行是因为它在能正常投递 inset 的设备上是对的。
-                // 详见 `docs/WORKLOG.md` 会话 74 与 `PLAN-v3.0-p5-agent-loop.md` §11.3。
+                // `ComposeActivity` 开了 `enableEdgeToEdge()`（`setDecorFitsSystemWindows(false)`），
+                // 从那一刻起 Manifest 的 `windowSoftInputMode="adjustResize"` 就**不再生效**：
+                // 系统不会缩小窗口，而是把键盘高度作为 IME inset 交上来，**必须由应用自己消费**。
+                // 不消费的后果：软键盘盖住输入岛，用户看不见自己在打什么（真机实测，用户报告）。
+                //
+                // 真机实测（小米 25098PN5AC / Android 16，键盘弹起时）：
+                //   `imeBottom=1036`、`compose ime == viewIme == 1036`、`decorH == screenH`（窗口未被缩小）
+                //   加上本行后输入岛 y 从 **2465 → 1481**，正好抬升 1036px；收起键盘回到 2465。
+                //
+                // 加在 Scaffold 上而不是输入岛内部：连同「回到底部」按钮、错误卡栈与列表的
+                // contentPadding 一起被抬到键盘之上，不会出现「输入岛上去了、浮层还在键盘后面」。
+                //
+                // 范围：本行只覆盖聊天页底栏。其它页面的长文本编辑器走
+                // `androidx.compose.ui.window.Dialog`（**独立窗口**，inset 路径不同），
+                // 那条路径**尚未在真机验证**——需要时单独走查（见 WORKLOG 会话 74）。
                 modifier = Modifier.fillMaxSize().imePadding(),
                 containerColor = Color.Transparent,
                 // 操作反馈（复制/已生成第 N 个结果/未开放功能提示）——pro-rules：每个可点元素都要有反馈

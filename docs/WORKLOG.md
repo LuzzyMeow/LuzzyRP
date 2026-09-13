@@ -3876,15 +3876,49 @@ AVD 原值备份在 `config.ini.bak-perf`。
    `MigrationCoordinator.ensureMigrated` 的 `startup` 回调（状态离开 Running 之前跑完）
    + 聊天页在同一个启动门之后再读一次配置。
 
-### 3. 未修好的真机缺陷（如实登记，勿当已解决）
+### 3. 输入法不抬起输入岛（已修 · 并**更正**会话 74 早先的错误结论）
 
-**输入岛不随输入法上移**（用户报告：键盘盖住输入框，看不见自己在打什么）：
-`ComposeActivity` 开了 `enableEdgeToEdge()` ⇒ Manifest 的 `adjustResize` 失效，
-必须由应用消费 IME inset。加 `Modifier.imePadding()` 后**真机仍然不动**——
-探针实测键盘弹起（`mImeWindowVis=3`）时 `WindowInsets.ime.getBottom() = 1px`，
-即 **inset 根本没被投递**（该窗口同时是 `imeLayeringTarget`/`imeInputTarget`/`imeControlTarget`，
-MIUI / Android 16 的 IME layering 行为）。**根因在 inset 投递一侧，需单独立项**。
-`imePadding()` 留着（对能正常投递 inset 的设备是对的），并在代码注释里写明它**尚未修好**本机。
+**症状**（用户报告）：软键盘盖住输入岛，打字时看不见自己输入的内容。
+
+**根因（应用侧，真缺陷）**：`ComposeActivity` 开了 `enableEdgeToEdge()`，
+`setDecorFitsSystemWindows(false)` 一旦生效，Manifest 的 `windowSoftInputMode="adjustResize"`
+就**不再生效** —— 系统不缩小窗口，而是把键盘高度作为 **IME inset** 交上来，
+**必须由应用自己消费**。此前全应用没有一处消费它，所以输入岛必然被盖住。
+
+**修法**：`ChatPage` 的 Scaffold 加 `Modifier.fillMaxSize().imePadding()`（连同回到底部按钮、
+错误卡栈与列表 contentPadding 一起上抬，不会出现「输入岛上去了、浮层还在键盘后面」）。
+
+**真机复验（clean release 包，`df97f3c4`）**：
+
+| 状态 | 发送键 bounds（y 区间） |
+|---|---|
+| 键盘收起 | `[1067,2465][1126,2524]` |
+| 键盘弹起 | `[1067,**1481**][1126,1540]` |
+| 再收起 | `[1067,2465][1126,2524]` |
+
+分层探针实测：`imeBottom=1036`、`compose ime == viewIme == 1036`、`decorH == screenH`
+（窗口未被缩小，确实是 inset 路径）。探针已在验证后全部删除（复查 `logcat -s LuzzyInsets` 为空）。
+
+**⚠️ 更正我本会话早先写下的错误结论**：会话 74 中途我曾把根因判成
+「MIUI/Android 16 根本不投递 IME inset（实测 `imeBottom=1px`）」，并据此在代码注释与
+`PLAN §11.3` 里写成「未修好」。**那是错的**：那次测量当时，默认输入法
+（`com.tencent.wetype/.plugin.hld.WxHldService`）正处在**坏掉的注册状态**——
+键盘弹不出来、inset 报 1px。重新注册输入法后同一台机器同一份代码读到的是 **1036px**。
+所以当时是**两个因素叠加**：应用侧不消费 inset（真缺陷，已修）+ 输入法处于坏状态（环境因素）。
+教训：单次环境测量不足以下「平台不投递」这种结论；下结论前要换一个可控变量复测。
+
+**范围**：本次只覆盖聊天页底栏。其它页面的长文本编辑器走
+`androidx.compose.ui.window.Dialog`（**独立窗口**，inset 路径不同），**尚未在真机验证**，
+登记为待办（不假装覆盖到了）。
+
+### 3b. 顺带修掉一条**概率性门禁**（会话 74 实撞）
+
+`CotParserTest.解析成本的量级` 用挂钟时间卡「冷解析 < 1ms」，而空载实测约 **180µs**
+—— 只有 5.5× 余量。本机同时跑 gradle 编译 + adb 装机时实测飘到 **1246µs** 而**假红**
+（`484 tests completed, 1 failed`，差值仅 **0.25ms**）。
+本仓库纪律是「门禁判据必须确定性；概率性判据不用」，用挂钟卡这么紧本质上就是概率门禁。
+已把界放宽到空载值的 30 倍以上（冷 < 6ms / 热 < 0.5ms），**只作灾难性回归的冒烟界**；
+真正的性能判断看那行 `PERF` 打印的数字。
 
 ### 4. 用户实测发现（4 条主观反馈，待分诊）
 

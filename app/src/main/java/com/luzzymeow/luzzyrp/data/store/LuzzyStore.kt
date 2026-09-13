@@ -145,20 +145,30 @@ class LuzzyStore(private val db: LuzzyDatabase) {
 
     suspend fun recordsOfKind(kind: String): List<RecordEntity> = db.records().ofKind(kind)
 
-    suspend fun replaceRecords(kind: String, owner: String, payloads: List<JsonElement>) =
-        db.withTransaction {
-            db.records().deleteGroup(kind, owner)
-            val rows = payloads.mapIndexed { index, element ->
-                RecordEntity(
-                    kind = kind,
-                    owner = owner,
-                    slot = index,
-                    updatedAt = 0L,
-                    payload = element.toString(),
-                )
-            }
-            if (rows.isNotEmpty()) db.records().upsertAll(rows)
+    /**
+     * 整组覆盖（世界书 / 正则 / 预设 / 用量这类「整表读写」的集合）。单事务。
+     *
+     * [updatedAt] 仅供观测（界面不读它、不参与任何判定）：迁移写入留 0，
+     * 用户编辑写入真实毫秒——将来排查「这条是什么时候被改的」时至少有个抓手。
+     */
+    suspend fun replaceRecords(
+        kind: String,
+        owner: String,
+        payloads: List<JsonElement>,
+        updatedAt: Long = 0L,
+    ) = db.withTransaction {
+        db.records().deleteGroup(kind, owner)
+        val rows = payloads.mapIndexed { index, element ->
+            RecordEntity(
+                kind = kind,
+                owner = owner,
+                slot = index,
+                updatedAt = updatedAt,
+                payload = element.toString(),
+            )
         }
+        if (rows.isNotEmpty()) db.records().upsertAll(rows)
+    }
 
     // ---------------------------------------------------------------- 键值
 

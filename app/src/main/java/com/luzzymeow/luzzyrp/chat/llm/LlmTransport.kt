@@ -92,6 +92,15 @@ data class LlmMessage(
     val name: String? = null,
     /** JS 传入的原始 OpenAI 形态消息对象；非空时 OpenAI 路径原样转发。 */
     val raw: JsonObject? = null,
+    /**
+     * 这条来自**既有对话历史**（而不是本轮新构造的 system / 预设 / 快照 / 本轮输入）。
+     *
+     * 用途只有一个但很关键：**合并相邻同 role 时不许碰历史**。
+     * 若让「角色前置 user 消息」与历史首条 user 合并（上游的行为），那条消息每轮都会变
+     * （prelude 每轮重拼）却占着历史位置 → 前缀缓存从那里断裂。
+     * 不参与任何协议序列化（`toOpenAiJson` 不读它）。
+     */
+    val fromHistory: Boolean = false,
 ) {
     /**
      * 归一消息 → OpenAI 形态对象（[raw] 优先，无 raw 时按字段合成）。

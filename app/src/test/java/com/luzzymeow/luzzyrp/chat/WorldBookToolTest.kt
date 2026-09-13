@@ -34,10 +34,10 @@ class WorldBookToolTest {
 
     @Test
     fun `检索命中任一关键词即激活条目`() {
-        assertTrue(WorldBookTool.lookup(listOf("钟楼")).any { it.title == "钟楼红苹果树" })
-        assertTrue(WorldBookTool.lookup(listOf("嬷嬷")).any { it.title == "嬷嬷的巡视路线" })
+        assertTrue(WorldBookTool.lookup(listOf("钟楼")).any { it.displayName == "钟楼红苹果树" })
+        assertTrue(WorldBookTool.lookup(listOf("嬷嬷")).any { it.displayName == "嬷嬷的巡视路线" })
         // 包含关系也算命中（「钟楼顶」含「钟楼」）
-        assertTrue(WorldBookTool.lookup(listOf("钟楼顶")).any { it.title == "钟楼红苹果树" })
+        assertTrue(WorldBookTool.lookup(listOf("钟楼顶")).any { it.displayName == "钟楼红苹果树" })
         assertTrue(WorldBookTool.lookup(listOf("毫不相干的词")).isEmpty())
         assertTrue(WorldBookTool.lookup(emptyList()).isEmpty())
     }

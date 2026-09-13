@@ -16,16 +16,28 @@ import kotlinx.coroutines.flow.flow
  * **零模拟**：每个事件都由真实来源产生——
  * ① [Event.Recall] 来自本机会话检索（[RecallEngine]，词面重叠打分）；
  * ② [Event.ToolCallStarted] / [Event.ToolCallArgs] 来自模型真实发出的 `tool_calls` 增量分片；
- * ③ [Event.ToolCallFinished] 来自 [WorldBookTool.execute] 对模型参数的真实执行结果；
+ * ③ [Event.ToolCallFinished] 来自 [WorldBookTool] 对模型参数的真实执行结果；
  * ④ [Event.Reasoning] / [Event.Content] 来自 SSE 帧的 `reasoning_content` / `content` 增量；
  * ⑤ [Event.Finished] 来自流末尾的 `finish_reason`。
  *
  * 工具循环：模型请求工具 → 应用执行 → 结果回填 → **再次真实请求**继续生成（最多 [MaxRounds] 轮）。
  *
+ * **请求组装已外移**（P5-A）：messages 由 [PromptAssembler] 拼（角色/用户/预设/世界书/召回/历史），
+ * 引擎只负责「发出去 → 收回来 → 事件化」。这样组装语义可以纯 JVM 单测，引擎也不必知道世界书怎么排。
+ *
  * 取消：取消本 Flow 的收集即可（[com.luzzymeow.luzzyrp.chat.llm.SseClient] 会立即关闭连接）。
  */
 class ChatEngine(
     private val transport: LlmTransport = OpenAiTransport(),
+    /**
+     * 本轮的组装输入（角色 / 用户 / 预设 / 世界书 / 召回）。
+     *
+     * 默认是**空输入**：不注入任何块、不硬编码任何演示人设。调用方（`ChatPage`）负责从真库取。
+     * 这是 P5-A 的关键变化——此前这里写死 `VanioCard.persona`，真角色的人设**根本没进请求**。
+     */
+    private val promptInput: PromptAssembler.Input = PromptAssembler.Input(),
+    /** 工具执行器（读真库世界书）。默认用演示书，保证单独使用引擎时不崩。 */
+    private val toolRunner: (String, String) -> String = { name, args -> WorldBookTool.execute(name, args) },
 ) {
 
     /** 引擎事件（按真实发生顺序发出）。 */
@@ -85,17 +97,17 @@ class ChatEngine(
             emit(Event.Recall(hits, RecallEngine.rangeLabel(hits)))
         }
 
-        // ── ② system = 人设 + 工具提示 + 召回块 ──
-        val systemParts = buildList {
-            add(VanioCard.persona)
-            add(VanioCard.worldToolHint)
-            RecallEngine.renderForPrompt(hits).takeIf { it.isNotEmpty() }?.let(::add)
-        }
-        var messages: List<LlmMessage> = buildList {
-            add(LlmMessage(role = LlmRole.SYSTEM, content = systemParts.joinToString("\n\n")))
-            addAll(history)
-            add(LlmMessage(role = LlmRole.USER, content = userText))
-        }
+        // ── ② 组装 messages（角色 + 用户 + 预设 + 世界书 + 召回 + 历史） ──
+        //
+        // 组装全部交给 PromptAssembler（纯函数可单测）；引擎这里只把召回块补进去。
+        // 注意：召回块在组装**之后**补，因为它由本轮检索决定——而它落在 system 末尾。
+        var messages: List<LlmMessage> = PromptAssembler.assemble(
+            promptInput.copy(
+                history = history,
+                userText = userText,
+                recallBlock = RecallEngine.renderForPrompt(hits),
+            ),
+        )
 
         var round = 0
         // 工具调用被写成文本时的协议噪声过滤（逐轮独立：每轮正文各自成段）
@@ -154,7 +166,7 @@ class ChatEngine(
                 val calls = acc.build()
                 messages = messages + LlmMessage(role = LlmRole.ASSISTANT, toolCalls = calls)
                 for (call in calls) {
-                    val result = WorldBookTool.execute(call.name, call.rawArguments)
+                    val result = toolRunner(call.name, call.rawArguments)
                     emit(Event.ToolCallFinished(call.name, call.rawArguments, result))
                     messages = messages + LlmMessage(
                         role = LlmRole.TOOL,

@@ -349,7 +349,41 @@ HTML 直通上游走 sandbox iframe，Compose 侧需单独立项。
 
 ---
 
-## 11 · 进度勾选（执行时更新）
+## 11 · 执行暂停点（2026-09-13，如实登记）
+
+批 A 走到一半**主动暂停**，原因与重做方案：
+
+**已完成并保留**
+- A1 组装纯函数层（`PromptAssembler`/`WorldBookActivator`/`PromptSections`/`RuntimeSnapshots`），
+  JVM 测试全绿；`WorldBookTool` 换真库；人设字段裁决（description+personality）已实现。
+- A4/A5 已完成（本提交）：温度/最大输出持久化修复 + schema 字节稳定门禁。
+
+**已实现但已回退（A6/A7 接线）——回退原因是两处真缺陷**
+1. **快照落盘位置错了**：追加在消息列表**末尾**，但请求里它在用户消息**之前**
+   → 存储顺序 ≠ 请求顺序 → 下一轮前缀照样从快照处断裂（与要解决的问题同型）。
+2. 新增 `ChatMessage.Snapshot` 后，LazyColumn 的组合在测试中出现
+   `SlotTable`/`SnapshotStateObserver` 运行时崩溃。
+
+**重做方案（下次接手照此执行，勿再从零摸索）**
+1. `send()` 重构为：先取 bundle（IO）→ **若发出快照，先落快照、再落用户消息**
+   （快照在存储里的位置 = 它在请求里的位置）→ 再跑 turn。
+2. 快照消息用 payload 标记持久化 + `toChatMessage` 认回 + 界面**不渲染但进请求**
+   （`fromHistory` 标记已有）。
+3. 验收加一条**字节级断言**：`turn1 请求 ⊂ turn2 请求`（纯追加的可执行证明）。
+4. 注意：`ChatEngineTest` 的「召回块注入 system」断言要改成「召回块在尾部快照」；
+   `ChatMessageTest` 的「消息类型」断言要更新为三变体。
+
+**门禁现状（回退后）**：单测全绿（含 A4/A5 新增）；
+仪器化在**长跑多轮的模拟器**上有一个用例
+（`流式生成后正文上屏且出现用量脚注`）报
+`Detected multithreaded access to SnapshotStateObserver`——
+**stash 基线（已知全绿的 cb012be7）同样复现** → 判定为**环境劣化**（模拟器冷启动数小时 +
+几十次 APK 装卸 + 无 GPU 软渲染），处置 = 干净重启模拟器后重跑（本会话早些时候
+同一错误类重启后即消失）。重启后若仍红，再按 WORKLOG 会话 73 的记录继续查。
+
+---
+
+## 12 · 进度勾选（执行时更新）
 
 ### 批 A
 - [x] A1 组装纯函数化（`PromptAssembler` + `WorldBookActivator`，30 单测绿）

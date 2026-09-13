@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>方向 A · 错落拼贴（会话总览）</title>
+<style>
+/* ============================================================
+   方向 A · 逻辑一「秒数轮盘」= 网页库 #3 孟菲斯复古拼贴最大化（还原度 72%）
+   语境内诠释：品牌令牌/字体不动，只取它的构图基因 —— 反网格、模块大小不一、错位叠放。
+   降级声明：孟菲斯的做旧纸质肌理无法用纯 CSS 还原，本稿**不假装做出该质感**，
+             只用色块、错位与不对称张力表达其构图精神。
+   ============================================================ */
+@font-face { font-family:'Lora'; src:url('../boards-v4/fonts/Lora-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'Lora'; src:url('../boards-v4/fonts/Lora-Italic.woff2') format('woff2'); font-weight:400; font-style:italic; }
+@font-face { font-family:'PuHuiTi'; src:url('../boards-v4/fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'PuHuiTi'; src:url('../boards-v4/fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2'); font-weight:500; }
+
+:root{
+  --surface:#FFF4F1; --container:#FCEAE5; --container-low:#FFF1ED; --container-high:#F7E4DF;
+  --outline:#85736E; --outline-variant:#D8C2BB;
+  --on:#231917; --primary:#8F4C35; --secondary:#77574D;
+  --tertiary:#6A5E2F; --tertiary-container:#F4E2A7; --primary-container:#FFDBD0;
+}
+html[data-theme="dark"]{
+  --surface:#231917; --container:#271D1B; --container-low:#1C1412; --container-high:#322825;
+  --outline:#A08D87; --outline-variant:#53433F;
+  --on:#F1DFDA; --primary:#FFB59D; --secondary:#E7BDB1;
+  --tertiary:#D7C68D; --tertiary-container:#51461A; --primary-container:#723520;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:#6b625f; display:flex; justify-content:center; padding:24px; }
+.phone{ width:390px; height:844px; background:var(--surface); color:var(--on);
+  font-family:'PuHuiTi',system-ui; overflow:hidden; position:relative; -webkit-font-smoothing:antialiased; }
+.status{ height:24px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; font-size:11px; opacity:.72; position:relative; z-index:3; }
+.status .glyphs{ display:flex; gap:5px; align-items:center; }
+.appbar{ height:64px; display:flex; align-items:center; gap:14px; padding:0 16px; position:relative; z-index:3; }
+.appbar .burger{ width:22px; height:16px; display:flex; flex-direction:column; justify-content:space-between; }
+.appbar .burger i{ display:block; height:1.6px; background:var(--on); opacity:.86; border-radius:2px; }
+.appbar h1{ font-family:'Lora',serif; font-size:20px; font-weight:400; }
+
+/* ── 拼贴场：非均匀网格 + 刻意错位（本方向的结构主张） ── */
+.collage{
+  height:calc(844px - 88px); padding:0 18px 0; position:relative;
+  display:grid; grid-template-columns:repeat(6,1fr); gap:12px; align-content:start;
+  /* 底色上压一层极淡的纸纹分块，暗示拼贴的"版面"而非纯白 */
+  background:
+    linear-gradient(90deg, transparent 0 62%, color-mix(in oklab, var(--container) 42%, transparent) 62% 100%) 0 0/100% 100% no-repeat;
+}
+.card{
+  position:relative; background:var(--container); border-radius:6px; padding:14px 14px 12px;
+  grid-column:span 6;
+}
+/* 大小不一：有的卡只占 4 列并向右错位，有的占 6 列 */
+.card.narrow{ grid-column:3 / span 4; }
+.card.wide-left{ grid-column:1 / span 5; }
+.card.shift{ transform:translateX(-10px) rotate(-.35deg); }
+.card.lift{ transform:translateY(-4px) rotate(.3deg); }
+
+/* 角色名：拼贴的「书脊」，横排但带字距 */
+.card .seam{ display:flex; align-items:center; gap:9px; margin-bottom:10px; }
+.card .mono{
+  width:30px; height:30px; border-radius:4px; background:var(--primary-container); color:var(--primary);
+  display:grid; place-items:center; font-family:'Lora',serif; font-size:14px; flex:none;
+}
+.card .who{ font-family:'Lora',serif; font-size:15px; letter-spacing:.02em; }
+.card .who .of{ font-size:11px; color:var(--outline); margin-left:7px; letter-spacing:0; }
+
+/* 分支行：左名字，右楼数（色块承载数字 —— tertiary 只出现在这一处） */
+.branch{ position:relative; padding:9px 0 9px 12px; }
+.branch + .branch{ border-top:1px solid var(--outline-variant); }
+.branch .top{ display:flex; align-items:center; gap:10px; }
+.branch .bn{ font-size:14px; font-weight:500; }
+.branch .badge{
+  font-family:'Lora',serif; font-size:11px; color:var(--tertiary);
+  background:color-mix(in oklab, var(--tertiary-container) 68%, transparent);
+  padding:1px 7px; border-radius:3px; font-variant-numeric:tabular-nums;
+}
+.branch .prev{
+  margin-top:4px; font-size:12.5px; line-height:17.5px; color:var(--secondary);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.branch .prev.thinking{ color:var(--outline); }
+/* 空会话：一张明确留白的「未写的页」——虚线边 + 斜体，占位感是刻意的 */
+.card.blank{ background:transparent; border:1px dashed var(--outline-variant); }
+.card.blank .prev{ font-family:'Lora',serif; font-style:italic; color:var(--outline); }
+
+/* 当前所在：唯一一处 primary（accent ≤2） */
+.card.here::after{ content:''; position:absolute; left:0; top:14px; bottom:14px; width:2px;
+  background:var(--primary); border-radius:2px; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status">
+    <span>09:41</span>
+    <span class="glyphs">
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="none"><rect x="0" y="7" width="2.5" height="4" rx="1" fill="currentColor"/><rect x="4" y="5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="8" y="2.5" width="2.5" height="8.5" rx="1" fill="currentColor"/><rect x="12" y="0" width="2.5" height="11" rx="1" fill="currentColor" opacity=".45"/></svg>
+      <svg width="14" height="11" viewBox="0 0 14 11" fill="none"><path d="M7 9.4 4.6 7.1a3.5 3.5 0 0 1 4.8 0L7 9.4Z" fill="currentColor"/><path d="M2.2 4.6a7 7 0 0 1 9.6 0" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.6 7.1a3.5 3.5 0 0 1 4.8 0" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="18" height="10" rx="3" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="13" height="7" rx="1.6" fill="currentColor"/><rect x="20" y="3.5" width="1.6" height="4" rx="0.8" fill="currentColor" opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <div class="appbar">
+    <span class="burger"><i></i><i></i><i></i></span>
+    <h1>会话</h1>
+  </div>
+
+  <div class="collage">
+    <!-- 一张大卡：两个分支（拼贴的主块，向右错位） -->
+    <div class="card narrow shift here">
+      <div class="seam"><span class="mono">V</span><span class="who">Vanio<span class="of">2 条 · 10 楼</span></span></div>
+      <div class="branch">
+        <div class="top"><span class="bn">主线</span><span class="badge">5</span></div>
+        <div class="prev">靠窗那张椅子是藤的，坐下去咯吱一声。从这里能看见楼下的街，雨把招牌糊成一片色块。</div>
+      </div>
+      <div class="branch">
+        <div class="top"><span class="bn">留在书店</span><span class="badge">5</span></div>
+        <div class="prev thinking">&lt;thinking&gt; [情景意图分析] 林澈明确做了两件事：把毛巾搭在椅背上，然后问…</div>
+      </div>
+    </div>
+
+    <!-- 单分支小卡：靠左、不旋转（错位的对照） -->
+    <div class="card wide-left">
+      <div class="seam"><span class="mono">谢</span><span class="who">谢昭<span class="of">1 条</span></span></div>
+      <div class="branch">
+        <div class="top"><span class="bn">主线</span><span class="badge">1</span></div>
+        <div class="prev">（会议室里只剩下两个人。）「方案我看过了。」把纸推到桌子中间。</div>
+      </div>
+    </div>
+
+    <!-- 两张空卡并置：一块拼贴里"没写的那两页" -->
+    <div class="card narrow blank lift" style="grid-column:1 / span 3;">
+      <div class="seam"><span class="mono">夏</span><span class="who">夏梧</span></div>
+      <div class="branch" style="padding-left:0;">
+        <div class="top"><span class="bn" style="font-weight:400;">主线</span><span class="badge">0</span></div>
+        <div class="prev">还没有开过口</div>
+      </div>
+    </div>
+    <div class="card blank lift" style="grid-column:4 / span 3;">
+      <div class="seam"><span class="mono">旧</span><span class="who">旧档角色</span></div>
+      <div class="branch" style="padding-left:0;">
+        <div class="top"><span class="bn" style="font-weight:400;">主线</span><span class="badge">0</span></div>
+        <div class="prev">还没有开过口</div>
+      </div>
+    </div>
+
+    <div class="card narrow">
+      <div class="seam"><span class="mono">仅</span><span class="who">仅旧库角色<span class="of">1 条</span></span></div>
+      <div class="branch" style="padding-left:0;">
+        <div class="top"><span class="bn">主线</span><span class="badge">2</span></div>
+        <div class="prev">你在哪一年？</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  var m = /theme=(\w+)/.exec(location.search);
+  if (m) document.documentElement.dataset.theme = m[1];
+</script>
+</body>
+</html>

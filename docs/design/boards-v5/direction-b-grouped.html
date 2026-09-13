@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>方向 B · 分组行（会话总览）</title>
+<style>
+/* ============================================================
+   方向 B · 逻辑二「现实参照」= Things 3 的分组列表
+   骨架：粘性组头 + 统一行高 + 右侧元数据对齐（信息效率优先）
+   品牌契约：DESIGN-compose §2 令牌 + Lora / PuHuiTi 本地 TTF
+   ============================================================ */
+@font-face { font-family:'Lora'; src:url('../boards-v4/fonts/Lora-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'Lora'; src:url('../boards-v4/fonts/Lora-Italic.woff2') format('woff2'); font-weight:400; font-style:italic; }
+@font-face { font-family:'PuHuiTi'; src:url('../boards-v4/fonts/AlibabaPuHuiTi-3-55-Regular.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'PuHuiTi'; src:url('../boards-v4/fonts/AlibabaPuHuiTi-3-65-Medium.woff2') format('woff2'); font-weight:500; }
+
+:root{
+  /* 亮色（DESIGN-compose §2 生成值） */
+  --surface:#FFF4F1; --surface-container:#FCEAE5; --surface-low:#FFF1ED;
+  --outline:#85736E; --outline-variant:#D8C2BB;
+  --on:#231917;            /* neutral T10（同暗画布值，同一构造步骤） */
+  --primary:#8F4C35; --tertiary:#6A5E2F; --tertiary-container:#F4E2A7;
+  --secondary:#77574D;
+}
+html[data-theme="dark"]{
+  --surface:#231917; --surface-container:#271D1B; --surface-low:#1C1412;
+  --outline:#A08D87; --outline-variant:#53433F;
+  --on:#F1DFDA;            /* neutral T90（同暗 inverseSurface 值） */
+  --primary:#FFB59D; --tertiary:#D7C68D; --tertiary-container:#51461A;
+  --secondary:#E7BDB1;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:#6b625f; display:flex; justify-content:center; padding:24px; }
+.phone{
+  width:390px; height:844px; background:var(--surface); color:var(--on);
+  font-family:'PuHuiTi',system-ui; position:relative; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* 状态栏（真实应用会绘制在系统栏之下） */
+.status{ height:24px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; font-size:11px; color:var(--on); opacity:.72; }
+.status .glyphs{ display:flex; gap:5px; align-items:center; }
+/* 页头：与既有七页同构（透明 TopAppBar + 汉堡 + 标题） */
+.appbar{ height:64px; display:flex; align-items:center; gap:14px; padding:0 16px; }
+.appbar .burger{ width:22px; height:16px; display:flex; flex-direction:column; justify-content:space-between; }
+.appbar .burger i{ display:block; height:1.6px; background:var(--on); opacity:.86; border-radius:2px; }
+.appbar h1{ font-family:'Lora',serif; font-size:20px; font-weight:400; letter-spacing:.01em; }
+.appbar .count{ margin-left:auto; font-size:12px; color:var(--outline); font-variant-numeric:tabular-nums; }
+
+.list{ height:calc(844px - 88px); overflow:hidden; }
+/* 粘性组头：Things 3 的分组感 —— 细、安静、与内容同色系 */
+.group-head{
+  position:sticky; top:0; z-index:2; height:34px; display:flex; align-items:center; gap:10px;
+  padding:0 16px; background:var(--surface);
+}
+.group-head .avatar{
+  width:22px; height:22px; border-radius:50%; background:var(--surface-container);
+  color:var(--primary); display:grid; place-items:center;
+  font-family:'Lora',serif; font-size:11px;
+}
+.group-head .name{ font-family:'Lora',serif; font-size:13.5px; letter-spacing:.02em; }
+.group-head .n{ margin-left:auto; font-size:11px; color:var(--outline); font-variant-numeric:tabular-nums; }
+
+/* 行：统一 68dp 高，右侧元数据对齐 —— 本方向的结构主张 */
+.row{ height:68px; padding:0 16px; display:flex; align-items:center; gap:12px; position:relative; }
+.row + .row::before{ content:''; position:absolute; left:16px; right:16px; top:0;
+  height:1px; background:var(--outline-variant); opacity:.55; }
+.row .body{ flex:1; min-width:0; }
+.row .line1{ display:flex; align-items:baseline; gap:8px; }
+.row .branch{ font-size:14px; font-weight:500; }
+.row .branch .main-tag{ font-size:11px; font-weight:400; color:var(--outline); margin-left:6px; }
+.row .meta{ margin-left:auto; font-size:12px; color:var(--outline); font-variant-numeric:tabular-nums; flex:none; }
+.row .preview{
+  margin-top:4px; font-size:12.5px; line-height:17px; color:var(--secondary);
+  display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden;
+}
+.row.empty .preview{ color:var(--outline); font-style:italic; }
+/* 当前所在会话：唯一一处 primary 用法（accent ≤2） */
+.row.current .branch{ color:var(--primary); }
+.row.current .dot{ width:6px; height:6px; border-radius:50%; background:var(--primary); flex:none; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status">
+    <span>09:41</span>
+    <span class="glyphs">
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="none"><rect x="0" y="7" width="2.5" height="4" rx="1" fill="currentColor"/><rect x="4" y="5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="8" y="2.5" width="2.5" height="8.5" rx="1" fill="currentColor"/><rect x="12" y="0" width="2.5" height="11" rx="1" fill="currentColor" opacity=".45"/></svg>
+      <svg width="14" height="11" viewBox="0 0 14 11" fill="none"><path d="M7 9.4 4.6 7.1a3.5 3.5 0 0 1 4.8 0L7 9.4Z" fill="currentColor"/><path d="M2.2 4.6a7 7 0 0 1 9.6 0" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.6 7.1a3.5 3.5 0 0 1 4.8 0" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="18" height="10" rx="3" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="13" height="7" rx="1.6" fill="currentColor"/><rect x="20" y="3.5" width="1.6" height="4" rx="0.8" fill="currentColor" opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <div class="appbar">
+    <span class="burger"><i></i><i></i><i></i></span>
+    <h1>会话</h1>
+    <span class="count">6 条 · 5 张卡</span>
+  </div>
+
+  <div class="list">
+    <!-- 角色 = 分组；分支 = 行 -->
+    <div class="group-head">
+      <span class="avatar">V</span><span class="name">Vanio</span><span class="n">2 条</span>
+    </div>
+    <div class="row current">
+      <div class="body">
+        <div class="line1"><span class="branch">主线</span><span class="meta">5 条</span></div>
+        <div class="preview">靠窗那张椅子是藤的，坐下去咯吱一声。从这里能看见楼下的街，雨把招牌糊成一片色块。</div>
+      </div>
+      <span class="dot"></span>
+    </div>
+    <div class="row">
+      <div class="body">
+        <div class="line1"><span class="branch">留在书店<span class="main-tag">分支</span></span><span class="meta">5 条</span></div>
+        <div class="preview">&lt;thinking&gt; [情景意图分析] 林澈明确做了两件事：把毛巾搭在椅背上，然后问…</div>
+      </div>
+    </div>
+
+    <div class="group-head"><span class="avatar">谢</span><span class="name">谢昭</span><span class="n">1 条</span></div>
+    <div class="row">
+      <div class="body">
+        <div class="line1"><span class="branch">主线</span><span class="meta">1 条</span></div>
+        <div class="preview">（会议室里只剩下两个人。）「方案我看过了。」把纸推到桌子中间。</div>
+      </div>
+    </div>
+
+    <div class="group-head"><span class="avatar">夏</span><span class="name">夏梧</span><span class="n">0 条</span></div>
+    <div class="row empty">
+      <div class="body">
+        <div class="line1"><span class="branch">主线</span><span class="meta">0 条</span></div>
+        <div class="preview">还没开始</div>
+      </div>
+    </div>
+
+    <div class="group-head"><span class="avatar">旧</span><span class="name">旧档角色</span><span class="n">0 条</span></div>
+    <div class="row empty">
+      <div class="body">
+        <div class="line1"><span class="branch">主线</span><span class="meta">0 条</span></div>
+        <div class="preview">还没开始</div>
+      </div>
+    </div>
+
+    <div class="group-head"><span class="avatar">仅</span><span class="name">仅旧库角色</span><span class="n">1 条</span></div>
+    <div class="row">
+      <div class="body">
+        <div class="line1"><span class="branch">主线</span><span class="meta">2 条</span></div>
+        <div class="preview">你在哪一年？</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // 亮/暗由查询参数切换（同一份稿子两种模式，便于横向比较对比度）
+  var m = /theme=(\w+)/.exec(location.search);
+  if (m) document.documentElement.dataset.theme = m[1];
+</script>
+</body>
+</html>

@@ -54,15 +54,22 @@ class TestStoreFixture private constructor(
     }
 
     companion object {
-        /** [reset] = true 时清掉同名旧库（用例隔离）；`reopen` 走 false 保住数据。 */
-        fun create(context: Context, name: String, reset: Boolean = true): TestStoreFixture {
+        private val counter = java.util.concurrent.atomic.AtomicInteger(0)
+
+        /**
+         * 每个用例一个**全新文件名**的临时库。
+         *
+         * **为什么不是「同名 + 每次删文件」**（第一版就是这么写的，结果在整套跑时炸了）：
+         * `RoomDatabase.close()` 之后连接池不一定立刻释放，而同名文件被删掉再重建，
+         * 旧连接会指向一个已经不存在的 inode —— 症状是
+         * `IllegalStateException: Cannot perform this operation because there is no current transaction`
+         * 这种看起来像「事务写坏了」的错，且**单跑绿、整套跑红**。
+         * 换成唯一文件名后不存在「删掉别人正在用的文件」这件事。
+         */
+        fun create(context: Context, base: String): TestStoreFixture {
             val app = context.applicationContext
+            val name = "$base-${counter.incrementAndGet()}"
             val dbFile = File(app.cacheDir, "$name.db")
-            if (reset) {
-                dbFile.delete()
-                File("${dbFile.absolutePath}-wal").delete()
-                File("${dbFile.absolutePath}-shm").delete()
-            }
             val assets = File(app.cacheDir, "$name-assets").apply { mkdirs() }
             return TestStoreFixture(app, dbFile.absolutePath, assets)
         }

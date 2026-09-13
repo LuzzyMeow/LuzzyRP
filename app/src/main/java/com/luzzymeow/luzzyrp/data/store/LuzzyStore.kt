@@ -41,6 +41,12 @@ class LuzzyStore(private val db: LuzzyDatabase) {
 
     suspend fun branches(characterUuid: String): List<BranchEntity> = db.branches().of(characterUuid)
 
+    /** 全部分支（总览用，1 次查询；按 characterUuid + 主线优先排序）。 */
+    suspend fun allBranches(): List<BranchEntity> = db.branches().all()
+
+    /** 全部会话的聚合摘要（总览用，**1 次**查询）。 */
+    suspend fun scopeStats(): List<ScopeStats> = db.messages().scopeStats()
+
     /** 分支的 `activeBranchId`（旧 `branches_<uuid>.activeBranchId`）。 */
     suspend fun activeBranchId(characterUuid: String): String? =
         db.branches().meta(characterUuid)?.activeBranchId
@@ -71,8 +77,12 @@ class LuzzyStore(private val db: LuzzyDatabase) {
         if (at < 0) ScopeId(raw) else ScopeId(raw.substring(0, at), raw.substring(at + "__branch__".length))
     }
 
-    /** 某作用域最后一条正文（总览预览用；不搬全量历史）。 */
+    /** 某作用域最后一条正文（总览预览的回落来源；不搬全量历史）。 */
     suspend fun lastMessagePreview(scope: ScopeId): String? = db.messages().lastContent(scope.suffix())
+
+    /** 某作用域最后一条**用户**发言（总览预览的首选来源）。 */
+    suspend fun lastUserMessagePreview(scope: ScopeId): String? =
+        db.messages().lastUserContent(scope.suffix())
 
     /**
      * 追加一条消息。

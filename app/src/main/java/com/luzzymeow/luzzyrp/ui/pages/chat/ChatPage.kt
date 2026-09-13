@@ -166,6 +166,12 @@ fun ChatPage(
      * 就能确定性地验证「启动即读 / 改动落盘 / 重启仍在」，不必依赖设备上的真实数据。
      */
     sessionRepository: ChatSessionRepository? = null,
+    /**
+     * 打开「会话总览」。
+     *
+     * 入口在**聊天页顶栏**（用户 2026-09-13 拍板；侧栏不加项，故总览自身 `inDrawer = false`）。
+     */
+    onOpenSessions: () -> Unit = {},
 ) {
     val hazeState = remember { HazeState() }
     // 稳定测试选择器（ui-ux-pro-max 的 Compose 栈规约要求 testTag 而非依赖文案）
@@ -216,6 +222,13 @@ fun ChatPage(
      * 属于实现缺口（迁移进来的角色内容配着 Vanio 的名字，看着就是错的）。
      * 存储里有角色就用真实角色；空库演示态才回落 [VanioCard]。
      */
+    /**
+     * `{{user}}` 的替换值。
+     *
+     * 目前应用内还没有「用户名」这个概念（用户消息的名牌固定是「你」，见 [ChatMessage.User]），
+     * 所以先用同一个值；等 P4-C 把用户资料接进来后只改这一处。
+     */
+    val currentUserName = "你"
     var characterName by remember { mutableStateOf(VanioCard.Name) }
     var characterStatus by remember { mutableStateOf("${VanioCard.Subtitle} · 在线") }
     var tree by remember { mutableStateOf(BranchTree.single()) }
@@ -356,6 +369,18 @@ fun ChatPage(
 
     // 切换分支后列表内容整体更换：回到最新一轮
     LaunchedEffect(activeBranchId) { pinToBottom() }
+
+    /**
+     * 分支消息**按需装载**（P4-C 性能专项）。
+     *
+     * 启动时只装当前分支（见 `ChatSessionRepository.load`），所以切到别的分支时这里补一次读。
+     * 已在内存里的分支不重复读——切回来是零成本。
+     */
+    LaunchedEffect(activeBranchId, characterUuid) {
+        val uuid = characterUuid ?: return@LaunchedEffect
+        if (branchMessages.containsKey(activeBranchId)) return@LaunchedEffect
+        branchMessages[activeBranchId] = repository.loadBranch(uuid, activeBranchId)
+    }
 
     /**
      * 跑一轮真实生成（发送与重新生成共用）。
@@ -619,6 +644,17 @@ fun ChatPage(
                             }
                         },
                         actions = {
+                            // 会话总览入口（跨角色平铺；P4-C，方向 B）
+                            IconButton(
+                                onClick = onOpenSessions,
+                                modifier = Modifier.testTag("chat_sessions"),
+                            ) {
+                                Icon(
+                                    painter = painterResource(LuzzyIcons.Conversation),
+                                    contentDescription = "全部会话",
+                                    tint = Color.White.copy(alpha = 0.92f),
+                                )
+                            }
                             // 剧情分支入口（与上游 openStoryBranchModal 同一位置：聊天页顶栏）
                             IconButton(
                                 onClick = { showBranches = true },
@@ -705,7 +741,10 @@ fun ChatPage(
                             is ChatMessage.Ai -> Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
                                     name = m.name,
-                                    raw = m.raw,
+                                    // 渲染期替换 {{char}}/{{user}}（存储不动，见 Placeholders 的说明）
+                                    raw = com.luzzymeow.luzzyrp.chat.Placeholders.render(
+                                        m.body, characterName, currentUserName,
+                                    ),
                                     nodes = m.thinkNodes,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
@@ -722,10 +761,11 @@ fun ChatPage(
                                             if (cur is ChatMessage.Ai) cur.selectResult(target) else cur
                                         }
                                     },
-                                    onCopy = { copyMessage(m.raw) },
+                                    onCopy = { copyMessage(m.body) },
                                     onRegenerate = { regenerate(i) },
                                     onEdit = {
-                                        editing = EditingTarget(activeBranchId, i, isAi = true, initial = m.raw)
+                                        // 编辑初值给**正文**（思维链是那次生成的历史，不该在编辑框里让用户改）
+                                        editing = EditingTarget(activeBranchId, i, isAi = true, initial = m.body)
                                     },
                                     onDelete = {
                                         pendingDelete = PendingDelete(activeBranchId, i, false, count = 1)
@@ -740,7 +780,11 @@ fun ChatPage(
                             }
 
                             is ChatMessage.User -> Column(Modifier.fillMaxWidth()) {
-                                UserBubble(m.text)
+                                UserBubble(
+                                    com.luzzymeow.luzzyrp.chat.Placeholders.render(
+                                        m.text, characterName, currentUserName,
+                                    ),
+                                )
                                 MessageActionRow(
                                     alignEnd = true,
                                     onCopy = { copyMessage(m.text) },
@@ -855,7 +899,10 @@ fun ChatPage(
             onSave = { text ->
                 editMessage(target.branchId, target.index) { cur ->
                     when {
-                        target.isAi && cur is ChatMessage.Ai -> cur.editCurrent(text)
+                        // AI 消息：编辑的是**正文**，而原文可能内联着思维链（旧版存法）——
+                        // 用 rewrap 把思维链按原样装回去，免得「改几个字」把那次生成的思考记录抹掉。
+                        target.isAi && cur is ChatMessage.Ai ->
+                            cur.editCurrent(com.luzzymeow.luzzyrp.chat.CotParser.rewrap(cur.raw, text))
                         !target.isAi && cur is ChatMessage.User -> cur.edited(text)
                         else -> cur
                     }

@@ -109,10 +109,21 @@ sealed interface ThinkNode {
         val seconds: Double,
         val streaming: Boolean,
     ) : ThinkNode {
+        /**
+         * `seconds = 0.0` 表示**这不是本次会话里测出来的耗时**（历史消息的思考记录：
+         * 从旧数据内联的 `<thinking>` 或 `reasoning` 列还原出来的，见 `CotParser`）。
+         * 那种情况不能说「思考了 0.0 秒」——那是假数字，照实说「思考记录」。
+         */
+        private val historical: Boolean get() = !streaming && seconds <= 0.0
+
         override val label: String
-            get() = if (streaming) "思考中…" else "思考了 %.1f 秒".format(seconds)
+            get() = when {
+                streaming -> "思考中…"
+                historical -> "思考记录"
+                else -> "思考了 %.1f 秒".format(seconds)
+            }
         override val extra: String?
-            get() = if (streaming) null else "%.1fs".format(seconds)
+            get() = if (streaming || historical) null else "%.1fs".format(seconds)
     }
 }
 
@@ -307,9 +318,11 @@ fun ThinkingCard(
     val summary = remember(nodes, isLive) {
         if (isLive) "思考中…"
         else {
+            // 用节点自己的 [ThinkNode.label] —— 这里曾经**另写了一份**格式化，
+            // 于是「历史节点不显示 0.0 秒」的修正只生效在一处、卡片标题照旧显示假数字。
             val head = nodes.firstOrNull()?.let {
                 when (it) {
-                    is ThinkNode.Brainstorm -> "思考了 %.1f 秒".format(it.seconds)
+                    is ThinkNode.Brainstorm -> it.label
                     is ThinkNode.MemoryRecall -> "记忆召回"
                     is ThinkNode.Tool -> "工具调用"
                 }

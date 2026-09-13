@@ -39,8 +39,16 @@ import kotlinx.coroutines.launch
  * 页面为平铺切换，转场 = DESIGN-compose §13.2（fadeIn 200ms + scaleIn 0.96 /
  * fadeOut 140ms，交叉淡化语义）。
  */
-enum class LuzzyRoute(val title: String, val icon: Int) {
+enum class LuzzyRoute(val title: String, val icon: Int, val inDrawer: Boolean = true) {
     Chat("对话", LuzzyIcons.Conversation),
+
+    /**
+     * 会话总览（跨角色平铺）。
+     *
+     * **不进抽屉**（用户 2026-09-13 拍板）：入口放在聊天页顶栏——所以 [inDrawer] = false，
+     * 抽屉不显示它。加这个开关而不是把会话并进 Chat，是因为它确实是一个独立页面。
+     */
+    Sessions("会话", LuzzyIcons.Conversation, inDrawer = false),
     Characters("角色", LuzzyIcons.Assistants),
     WorldInfo("世界书", LuzzyIcons.BookOpen),
     Presets("预设", LuzzyIcons.Sliders),
@@ -109,7 +117,7 @@ fun LuzzyNavShell(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(20.dp),
                 )
-                LuzzyRoute.entries.forEach { r ->
+                LuzzyRoute.entries.filter { it.inDrawer }.forEach { r ->
                     val selected = r == route
                     ListItem(
                         leadingContent = {

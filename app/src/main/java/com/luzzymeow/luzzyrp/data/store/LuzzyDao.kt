@@ -33,6 +33,16 @@ interface BranchDao {
     @Query("SELECT * FROM branches WHERE characterUuid = :characterUuid ORDER BY isMain DESC, createdAt ASC")
     suspend fun of(characterUuid: String): List<BranchEntity>
 
+    /**
+     * 一次取全部角色全部分支（总览用）。
+     *
+     * 为什么不做成「每个角色查一次」：总览要为每张卡取分支，N 张卡就是 N 次挂起查询。
+     * 实测 90 条会话时 `overview()` 因此高达 332ms（见 `PerfProfileTest` 基线）——
+     * 这里合成 1 次查询，把往返次数与数据集规模解耦。
+     */
+    @Query("SELECT * FROM branches ORDER BY characterUuid ASC, isMain DESC, createdAt ASC")
+    suspend fun all(): List<BranchEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(entities: List<BranchEntity>)
 
@@ -95,6 +105,31 @@ interface MessageDao {
     suspend fun scopes(): List<String>
 
     /**
+     * **一次**取全部会话的（条数 + 末条正文 + 末条用户发言）——总览页的唯一数据源。
+     *
+     * 为什么是一条 SQL 而不是「每条会话查 3 次」：后者是 3N 次挂起查询，
+     * 实测 90 条会话 = 332ms（`PerfProfileTest` 基线），而这里的写法是**常数次**查询：
+     * 内层 `GROUP BY` 取条数与末条下标，两个 `LEFT JOIN` 靠 `scopeId` 索引把末条正文取回来。
+     * 全部是 SQLite 3.18（API 26 自带）就支持的能力，**没用窗口函数**。
+     */
+    @Query(
+        """
+        SELECT c.scopeId AS scopeId,
+               c.n AS messageCount,
+               la.content AS lastContent,
+               lu.content AS lastUserContent
+        FROM (SELECT scopeId AS scopeId, COUNT(*) AS n, MAX(sortIndex) AS lastIdx
+              FROM messages GROUP BY scopeId) c
+        LEFT JOIN messages la ON la.scopeId = c.scopeId AND la.sortIndex = c.lastIdx
+        LEFT JOIN (SELECT scopeId AS scopeId, MAX(sortIndex) AS userIdx
+                   FROM messages WHERE role = 'user' GROUP BY scopeId) u
+               ON u.scopeId = c.scopeId
+        LEFT JOIN messages lu ON lu.scopeId = u.scopeId AND lu.sortIndex = u.userIdx
+        """,
+    )
+    suspend fun scopeStats(): List<ScopeStats>
+
+    /**
      * 某作用域最后一条的正文（会话总览的预览行）。
      *
      * 单独给一条查询而不是「取全部再取末项」：重度用户的单段会话可达上万条，
@@ -103,6 +138,16 @@ interface MessageDao {
      */
     @Query("SELECT content FROM messages WHERE scopeId = :scopeId ORDER BY sortIndex DESC LIMIT 1")
     suspend fun lastContent(scopeId: String): String?
+
+    /**
+     * 最后一条**用户**发言（会话总览的预览行）。
+     *
+     * 与 [lastContent] 分开是**设计决定**（用户 2026-09-13 拍板）：目录式读法里，
+     * 人记得住的通常是自己说过的话，而且这样能绕开「模型输出里的脏前缀」
+     * （真实数据里有一条末条正文以 `<thinking>` 开头）。
+     */
+    @Query("SELECT content FROM messages WHERE scopeId = :scopeId AND role = 'user' ORDER BY sortIndex DESC LIMIT 1")
+    suspend fun lastUserContent(scopeId: String): String?
 }
 
 @Dao

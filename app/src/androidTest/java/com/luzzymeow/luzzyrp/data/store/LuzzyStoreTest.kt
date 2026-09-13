@@ -224,15 +224,83 @@ class LuzzyStoreTest {
         assertEquals("char-1 应有 main + b1 两条会话", 2, char1.size)
         assertEquals("主线必须排在前面", com.luzzymeow.luzzyrp.chat.ChatBranch.MainId, char1.first().branchId)
         assertEquals(2, char1.first().messageCount)
-        assertEquals("第二句", char1.first().lastText)
+        assertEquals("第二句", char1.first().previewText)
         val branch = char1.first { it.branchId == "b1" }
         assertEquals(2, branch.messageCount)
-        assertEquals("分支里的问句", branch.lastText)
+        assertEquals("分支里的问句", branch.previewText)
         assertEquals("分支名要带上", "分支甲", branch.branchName)
 
         // 第二张角色卡没有分支键 → 也要出现在总览里（合成主线），而不是消失
         assertTrue(overview.any { it.characterUuid == "char-2" && it.isMain })
         assertEquals("角色名带上，供列表显示", "样例角色", char1.first().characterName)
+    }
+
+    /**
+     * 预览取「最后一条**用户**发言」（用户 2026-09-13 拍板），
+     * 且**无用户发言时回落末条正文**——否则那一行会空着，与已批准的版式不符。
+     *
+     * 这里用合成的三行验证回落：只开场白（无用户发言）/ 有用户发言但后面又跟了助手回复。
+     */
+    @Test
+    fun sessionOverviewPreviewPrefersLastUserMessageAndFallsBack() = runBlocking {
+        store.putString(LuzzyStore.KEY_ACTIVE_CHARACTER, "c1")
+        store.upsertCharacter(
+            com.luzzymeow.luzzyrp.data.store.CharacterEntity(
+                uuid = "c1", name = "角色甲", avatarPath = null, createdAt = 1L, payload = "{}",
+            ),
+        )
+        val scope = ScopeId("c1")
+        store.replaceMessages(
+            scope,
+            listOf(
+                com.luzzymeow.luzzyrp.data.store.MessageEntity(scope.suffix(), 0, "m0", "assistant", "甲", "开场白", null, "{}"),
+                com.luzzymeow.luzzyrp.data.store.MessageEntity(scope.suffix(), 1, "m1", "user", "我", "我说过的第一句", null, "{}"),
+                com.luzzymeow.luzzyrp.data.store.MessageEntity(scope.suffix(), 2, "m2", "assistant", "甲", "模型回了一大段（末条正文）", null, "{}"),
+            ),
+        )
+        val repository = com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository(store)
+        assertEquals("必须取用户那一句，而不是末条助手正文", "我说过的第一句", repository.overview().single().previewText)
+
+        // 只有开场白（用户一句话都没说）→ 回落末条正文，别让那一行空着
+        store.replaceMessages(
+            scope,
+            listOf(
+                com.luzzymeow.luzzyrp.data.store.MessageEntity(scope.suffix(), 0, "m0", "assistant", "甲", "开场白", null, "{}"),
+            ),
+        )
+        assertEquals("开场白", repository.overview().single().previewText)
+    }
+
+    /**
+     * **内联思维链必须变成思考节点、且不再出现在正文里**（本轮修的真实缺陷）。
+     *
+     * 上游把 CoT 存在正文里（`<thinking>…</thinking>`，靠 `parseCot()` 渲染期剥离）。
+     * 我们当初只认独立的 `reasoning` 字段，于是迁移进来的消息出现两个症状：
+     * 思维链被当正文渲染 + 思考节点是空的。这条断言把两者一起钉住。
+     */
+    @Test
+    fun inlineCotBecomesThinkNodeAndLeavesTheBody() = runBlocking {
+        val scope = ScopeId("c1")
+        val withCot = "<thinking>\n[情景意图分析] 先想清楚再答。\n</thinking>\n\n正文从这里开始。"
+        store.upsertCharacter(
+            com.luzzymeow.luzzyrp.data.store.CharacterEntity("c1", "角色甲", null, 1L, "{}"),
+        )
+        store.replaceMessages(
+            scope,
+            listOf(
+                com.luzzymeow.luzzyrp.data.store.MessageEntity(scope.suffix(), 0, "m0", "assistant", "甲", withCot, null, "{}"),
+            ),
+        )
+        val repository = com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository(store)
+        val message = repository.loadBranch("c1", "main").single() as com.luzzymeow.luzzyrp.ui.pages.chat.ChatMessage.Ai
+
+        val node = message.thinkNodes.filterIsInstance<com.luzzymeow.luzzyrp.ui.pages.chat.ThinkNode.Brainstorm>().singleOrNull()
+        assertTrue("内联 CoT 应还原成思考节点", node != null)
+        assertTrue("节点里应是思维链原文", node!!.text.contains("[情景意图分析]"))
+        assertEquals("展示正文不该带 thinking 标记", "正文从这里开始。", message.body)
+        assertTrue("原文（落盘/重生成用）保持不变", message.raw.contains("<thinking>"))
+        // 总览预览同样要剥掉，否则会显示 <thinking>…
+        assertEquals("正文从这里开始。", repository.overview().single().previewText)
     }
 
     @Test

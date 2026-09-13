@@ -476,6 +476,8 @@ Luzzy.copyToClipboard = function (text) {
 | **混用 debug / release 包**（2026-09-10 口径变更） | 两包名不同、数据不互通（§9）。**现行纪律：真机只用 release 签名包**（与分发件同物），debug 包不再安装——见 §6.1「真机体验包纪律」。切勿再构建/安装 debug 包作日常使用：会生成第二个空数据 LuzzyRP 造成数据分裂 |
 | **PowerShell 里照抄 Git Bash 的 `MSYS_NO_PATHCONV=1 <cmd>`**（会话 48 实证） | 该前缀是 Git Bash 语法，PowerShell 会把它当命令名报 `CommandNotFoundException`；PowerShell 本就无路径转换问题，直接写 `adb shell ...` 即可 |
 | **小样本掉帧对比不可信**（会话 48 实证） | 真机帧率受热/后台影响极大：同一变体三轮测出 14 / 5 / 10 掉帧。**必须成对交替测量（A/B/A/B 紧邻交替）**才算数——曾因此差点把 `contain:paint` 的噪声（14→5）当成 −64% 收益采纳，配对复测反向（无 17 / 有 26） |
+| **模拟器卡到 250ms/帧时，先查 AVD 的 `hw.ramSize`，别先怀疑应用**（会话 71 实证） | AVD `LuzzyRP_Test` 原配 **1536M** RAM，在 1080×2400/420dpi 下长期换页，表现是「滚动巨卡」——**连系统设置页也是 200ms 中位帧 / 72% 掉帧**（拿系统应用当基线即可判定不是应用的问题）。提到 **4096M** 后同一输入下：系统设置 17ms/2.2%、聊天页 17ms/2.6%，**整套仪器化测试耗时也从 2m40s~3m28s 降到 54s**，之前几次「偶发红」也随之消失。教训两条：① **卡顿先做「系统应用基线对照」**再决定查谁；② 仪器化测试莫名超时/偶发失败时，先看模拟器资源，别急着改代码。原值已备份在 `config.ini.bak-perf` |
+| **这台机器的模拟器用不了 GPU 加速**（会话 71 实证） | AVD 配置 `hw.gpu.enabled = no` / `mode = auto` 是**唯一能启动**的组合：`-gpu host` 会刷屏 `Failed to find ColorBuffer` 且永远起不来；`-gpu angle_indirect` 报 `Failed to load opengl32sw` 后崩溃。所以帧率数字要当**相对值**看（同一个模拟器内的 A/B 有意义，绝对值不代表真机）。**真机帧率才是用户感知的那一档**（AGENTS §6.1 的真机 CDP + `dumpsys gfxinfo` 流程） |
 | **Tailwind CDN 不接受 var() 颜色值** | ~~已证伪~~：JIT 接受纯 var()，但见下一行真正的坑 |
 | **主题色板必须用 RGB 三元组 + `<alpha-value>`** | 纯 `var()` 色值下基本工具类正常，但带透明度修饰符的类（`bg-gray-50/60` 等）会**静默回退纯白**（暗色白块根因，不报错难排查）。正确写法：config 用 `rgb(var(--tw-gray-50) / <alpha-value>)` + 变量存三元组如 `250 249 245`（2026-09-01 jsdom+CDP 双实证，见 §9） |
 | **~~改 assets 不 bump EXTRACT_VERSION = 白改~~（v1.2.3 已根治）** | 构建期 assetSignature（文件数+大小+mtime）注入 BuildConfig.ASSET_SIGNATURE，AssetExtractor 启动比对签名自动重解压——改资产零手动操作；若签名粒度漏检（同 mtime/size 改写）仍可手动 bump 兜底 |

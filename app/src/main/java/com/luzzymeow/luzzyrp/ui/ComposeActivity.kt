@@ -23,6 +23,7 @@ import com.luzzymeow.luzzyrp.ui.pages.AboutPage
 import com.luzzymeow.luzzyrp.ui.pages.CharactersPage
 import com.luzzymeow.luzzyrp.ui.pages.MemoryPage
 import com.luzzymeow.luzzyrp.ui.pages.PresetsPage
+import com.luzzymeow.luzzyrp.ui.pages.SessionsPage
 import com.luzzymeow.luzzyrp.ui.pages.SettingsPage
 import com.luzzymeow.luzzyrp.ui.pages.UsagePage
 import com.luzzymeow.luzzyrp.ui.pages.WorldInfoPage
@@ -91,6 +92,13 @@ class ComposeActivity : ComponentActivity() {
                             darkMode = currentDark,
                             onToggleDarkMode = toggleDark,
                             onOpenDrawer = onOpenDrawer,
+                            onOpenSessions = { route = LuzzyRoute.Sessions },
+                        )
+                        LuzzyRoute.Sessions -> SessionsPage(
+                            onOpenDrawer = onOpenDrawer,
+                            // 选中即切到该角色该分支：写进 kv 再回聊天页——聊天页启动时按 kv 装载，
+                            // 于是「点一行 = 回到那一段」不需要跨页传状态
+                            onOpenSession = { _, _ -> route = LuzzyRoute.Chat },
                         )
                         LuzzyRoute.Characters -> CharactersPage(onOpenDrawer)
                         LuzzyRoute.WorldInfo -> WorldInfoPage(onOpenDrawer)

@@ -88,6 +88,14 @@ data class AiResult(
     val usage: com.luzzymeow.luzzyrp.chat.UsageInfo? = null,
     /** 该次生成的墙钟耗时（脚注用）。 */
     val elapsedMs: Long? = null,
+    /**
+     * **展示用正文**（剥掉内联 CoT 标记；见 `CotParser`）。
+     *
+     * 放在**构造末尾、构造时算一次**，而不是做成 getter：getter 会在**每次重组**重新
+     * 正则扫一遍整段正文（1~2KB），滚动时的掉帧就有它一份。
+     * 位置在末尾是为了不破坏既有的位置参数调用点。
+     */
+    val body: String = com.luzzymeow.luzzyrp.chat.CotParser.mainOf(raw),
 )
 
 /** 消息数据（P2：真实发送与真实流式产出；`demoScript()` 为演示角色的历史数据）。 */
@@ -110,6 +118,18 @@ sealed class ChatMessage {
             }
 
         val raw: String get() = current.raw
+
+        /**
+         * **展示用正文**：剥掉内联思维链标记之后的正文。
+         *
+         * 为什么必须与 [raw] 分开：上游把 CoT 存在正文里（`<thinking>…</thinking>`，靠
+         * `parseCot()` 在渲染期剥离，见 [com.luzzymeow.luzzyrp.chat.CotParser]）。
+         * - 渲染、字数统计、预览 → 用 [body]（否则满屏「[情景意图分析]…」）；
+         * - 落盘、发给模型、重新生成 → 用 [raw]（**不改数据**，保持与旧版逐字一致）。
+         */
+        /** 展示用正文（已由 [AiResult] 在构造时算好，见其说明）。 */
+        val body: String get() = current.body
+
         val thinkNodes: List<ThinkNode> get() = current.thinkNodes
         val finishReason: String? get() = current.finishReason
         val resultCount: Int get() = results.size
@@ -125,7 +145,11 @@ sealed class ChatMessage {
         fun editCurrent(text: String): Ai {
             if (results.isEmpty()) return copy(results = listOf(AiResult(text)), index = 0)
             val updated = results.toMutableList()
-            updated[index.coerceIn(0, updated.lastIndex)] = current.copy(raw = text)
+            // 改的是正文 → body 必须跟着重算（它不再是 getter，不会自己更新）
+            updated[index.coerceIn(0, updated.lastIndex)] = current.copy(
+                raw = text,
+                body = com.luzzymeow.luzzyrp.chat.CotParser.mainOf(text),
+            )
             return copy(results = updated)
         }
     }

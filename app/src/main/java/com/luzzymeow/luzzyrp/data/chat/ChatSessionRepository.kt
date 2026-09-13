@@ -67,10 +67,11 @@ class ChatSessionRepository(private val store: LuzzyStore) {
             ?: branches.firstOrNull { it.id == LegacyKeys.MAIN_BRANCH_ID }?.id
             ?: branches.first().id
 
+        // **只装载当前分支**（P4-C 性能专项）：旧写法把该角色**所有分支的全部消息**读进内存，
+        // 成本随分支数线性增长（20 条分支 × 上千条 = 几万行 + 几万个对象），而界面一次只看一条。
+        // 其余分支由 [loadBranch] 在切换时按需装入。
         val messages = LinkedHashMap<String, List<ChatMessage>>()
-        for (branch in branches) {
-            messages[branch.id] = store.messages(scopeOf(character.uuid, branch.id)).map { it.toChatMessage() }
-        }
+        messages[active] = store.messages(scopeOf(character.uuid, active)).map { it.toChatMessage() }
         return Session(character, branches, active, messages)
     }
 
@@ -90,8 +91,14 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         val branchName: String,
         val isMain: Boolean,
         val messageCount: Int,
-        /** 末条正文（可能很长，呈现层自行截断）。 */
-        val lastText: String?,
+        /**
+         * 预览文字（可能很长，呈现层自行截断）。
+         *
+         * **取最后一条用户发言**（用户 2026-09-13 拍板）：目录式读法里人记得住的是自己说过的话，
+         * 而且能绕开模型输出里的脏前缀。**无用户发言时回落末条正文**——否则那一行会空着，
+         * 与已批准的版式不符（这一条偏离已在 `boards-v5/direction-approved-v5.md` §3 如实登记）。
+         */
+        val previewText: String?,
     )
 
     /**
@@ -103,13 +110,29 @@ class ChatSessionRepository(private val store: LuzzyStore) {
      * 而不是让它凭空消失。
      */
     suspend fun overview(): List<SessionSummary> {
+        // **常数次查询**（与数据集规模无关）：角色 1 次 + 全部分支 1 次 + 全会话聚合 1 次。
+        // 旧写法是「每角色查分支 + 每会话查 3 次」，实测 90 条会话 332ms（PerfProfileTest 基线）。
+        val characters = store.characters()
+        if (characters.isEmpty()) return emptyList()
+        val branchesByCharacter = store.allBranches().groupBy { it.characterUuid }
+        val stats = store.scopeStats()
+            .associateBy { it.scopeId }
+            .mapValues { (_, s) ->
+                // 预览取的是**正文**：旧的 assistant 消息把思维链内联在 content 里，
+                // 不剥掉的话总览会显示「<thinking>[情景意图分析]…」（真实数据里就有）
+                s.copy(
+                    lastContent = s.lastContent?.let { com.luzzymeow.luzzyrp.chat.CotParser.mainOf(it) },
+                    lastUserContent = s.lastUserContent?.let { com.luzzymeow.luzzyrp.chat.CotParser.mainOf(it) },
+                )
+            }
+
         val result = mutableListOf<SessionSummary>()
-        for (character in store.characters()) {
-            val branches = store.branches(character.uuid).ifEmpty {
+        for (character in characters) {
+            val branches = branchesByCharacter[character.uuid].orEmpty().ifEmpty {
                 listOf(BranchEntity(character.uuid, ChatBranch.MainId, "主线", null, 0L, 0L, 0, 0, 0, true))
             }
-            for (branch in branches.sortedWith(compareByDescending<BranchEntity> { it.isMain }.thenBy { it.createdAt })) {
-                val scope = scopeOf(character.uuid, branch.branchId)
+            for (branch in branches) {
+                val stat = stats[scopeOf(character.uuid, branch.branchId).suffix()]
                 result += SessionSummary(
                     characterUuid = character.uuid,
                     characterName = character.name,
@@ -117,18 +140,35 @@ class ChatSessionRepository(private val store: LuzzyStore) {
                     branchId = branch.branchId,
                     branchName = branch.name,
                     isMain = branch.isMain,
-                    messageCount = store.messageCount(scope),
-                    lastText = store.lastMessagePreview(scope),
+                    messageCount = stat?.messageCount ?: 0,
+                    // 预览取最后一条用户发言；无用户发言时回落末条正文（见 SessionSummary.previewText）
+                    previewText = stat?.lastUserContent ?: stat?.lastContent,
                 )
             }
         }
         return result
     }
 
+    /**
+     * 按需装载某条分支的消息（切换分支时用）。
+     *
+     * 与 [load] 只装当前分支配套：切换是**高频动作**，但每次只需要一条分支。
+     */
+    suspend fun loadBranch(characterUuid: String, branchId: String): List<ChatMessage> =
+        store.messages(scopeOf(characterUuid, branchId)).map { it.toChatMessage() }
+
     /** 存储作用域：主线是裸 uuid，分支带 `__branch__`（与旧存储逐字一致）。 */
     fun scopeOf(characterUuid: String, branchId: String): ScopeId = ScopeId(characterUuid, branchId)
 
     // ---------------------------------------------------------------- 写
+
+    /** 当前角色（kv 里记的；空库返回 null）。总览用它标出「正在写的那条」。 */
+    suspend fun currentCharacterUuid(): String? =
+        store.string(LuzzyStore.KEY_ACTIVE_CHARACTER)?.takeIf { it.isNotBlank() }
+            ?: store.characters().firstOrNull()?.uuid
+
+    /** 某角色当前所在分支（`branch_meta.activeBranchId`）。 */
+    suspend fun currentBranchId(characterUuid: String): String? = store.activeBranchId(characterUuid)
 
     /** 记住当前角色（启动时恢复用）。 */
     suspend fun rememberActiveCharacter(uuid: String) = store.putString(LuzzyStore.KEY_ACTIVE_CHARACTER, uuid)
@@ -266,9 +306,19 @@ class ChatSessionRepository(private val store: LuzzyStore) {
     internal fun MessageEntity.toChatMessage(): ChatMessage = when (role) {
         "user" -> ChatMessage.User(content)
         else -> {
-            val nodes = reasoning?.takeIf { it.isNotBlank() }
-                ?.let { listOf(ThinkNode.Brainstorm(text = it, seconds = 0.0, streaming = false)) }
-                ?: emptyList()
+            // 思维内容可能来自**两处**，都要还原成思考节点：
+            // ① 内联在 content 里的 `<thinking>…</thinking>`（旧版 WebView 的存法，见 CotParser）；
+            // ② `reasoning` 列（我们自己生成时从 SSE 的 reasoning_content 拿到的那一支）。
+            // 只认 ② 就是本轮修的缺陷：迁移进来的消息思维链跑到正文里、节点是空的。
+            val inline = com.luzzymeow.luzzyrp.chat.CotParser.parse(content)
+            val nodes = buildList {
+                if (inline.cot.isNotBlank()) {
+                    add(ThinkNode.Brainstorm(text = inline.cot, seconds = 0.0, streaming = false))
+                }
+                if (!reasoning.isNullOrBlank() && reasoning.trim() != inline.cot.trim()) {
+                    add(ThinkNode.Brainstorm(text = reasoning, seconds = 0.0, streaming = false))
+                }
+            }
             ChatMessage.Ai(
                 name = name ?: "AI",
                 results = listOf(AiResult(raw = content, thinkNodes = nodes)),

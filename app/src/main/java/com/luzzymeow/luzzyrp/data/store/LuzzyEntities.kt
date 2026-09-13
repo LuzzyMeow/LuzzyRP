@@ -133,3 +133,16 @@ data class AttachmentEntity(
     /** 来源记录（便于清理孤儿文件），如 `character:<uuid>` / `message:<scope>:<index>`。 */
     @ColumnInfo(defaultValue = "") val origin: String,
 )
+
+/**
+ * 一条会话的聚合摘要（`MessageDao.scopeStats` 的投影，不是表）。
+ *
+ * 存在的理由：总览页需要「每条会话的条数 + 末条正文 + 末条用户发言」，
+ * 逐条查询是 3N 次往返（实测 90 条会话 332ms）；合成一条 SQL 后与数据集规模解耦。
+ */
+data class ScopeStats(
+    val scopeId: String,
+    val messageCount: Int,
+    val lastContent: String?,
+    val lastUserContent: String?,
+)

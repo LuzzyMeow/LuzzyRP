@@ -38,9 +38,11 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
@@ -93,7 +95,7 @@ fun MarkdownText(
 private fun MarkdownBlockView(block: MdBlock, tokens: MarkdownTokens, depth: Int) {
     when (block) {
         is MdBlock.Paragraph -> Text(
-            text = rememberSpans(block.spans),
+            text = rememberSpans(block.spans, tokens.bodySize),
             fontSize = tokens.bodySize,
             lineHeight = tokens.bodyLineHeight,
             fontFamily = LuzzyFonts.Body,
@@ -101,7 +103,7 @@ private fun MarkdownBlockView(block: MdBlock, tokens: MarkdownTokens, depth: Int
         )
 
         is MdBlock.Heading -> Text(
-            text = rememberSpans(block.text),
+            text = rememberSpans(block.text, tokens.headingSize(block.level)),
             fontSize = tokens.headingSize(block.level),
             lineHeight = tokens.headingLineHeight,
             // h1/h2 用 Lora（品牌 display 族），h3+ 回正文族加粗——层级靠字号 + 字族双信号
@@ -158,7 +160,7 @@ private fun MarkdownBlockView(block: MdBlock, tokens: MarkdownTokens, depth: Int
                         verticalArrangement = Arrangement.spacedBy(tokens.blockGap),
                     ) {
                         Text(
-                            text = rememberSpans(item.spans),
+                            text = rememberSpans(item.spans, tokens.bodySize),
                             fontSize = tokens.bodySize,
                             lineHeight = tokens.bodyLineHeight,
                             fontFamily = LuzzyFonts.Body,
@@ -297,7 +299,7 @@ private fun TableRow(
         repeat(columns) { i ->
             val cell = cells.getOrNull(i).orEmpty()
             Text(
-                text = rememberSpans(cell),
+                text = rememberSpans(cell, tokens.bodySize),
                 fontSize = tokens.bodySize,
                 lineHeight = tokens.bodyLineHeight,
                 fontFamily = LuzzyFonts.Body,
@@ -313,14 +315,38 @@ private fun TableRow(
 
 // ────────────────────────────── 行内 → AnnotatedString ──────────────────────────────
 
+/**
+ * 纯文本 + **行内 HTML 样式** → AnnotatedString（用户气泡用）。
+ *
+ * 上游对 user 消息走的是同一条渲染链（`renderMarkdown(text, 'user')`），差别只在于
+ * 我们用户气泡里的排版**不是 Markdown**（设计决定：用户输入按原样显示）。所以这里只取
+ * 「行内样式」这一段能力——正则脚本写的高亮在用户消息上同样生效。
+ */
 @Composable
-private fun rememberSpans(spans: List<MdSpan>): AnnotatedString {
+fun rememberInlineSpans(text: String, baseSize: TextUnit): AnnotatedString {
     val linkColor = MaterialTheme.colorScheme.primary
     val codeBg = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
     val codeColor = MaterialTheme.colorScheme.primary
-    return remember(spans, linkColor, codeBg) {
+    return remember(text, baseSize, linkColor, codeBg) {
         buildAnnotatedString {
-            appendSpans(spans, linkColor, codeBg, codeColor)
+            val spans = if (InlineHtml.hasTags(text)) {
+                InlineHtml.rewrite(listOf(MdSpan.Text(text)))
+            } else {
+                listOf(MdSpan.Text(text))
+            }
+            appendSpans(spans, linkColor, codeBg, codeColor, baseSize)
+        }
+    }
+}
+
+@Composable
+private fun rememberSpans(spans: List<MdSpan>, baseSize: TextUnit): AnnotatedString {
+    val linkColor = MaterialTheme.colorScheme.primary
+    val codeBg = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+    val codeColor = MaterialTheme.colorScheme.primary
+    return remember(spans, baseSize, linkColor, codeBg) {
+        buildAnnotatedString {
+            appendSpans(spans, linkColor, codeBg, codeColor, baseSize)
         }
     }
 }
@@ -330,22 +356,32 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendSpans(
     linkColor: Color,
     codeBg: Color,
     codeColor: Color,
+    baseSize: TextUnit,
 ) {
     spans.forEach { span ->
         when (span) {
             is MdSpan.Text -> append(span.text)
             is MdSpan.Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                appendSpans(span.spans, linkColor, codeBg, codeColor)
+                appendSpans(span.spans, linkColor, codeBg, codeColor, baseSize)
             }
             is MdSpan.Strong -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
-                appendSpans(span.spans, linkColor, codeBg, codeColor)
+                appendSpans(span.spans, linkColor, codeBg, codeColor, baseSize)
             }
             is MdSpan.Strike -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
-                appendSpans(span.spans, linkColor, codeBg, codeColor)
+                appendSpans(span.spans, linkColor, codeBg, codeColor, baseSize)
             }
             is MdSpan.Code -> withStyle(
                 SpanStyle(background = codeBg, color = codeColor, fontFamily = LuzzyFonts.Mono),
             ) { append(span.text) }
+
+            // 行内 HTML（正则脚本注入的 `<span style=…>` 就在这里变成真的样式）。
+            // 字号沿嵌套逐层相乘（等价 CSS 的 em 语义），因此要把「当前字号」往下传。
+            is MdSpan.Html -> {
+                val next = span.style.sizeScale?.let { baseSize * it } ?: baseSize
+                withStyle(span.style.toSpanStyle()) {
+                    appendSpans(span.spans, linkColor, codeBg, codeColor, next)
+                }
+            }
 
             // 链接用 AnnotatedString 原生 LinkAnnotation：可点、可无障碍播报，
             // 且只放行 http/https（GFM flavour 已过滤一层，这里再兜一层）。
@@ -360,12 +396,43 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendSpans(
                             ),
                         ),
                     ),
-                ) { appendSpans(span.text, linkColor, codeBg, codeColor) }
+                ) { appendSpans(span.text, linkColor, codeBg, codeColor, baseSize) }
             } else {
                 withStyle(SpanStyle(color = linkColor)) {
-                    appendSpans(span.text, linkColor, codeBg, codeColor)
+                    appendSpans(span.text, linkColor, codeBg, codeColor, baseSize)
                 }
             }
         }
     }
 }
+
+/**
+ * **行内 HTML 样式 → Compose SpanStyle**（三态映射）。
+ *
+ * 只对**显式声明过**的项设值，`null` 一律不碰——`SpanStyle` 是叠加式的，
+ * 给一个没声明的项设默认值会把外层的强调/颜色覆盖掉（`<b>粗<span>还是粗</span></b>` 那种）。
+ */
+private fun HtmlStyle.toSpanStyle(): SpanStyle = SpanStyle(
+    color = color?.let { Color(it) } ?: Color.Unspecified,
+    background = background?.let { Color(it) } ?: Color.Unspecified,
+    fontWeight = bold?.let { if (it) FontWeight.SemiBold else FontWeight.Normal } ?: null,
+    fontStyle = italic?.let { if (it) FontStyle.Italic else FontStyle.Normal } ?: null,
+    textDecoration = when {
+        underline == true && strike == true -> TextDecoration.combine(
+            listOf(TextDecoration.Underline, TextDecoration.LineThrough),
+        )
+        underline == true -> TextDecoration.Underline
+        strike == true -> TextDecoration.LineThrough
+        underline == false && strike == false -> TextDecoration.None
+        underline == false -> TextDecoration.None
+        strike == false -> TextDecoration.None
+        else -> null
+    },
+    fontFamily = mono?.let { if (it) LuzzyFonts.Mono else LuzzyFonts.Body } ?: null,
+    baselineShift = when (baseline) {
+        HtmlBaseline.Sub -> BaselineShift.Subscript
+        HtmlBaseline.Super -> BaselineShift.Superscript
+        HtmlBaseline.Normal -> BaselineShift.None
+        null -> null
+    },
+)

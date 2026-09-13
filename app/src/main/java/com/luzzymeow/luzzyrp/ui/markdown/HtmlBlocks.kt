@@ -32,19 +32,25 @@ sealed interface MessageSegment {
 object HtmlBlocks {
 
     /**
-     * 允许触发 HTML 段的标签。
+     * 允许触发 HTML 段的标签（**只放块级**）。
      *
      * 取上游那份名单的**超集里安全的部分**：上游点名 div/table/section/article/aside/header/footer/
-     * style/script（`:131`），这里补上常见的内联与结构标签。**刻意不含 `script` / `iframe`**：
+     * style/script（`:131`），这里补上常见的块级结构标签。**刻意不含 `script` / `iframe`**：
      * 那两样在上游靠 `DOMPurify` 的 `ADD_TAGS` 放行、且能真的执行——我们是原生应用，
      * 渲染容器不给 JS（见 [HtmlCard]），放行它们只会得到一个不动的空框。
+     *
+     * **2026-09-14 收窄**：行内标签（span/b/i/u/strong/em/code/font/small…）从这份名单里移出。
+     * 理由是可测的行为差别——用户正则脚本最爱写的 `<span style="color:…">` 若算「HTML 段」，
+     * 每个高亮都会变成一个 WebView 卡片（正文断流 + 每卡一个 WebView 的开销），
+     * 而上游是**行内**渲染的（浏览器把 span 画在段落里）。行内的那条路由 [InlineHtml] 承担，
+     * 块级（div/table/列表/标题/引用/围栏…）仍走卡片，两边各管一段。
      */
     private val BLOCK_TAGS = setOf(
-        "div", "span", "p", "table", "thead", "tbody", "tr", "td", "th",
+        "div", "p", "table", "thead", "tbody", "tr", "td", "th",
         "section", "article", "aside", "header", "footer", "main", "nav",
         "style", "svg", "details", "summary", "pre", "blockquote", "figure", "figcaption",
         "ul", "ol", "li", "dl", "dt", "dd", "h1", "h2", "h3", "h4", "h5", "h6",
-        "button", "label", "font", "center", "small", "b", "i", "u", "strong", "em", "code", "hr",
+        "button", "label", "center", "hr",
     )
 
     /** 空元素：没有闭标签，区域就是这一个标签。 */

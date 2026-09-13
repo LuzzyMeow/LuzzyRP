@@ -15,6 +15,14 @@ sealed interface MdSpan {
     data class Strike(val spans: List<MdSpan>) : MdSpan
     data class Code(val text: String) : MdSpan
     data class Link(val text: List<MdSpan>, val url: String) : MdSpan
+
+    /**
+     * **行内 HTML 带来的样式片段**（[InlineHtml] 产出）。
+     *
+     * 单独一类而不是塞进 [Text] 的附加字段，理由是渲染侧要做的是「换一段 SpanStyle 再往下画」——
+     * 与 [Emphasis]/[Strong] 同形，套 `withStyle` 即可，不必让每个片段都背一份样式表。
+     */
+    data class Html(val spans: List<MdSpan>, val style: HtmlStyle) : MdSpan
 }
 
 /** 块级元素。 */
@@ -70,6 +78,7 @@ fun MdSpan.plainText(): String = when (this) {
     is MdSpan.Strike -> spans.plainText()
     is MdSpan.Code -> text
     is MdSpan.Link -> text.plainText()
+    is MdSpan.Html -> spans.plainText()
 }
 
 fun MdBlock.plainText(): String = when (this) {

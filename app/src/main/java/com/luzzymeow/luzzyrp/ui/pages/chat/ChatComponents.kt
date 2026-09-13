@@ -304,9 +304,31 @@ fun GlassPanel(
     )
 }
 
-/** 用户气泡：玻璃 tint 用用户气泡底语义（`#F1E3D9` 系），16dp 圆角，320dp 上限，右对齐。 */
+/**
+ * 用户气泡：玻璃 tint 用用户气泡底语义（`#F1E3D9` 系），16dp 圆角，320dp 上限，右对齐。
+ *
+ * [scripts] 是**显示期正则**（上游 `renderMarkdown(text, 'user')` 同义）：用户给自己消息配的
+ * 正则（`placement` 勾了「用户」的那些）在这里生效——最典型的是把动作/台词包成带色的 span。
+ */
 @Composable
-fun UserBubble(text: String, modifier: Modifier = Modifier) {
+fun UserBubble(
+    text: String,
+    modifier: Modifier = Modifier,
+    scripts: List<com.luzzymeow.luzzyrp.chat.RegexScript> = emptyList(),
+    userName: String = "",
+) {
+    val shown = if (scripts.isEmpty() && userName.isEmpty()) {
+        text
+    } else {
+        com.luzzymeow.luzzyrp.chat.RegexScripts.apply(
+            text = text,
+            scripts = scripts,
+            role = com.luzzymeow.luzzyrp.chat.llm.LlmRole.USER,
+            mode = com.luzzymeow.luzzyrp.chat.RegexScripts.Mode.Display,
+            userName = userName,
+        )
+    }
+    val annotated = com.luzzymeow.luzzyrp.ui.markdown.rememberInlineSpans(shown, 13.5.sp)
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         GlassPanel(
             shape = RoundedCornerShape(16.dp),
@@ -317,7 +339,7 @@ fun UserBubble(text: String, modifier: Modifier = Modifier) {
             ),
         ) {
             Text(
-                text = text,
+                text = annotated,
                 fontSize = 13.5.sp,
                 lineHeight = 22.sp,
                 fontFamily = LuzzyFonts.Body,
@@ -342,6 +364,9 @@ fun AiMessagePanel(
     isLive: Boolean = false,
     activeNode: Int = -1,
     modifier: Modifier = Modifier,
+    /** 显示期正则脚本（全局 + 当前角色）；空列表 = 没配过，零成本。 */
+    scripts: List<com.luzzymeow.luzzyrp.chat.RegexScript> = emptyList(),
+    userName: String = "",
 ) {
     GlassPanel(
         modifier = modifier
@@ -375,6 +400,8 @@ fun AiMessagePanel(
                     content = raw,
                     live = isLive,
                     modifier = Modifier.fillMaxWidth(),
+                    scripts = scripts,
+                    userName = userName,
                 )
             }
             if (isLive) TypingDots()

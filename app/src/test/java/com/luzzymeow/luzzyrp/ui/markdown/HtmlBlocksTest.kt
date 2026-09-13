@@ -108,6 +108,16 @@ class HtmlBlocksTest {
     }
 
     @Test
+    fun `行内 span 不触发卡片段——交给行内 HTML 层`() {
+        // 用户正则脚本最常见的高亮写法：如果它算「HTML 段」，每个高亮都会变成一个 WebView
+        val message = "他说<span style=\"color:#c9a227\">「今晚有雨」</span>，然后走了。"
+        val segments = HtmlBlocks.segments(message)
+        assertEquals(1, segments.size)
+        assertTrue(segments.single() is MessageSegment.Markdown)
+        assertFalse(HtmlBlocks.hasHtml(message))
+    }
+
+    @Test
     fun `分段不丢字符——拼回去与原文相同`() {
         val segments = HtmlBlocks.segments(realMessage)
         val joined = segments.joinToString("") {

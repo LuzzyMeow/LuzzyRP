@@ -128,6 +128,39 @@ class PromptInputSource(
         )
     }
 
+    /**
+     * **生效的正则脚本**（上游 `combineRegexScriptsForCharacter`，`app.js:3143-3150`）：
+     * 全局脚本在前 + 当前角色卡自带脚本在后，顺序即套用顺序。
+     *
+     * 上游的回落口径照搬：`global_regex` 存在就**只用它**（老键 `regex` 忽略，`app.js:2484-2488`），
+     * 否则用 `regex` 那份当基础列表；角色卡里的 `scope === 'global'` 条目要排掉
+     * （它们已经在全局那份里，不去重就会跑两遍）。
+     *
+     * 顺序不能改：正则脚本是**依次套用**的，前一条的产物是后一条的输入。
+     *
+     * @param characterUuid null（空库演示态）时只有全局脚本
+     */
+    suspend fun regexScripts(characterUuid: String?): List<RegexScript> {
+        val global = store.records(LuzzyStore.RECORD_GLOBAL_REGEX)
+        val base = if (global.isNotEmpty()) {
+            RegexScript.fromAll(global, fallbackScope = "global")
+        } else {
+            // 老键 `regex`（全局/角色还没分家时的形态，`app.js:2486-2488`）
+            RegexScript.fromAll(store.records(LuzzyStore.RECORD_REGEX))
+        }
+        val row = characterUuid?.let { store.character(it) } ?: return base
+        val payload = runCatching { json.parseToJsonElement(row.payload) }.getOrNull() as? JsonObject
+        val source = (payload?.get("data") as? JsonObject) ?: payload ?: return base
+        val own = (source["regexScripts"] as? kotlinx.serialization.json.JsonArray)
+            ?.mapNotNull { RegexScript.from(it, fallbackScope = "character") }
+            ?.filter { it.scope != "global" }
+            .orEmpty()
+        return base + own
+    }
+
+    /** `{{user}}` 的替换值（显示期正则与正文渲染都要用）。 */
+    suspend fun userName(): String = userInfo().name
+
     companion object {
         /**
          * 工具使用提示（静态文本 → 属稳定块）。

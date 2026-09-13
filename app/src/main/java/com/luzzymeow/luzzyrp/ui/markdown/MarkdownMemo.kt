@@ -21,10 +21,21 @@ internal object MarkdownMemo {
             size > MaxEntries
     }
 
-    /** 命中即返回；未命中则解析并写入缓存。 */
+    /**
+     * 命中即返回；未命中则解析并写入缓存。
+     *
+     * **行内 HTML 展开**（[InlineHtml]）挂在解析之后、进缓存之前：这样缓存里存的是**最终形态**，
+     * 滚动来回命中缓存时不必重跑标签扫描；没有标签的普通消息在 [InlineHtml.hasTags] 处
+     * 立刻返回（一次 `contains('<')` 的代价），不受这一层影响。
+     */
     @Synchronized
-    fun blocksOf(text: String): List<MdBlock> = cache[text] ?: MarkdownParser.parse(text).also {
+    fun blocksOf(text: String): List<MdBlock> = cache[text] ?: parseBlocks(text).also {
         cache[text] = it
+    }
+
+    private fun parseBlocks(text: String): List<MdBlock> {
+        val blocks = MarkdownParser.parse(text)
+        return if (InlineHtml.hasTags(text)) InlineHtml.rewriteBlocks(blocks) else blocks
     }
 
     /** 仅供单测：当前缓存条目数。 */

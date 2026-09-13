@@ -309,10 +309,17 @@ fun ChatPage(
     /**
      * `{{user}}` 的替换值。
      *
-     * 目前应用内还没有「用户名」这个概念（用户消息的名牌固定是「你」，见 [ChatMessage.User]），
-     * 所以先用同一个值；等 P4-C 把用户资料接进来后只改这一处。
+     * 用户消息的名牌固定是「你」（见 [ChatMessage.User]），但**正文里的 `{{user}}`** 要按
+     * 用户档案里的名字替换（上游 `replaceUserNamePlaceholder`）；没配过档案时回落成「你」。
      */
-    val currentUserName = "你"
+    var currentUserName by remember { mutableStateOf("你") }
+    /**
+     * 显示期正则脚本（全局 + 当前角色，`PromptInputSource.regexScripts`）。
+     *
+     * 与角色一起加载：换角色 → 脚本集也随之换（上游 `combineRegexScriptsForCharacter` 同义）。
+     * 空列表 = 没配过，渲染链上零成本（不会白白扫一遍正文）。
+     */
+    var regexScripts by remember { mutableStateOf(emptyList<com.luzzymeow.luzzyrp.chat.RegexScript>()) }
     var characterName by remember { mutableStateOf(VanioCard.Name) }
     var characterStatus by remember { mutableStateOf("${VanioCard.Subtitle} · 在线") }
     var tree by remember { mutableStateOf(BranchTree.single()) }
@@ -338,6 +345,20 @@ fun ChatPage(
                 session.messagesByBranch.forEach { (branchId, messages) ->
                     branchMessages[branchId] = messages
                 }
+                // 显示期正则与用户名：取数失败不该让聊天页整个起不来（回调默认值即可）
+                regexScripts = runCatching { promptSource.regexScripts(session.character.uuid) }
+                    .getOrDefault(emptyList())
+                    .also { loaded ->
+                        // 「配了正则却没看到高亮」的第一现场就是这张清单：条数与名字进日志，
+                        // 脚本内容不进（正文/替换串可能含用户私密设定，日志会被贴出来）。
+                        android.util.Log.i(
+                            "LuzzyRegex",
+                            "显示期正则载入 ${loaded.size} 条：${loaded.joinToString { it.name }}",
+                        )
+                    }
+                currentUserName = runCatching { promptSource.userName() }
+                    .getOrDefault("")
+                    .ifBlank { "你" }
             } else {
                 val main = demoHistory()
                 branchMessages[ChatBranch.MainId] = main
@@ -1078,6 +1099,8 @@ fun ChatPage(
                                     isLive = inPlaceLive.generating,
                                     activeNode = inPlaceLive.activeNode,
                                     modifier = Modifier.fillMaxWidth(),
+                                    scripts = regexScripts,
+                                    userName = currentUserName,
                                 )
                             }
                             return@items
@@ -1092,6 +1115,8 @@ fun ChatPage(
                                     ),
                                     nodes = m.thinkNodes,
                                     modifier = Modifier.fillMaxWidth(),
+                                    scripts = regexScripts,
+                                    userName = currentUserName,
                                 )
                                 MessageNerdLine(
                                     usage = m.current.usage,
@@ -1126,9 +1151,11 @@ fun ChatPage(
 
                             is ChatMessage.User -> Column(Modifier.fillMaxWidth()) {
                                 UserBubble(
-                                    com.luzzymeow.luzzyrp.chat.Placeholders.render(
+                                    text = com.luzzymeow.luzzyrp.chat.Placeholders.render(
                                         m.text, characterName, currentUserName,
                                     ),
+                                    scripts = regexScripts,
+                                    userName = currentUserName,
                                 )
                                 MessageActionRow(
                                     alignEnd = true,
@@ -1170,6 +1197,8 @@ fun ChatPage(
                                     isLive = turn.generating,
                                     activeNode = turn.activeNode,
                                     modifier = Modifier.fillMaxWidth(),
+                                    scripts = regexScripts,
+                                    userName = currentUserName,
                                 )
                             }
                         }

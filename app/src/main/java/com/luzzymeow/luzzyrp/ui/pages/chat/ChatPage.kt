@@ -68,7 +68,7 @@ import com.luzzymeow.luzzyrp.R
 import com.luzzymeow.luzzyrp.chat.BranchStat
 import com.luzzymeow.luzzyrp.chat.BranchTree
 import com.luzzymeow.luzzyrp.chat.ChatBranch
-import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.AgentLoop
 import android.util.Log
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.PromptInputSource
@@ -199,7 +199,7 @@ fun ChatPage(
      * 引擎工厂（默认真实传输）。**测试接缝**：仪器化 UI 测试注入假传输，
      * 就能确定性地驱动「流式上屏 / 工具节点 / 失败态」，不必依赖网络与真实供应商。
      */
-    engineFactory: () -> ChatEngine = { ChatEngine() },
+    engineFactory: () -> AgentLoop = { AgentLoop() },
     /**
      * 会话仓库（默认真实 Room 存储）。**测试接缝**：仪器化测试注入一个指向临时库的仓库，
      * 就能确定性地验证「启动即读 / 改动落盘 / 重启仍在」，不必依赖设备上的真实数据。
@@ -569,7 +569,9 @@ fun ChatPage(
                         if (follow) pinToBottom() else unseenWhileAway = true
                     }
             } catch (_: CancellationException) {
-                // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
+                // 用户点「停止」：保留已真实到达的正文与节点（不丢弃），并**记账**——
+                // 落库时带上 interrupted 标记，否则「模型没说完」与「用户打断了它」在库里长得一样。
+                turn.interrupted = true
             }
             onFinish(turn)
 
@@ -632,7 +634,7 @@ fun ChatPage(
                         turnBranchId,
                         ChatMessage.Ai(
                             results = listOf(
-                                AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                                resultOf(turn),
                             ),
                         ),
                     )
@@ -670,7 +672,7 @@ fun ChatPage(
                         turnBranchId,
                         ChatMessage.Ai(
                             results = listOf(
-                                AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                                resultOf(turn),
                             ),
                         ),
                     )
@@ -705,7 +707,7 @@ fun ChatPage(
                     editMessage(turnBranchId, messageIndex) { current ->
                         if (current is ChatMessage.Ai) {
                             current.withResult(
-                                AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                                resultOf(turn),
                             )
                         } else {
                             current
@@ -1351,20 +1353,38 @@ private fun TransportConfigDialog(
  */
 private const val StreamTraceTag = "LuzzyStream"
 
-private fun traceStreamEvent(event: ChatEngine.Event) {
+private fun traceStreamEvent(event: AgentLoop.Event) {
     if (!BuildConfig.DEBUG) return
     val line = when (event) {
-        is ChatEngine.Event.Recall -> "recall hits=${event.hits.size} range=${event.range}"
-        is ChatEngine.Event.ToolCallStarted -> "tool_start ${event.name}"
-        is ChatEngine.Event.ToolCallArgs -> "tool_args +${event.chunk.length}"
-        is ChatEngine.Event.ToolCallFinished -> "tool_result ${event.name} ${event.result.length}B"
-        is ChatEngine.Event.Reasoning -> "reasoning +${event.chunk.length}"
-        is ChatEngine.Event.Content -> "content +${event.chunk.length}"
-        is ChatEngine.Event.Usage ->
+        is AgentLoop.Event.Recall -> "recall hits=${event.hits.size} range=${event.range}"
+        is AgentLoop.Event.ToolCallStarted -> "tool_start ${event.name}"
+        is AgentLoop.Event.ToolCallArgs -> "tool_args +${event.chunk.length}"
+        is AgentLoop.Event.ToolCallFinished -> "tool_result ${event.name} ${event.result.length}B"
+        is AgentLoop.Event.Reasoning -> "reasoning +${event.chunk.length}"
+        is AgentLoop.Event.Content -> "content +${event.chunk.length}"
+        is AgentLoop.Event.Usage ->
             "usage in=${event.info.input} out=${event.info.output} cached=${event.info.cached}"
 
-        is ChatEngine.Event.Finished -> "finished ${event.finishReason}"
-        is ChatEngine.Event.Failed -> "failed ${event.message}"
+        is AgentLoop.Event.StepStarted -> "step turn=${event.turn} step=${event.step}"
+        is AgentLoop.Event.Finished -> "finished ${event.reason.id}${event.wire?.let { " ($it)" }.orEmpty()}"
+        is AgentLoop.Event.Failed -> "failed ${event.message}"
     }
     android.util.Log.d(StreamTraceTag, line)
 }
+
+/**
+ * 一次真实生成的产出 → 可落库的候选结果。
+ *
+ * **收敛成一处**：发新消息 / 编辑后重跑 / 重新生成三条路径以前各写一遍
+ * `AiResult(turn.body, turn.nodes, …)`，加一个字段就要改三处（漏一处就是静默丢数据）。
+ * 批 B 新增的「工具轨迹」与「被中断」两样正是这样丢不起的字段（B3/B4）。
+ */
+private fun resultOf(turn: LiveTurn): AiResult = AiResult(
+    raw = turn.body,
+    thinkNodes = turn.nodes,
+    finishReason = turn.finishReason,
+    usage = turn.usage,
+    elapsedMs = turn.elapsedMs,
+    toolTrail = turn.toolTrail,
+    interrupted = turn.interrupted,
+)

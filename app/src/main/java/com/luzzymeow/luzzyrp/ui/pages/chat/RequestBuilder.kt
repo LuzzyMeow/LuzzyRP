@@ -3,6 +3,7 @@ package com.luzzymeow.luzzyrp.ui.pages.chat
 import com.luzzymeow.luzzyrp.chat.ChatRequest
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.RecallEngine
+import com.luzzymeow.luzzyrp.chat.ToolTrail
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 
@@ -118,20 +119,29 @@ object RequestBuilder {
      * 快照按 **user 消息**进请求（三协议都只认 user/assistant/system/tool），
      * 并带上 [LlmMessage.runtimeSnapshot] 标记——召回轮号与观测层据此把它与真实发言区分开。
      *
+     * **带工具轨迹的 AI 消息会展开成三段落**（B3）：
+     * `assistant(tool_calls)` → `tool(结果)` → `assistant(正文)`。
+     * 展开是**纯函数且决定性**的（id 由「消息下标 + 序号」合成），所以同一条历史
+     * 每次都展开成同样的字节——批 A 的前缀纯追加性质不会被批 B 破坏
+     * （`AgentLoopTest.多 step 的工具续跑每一轮都是上一轮的逐字节延伸` 钉住这一条）。
+     *
      * 全部标 `fromHistory = true`：历史段**不参与相邻同 role 合并**
      * （合并会让一条消息的内容取决于它的邻居，下一轮邻居一变就改写了已进历史的字节）。
      */
-    fun historyOf(state: List<ChatMessage>): List<LlmMessage> = state.map { message ->
-        val mapped = when (message) {
-            is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = message.text)
-            is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = message.raw)
-            is ChatMessage.Snapshot -> LlmMessage(
-                role = LlmRole.USER,
-                content = message.text,
-                runtimeSnapshot = true,
-            )
+    fun historyOf(state: List<ChatMessage>): List<LlmMessage> {
+        val out = ArrayList<LlmMessage>(state.size)
+        state.forEachIndexed { index, message ->
+            when (message) {
+                is ChatMessage.User -> out += LlmMessage(role = LlmRole.USER, content = message.text)
+                is ChatMessage.Ai -> out += ToolTrail.expand(index, message.raw, message.current.toolTrail)
+                is ChatMessage.Snapshot -> out += LlmMessage(
+                    role = LlmRole.USER,
+                    content = message.text,
+                    runtimeSnapshot = true,
+                )
+            }
         }
-        if (mapped.fromHistory) mapped else mapped.copy(fromHistory = true)
+        return out.map { if (it.fromHistory) it else it.copy(fromHistory = true) }
     }
 
     /**

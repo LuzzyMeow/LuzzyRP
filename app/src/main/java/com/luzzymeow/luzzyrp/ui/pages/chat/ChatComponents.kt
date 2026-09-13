@@ -96,6 +96,20 @@ data class AiResult(
      * 位置在末尾是为了不破坏既有的位置参数调用点。
      */
     val body: String = com.luzzymeow.luzzyrp.chat.CotParser.mainOf(raw),
+    /**
+     * 这次生成里发生的**工具调用轨迹**（B3，随消息一起落库）。
+     *
+     * 落库的理由见 [com.luzzymeow.luzzyrp.chat.ToolStep]：模型下一轮必须看得见自己查过什么；
+     * 且「有调用没结果」的悬空配对要靠它才能在重启后被修复。
+     */
+    val toolTrail: List<com.luzzymeow.luzzyrp.chat.ToolStep> = emptyList(),
+    /**
+     * 这次生成**被中断**（用户点停止 / 进程被杀），已收到的正文是半截。
+     *
+     * 记为数据而不是只记在日志里：否则「这半截话是模型没说完」与「用户打断了它」
+     * 在库里长得一模一样（B4）。
+     */
+    val interrupted: Boolean = false,
 )
 
 /** 消息数据（P2：真实发送与真实流式产出；`demoScript()` 为演示角色的历史数据）。 */

@@ -1,6 +1,7 @@
 package com.luzzymeow.luzzyrp.data.chat
 
 import com.luzzymeow.luzzyrp.chat.ChatBranch
+import com.luzzymeow.luzzyrp.chat.ToolStep
 import com.luzzymeow.luzzyrp.data.legacy.LegacyKeys
 import com.luzzymeow.luzzyrp.data.legacy.ScopeId
 import com.luzzymeow.luzzyrp.data.store.BranchEntity
@@ -11,6 +12,12 @@ import com.luzzymeow.luzzyrp.ui.pages.chat.AiResult
 import com.luzzymeow.luzzyrp.ui.pages.chat.ChatMessage
 import com.luzzymeow.luzzyrp.ui.pages.chat.ThinkNode
 import com.luzzymeow.luzzyrp.ui.pages.chat.text
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * 聊天会话的读写（P4-B-3.4）：把存储行与界面消息模型对上，界面只调这里。
@@ -304,6 +311,12 @@ class ChatSessionRepository(private val store: LuzzyStore) {
          */
         const val PAYLOAD_SNAPSHOT_KEY = "luzzySnapshot"
 
+        /** payload 里存**工具调用轨迹**（B3）的私有键。 */
+        const val PAYLOAD_TOOL_TRAIL_KEY = "luzzyToolTrail"
+
+        /** payload 里存**「这次生成被中断」**（B4）的私有键。 */
+        const val PAYLOAD_INTERRUPTED_KEY = "luzzyInterrupted"
+
         /** 存储行 role：快照独立成一种；其余按 user/assistant。 */
         fun roleOf(message: ChatMessage): String = when (message) {
             is ChatMessage.Snapshot -> ROLE_SNAPSHOT
@@ -311,17 +324,70 @@ class ChatSessionRepository(private val store: LuzzyStore) {
             is ChatMessage.Ai -> "assistant"
         }
 
-        /** 新行 payload：只有快照带标记（其余保持 `{}`，老行的多余字段由按行更新保住）。 */
-        fun payloadOf(message: ChatMessage): String =
-            if (message is ChatMessage.Snapshot) """{"$PAYLOAD_SNAPSHOT_KEY":true}""" else "{}"
+        /**
+         * 新行 payload。
+         *
+         * 只有**需要额外说明**的消息才带键（快照标记 / 工具轨迹 / 中断标记），
+         * 其余保持 `{}`；老行的多余字段（`isSelf` / `avatar` / `imageAttachments`）由按行更新保住。
+         *
+         * 轨迹是**逐字段显式写出**的（不用 `toString()` 拼）：payload 是要长期躺在库里的数据，
+         * 键名写错一个字母就再也读不回来，而显式写出让它在 review 时一眼可见。
+         */
+        fun payloadOf(message: ChatMessage): String {
+            val trail = (message as? ChatMessage.Ai)?.current?.toolTrail.orEmpty()
+            val interrupted = (message as? ChatMessage.Ai)?.current?.interrupted == true
+            if (message !is ChatMessage.Snapshot && trail.isEmpty() && !interrupted) return "{}"
+            return buildJsonObject {
+                if (message is ChatMessage.Snapshot) put(PAYLOAD_SNAPSHOT_KEY, JsonPrimitive(true))
+                if (interrupted) put(PAYLOAD_INTERRUPTED_KEY, JsonPrimitive(true))
+                if (trail.isNotEmpty()) {
+                    put(
+                        PAYLOAD_TOOL_TRAIL_KEY,
+                        JsonArray(
+                            trail.map { step ->
+                                buildJsonObject {
+                                    put("name", JsonPrimitive(step.name))
+                                    put("args", JsonPrimitive(step.args))
+                                    // 未拿到结果的那条**显式写 null**：空串与 null 是两件事
+                                    put("result", step.result?.let { JsonPrimitive(it) } ?: JsonNull)
+                                }
+                            },
+                        ),
+                    )
+                }
+            }.toString()
+        }
 
         /** payload 是否带快照标记（宽松解析：坏 JSON / 缺键一律 false）。 */
-        fun isSnapshotPayload(payload: String): Boolean = runCatching {
-            val element = kotlinx.serialization.json.Json.parseToJsonElement(payload)
-            val value = (element as? kotlinx.serialization.json.JsonObject)
-                ?.get(PAYLOAD_SNAPSHOT_KEY) as? kotlinx.serialization.json.JsonPrimitive
-            value?.content == "true"
-        }.getOrDefault(false)
+        fun isSnapshotPayload(payload: String): Boolean = payloadObject(payload)
+            ?.get(PAYLOAD_SNAPSHOT_KEY)
+            ?.let { (it as? JsonPrimitive)?.content == "true" } == true
+
+        /** 从 payload 读工具轨迹（B3）；缺键/坏数据一律空表（老消息没有这一段）。 */
+        fun toolTrailOf(payload: String): List<ToolStep> {
+            val array = payloadObject(payload)?.get(PAYLOAD_TOOL_TRAIL_KEY) as? JsonArray ?: return emptyList()
+            return array.mapNotNull { element ->
+                val obj = element as? JsonObject ?: return@mapNotNull null
+                val name = (obj["name"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+                ToolStep(
+                    name = name,
+                    args = (obj["args"] as? JsonPrimitive)?.content.orEmpty(),
+                    // null / 缺键 / 非字符串都按「没有结果」处理（那是安全方向：会触发修复）
+                    result = (obj["result"] as? JsonPrimitive)?.takeIf { it.isString }?.content,
+                )
+            }
+        }
+
+        /** 从 payload 读「被中断」标记（B4）。 */
+        fun interruptedOf(payload: String): Boolean = payloadObject(payload)
+            ?.get(PAYLOAD_INTERRUPTED_KEY)
+            ?.let { (it as? JsonPrimitive)?.content == "true" } == true
+
+        /** 宽松解析 payload 为对象；坏 JSON 一律空对象（**绝不抛**：一条坏行不该让整段会话读不出来）。 */
+        private fun payloadObject(payload: String): JsonObject? =
+            runCatching { Json.parseToJsonElement(payload) as? JsonObject }.getOrNull()
+
+        private val Json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; isLenient = true }
 
         /** 这一行是不是尾部快照（role 或 payload 任一命中即算，坏 JSON 一律当普通消息）。 */
         fun isSnapshotRow(entity: MessageEntity): Boolean =
@@ -379,7 +445,16 @@ internal fun decodeMessage(entity: MessageEntity): ChatMessage = when {
         }
         ChatMessage.Ai(
             name = entity.name ?: "AI",
-            results = listOf(AiResult(raw = entity.content, thinkNodes = nodes)),
+            results = listOf(
+                AiResult(
+                    raw = entity.content,
+                    thinkNodes = nodes,
+                    // B3/B4：工具轨迹与「被中断」标记随行回来——不认这两样，
+                    // 重启后模型就看不见上一轮查过什么，悬空配对也无从修复。
+                    toolTrail = ChatSessionRepository.toolTrailOf(entity.payload),
+                    interrupted = ChatSessionRepository.interruptedOf(entity.payload),
+                ),
+            ),
         )
     }
 }

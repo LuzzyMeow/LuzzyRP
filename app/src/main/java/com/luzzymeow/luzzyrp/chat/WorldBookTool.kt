@@ -72,7 +72,7 @@ object WorldBookTool {
     val schemas: List<JsonObject> = listOf(schema)
 
     /**
-     * 用**真实条目**造一个执行器（`ChatEngine(toolRunner = …)` 用这个）。
+     * 用**真实条目**造一个执行器（`AgentLoop(toolRunner = …)` 用这个）。
      *
      * 条目在构造时就固定：一次请求内不会变，模型多次调用看到的是同一份世界书。
      */

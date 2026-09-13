@@ -7,7 +7,7 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
  *
  * ## 为什么要有这个类型
  *
- * 改造前 `ChatEngine.run()` 同时承担两件事：**组装**（拼 system / 预设 / 历史 / 召回 / 快照）
+ * 改造前 `AgentLoop.run()` 同时承担两件事：**组装**（拼 system / 预设 / 历史 / 召回 / 快照）
  * 与**传输**（SSE + 工具循环）。后果是组装语义只能靠「发一次请求看结果」来验，
  * 而缓存相关的性质（前缀是否纯追加）根本没法在单测里断言。
  *
@@ -25,7 +25,7 @@ data class ChatRequest(
     /**
      * 本轮记忆召回命中（与写进尾部快照的是**同一份**）。
      *
-     * 引擎只用它发 [ChatEngine.Event.Recall]（界面思考节点）；用不到时为空。
+     * 引擎只用它发 [AgentLoop.Event.Recall]（界面思考节点）；用不到时为空。
      */
     val recallHits: List<RecallEngine.Hit> = emptyList(),
 )

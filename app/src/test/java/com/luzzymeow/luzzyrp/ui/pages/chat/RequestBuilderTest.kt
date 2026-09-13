@@ -24,7 +24,7 @@ import org.junit.Test
  *    断言用的是 `toOpenAiJson()`（就是 OpenAI 协议的线上字节），不是「内容差不多」。
  *
  * 为什么这些能是 JVM 单测：组装层（[PromptAssembler] / [RuntimeSnapshots]）与
- * [RequestBuilder] 都是纯 Kotlin。改造前它藏在 `ChatEngine` 里，只能靠起模拟器发请求来看。
+ * [RequestBuilder] 都是纯 Kotlin。改造前它藏在 `AgentLoop` 里，只能靠起模拟器发请求来看。
  */
 class RequestBuilderTest {
 
@@ -274,5 +274,73 @@ class RequestBuilderTest {
         val last = result.plan.messages.last()
         assertEquals(LlmRole.USER, last.role)
         assertEquals("第一句", last.content)
+    }
+
+    // ---------------------------------------------------------------- B3：工具轨迹进请求
+
+    private fun aiWithTrail(
+        text: String,
+        trail: List<com.luzzymeow.luzzyrp.chat.ToolStep>,
+    ) = ChatMessage.Ai(name = "谢昭", results = listOf(AiResult(raw = text, toolTrail = trail)))
+
+    @Test
+    fun `历史里的工具轨迹会展开进请求：调用 → 结果 → 正文`() {
+        // 落库时「正文 + 轨迹」合成一行；请求里必须还原成真实发生顺序，
+        // 否则模型看到的是「先说话、后查资料」——它会以为工具结果是说完话才拿到的。
+        val state = listOf(
+            ChatMessage.User("钟楼上有苹果树吗"),
+            aiWithTrail(
+                "查到了：钟楼顶上确实有一整树红苹果。",
+                listOf(
+                    com.luzzymeow.luzzyrp.chat.ToolStep(
+                        "world_info_lookup",
+                        """{"keywords":["钟楼"]}""",
+                        "设定：钟楼有红苹果树",
+                    ),
+                ),
+            ),
+        )
+        val plan = RequestBuilder.plan(state, "那棵树是谁种的", input(null))
+        val history = plan.messages
+
+        val callIndex = history.indexOfFirst { it.role == LlmRole.ASSISTANT && it.toolCalls.isNotEmpty() }
+        val toolIndex = history.indexOfFirst { it.role == LlmRole.TOOL }
+        val textIndex = history.indexOfFirst { it.role == LlmRole.ASSISTANT && it.content.contains("查到了") }
+
+        assertTrue("调用必须在请求里", callIndex >= 0)
+        assertTrue("结果必须在请求里", toolIndex >= 0)
+        assertTrue(
+            "顺序必须是 调用 → 结果 → 正文（实际 $callIndex/$toolIndex/$textIndex）",
+            callIndex < toolIndex && toolIndex < textIndex,
+        )
+        assertEquals("设定：钟楼有红苹果树", history[toolIndex].content)
+    }
+
+    @Test
+    fun `悬空的工具轨迹在请求里已被补成「结果未知」`() {
+        // 场景：上一轮进程在工具执行中途被杀 → 库里留下「有调用没结果」。
+        // 进请求之前必须补平，否则严格协议直接报配对错误，或者模型以为「工具没返回」而反复重试。
+        val state = listOf(
+            ChatMessage.User("钟楼上有苹果树吗"),
+            aiWithTrail(
+                "我查一下……",
+                listOf(com.luzzymeow.luzzyrp.chat.ToolStep("world_info_lookup", "{}", result = null)),
+            ),
+        )
+        val plan = RequestBuilder.plan(state, "还在吗", input(null))
+
+        val tool = plan.messages.single { it.role == LlmRole.TOOL }
+        assertEquals(com.luzzymeow.luzzyrp.chat.ToolPairing.UNKNOWN, tool.content)
+    }
+
+    @Test
+    fun `展开是决定性的——两次组装出同样的字节（批 A 的前缀性质不被批 B 破坏）`() {
+        val state = listOf(
+            ChatMessage.User("问"),
+            aiWithTrail("答", listOf(com.luzzymeow.luzzyrp.chat.ToolStep("t", "{}", "结果"))),
+        )
+        val first = RequestBuilder.plan(state, "第二问", input(null)).messages.map { wire(it) }
+        val second = RequestBuilder.plan(state, "第二问", input(null)).messages.map { wire(it) }
+        assertEquals(first, second)
     }
 }

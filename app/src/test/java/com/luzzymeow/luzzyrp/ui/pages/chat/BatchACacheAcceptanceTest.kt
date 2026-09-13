@@ -1,7 +1,7 @@
 package com.luzzymeow.luzzyrp.ui.pages.chat
 
 import com.luzzymeow.luzzyrp.chat.CacheObserver
-import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.AgentLoop
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.llm.LlmDelta
@@ -25,7 +25,7 @@ import org.junit.Test
  * **批 A 验收的可执行版本**（PLAN §7.1）。
  *
  * 走的是**生产路径的全部环节**：`RequestBuilder.plan`（组装 + 落盘顺序）→ 按 `appends` 落盘
- * → `ChatEngine.run`（真实请求构造 + 传输 + 观测层记账）。只有传输被换成假的（零网络），
+ * → `AgentLoop.run`（真实请求构造 + 传输 + 观测层记账）。只有传输被换成假的（零网络），
  * 所以这里的数字与真机上的数字应当同量级；真机实测见 WORKLOG 的探针记录。
  *
  * 两条判据：
@@ -94,7 +94,7 @@ class BatchACacheAcceptanceTest {
         var next = state + plan.appends
         // 引擎是 suspend flow：这里用 runBlocking 收集（测试体本身已在 runTest 里，故用 toList 语义）
         kotlinx.coroutines.runBlocking {
-            ChatEngine(transport, toolRunner = { _, _ -> "{}" }).run(config, plan.request).collect { }
+            AgentLoop(transport, toolRunner = { _, _ -> "{}" }).run(config, plan.request).collect { }
         }
         next = next + ChatMessage.Ai(results = listOf(AiResult(raw = "回复：$userText")))
         return next
@@ -150,7 +150,7 @@ class BatchACacheAcceptanceTest {
         val changedConfig = config.copy(model = "another-model")
         val plan = RequestBuilder.plan(state, "第四句", changedInput)
         kotlinx.coroutines.runBlocking {
-            ChatEngine(transport, toolRunner = { _, _ -> "{}" }).run(changedConfig, plan.request).collect { }
+            AgentLoop(transport, toolRunner = { _, _ -> "{}" }).run(changedConfig, plan.request).collect { }
         }
 
         val after = CacheObserver.current()

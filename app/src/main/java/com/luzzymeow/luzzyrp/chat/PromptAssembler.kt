@@ -11,7 +11,7 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmRole
  * **请求组装**（P5-A）：把「角色 / 用户 / 预设 / 世界书 / 召回 / 历史」拼成 messages 序列。
  *
  * 纯 Kotlin、无 Android 依赖、**无 IO** → 整条上游语义可 JVM 单测（喂真实夹具即可断言），
- * 不必起模拟器、不必联网。这是本批可验证的前提：组装一旦留在 `ChatEngine.run()` 里，
+ * 不必起模拟器、不必联网。这是本批可验证的前提：组装一旦留在 `AgentLoop.run()` 里，
  * 就只能靠「发一次请求看结果」来验，而那种验法既慢又不可靠。
  *
  * ## 消息序列（照抄上游 `app.js:4613-4918` 的最终顺序）
@@ -39,7 +39,7 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmRole
  *    `personality` 都是空串）——照搬上游会让这些角色的定义**静默全丢**。
  *    故：两者都非空时按 `description\n\npersonality` 连接。
  * 2. **召回块放 system 末尾**：上游把它作为独立 user 消息插 `at_depth`（默认深度 1）；
- *    我们沿用现有行为（`ChatEngine` 原本就拼在 system 尾部），因为改动会牵动思考节点标注
+ *    我们沿用现有行为（`AgentLoop` 原本就拼在 system 尾部），因为改动会牵动思考节点标注
  *    与 `DESIGN-compose §15.2` 的既有约定。要换成上游口径是独立的一小步，登记在案。
  */
 object PromptAssembler {

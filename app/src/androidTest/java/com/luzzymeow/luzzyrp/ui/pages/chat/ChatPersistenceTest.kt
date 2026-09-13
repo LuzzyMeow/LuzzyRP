@@ -12,7 +12,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.AgentLoop
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.data.legacy.ScopeId
@@ -86,7 +86,7 @@ class ChatPersistenceTest {
                     sessionRepository = open.repository,
                     // 零网络：假传输什么都不发，生成立刻结束。真请求会让「生成中」挂很久，
                     // 既拖慢用例，也会在拆卸时把 activity 卡在 PAUSED（teardown 超时的元凶）。
-                    engineFactory = { ChatEngine(FakeTransport()) },
+                    engineFactory = { AgentLoop(FakeTransport()) },
                 )
             }
         }

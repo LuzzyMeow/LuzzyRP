@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.AgentLoop
 import com.luzzymeow.luzzyrp.chat.RecallEngine
 
 /** 一次工具调用的实时槽位（参数由模型真实逐片发出，故内容会持续增长）。 */
@@ -34,6 +34,30 @@ class LiveTurn {
     var activeNode by mutableStateOf(-1)
     var error by mutableStateOf<String?>(null)
     var finishReason by mutableStateOf<String?>(null)
+
+    /** 归一后的结束原因（B 批循环语义）；[Finished] 到达前为 null。 */
+    var finish by mutableStateOf<AgentLoop.FinishReason?>(null)
+
+    /** 当前跑到第几个 step（B1 的两级循环；第一个 step 前为 0）。 */
+    var lastStep by mutableStateOf(0)
+
+    /**
+     * 本轮**被中断**（用户点停止 / 协程被取消）。
+     *
+     * 由调用方在取消路径上置 true：取消不是引擎事件（那时 Flow 已经死了），
+     * 所以只能由「谁取消、谁记账」。落库后它就是「这半截话是用户打断的」的凭据（B4）。
+     */
+    var interrupted by mutableStateOf(false)
+
+    /**
+     * 本轮真实发生过的**工具调用轨迹**（B3，随消息落库）。
+     *
+     * 直接由 [tools] 派生：槽位是按**事件到达顺序**建的，也就是模型给出的顺序，
+     * 所以这里不需要额外排序（`.sortedBy` 反而会在同一次调用的重试上出错）。
+     * `result == null` 表示这次调用没拿到结果（被中断）→ 下一轮会被修复补上。
+     */
+    val toolTrail: List<com.luzzymeow.luzzyrp.chat.ToolStep>
+        get() = tools.map { com.luzzymeow.luzzyrp.chat.ToolStep(it.name, it.args, it.result) }
 
     /** 本轮真实用量（流末尾由供应商给出）与墙钟耗时（脚注用）。 */
     var usage by mutableStateOf<com.luzzymeow.luzzyrp.chat.UsageInfo?>(null)
@@ -71,10 +95,10 @@ class LiveTurn {
     private fun indexOfLastTool(): Int = (if (recall != null) 1 else 0) + tools.size - 1
 
     /** 应用一个引擎事件（唯一的状态入口）。 */
-    fun apply(event: ChatEngine.Event) {
+    fun apply(event: AgentLoop.Event) {
         if (startedAtMs == 0L) startedAtMs = System.currentTimeMillis()
         when (event) {
-            is ChatEngine.Event.Recall -> {
+            is AgentLoop.Event.Recall -> {
                 recall = ThinkNode.MemoryRecall(
                     shards = event.hits.map {
                         MemoryShard(
@@ -88,17 +112,17 @@ class LiveTurn {
                 activeNode = 0
             }
 
-            is ChatEngine.Event.ToolCallStarted -> {
+            is AgentLoop.Event.ToolCallStarted -> {
                 tools.add(ToolSlot(event.name))
                 activeNode = indexOfLastTool()
             }
 
-            is ChatEngine.Event.ToolCallArgs -> {
+            is AgentLoop.Event.ToolCallArgs -> {
                 tools.lastOrNull()?.let { it.args += event.chunk }
                 activeNode = indexOfLastTool()
             }
 
-            is ChatEngine.Event.ToolCallFinished -> {
+            is AgentLoop.Event.ToolCallFinished -> {
                 val slot = tools.lastOrNull { it.name == event.name && it.result == null }
                     ?: ToolSlot(event.name).also { tools.add(it) }
                 slot.args = event.args
@@ -106,33 +130,43 @@ class LiveTurn {
                 activeNode = indexOfLastTool()
             }
 
-            is ChatEngine.Event.Reasoning -> {
+            is AgentLoop.Event.Reasoning -> {
                 if (reasoningStartMs == 0L) reasoningStartMs = System.currentTimeMillis()
                 reasoningEndMs = System.currentTimeMillis()
                 reasoning += event.chunk
                 activeNode = nodes.lastIndex
             }
 
-            is ChatEngine.Event.Content -> {
+            is AgentLoop.Event.Content -> {
                 // 思考内容流式结束 → 思考节点自动收起（下标移走），正文接管
                 if (!reasoningDone && reasoning.isNotEmpty()) reasoningDone = true
                 activeNode = -1
                 body += event.chunk
             }
 
-            is ChatEngine.Event.Usage -> {
+            is AgentLoop.Event.Usage -> {
                 usage = event.info
             }
 
-            is ChatEngine.Event.Finished -> {
+            is AgentLoop.Event.StepStarted -> {
+                // 一个 step 开始 = 又发了一次真实请求。界面据此把「生成中」的起始时刻打点，
+                // 也让「第几步」这类诊断信息有真实来源（不再靠猜）。
+                if (startedAtMs == 0L) startedAtMs = System.currentTimeMillis()
+                lastStep = event.step
+            }
+
+            is AgentLoop.Event.Finished -> {
                 elapsedMs = System.currentTimeMillis() - startedAtMs
                 reasoningDone = true
                 generating = false
                 activeNode = -1
-                finishReason = event.finishReason
+                // 展示与「被截断」判据都用**供应商原始值**（`stop` / `length` …）；
+                // 归一后的循环语义放在 [finish] 里（`completed` / `max_tokens` / `step_limit` …）。
+                finishReason = event.wire ?: event.reason.id
+                finish = event.reason
             }
 
-            is ChatEngine.Event.Failed -> {
+            is AgentLoop.Event.Failed -> {
                 error = event.message
                 generating = false
                 activeNode = -1

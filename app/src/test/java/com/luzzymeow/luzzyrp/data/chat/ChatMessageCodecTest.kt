@@ -159,4 +159,63 @@ class ChatMessageCodecTest {
         )
         assertEquals(1, (decodeMessage(entity) as ChatMessage.Ai).thinkNodes.size)
     }
+
+    // ---------------------------------------------------------------- B3/B4：工具轨迹与中断标记
+
+    private fun aiWith(
+        trail: List<com.luzzymeow.luzzyrp.chat.ToolStep> = emptyList(),
+        interrupted: Boolean = false,
+    ) = ChatMessage.Ai(
+        name = "谢昭",
+        results = listOf(AiResult(raw = "正文", toolTrail = trail, interrupted = interrupted)),
+    )
+
+    @Test
+    fun `工具轨迹随消息落库并逐字往返`() {
+        val steps = listOf(
+            com.luzzymeow.luzzyrp.chat.ToolStep("world_info_lookup", """{"keywords":["钟楼"]}""", "两条设定"),
+            com.luzzymeow.luzzyrp.chat.ToolStep("world_info_lookup", """{"keywords":["苹果"]}""", "一条设定"),
+        )
+        val original = aiWith(trail = steps)
+        val restored = decodeMessage(row(original)) as ChatMessage.Ai
+
+        assertEquals("轨迹要原样回来（否则模型下一轮看不见自己查过什么）", steps, restored.current.toolTrail)
+    }
+
+    @Test
+    fun `未拿到结果的那条落库为 null（不是空串）`() {
+        // null 与 "" 是两件事：前者会触发「结果未知」修复，后者会被当成「工具返回了空」
+        val original = aiWith(trail = listOf(com.luzzymeow.luzzyrp.chat.ToolStep("t", "{}", null)))
+        val payload = ChatSessionRepository.payloadOf(original)
+        assertTrue("payload 里要显式写 null：$payload", payload.contains("null"))
+
+        val restored = decodeMessage(row(original)) as ChatMessage.Ai
+        assertEquals(null, restored.current.toolTrail.single().result)
+    }
+
+    @Test
+    fun `中断标记随消息落库并认回`() {
+        val original = aiWith(interrupted = true)
+        assertEquals(true, (decodeMessage(row(original)) as ChatMessage.Ai).current.interrupted)
+
+        val normal = aiWith()
+        assertEquals(false, (decodeMessage(row(normal)) as ChatMessage.Ai).current.interrupted)
+    }
+
+    @Test
+    fun `没有轨迹也没有中断标记的普通消息仍旧写空对象`() {
+        assertEquals("{}", ChatSessionRepository.payloadOf(aiWith()))
+        assertEquals("{}", ChatSessionRepository.payloadOf(ChatMessage.User("你好")))
+    }
+
+    @Test
+    fun `坏轨迹数据一律当没有轨迹，绝不抛异常`() {
+        assertTrue(ChatSessionRepository.toolTrailOf("{").isEmpty())
+        assertTrue(ChatSessionRepository.toolTrailOf("""{"luzzyToolTrail":"不是数组"}""").isEmpty())
+        assertTrue(ChatSessionRepository.toolTrailOf("""{"luzzyToolTrail":[{"args":"{}"}]}""").isEmpty())
+        assertTrue("缺 result 键按「没有结果」处理（安全方向）",
+            ChatSessionRepository.toolTrailOf("""{"luzzyToolTrail":[{"name":"t","args":"{}"}]}""")
+                .single().result == null)
+        assertFalse(ChatSessionRepository.interruptedOf("不是 JSON"))
+    }
 }

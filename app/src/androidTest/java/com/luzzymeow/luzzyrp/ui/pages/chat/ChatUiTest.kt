@@ -12,7 +12,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.AgentLoop
 import com.luzzymeow.luzzyrp.chat.PromptInputSource
 import com.luzzymeow.luzzyrp.data.preset.PresetRepository
 import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
@@ -94,7 +94,7 @@ class ChatUiTest {
                     darkMode = false,
                     onToggleDarkMode = {},
                     onOpenDrawer = {},
-                    engineFactory = { ChatEngine(FakeTransport(script)) },
+                    engineFactory = { AgentLoop(FakeTransport(script)) },
                     sessionRepository = fixture.repository,
                     // 用户数据仓库与组装取数层也必须注入：否则会去读设备上真实的 luzzy.db
                     worldBookRepository = WorldBookRepository(fixture.store, fixture.repository),

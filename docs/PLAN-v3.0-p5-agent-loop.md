@@ -480,12 +480,14 @@ adb -s df97f3c4 logcat -c && adb -s df97f3c4 logcat -s LuzzyCache
 - [x] A8 用量页命中率（真数据段；余下总用量/趋势图仍待 C1）
 
 ### 批 B
-- [ ] B1 turn/step 两级 + 状态机
-- [ ] B2 终止条件（finish_reason 驱动 + 50 step 安全上限）
-- [ ] B3 工具配对完整性（abort / 崩溃修复）
-- [ ] B4 中断保留部分内容
-- [ ] B5 压缩（阈值 + 保配对 + 稳定边界）
-- [ ] B6 请求重试
+- [x] B1 turn/step 两级 + 状态机（`chat/AgentLoop.kt` 取代 `ChatEngine`；`AgentLoopTest` 18 条）
+- [x] B2 终止条件（finish_reason 驱动 + 50 step 安全上限）——含 max_tokens **粘性**
+- [x] B3 工具配对完整性（顺序 / abort 合成结果 / 工具抛异常不掀翻 turn）
+- [x] B3b **工具轨迹落库**（`chat/ToolTrail.kt` + payload 键 `luzzyToolTrail`；展开进请求时补悬空）
+- [x] B4 中断保留部分内容（补上 `interrupted` 标记的记账与落库；**UI 显示未做**）
+- [ ] B5 压缩（`contextWindow` 进配置 + 保配对 + 摘要重放吃缓存）—— **未开始**
+- [ ] B6 请求重试（网络错误 / context-overflow 各一次）—— **未开始**
+- [x] B7 不变量守卫：工具续跑也必须纯追加（新老各一条逐字节用例）
 
 ### 批 C
 - [ ] C1 五个假数据页接真库 　[ ] C2 真实角色图 　[ ] C3 多候选持久化

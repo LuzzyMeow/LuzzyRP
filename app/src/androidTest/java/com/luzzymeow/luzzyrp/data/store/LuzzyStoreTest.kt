@@ -206,6 +206,35 @@ class LuzzyStoreTest {
         assertEquals(2, scopes.size)
     }
 
+    /**
+     * 跨角色平铺总览的数据层（P4-C）：只取摘要，不搬历史正文。
+     *
+     * 断言口径全部落在**真实性**上：条数来自消息表、预览来自末条、空分支也要出现
+     * （用户需要看到「这个分支还是空的」，而不是让它凭空消失）。
+     */
+    @Test
+    fun sessionOverviewListsEveryCharacterAndBranch() = runBlocking {
+        val data = LegacyMigrator.migrate(LegacyDb.parse(SampleLegacyExport.JSON))
+        writer.import(data)
+        val repository = com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository(store)
+
+        val overview = repository.overview()
+
+        val char1 = overview.filter { it.characterUuid == "char-1" }
+        assertEquals("char-1 应有 main + b1 两条会话", 2, char1.size)
+        assertEquals("主线必须排在前面", com.luzzymeow.luzzyrp.chat.ChatBranch.MainId, char1.first().branchId)
+        assertEquals(2, char1.first().messageCount)
+        assertEquals("第二句", char1.first().lastText)
+        val branch = char1.first { it.branchId == "b1" }
+        assertEquals(2, branch.messageCount)
+        assertEquals("分支里的问句", branch.lastText)
+        assertEquals("分支名要带上", "分支甲", branch.branchName)
+
+        // 第二张角色卡没有分支键 → 也要出现在总览里（合成主线），而不是消失
+        assertTrue(overview.any { it.characterUuid == "char-2" && it.isMain })
+        assertEquals("角色名带上，供列表显示", "样例角色", char1.first().characterName)
+    }
+
     @Test
     fun emptyDatabaseIsReadable() = runBlocking {
         assertEquals(0, store.characterCount())

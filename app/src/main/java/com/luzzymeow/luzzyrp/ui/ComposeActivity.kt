@@ -12,6 +12,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.luzzymeow.luzzyrp.data.legacy.MigrationCoordinator
+import com.luzzymeow.luzzyrp.data.settings.SettingsBootstrap
+import com.luzzymeow.luzzyrp.data.settings.SettingsStore
+import com.luzzymeow.luzzyrp.data.settings.ThemeMode
+import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
+import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyNavShell
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyRoute
 import com.luzzymeow.luzzyrp.ui.pages.AboutPage
@@ -38,7 +43,13 @@ import kotlinx.coroutines.launch
  */
 class ComposeActivity : ComponentActivity() {
 
-    private var darkMode by mutableStateOf<Boolean?>(null)
+    /**
+     * 亮暗模式（**持久化**）。
+     *
+     * [ThemeMode.System] = 跟随系统（首次安装的默认）。用户手动切过就是显式 Light/Dark，
+     * 重启后仍在 —— 这就是 DESIGN-compose 里「持久化在 P4 接」的那一项。
+     */
+    private var themeMode by mutableStateOf(ThemeMode.System)
     private var route by mutableStateOf<LuzzyRoute>(LuzzyRoute.Chat)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,11 +58,28 @@ class ComposeActivity : ComponentActivity() {
         LuzzyFonts.appContext = applicationContext
         // 旧数据迁移：进界面**之前**发起（协调器保证只跑一次），界面会等它出结论再读库
         // （见 MigrationCoordinator 的类注释：否则会先按空库渲染成演示数据）。
-        lifecycleScope.launch { MigrationCoordinator.ensureMigrated(applicationContext) }
+        lifecycleScope.launch {
+            MigrationCoordinator.ensureMigrated(applicationContext)
+            // 旧设置一次性搬运（在迁移之后：旧设置就存在迁移进来的 kv 里）
+            SettingsBootstrap.importOnce(applicationContext, LuzzyStore(DatabaseProvider.luzzy(applicationContext)))
+            // 搬运完再读主题：否则会把「刚搬来的旧主题」覆盖回系统默认
+            themeMode = SettingsStore(applicationContext).load().themeMode ?: ThemeMode.System
+        }
         setContent {
-            val currentDark = darkMode ?: isSystemInDarkTheme()
-            val toggleDark: () -> Unit = { darkMode = !currentDark }
-            LuzzyTheme(darkTheme = darkMode) {
+            val currentDark = when (themeMode) {
+                ThemeMode.System -> isSystemInDarkTheme()
+                ThemeMode.Light -> false
+                ThemeMode.Dark -> true
+            }
+            // 手动切换落盘成显式值（不再是「跟随系统」）
+            val toggleDark: () -> Unit = {
+                val next = if (currentDark) ThemeMode.Light else ThemeMode.Dark
+                themeMode = next
+                SettingsStore(applicationContext).save(
+                    SettingsStore(applicationContext).load().copy(themeMode = next),
+                )
+            }
+            LuzzyTheme(darkTheme = currentDark) {
                 LuzzyNavShell(
                     route = route,
                     onNavigate = { route = it },

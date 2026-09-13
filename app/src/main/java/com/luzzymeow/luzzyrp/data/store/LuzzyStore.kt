@@ -71,6 +71,9 @@ class LuzzyStore(private val db: LuzzyDatabase) {
         if (at < 0) ScopeId(raw) else ScopeId(raw.substring(0, at), raw.substring(at + "__branch__".length))
     }
 
+    /** 某作用域最后一条正文（总览预览用；不搬全量历史）。 */
+    suspend fun lastMessagePreview(scope: ScopeId): String? = db.messages().lastContent(scope.suffix())
+
     /**
      * 追加一条消息。
      *

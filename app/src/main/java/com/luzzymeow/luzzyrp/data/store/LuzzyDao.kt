@@ -93,6 +93,16 @@ interface MessageDao {
 
     @Query("SELECT DISTINCT scopeId FROM messages")
     suspend fun scopes(): List<String>
+
+    /**
+     * 某作用域最后一条的正文（会话总览的预览行）。
+     *
+     * 单独给一条查询而不是「取全部再取末项」：重度用户的单段会话可达上万条，
+     * 总览页要为每个分支各取一次——把它做成 `ORDER BY ... DESC LIMIT 1` 是 O(1) 级，
+     * 取全部就是每次翻页都在搬几 MB。
+     */
+    @Query("SELECT content FROM messages WHERE scopeId = :scopeId ORDER BY sortIndex DESC LIMIT 1")
+    suspend fun lastContent(scopeId: String): String?
 }
 
 @Dao

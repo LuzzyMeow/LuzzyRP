@@ -75,7 +75,18 @@ object SampleLegacyExport {
         "rp_hub_user_profiles": [ { "uuid": "user-1", "name": "我", "avatar": "", "person": "second" } ],
         "rp_hub_active_profile_id": "user-1",
         "rp_hub_last_active_char": 0,
-        "rp_hub_memory_settings": { "enabled": true, "mode": "vector", "emptyTurns": { "char-1:vector": [] } }
+        "rp_hub_memory_settings": { "enabled": true, "mode": "vector", "emptyTurns": { "char-1:vector": [] } },
+        "rp_hub_settings": {
+          "theme": "luzzy",
+          "themeMode": "dark",
+          "fontSize": 15,
+          "apiProviderId": "deepseek",
+          "apiUrl": "https://example.invalid/v1",
+          "apiKey": "sk-legacy-single",
+          "apiProviderKeys": { "deepseek": "sk-legacy-slot", "custom": "", "custom2": "" },
+          "model": "deepseek::test-model",
+          "temperature": 1
+        }
       }
     },
     "SillyTavernDB": { "version": 1, "entries": {} }

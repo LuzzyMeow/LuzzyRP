@@ -74,6 +74,57 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         return Session(character, branches, active, messages)
     }
 
+    /**
+     * 一条会话（角色 × 分支）的摘要 —— **跨角色平铺总览**的数据层。
+     *
+     * 只带列表要显示的东西（角色名/分支名/条数/末条预览），不搬历史正文：
+     * 总览页要为每个分支各取一次摘要，把正文一起读出来会让「打开一个列表」变成搬几 MB。
+     * 呈现层（总览页）尚未设计（新页面属视觉产出，按硬性规定 9 需先过设计流程），
+     * 所以这一层先把数据准备好并按语义排好序。
+     */
+    data class SessionSummary(
+        val characterUuid: String,
+        val characterName: String,
+        val characterAvatarPath: String?,
+        val branchId: String,
+        val branchName: String,
+        val isMain: Boolean,
+        val messageCount: Int,
+        /** 末条正文（可能很长，呈现层自行截断）。 */
+        val lastText: String?,
+    )
+
+    /**
+     * 全部会话的平铺摘要。
+     *
+     * 排序：**角色按创建时间**（旧数据里角色卡没有修改时间，创建时间是唯一稳定的次序），
+     * 角色内**主线在前、其余按创建时间**（与分支列表的排序口径一致）。
+     * 空会话（没有任何消息的分支）**也列出来**——用户需要看到「这个分支还是空的」，
+     * 而不是让它凭空消失。
+     */
+    suspend fun overview(): List<SessionSummary> {
+        val result = mutableListOf<SessionSummary>()
+        for (character in store.characters()) {
+            val branches = store.branches(character.uuid).ifEmpty {
+                listOf(BranchEntity(character.uuid, ChatBranch.MainId, "主线", null, 0L, 0L, 0, 0, 0, true))
+            }
+            for (branch in branches.sortedWith(compareByDescending<BranchEntity> { it.isMain }.thenBy { it.createdAt })) {
+                val scope = scopeOf(character.uuid, branch.branchId)
+                result += SessionSummary(
+                    characterUuid = character.uuid,
+                    characterName = character.name,
+                    characterAvatarPath = character.avatarPath,
+                    branchId = branch.branchId,
+                    branchName = branch.name,
+                    isMain = branch.isMain,
+                    messageCount = store.messageCount(scope),
+                    lastText = store.lastMessagePreview(scope),
+                )
+            }
+        }
+        return result
+    }
+
     /** 存储作用域：主线是裸 uuid，分支带 `__branch__`（与旧存储逐字一致）。 */
     fun scopeOf(characterUuid: String, branchId: String): ScopeId = ScopeId(characterUuid, branchId)
 

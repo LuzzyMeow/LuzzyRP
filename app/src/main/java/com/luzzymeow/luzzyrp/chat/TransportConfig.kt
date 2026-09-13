@@ -66,6 +66,13 @@ class TransportStore(context: Context) {
         baseUrl = prefs.getString(KEY_BASE_URL, "").orEmpty(),
         apiKey = prefs.getString(KEY_API_KEY, "").orEmpty(),
         model = prefs.getString(KEY_MODEL, "").orEmpty(),
+        // [修 2026-09-13] temperature 与 maxTokens 此前**没有持久化**：
+        // 字段在数据类里、也能被请求用到，但 load/save 都没读写它们 →
+        // 用户改完温度重启就回到默认值。属静默丢配置（DSH 说的 "silent per-call drift"）。
+        // `getFloat`/`getInt` 的默认值取数据类默认值：没存过时行为与从前完全一致。
+        temperature = prefs.getFloat(KEY_TEMPERATURE, TEMPERATURE_UNSET)
+            .takeIf { it != TEMPERATURE_UNSET }?.toDouble(),
+        maxTokens = prefs.getInt(KEY_MAX_TOKENS, TransportConfig.DefaultMaxTokens),
         toolsEnabled = prefs.getBoolean(KEY_TOOLS, true),
     )
 
@@ -73,6 +80,10 @@ class TransportStore(context: Context) {
         putString(KEY_BASE_URL, config.baseUrl)
         putString(KEY_API_KEY, config.apiKey)
         putString(KEY_MODEL, config.model)
+        // SharedPreferences 没有 putDouble：用 Float 存（温度的有效位数远小于 Float 精度）
+        if (config.temperature == null) remove(KEY_TEMPERATURE)
+        else putFloat(KEY_TEMPERATURE, config.temperature.toFloat())
+        putInt(KEY_MAX_TOKENS, config.maxTokens)
         putBoolean(KEY_TOOLS, config.toolsEnabled)
     }
 
@@ -82,5 +93,10 @@ class TransportStore(context: Context) {
         const val KEY_API_KEY = "api_key"
         const val KEY_MODEL = "model"
         const val KEY_TOOLS = "tools_enabled"
+        const val KEY_TEMPERATURE = "temperature"
+        const val KEY_MAX_TOKENS = "max_tokens"
+
+        /** 哨兵值：区分「没存过」与「存了 0.0」（0.0 是合法温度）。 */
+        const val TEMPERATURE_UNSET = Float.MIN_VALUE
     }
 }

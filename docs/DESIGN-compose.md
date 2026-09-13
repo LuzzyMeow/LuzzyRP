@@ -798,3 +798,52 @@ adb -s <真机序号> logcat -s LuzzyMigrate                                    
 `-gpu angle_indirect` 报 `Failed to load opengl32sw` 后崩溃 → 只有原始组合能启动。
 因此这里的帧数字**只作相对比较**（同一模拟器内的 A/B），**绝对值不代表真机**；
 用户感知的那一档要用真机 CDP + `dumpsys gfxinfo` 测（`AGENTS.md` §6.1）。
+
+---
+
+## 23 · 预设 / 世界书编辑（P4-C 4.2，2026-09-13 · 已实现）
+
+> 计划与数据裁决：`docs/PLAN-v3.0-presets-worldbook.md`；设计门（**用户豁免三方向**）：
+> `docs/design/boards-v6/direction-approved-v6.md`。本节只写**设计落点**与**实现后的实测状态**。
+
+### 23.1 方向：纸页清单 + 抽页编辑（单方向，用户豁免三方向门）
+
+- **列表 = 目录**：一行一个条目（名称 + 徽标组 + 触发说明 + 启停 + 「⋯」菜单），密度服从扫读；
+- **编辑 = 抽页**：这一条被抽出来铺满全屏（表单），**正文再抽一层**（`LongTextEditorDialog`）——
+  真实正文可达 **3.7KB**（「自动生图」），塞进表单里改是折磨；且「可滚动文本域套在可滚动列表里」
+  是嵌套滚动反模式（Compose 栈规约 #29）。
+- 视觉母题落地一句话：**「条目即纸页」**——目录项 → 单页 → 正文页，三层都是同一张纸。
+
+### 23.2 组件与纪律（不新造）
+
+| 项 | 落点 |
+|---|---|
+| 共用件 | `PageKit`（`SettingCard`/`SectionTitle`/`BadgeChip`/`EmptyState`）+ 新增 `EntryCard`/`EntryBadge`/`EntryMenuAction` |
+| 编辑器壳 | `ui/pages/common/EditorKit.kt`：`EditorHeader`/`FieldLabel`/`ToggleRow`/`SegmentChips`/`PrimaryButton`/`LongTextEditorDialog`（**两个编辑器共用一份正文编辑器**，防漂移） |
+| 动效 | 沿用 `Motion`（进入 200 / 退出 140 / `cubic-bezier(0.23,1,0.32,1)`），未自造时长 |
+| 触控 | 开关视觉 44×24 不变，热区用 `minimumInteractiveComponentSize()` 撑到 **48dp**（Android 下限） |
+| 无障碍 | 开关带 `Role.Switch` + 「启用 〈名称〉」标签；每个「⋯」带「〈名称〉的更多操作」；**颜色不是唯一指示**（徽标一律带文字） |
+| 排序 | **不做拖拽**：菜单「上移/下移」——pro-rules 要求「拖拽必须有非拖拽替代」，本批直接用可达的那一种 |
+| 诚实边界 | 两个页面与两个聊天面板都写着「本版只管管理，检索注入 / 拼进请求在 P5 接入」 |
+
+### 23.3 实现后实测（证据）
+
+| 项 | 结果 |
+|---|---|
+| 门禁 | `ANDROID_SERIAL=emulator-5554 ./gradlew checkChat` → **单测全绿 + 仪器化 65/65 绿**（新页面/编辑器/仓库共 31 例新增） |
+| 设备端真实数据 | 世界书页显示 **全局条目 · 2**（自动生图【全局·已停用·常驻】/ 全局：语言风格【全局·概率 80%】）+ **谢昭 绑定 · 0**；预设页显示 **19 条**真实预设（破限 / 破限预注入 ×4 / 防抢话 / 防重复 …），角色徽标与正文摘录均正确 |
+| 聊天侧 | 世界书面板标题即为「**2 条**」并列出真库条目（不再是演示角色的内置书） |
+| 截图（亮/暗） | `verify-p4-worldinfo-light.png` · `-dark.png`（世界书页）／`verify-p4-worldeditor-light.png`（条目编辑器）／`verify-p4-presets-light.png` · `-dark.png`（预设页）／`verify-p4-preseteditor-light.png` · `verify-p4-longtexteditor-light.png`（二级正文编辑器）／`verify-p4-worldbooksheet-dark.png`（聊天面板） |
+| 目测走过的项 | 空态 / 分组（含 0 条的绑定组）/ 概率与常驻徽标 / 停用态 / 滑杆真值（扫描深度 2、最大扫描深度「不限制」）/ 亮暗对比 / 二级编辑器 |
+
+### 23.4 实现中发现并修掉的两处缺陷（如实登记）
+
+1. **UI 文案里的 Markdown 星号**：四处说明文字写了 `**检索注入**`，而 Compose `Text` 不解析 Markdown
+   → 用户会看到光秃秃的 `**`。**这是截图目测抓到的**（仪器化测试与单测都看不见字面星号）——
+   已全部改成「」。教训：**文案里的排版记号要按目标渲染器写，不能照抄文档习惯**。
+2. **假绿判据（门禁稳定性）**：`SessionsPageTest.tappingARowRemembersThatSession` 曾在冷启动首跑偶发红，
+   报 `attempt to re-open an already-closed object`。真因**不是超时**：样例里 `char-1` 的
+   `activeBranchId` **本来就是 b1**，而判据正是「== b1」→ 写入还没发生判据就已经成立（**假绿**），
+   挂起的写入于是跑到测试结束、库被关掉之后才执行。修法：**先把当前分支拨到 main**，
+   再点 b1 那行，让判据能区分「点之前/点之后」。纪律与 `substring=true` 那次同源——
+   **判据必须能区分前后状态**。

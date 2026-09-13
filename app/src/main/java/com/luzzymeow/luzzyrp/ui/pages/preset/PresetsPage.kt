@@ -141,7 +141,7 @@ fun PresetsPage(
             item {
                 Text(
                     text = "顺序即注入顺序：系统类按此序拼进 system，User / AI 类作为独立消息插入。\n" +
-                        "本版：在此管理（改动立即保存）；**拼进请求**在 P5 接入——现在改这些还不会影响回复。",
+                        "本版：在此管理（改动立即保存）；「拼进请求」在 P5 接入——现在改这些还不会影响回复。",
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
                     fontFamily = LuzzyFonts.Body,

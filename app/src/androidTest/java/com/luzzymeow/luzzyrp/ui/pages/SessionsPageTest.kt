@@ -108,14 +108,18 @@ class SessionsPageTest {
         setContent()
         // b1 的预览 = 该会话**最后一条用户发言**（用户 2026-09-13 拍板），所以是「分支里的问句」
         awaitText("分支里的问句")
-        val charBefore = runBlocking { fixture.store.string(LuzzyStore.KEY_ACTIVE_CHARACTER) }
+
+        // **先把当前分支拨到主线**：样例里 char-1 的 activeBranchId 本来就是 b1，
+        // 直接拿 b1 当判据是**假绿**——写入还没发生，判据就已经成立。
+        // 这一条最早就是这么红的（冷启动首跑）：挂起的写入在测试结束、库被关掉之后才执行 →
+        // `attempt to re-open an already-closed object`。判据必须能区分「点之前」与「点之后」。
+        runBlocking { fixture.repository.rememberActiveBranch("char-1", "main") }
+        assertEquals("main", runBlocking { fixture.store.activeBranchId("char-1") })
 
         compose.onNodeWithTag("session_row_char-1_b1").performClick()
 
         // 点一行 = 把「当前角色 + 当前分支」写进 kv（聊天页据此装载，跨页不需要传状态）
         awaitDb { fixture.store.activeBranchId("char-1") == "b1" }
-        assertEquals("b1", runBlocking { fixture.store.activeBranchId("char-1") })
         assertEquals("char-1", runBlocking { fixture.store.string(LuzzyStore.KEY_ACTIVE_CHARACTER) })
-        assertTrue("点的是非主线分支，不能把当前角色写错", charBefore == null || charBefore == "char-1")
     }
 }

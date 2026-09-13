@@ -159,7 +159,7 @@ fun WorldInfoPage(
             }
             item {
                 Text(
-                    text = "本版：在此管理条目（改动立即保存）；**检索注入**在 P5 接入——" +
+                    text = "本版：在此管理条目（改动立即保存）；「检索注入」在 P5 接入——" +
                         "现在改这些还不会影响回复。",
                     fontSize = 12.sp,
                     lineHeight = 17.sp,

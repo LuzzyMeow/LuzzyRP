@@ -308,7 +308,7 @@ fun WorldBookSheet(
             Text(
                 text = "来源：本机数据（全局" +
                     (book?.characterName?.let { " + $it 绑定" } ?: "") +
-                    "）。本版面板只读与跳转管理；**检索注入在 P5 接入**——现在改条目还不会影响回复。",
+                    "）。本版面板只读与跳转管理；「检索注入」在 P5 接入——现在改条目还不会影响回复。",
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 fontFamily = LuzzyFonts.Body,
@@ -400,7 +400,7 @@ fun PresetsSheet(
             )
             Text(
                 text = "顺序即注入顺序：系统类按列表序拼进 system，User / AI 类作为独立消息插入。" +
-                    "本版面板只读与跳转管理；**拼进请求在 P5 接入**——现在改这些还不会影响回复。",
+                    "本版面板只读与跳转管理；「拼进请求」在 P5 接入——现在改这些还不会影响回复。",
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 fontFamily = LuzzyFonts.Body,

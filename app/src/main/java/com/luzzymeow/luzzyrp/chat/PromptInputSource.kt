@@ -14,18 +14,18 @@ import kotlinx.serialization.json.JsonPrimitive
  * 组成 [PromptAssembler.Input] 与本次激活的世界书条目。
  *
  * 单独成类而不是写在 `ChatPage` 里，理由是**可测**：这层要处理的形状问题不少——
- * 角色卡 payload 的键名、空库的演示态回落、快照 retained 的读取与回写。
+ * 角色卡 payload 的键名、空库的演示态回落、世界书的激活扫描。
  * 放进 Compose 页面就只能靠仪器化测试覆盖，代价高得多。
  *
- * ## 快照 retained 的持久化
+ * ## 本类**不**负责快照的 retained（会话 74 修正）
  *
- * 快照文本按**会话作用域**记在 `kv` 里（键 `snapshot.<scopeSuffix>`）。
- * 这是 [RuntimeSnapshots] 的去重能成立的前提：进程重启后若拿不到上一次发的快照文本，
- * 第一轮就会重发一次 → 前缀白白断一次。
+ * A1b 时这里还按会话作用域在 `kv` 里记一行「上次已发出的快照文本」（`snapshot.<scope>`），
+ * A6 重做时删掉了，因为那是错的：**日志本身就是真源**——最后一条快照消息就是上一个已发出的
+ * 快照。kv 版本在「重新生成历史中段」与「快照落盘失败」两种情形下都会给出错误的去重判据
+ * （详见 [RequestBuilder] 的类注释）。取数层只取数，不持有会话状态。
  *
- * **调用约定**：`load()` 读，模型跑完后由调用方用 `Result.snapshotText` 调 `rememberSnapshot()`。
- * 且**必须同时把快照落盘成一条消息**（DSH 也是把它 accept 成耐久消息，`agent.ts:245-254`）——
- * 只记 retained 不落盘的话，下一轮请求里没有它，位置照样漂移（有反证用例钉这条）。
+ * **调用约定**：`bundle()` → [RequestBuilder.plan]（算请求与落盘顺序）→ 按 `Plan.appends`
+ * 顺序落盘 → 再把 `Plan.request` 交给引擎。
  */
 class PromptInputSource(
     private val store: LuzzyStore,
@@ -81,7 +81,7 @@ class PromptInputSource(
             toolHint = TOOL_HINT,
             history = history,
             userText = userText,
-            retainedSnapshot = snapshotOf(com.luzzymeow.luzzyrp.data.legacy.ScopeId(characterUuid.orEmpty(), branchId)),
+            // retainedSnapshot / emitSnapshot 由 RequestBuilder.plan 统一决定（日志是唯一真源）
         )
         return Bundle(
             input = input,
@@ -90,18 +90,6 @@ class PromptInputSource(
             branchId = branchId,
         )
     }
-
-    /** 模型跑完后调用：记住本轮发出的快照（null 表示本轮没发，不动既有值）。 */
-    suspend fun rememberSnapshot(scopeSuffix: String, snapshotText: String?) {
-        if (snapshotText == null) return
-        store.putString(snapshotKey(scopeSuffix), snapshotText)
-    }
-
-    /** 切换角色/分支时清掉 remembered，避免把别的会话的快照当成本会话的。 */
-    suspend fun clearSnapshot(scopeSuffix: String) = store.remove(snapshotKey(scopeSuffix))
-
-    suspend fun snapshotOf(scope: com.luzzymeow.luzzyrp.data.legacy.ScopeId): String? =
-        store.string(snapshotKey(scope.suffix()))
 
     // ------------------------------------------------------------------ 取数细节
 
@@ -139,8 +127,6 @@ class PromptInputSource(
             preferences = element.str("preferences").orEmpty(),
         )
     }
-
-    private fun snapshotKey(scopeSuffix: String) = "snapshot.$scopeSuffix"
 
     companion object {
         /**

@@ -186,19 +186,7 @@ class ChatSessionRepository(private val store: LuzzyStore) {
     suspend fun append(characterUuid: String, branchId: String, message: ChatMessage, reasoning: String? = null) {
         val scope = scopeOf(characterUuid, branchId)
         val nextIndex = store.messageCount(scope)
-        store.appendMessage(
-            MessageEntity(
-                scopeId = scope.suffix(),
-                sortIndex = nextIndex,
-                id = null,
-                role = if (message is ChatMessage.User) "user" else "assistant",
-                name = message.name,
-                content = message.text(),
-                reasoning = reasoning,
-                // 新消息没有旧结构的多余字段；旧消息的 payload 由「按行更新」保住
-                payload = "{}",
-            ),
-        )
+        store.appendMessage(encodeMessage(scope.suffix(), nextIndex, message, reasoning))
     }
 
     /** 就地改写正文（编辑消息、候选切换）。**只动 content 列，payload 原样保留。** */
@@ -234,16 +222,7 @@ class ChatSessionRepository(private val store: LuzzyStore) {
             store.replaceMessages(
                 scopeOf(characterUuid, branch.id),
                 copiedMessages.mapIndexed { index, message ->
-                    MessageEntity(
-                        scopeId = scopeOf(characterUuid, branch.id).suffix(),
-                        sortIndex = index,
-                        id = null,
-                        role = if (message is ChatMessage.User) "user" else "assistant",
-                        name = message.name,
-                        content = message.text(),
-                        reasoning = null,
-                        payload = "{}",
-                    )
+                    encodeMessage(scopeOf(characterUuid, branch.id).suffix(), index, message, reasoning = null)
                 },
             )
         }
@@ -299,30 +278,108 @@ class ChatSessionRepository(private val store: LuzzyStore) {
     /**
      * 存储行 → 界面消息。
      *
-     * 思考内容（`reasoning`）**必须还原成思考节点**：否则重启后用户看到的消息会「少一块」——
-     * 这正是「思考节点随消息常驻」的持久化面。旧数据里工具节点没有独立字段
-     * （工具调用在旧版是流式期状态，未落盘），故只还原 brainstorming 节点。
+     * 实体构造在文件末尾的 [decodeMessage]（纯函数、**不需要数据库**）——
+     * 「快照认得回来吗」「思考节点还原了吗」这两件事必须能在 JVM 单测里钉住，
+     * 而 `ChatSessionRepository` 的实例要 Room 才建得出来。
      */
-    internal fun MessageEntity.toChatMessage(): ChatMessage = when (role) {
-        "user" -> ChatMessage.User(content)
-        else -> {
-            // 思维内容可能来自**两处**，都要还原成思考节点：
-            // ① 内联在 content 里的 `<thinking>…</thinking>`（旧版 WebView 的存法，见 CotParser）；
-            // ② `reasoning` 列（我们自己生成时从 SSE 的 reasoning_content 拿到的那一支）。
-            // 只认 ② 就是本轮修的缺陷：迁移进来的消息思维链跑到正文里、节点是空的。
-            val inline = com.luzzymeow.luzzyrp.chat.CotParser.parse(content)
-            val nodes = buildList {
-                if (inline.cot.isNotBlank()) {
-                    add(ThinkNode.Brainstorm(text = inline.cot, seconds = 0.0, streaming = false))
-                }
-                if (!reasoning.isNullOrBlank() && reasoning.trim() != inline.cot.trim()) {
-                    add(ThinkNode.Brainstorm(text = reasoning, seconds = 0.0, streaming = false))
-                }
-            }
-            ChatMessage.Ai(
-                name = name ?: "AI",
-                results = listOf(AiResult(raw = content, thinkNodes = nodes)),
-            )
+    internal fun MessageEntity.toChatMessage(): ChatMessage = decodeMessage(this)
+
+    companion object {
+        /**
+         * 快照行的 `role` 取值。
+         *
+         * **不是 `user`**，尽管它在请求里就是一条 user 消息——理由全在**聚合查询**上：
+         * 会话总览的「N 条」与「末条用户发言（预览）」都是 SQL 聚合出来的，而快照
+         * 既不是消息也不是用户发言。给它一个独立 role，`WHERE role = 'user'` 天然把它排除，
+         * 不必在每条 SQL 里写「payload 里没有某个标记」这种脆判据。
+         * 代价是 `COUNT(*)` 要显式只数 `user`/`assistant`（见 `MessageDao.scopeStats`）。
+         */
+        const val ROLE_SNAPSHOT = "snapshot"
+
+        /**
+         * payload 里的私有标记键（**不改表**：payload 本来就是「其余字段的 JSON」）。
+         *
+         * 与 [ROLE_SNAPSHOT] 双保险：认回时两者任一命中即算快照。将来若有人用别的写法
+         * 落盘快照（例如经迁移通道进来），只要带这个键就仍然认得回来。
+         */
+        const val PAYLOAD_SNAPSHOT_KEY = "luzzySnapshot"
+
+        /** 存储行 role：快照独立成一种；其余按 user/assistant。 */
+        fun roleOf(message: ChatMessage): String = when (message) {
+            is ChatMessage.Snapshot -> ROLE_SNAPSHOT
+            is ChatMessage.User -> "user"
+            is ChatMessage.Ai -> "assistant"
         }
+
+        /** 新行 payload：只有快照带标记（其余保持 `{}`，老行的多余字段由按行更新保住）。 */
+        fun payloadOf(message: ChatMessage): String =
+            if (message is ChatMessage.Snapshot) """{"$PAYLOAD_SNAPSHOT_KEY":true}""" else "{}"
+
+        /** payload 是否带快照标记（宽松解析：坏 JSON / 缺键一律 false）。 */
+        fun isSnapshotPayload(payload: String): Boolean = runCatching {
+            val element = kotlinx.serialization.json.Json.parseToJsonElement(payload)
+            val value = (element as? kotlinx.serialization.json.JsonObject)
+                ?.get(PAYLOAD_SNAPSHOT_KEY) as? kotlinx.serialization.json.JsonPrimitive
+            value?.content == "true"
+        }.getOrDefault(false)
+
+        /** 这一行是不是尾部快照（role 或 payload 任一命中即算，坏 JSON 一律当普通消息）。 */
+        fun isSnapshotRow(entity: MessageEntity): Boolean =
+            entity.role == ROLE_SNAPSHOT || isSnapshotPayload(entity.payload)
+    }
+}
+
+/**
+ * 界面消息 → 存储行（纯函数，可单测）。
+ *
+ * `payload` 的**默认值 `{}`** 是刻意的：新行没有旧结构的多余字段（`isSelf` / `avatar` /
+ * `imageAttachments`），而那些字段在**旧行**里必须原样活着——所以更新走「只动 content 列」
+ * 的按行更新（见 [LuzzyDao.updateContent][com.luzzymeow.luzzyrp.data.store.MessageDao.updateContent]），
+ * 绝不删了重插。
+ */
+internal fun encodeMessage(
+    scopeId: String,
+    sortIndex: Int,
+    message: ChatMessage,
+    reasoning: String?,
+): MessageEntity = MessageEntity(
+    scopeId = scopeId,
+    sortIndex = sortIndex,
+    id = null,
+    role = ChatSessionRepository.roleOf(message),
+    name = message.name,
+    content = message.text(),
+    reasoning = reasoning,
+    payload = ChatSessionRepository.payloadOf(message),
+)
+
+/**
+ * 存储行 → 界面消息（纯函数，可单测）。
+ *
+ * 两条**认回**规则都在这一个函数里，因为它们都属于「重启后不能少东西」：
+ *
+ * ① **尾部快照**（A6）：认不回来就会被渲染成一条用户发言（内容是
+ *    `Current runtime context…`，用户会以为自己说过这句话），还会被算进楼数；
+ * ② **思考内容**（P4）：可能来自两处——内联在 content 里的 `<thinking>…</thinking>`
+ *    （旧版 WebView 的存法，见 `CotParser`）与 `reasoning` 列。只认后者就是本轮修的缺陷：
+ *    迁移进来的消息思维链跑到正文里、节点是空的。
+ */
+internal fun decodeMessage(entity: MessageEntity): ChatMessage = when {
+    ChatSessionRepository.isSnapshotRow(entity) -> ChatMessage.Snapshot(entity.content)
+    entity.role == "user" -> ChatMessage.User(entity.content)
+    else -> {
+        val inline = com.luzzymeow.luzzyrp.chat.CotParser.parse(entity.content)
+        val nodes = buildList {
+            if (inline.cot.isNotBlank()) {
+                add(ThinkNode.Brainstorm(text = inline.cot, seconds = 0.0, streaming = false))
+            }
+            if (!entity.reasoning.isNullOrBlank() && entity.reasoning.trim() != inline.cot.trim()) {
+                add(ThinkNode.Brainstorm(text = entity.reasoning, seconds = 0.0, streaming = false))
+            }
+        }
+        ChatMessage.Ai(
+            name = entity.name ?: "AI",
+            results = listOf(AiResult(raw = entity.content, thinkNodes = nodes)),
+        )
     }
 }

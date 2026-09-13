@@ -106,6 +106,15 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.snapshotFlow
 
 /**
+ * 缓存观测的 logcat tag（真机验收的探针通道）。
+ *
+ * 真机装的是 **release 包**且未 root → `run-as` 不可用、数据库读不到，
+ * 所以「每轮请求的公共前缀占比 / 命中率 / 落盘顺序」只可能从日志里看见。
+ * 用法：`adb -s <真机> logcat -s LuzzyCache`。
+ */
+private const val TAG_CACHE = "LuzzyCache"
+
+/**
  * 演示角色的历史（真实数据源：会话上下文与记忆检索都读它）。
  *
  * 只含真实存在的过往轮次**文本**——不含任何思考节点：那些轮次没有真实产生过节点数据，
@@ -143,8 +152,7 @@ private fun demoHistory(): List<ChatMessage> = listOf(
 )
 
 /** 待确认的删除（T6）：写清会删几条、不可恢复，而不是点了就删。 */
-private data class PendingDelete(
-    val branchId: String,
+private data class PendingDelete(    val branchId: String,
     val index: Int,
     val andAfter: Boolean,
     val count: Int,
@@ -156,6 +164,20 @@ private data class EditingTarget(
     val index: Int,
     val isAi: Boolean,
     val initial: String,
+)
+
+/**
+ * 一次发送/重跑的**准备工作**（A6）：请求 + 本次激活的世界书条目。
+ *
+ * 两件事必须在**落盘之前**一起算出——否则「先落快照、再落用户消息」这条顺序就没法保证。
+ */
+private class PreparedTurn(
+    val plan: RequestBuilder.Plan,
+    /**
+     * 本次**激活**的世界书条目（工具执行器与生成前扫描共用同一份）。
+     * `null` = 本轮取数失败（引擎回落到默认执行器），与「取到了但一条都没激活」（空列表）不同。
+     */
+    val worldEntries: List<com.luzzymeow.luzzyrp.data.world.WorldEntry>?,
 )
 
 /** P2 聊天页 · 沉浸形态 + **真实流式**（DESIGN-compose §12/§14/§15）。 */
@@ -333,8 +355,25 @@ fun ChatPage(
     }
     val activeBranchId = tree.activeId
     val activeMessages = branchMessages[activeBranchId].orEmpty()
+
+    /**
+     * 「可见项 → 存储下标」映射（A6）：尾部快照**不渲染**，但**下标必须仍是存储下标**——
+     * 编辑 / 删除 / 重新生成 / 就地 live 面板全都按存储下标定位。
+     *
+     * 所以这里做的是**映射**而不是把快照从数据里摘掉：摘掉的话所有下标都会错位，
+     * 表现是「点了第 3 条的删除，删掉的是第 4 条」这类静默错位。
+     */
+    val visibleMessages = remember(activeMessages) {
+        activeMessages.withIndex().filterNot { it.value is ChatMessage.Snapshot }
+    }
+
+    /** 从存储下标 [from] 起**可见的**条数（删除确认文案用；不能把看不见的快照算进去）。 */
+    fun visibleCountFrom(from: Int): Int = visibleMessages.count { it.index >= from }
+
     val branchStats = tree.branches.associate { branch ->
-        branch.id to BranchStat.of(branchMessages[branch.id].orEmpty().map { it.text() })
+        branch.id to BranchStat.of(
+            branchMessages[branch.id].orEmpty().visibleMessages().map { it.text() },
+        )
     }
 
     fun appendTo(branchId: String, message: ChatMessage, reasoning: String? = null) {
@@ -431,64 +470,83 @@ fun ChatPage(
     }
 
     /**
+     * 取数（IO）→ 组装（纯函数）：**在落盘之前**把本轮请求完全确定下来（A6）。
+     *
+     * 线程纪律（两条都踩过，注释留在原地）：
+     * ① **DB 读必须切 IO**：生产库没有 `allowMainThreadQueries`，在主线程读会抛
+     *    `Cannot access database on the main thread`（测试库曾放宽该限制 → 「测试绿、
+     *    真机崩」，那个放宽已于 P5-A 移除）。
+     * ② **Compose 状态必须在主线程读**：`withContext` 会换线程，若在 IO 段里读
+     *    `characterUuid` 这类快照状态，会触发 `Detected multithreaded access to SnapshotStateObserver`。
+     *    故：先把要用的值**取进局部变量**，再交给 IO 段只做 DB 操作。
+     * 失败一律**降级为空输入**（不注任何块），绝不让取数失败打断对话。
+     */
+    suspend fun prepareTurn(
+        state: List<ChatMessage>,
+        userText: String,
+        branchId: String,
+        freshTurn: Boolean,
+    ): PreparedTurn {
+        val uuidForTurn = characterUuid
+        val history = RequestBuilder.historyOf(state)
+        // 世界书扫描的「最近消息」**不含快照**：快照正文里有 `<memory_recall>` 这类结构化片段，
+        // 拿它去匹配关键词会误触发条目（那是模型看的运行时事实，不是「最近说过的话」）。
+        val recent = state.visibleMessages().mapNotNull { message ->
+            when (message) {
+                is ChatMessage.User -> message.text
+                is ChatMessage.Ai -> message.raw
+                is ChatMessage.Snapshot -> null
+            }
+        }
+        val bundle = withContext(Dispatchers.IO) {
+            runCatching {
+                promptSource.bundle(
+                    characterUuid = uuidForTurn,
+                    branchId = branchId,
+                    history = history,
+                    userText = userText,
+                    recentMessages = recent,
+                )
+            }.onFailure {
+                Log.w("LuzzyPrompt", "组装取数失败，本轮按空输入组装（不注入角色/预设/世界书）", it)
+            }.getOrNull()
+        }
+        return PreparedTurn(
+            plan = RequestBuilder.plan(
+                state = state,
+                userText = userText,
+                input = bundle?.input ?: PromptAssembler.Input(),
+                freshTurn = freshTurn,
+            ),
+            // null = 取数失败（引擎回落到它的默认执行器）；非 null 时**即使为空**也用注入的
+            // ——「本次没有条目激活」与「这次没取到数」是两件事，不能混。
+            worldEntries = bundle?.activatedWorldEntries,
+        )
+    }
+
+    /**
      * 跑一轮真实生成（发送与重新生成共用）。
+     *
+     * [prepared] 已经把请求与落盘顺序都算好了（见 [prepareTurn] / [RequestBuilder]），
+     * 本函数只负责「发出去 → 收到事件 → 更新界面状态」。
      *
      * [onFinish] 拿到收尾后的 [LiveTurn] 自行决定落库方式：新消息追加、或作为候选并入既有消息。
      * [regeneratingIndex] 非空时，live 面板**就地**渲染在那条消息的位置（而不是列表末尾），
      * 让「重新生成」看起来是在原处重写，而不是凭空冒出新气泡。
      */
     fun runTurn(
-        history: List<LlmMessage>,
-        userText: String,
+        prepared: PreparedTurn,
         regeneratingIndex: Int?,
         onFinish: (LiveTurn) -> Unit,
     ) {
         val turn = LiveTurn()
         live = turn
         regeneratingIndexState = regeneratingIndex
-        val turnBranchId = activeBranchId
         job = scope.launch {
             pinToBottom()
-            // ── 「生效」的取数（A1b）：角色 / 用户 / 预设 / 世界书全部来自真库 ──
-            //
-            // 两条纪律（都踩过）：
-            // ① **DB 读必须切 IO**：生产库没有 `allowMainThreadQueries`，在主线程读会抛
-            //    `Cannot access database on the main thread`（测试库曾放宽该限制 → 「测试绿、
-            //    真机崩」，那个放宽已于本批移除）。
-            // ② **Compose 状态必须在主线程读**：`withContext` 会换线程，若在 IO 段里读
-            //    `characterUuid` 这类快照状态，会触发
-            //    `Detected multithreaded access to SnapshotStateObserver`。
-            //    故：先把要用的值**取进局部变量**，再交给 IO 段只做 DB 操作。
-            // 失败一律**降级为空输入**（不注任何块），绝不让取数失败打断对话。
-            val source = promptSource
-            val uuidForTurn = characterUuid
-            val historyForScan = history.map { it.role to it.content }
-            val bundle = if (source == null) null else withContext(Dispatchers.IO) {
-                runCatching {
-                    source.bundle(
-                        characterUuid = uuidForTurn,
-                        branchId = turnBranchId,
-                        history = history,
-                        userText = userText,
-                        recentMessages = historyForScan.mapNotNull { (role, content) ->
-                            content.takeIf { role == LlmRole.USER || role == LlmRole.ASSISTANT }
-                        },
-                    )
-                }.onFailure {
-                    Log.w("LuzzyPrompt", "组装取数失败，本轮按空输入组装（不注入角色/预设/世界书）", it)
-                }.getOrNull()
-            }
-            val promptInput = bundle?.input ?: PromptAssembler.Input(history = history, userText = userText)
-            // 工具执行器用**同一批激活条目**：模型查到的与生成前扫到的是同一份数据
-            val runner = bundle?.activatedWorldEntries?.let { WorldBookTool.withEntries(it) }
+            val runner = prepared.worldEntries?.let { WorldBookTool.withEntries(it) }
             try {
-                engine.run(
-                    config = config,
-                    history = history,
-                    userText = userText,
-                    promptInput = promptInput,
-                    toolRunner = runner,
-                )
+                engine.run(config = config, request = prepared.plan.request, toolRunner = runner)
                     .collect { event ->
                         // 「是否贴底」要在内容变化**之前**判定：变化之后末项会变高、判据立刻变 false，
                         // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
@@ -500,13 +558,6 @@ fun ChatPage(
                     }
             } catch (_: CancellationException) {
                 // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
-            }
-            // 记住本轮发出的快照：**去重靠它**，也是下一轮「内容没变就不发」的判据。
-            // 注意这**不替代落盘**——快照还要作为一条历史消息存在（见 DESIGN-compose §24）。
-            if (source != null && bundle != null) {
-                runCatching {
-                    source.rememberSnapshot(ScopeId(bundle.characterUuid.orEmpty(), bundle.branchId).suffix(), promptInput.retainedSnapshot)
-                }
             }
             onFinish(turn)
 
@@ -526,6 +577,10 @@ fun ChatPage(
         }
     }
 
+    /**
+     * 要用的 Compose 状态**先在主线程取进局部变量**，再把它交给协程：
+     * `activeMessages` 是快照状态，在 IO 段里读会撞 `SnapshotStateObserver`（见 [prepareTurn]）。
+     */
     fun send() {
         val userText = input.trim()
         if (userText.isEmpty() || live != null) return
@@ -534,29 +589,39 @@ fun ChatPage(
             return
         }
         input = ""
-        val history = activeMessages.mapNotNull { m ->
-            when (m) {
-                is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
-                is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
-            }
-        }
         // 记住本轮所属分支：生成期间用户切到别的分支时，结果仍落在**发起的那条分支**上
         val turnBranchId = activeBranchId
-        appendTo(turnBranchId, ChatMessage.User(userText))
+        val state = activeMessages.toList()
+        job = scope.launch {
+            val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = true)
 
-        runTurn(history = history, userText = userText, regeneratingIndex = null) { turn ->
-            val error = turn.error
-            if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
-                appendTo(
-                    turnBranchId,
-                    ChatMessage.Ai(
-                        results = listOf(
-                            AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+            // ★★ 先落快照、再落用户消息 —— **存储顺序 = 请求顺序**（A6 的核心不变式）
+            //
+            // 反过来（快照追加到列表末尾）就是会话 73 回退的那个真缺陷：请求里快照在用户消息
+            // **之前**，存储里却在**之后** → 下一轮它出现在错误的位置 → 前缀照样从那里断开，
+            // 而且不报错。顺序只在这里决定一次，见 `RequestBuilder.Plan.appends`。
+            // 落盘顺序的现场：真机 release 包不可 `run-as`（数据目录读不到），
+            // logcat 是验收「存储顺序 = 请求顺序」的唯一外部探针通道。
+            Log.i(
+                TAG_CACHE,
+                "落盘 idx=${state.size} 顺序=${prepared.plan.appends.joinToString("→") { it::class.simpleName.orEmpty() }}",
+            )
+            prepared.plan.appends.forEach { appendTo(turnBranchId, it) }
+
+            runTurn(prepared, regeneratingIndex = null) { turn ->
+                val error = turn.error
+                if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
+                    appendTo(
+                        turnBranchId,
+                        ChatMessage.Ai(
+                            results = listOf(
+                                AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                            ),
                         ),
-                    ),
-                )
+                    )
+                }
+                if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
             }
-            if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
         }
     }
 
@@ -573,28 +638,28 @@ fun ChatPage(
             return
         }
         val prefix = activeMessages.take(userIndex + 1)
-        val userText = prefix.lastOrNull() as? ChatMessage.User ?: return
-        val history = prefix.dropLast(1).mapNotNull { m ->
-            when (m) {
-                is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
-                is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
-                else -> null
-            }
-        }
+        val userText = (prefix.lastOrNull() as? ChatMessage.User)?.text ?: return
+        // 历史 = 这条用户消息**之前**的全部（含它前面已落盘的快照）。
+        // `dropLast(1)` 是必须的：这条消息由本轮输入带上，若历史里再收一份，请求里同一句话
+        // 会出现两次（既挤占上下文、也让模型以为用户说了两遍）。
+        val state = prefix.dropLast(1)
         val turnBranchId = activeBranchId
-        runTurn(history = history, userText = userText.text, regeneratingIndex = null) { turn ->
-            val error = turn.error
-            if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
-                appendTo(
-                    turnBranchId,
-                    ChatMessage.Ai(
-                        results = listOf(
-                            AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+        job = scope.launch {
+            val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
+            runTurn(prepared, regeneratingIndex = null) { turn ->
+                val error = turn.error
+                if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
+                    appendTo(
+                        turnBranchId,
+                        ChatMessage.Ai(
+                            results = listOf(
+                                AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                            ),
                         ),
-                    ),
-                )
+                    )
+                }
+                if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
             }
-            if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
         }
     }
 
@@ -612,28 +677,27 @@ fun ChatPage(
             scope.launch { snackbarHostState.showSnackbar("这条之前没有用户消息，无法重新生成") }
             return
         }
-        val history = prefix.mapNotNull { m ->
-            when (m) {
-                is ChatMessage.User -> LlmMessage(role = LlmRole.USER, content = m.text)
-                is ChatMessage.Ai -> LlmMessage(role = LlmRole.ASSISTANT, content = m.raw)
-            }
-        }
+        // 同上：这条用户消息由本轮输入带上，历史里不再收一份
+        val state = prefix.dropLast(1)
         val turnBranchId = activeBranchId
-        runTurn(history = history, userText = userText, regeneratingIndex = messageIndex) { turn ->
-            val error = turn.error
-            if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
-                editMessage(turnBranchId, messageIndex) { current ->
-                    if (current is ChatMessage.Ai) {
-                        current.withResult(
-                            AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
-                        )
-                    } else {
-                        current
+        job = scope.launch {
+            val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
+            runTurn(prepared, regeneratingIndex = messageIndex) { turn ->
+                val error = turn.error
+                if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
+                    editMessage(turnBranchId, messageIndex) { current ->
+                        if (current is ChatMessage.Ai) {
+                            current.withResult(
+                                AiResult(turn.body, turn.nodes, turn.finishReason, turn.usage, turn.elapsedMs),
+                            )
+                        } else {
+                            current
+                        }
                     }
+                    scope.launch { snackbarHostState.showSnackbar("已生成第 ${target.resultCount + 1} 个结果") }
                 }
-                scope.launch { snackbarHostState.showSnackbar("已生成第 ${target.resultCount + 1} 个结果") }
+                if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
             }
-            if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
         }
     }
 
@@ -815,9 +879,11 @@ fun ChatPage(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // 稳定 key：分支 id + 下标。切换分支时整列 key 变化 → 强制重建条目，
+                    // 稳定 key：分支 id + **存储下标**。切换分支时整列 key 变化 → 强制重建条目，
                     // 避免上一条分支的条目状态（如代码块展开态）泄漏到新分支（pro-rules 亦要求列表带 key）
-                    items(activeMessages.size, key = { i -> "$activeBranchId#$i" }) { i ->
+                    items(visibleMessages.size, key = { position -> "$activeBranchId#${visibleMessages[position].index}" }) { position ->
+                        // 下标一律取**存储下标**（快照行占着位置但不渲染，见 visibleMessages 的说明）
+                        val i = visibleMessages[position].index
                         // 重新生成时就地渲染 live 面板：看起来是「原处重写」，而非凭空冒出新气泡
                         val inPlaceLive = live?.takeIf { regeneratingIndexState == i }
                         if (inPlaceLive != null) {
@@ -833,7 +899,7 @@ fun ChatPage(
                             }
                             return@items
                         }
-                        when (val m = activeMessages[i]) {
+                        when (val m = visibleMessages[position].value) {
                             is ChatMessage.Ai -> Column(Modifier.fillMaxWidth()) {
                                 AiMessagePanel(
                                     name = m.name,
@@ -869,7 +935,7 @@ fun ChatPage(
                                     onDeleteAfter = {
                                         pendingDelete = PendingDelete(
                                             activeBranchId, i, true,
-                                            count = (activeMessages.size - i).coerceAtLeast(1),
+                                            count = visibleCountFrom(i),
                                         )
                                     },
                                 )
@@ -895,12 +961,16 @@ fun ChatPage(
                                     onDeleteAfter = {
                                         pendingDelete = PendingDelete(
                                             activeBranchId, i, true,
-                                            count = (activeMessages.size - i).coerceAtLeast(1),
+                                            count = visibleCountFrom(i),
                                         )
                                     },
                                 )
                             }
 
+                            // 结构上到不了这里（`visibleMessages` 已把快照滤掉）。
+                            // 保留这个分支是为了让 sealed 的**穷尽性检查继续生效**：
+                            // 将来给 ChatMessage 加第四个变体时，编译器仍会在这里拦下来。
+                            is ChatMessage.Snapshot -> Unit
                         }
                     }
                     // 新消息的 live 面板（重新生成时已被就地渲染，避免出现两个 live）

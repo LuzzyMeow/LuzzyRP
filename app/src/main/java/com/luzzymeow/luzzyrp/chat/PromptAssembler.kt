@@ -84,8 +84,23 @@ object PromptAssembler {
          *
          * `null` = 从未发过。传错（例如每次都传 null）不会出错，只是会**每轮都重发快照** →
          * 前缀从快照处断裂。所以接线时务必读会话里记的那一行为准。
+         *
+         * **接线的实际取法**（A6）：不读 kv，读**会话日志里最后一条快照消息**
+         * （`RequestBuilder.lastSnapshotText`）——日志才是「模型看到过什么」的真源，
+         * 重启后天然还在，且对「重放历史中段」也天然正确。
          */
         val retainedSnapshot: String? = null,
+        /**
+         * 是否允许本轮**发出新的尾部快照**（默认允许）。
+         *
+         * `false` = **重放模式**：这次请求只是把既有历史重发一遍（「重新生成」「编辑后重跑」），
+         * 因此只能用日志里已经有的快照，一条新的都不许发。
+         *
+         * 为什么必须有这个开关：重放时新快照在日志里**没有位置可落**（它该插在历史中段，
+         * 而存储是按 sortIndex 追加的）。若请求里发了、日志里没有，下一轮前缀就从那里断开——
+         * 这正是「存储顺序必须等于请求顺序」那条不变式的另一面。
+         */
+        val emitSnapshot: Boolean = true,
     )
 
     /** 组装结果：消息序列 + **本轮实际发出的快照文本**（调用方据此更新 retained）。 */
@@ -168,13 +183,17 @@ object PromptAssembler {
         // ── 5. 历史（原样搬运，保留 raw；**标记 fromHistory 以免被合并改写**） ──
         val historyMessages = input.history.map { if (it.fromHistory) it else it.copy(fromHistory = true) }
 
-        // ── 6. 尾部快照（不变则不发） ──
+        // ── 6. 尾部快照（不变则不发；重放模式一律不发） ──
         // 位置：历史之后、本轮输入之前；调用方**必须把它落盘**（见 `Result.snapshotText` 的说明），
         // 于是下一轮它就在历史里、位置不变 → 请求才真正是纯追加。
-        val snapshot = RuntimeSnapshots.project(
-            current = PromptSections.snapshotSections(input.worldEntries, input.recallBlock),
-            retained = input.retainedSnapshot,
-        )
+        val snapshot = if (!input.emitSnapshot) {
+            null
+        } else {
+            RuntimeSnapshots.project(
+                current = PromptSections.snapshotSections(input.worldEntries, input.recallBlock),
+                retained = input.retainedSnapshot,
+            )
+        }
         val snapshotMessage = snapshot?.let { LlmMessage(role = LlmRole.USER, content = it) }
 
         // ── 7. 本轮用户输入 ──

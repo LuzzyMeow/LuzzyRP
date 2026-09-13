@@ -19,6 +19,11 @@ import org.junit.Test
 /**
  * 聊天引擎单测：用**可控的假传输**验证真实链路的编排逻辑
  * （真实网络路径本身已由 `chat/llm/` 既有测试覆盖，此处只测引擎的事件编排与工具循环）。
+ *
+ * **组装不在本测试的职责内**（A6 起）：引擎只接受一个装配好的 [ChatRequest]，
+ * 组装语义（system / 预设 / 历史 / 快照 / 召回块放哪）由 `PromptAssemblerTest` /
+ * `PromptSectionsTest` / `ui.pages.chat.RequestBuilderTest` 覆盖。
+ * 这样切开的好处是：本文件里任何一条红灯都只可能是**编排**错了，不会与「拼错了」混在一起。
  */
 class ChatEngineTest {
 
@@ -38,10 +43,21 @@ class ChatEngineTest {
         model = "test-model",
     )
 
+    /** 装配一个请求：走真实装配函数（避免测试自造消息序列而与生产漂移）。 */
+    private fun request(
+        history: List<LlmMessage> = emptyList(),
+        userText: String = "",
+        promptInput: PromptAssembler.Input = PromptAssembler.Input(),
+        recallHits: List<RecallEngine.Hit> = emptyList(),
+    ): ChatRequest = ChatRequest(
+        messages = PromptAssembler.assemble(promptInput.copy(history = history, userText = userText)),
+        recallHits = recallHits,
+    )
+
     @Test
     fun `未配置供应商时立刻失败且不发请求`() = runTest {
         val transport = FakeTransport(emptyList())
-        val events = ChatEngine(transport).run(TransportConfig(), emptyList(), "你好").toList()
+        val events = ChatEngine(transport).run(TransportConfig(), request(userText = "你好")).toList()
         assertEquals(1, events.size)
         assertTrue(events.single() is ChatEngine.Event.Failed)
         assertTrue(transport.requests.isEmpty())
@@ -62,38 +78,38 @@ class ChatEngineTest {
     }
 
     @Test
-    fun `命中历史时先发召回事件并把召回块放进尾部快照`() = runTest {
+    fun `召回命中由请求带入并作为事件回放（且先于正文）`() = runTest {
         val transport = FakeTransport(listOf(listOf(LlmDelta(content = "嗯"), LlmDelta(finishReason = "stop"))))
-        val history = listOf(
-            LlmMessage(role = LlmRole.USER, content = "钟楼顶上长着红苹果树"),
-            LlmMessage(role = LlmRole.ASSISTANT, content = "别告诉嬷嬷"),
-        )
-        val events = ChatEngine(transport).run(config, history, "苹果树在哪").toList()
+        val hits = listOf(RecallEngine.Hit(turn = 1, score = 0.5, text = "钟楼顶上长着红苹果树"))
+        val events = ChatEngine(transport).run(config, request(userText = "苹果树在哪", recallHits = hits)).toList()
 
         val recall = events.filterIsInstance<ChatEngine.Event.Recall>().single()
-        assertEquals(1, recall.hits.size)
-        assertEquals(1, recall.hits.first().turn)
-        // 召回事件必须发生在第一次请求之前
+        assertEquals(hits, recall.hits)
+        // 召回事件必须发生在第一次请求的正文之前（界面上的检索节点先出现）
         assertTrue(events.indexOf(recall) < events.indexOfFirst { it is ChatEngine.Event.Content })
-
-        // [P5-A] 召回块**不再进 system**，改放进尾部快照（会随轮次变 → 进 system 会每轮打断前缀缓存）。
-        // 这条断言就是那次改道的守卫：将来有人把它挪回 system 会立刻红。
-        val sent = transport.requests.first().messages
-        val system = sent.first()
-        assertEquals(LlmRole.SYSTEM, system.role)
-        assertTrue("system 里不该有召回块", !system.content.contains("<memory_recall>"))
-        val snapshot = sent.firstOrNull { it.content.startsWith(RuntimeSnapshots.HEADER) }
-        assertTrue("召回块必须在尾部快照里", snapshot != null && snapshot.content.contains("<memory_recall>"))
     }
 
     @Test
-    fun `未命中历史时不发召回事件也没有召回块`() = runTest {
+    fun `没有召回命中时不发召回事件`() = runTest {
         val transport = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
-        val events = ChatEngine(transport).run(config, emptyList(), "你好呀").toList()
+        val events = ChatEngine(transport).run(config, request(userText = "你好呀")).toList()
         assertTrue(events.none { it is ChatEngine.Event.Recall })
-        assertTrue(
-            "没有任何动态内容时**一条快照都不该发**",
-            transport.requests.first().messages.none { it.content.startsWith(RuntimeSnapshots.HEADER) },
+    }
+
+    @Test
+    fun `引擎原样发送请求里的消息序列——一条都不改写、不追加`() = runTest {
+        val transport = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
+        val history = listOf(
+            LlmMessage(role = LlmRole.USER, content = "第一句", fromHistory = true),
+            LlmMessage(role = LlmRole.ASSISTANT, content = "回复", fromHistory = true),
+        )
+        val sent = request(history = history, userText = "第二句")
+        ChatEngine(transport).run(config, sent).toList()
+
+        assertEquals(
+            "引擎不得自己拼一遍——前缀缓存的前提是「发出去的就是装配出来的」",
+            sent.messages.map { it.role to it.content },
+            transport.requests.first().messages.map { it.role to it.content },
         )
     }
 
@@ -110,7 +126,7 @@ class ChatEngineTest {
                 ),
             ),
         )
-        val events = ChatEngine(transport).run(config, emptyList(), "你好").toList()
+        val events = ChatEngine(transport).run(config, request(userText = "你好")).toList()
         val kinds = events.mapNotNull {
             when (it) {
                 is ChatEngine.Event.Reasoning -> "R:${it.chunk}"
@@ -137,7 +153,7 @@ class ChatEngineTest {
                 listOf(LlmDelta(content = "钟楼上的苹果树"), LlmDelta(finishReason = "stop")),
             ),
         )
-        val events = ChatEngine(transport).run(config, emptyList(), "钟楼在哪").toList()
+        val events = ChatEngine(transport).run(config, request(userText = "钟楼在哪")).toList()
 
         assertEquals(2, transport.requests.size)
         assertEquals(listOf(WorldBookTool.Name), events.filterIsInstance<ChatEngine.Event.ToolCallStarted>().map { it.name })
@@ -167,13 +183,36 @@ class ChatEngineTest {
     }
 
     @Test
+    fun `工具回填是纯追加——第二轮请求以第一轮为前缀`() = runTest {
+        val toolRound = listOf(
+            LlmDelta(toolCalls = listOf(ToolCallDelta(index = 0, id = "c", name = WorldBookTool.Name, argumentsChunk = "{}"))),
+            LlmDelta(finishReason = "tool_calls"),
+        )
+        val transport = FakeTransport(
+            listOf(toolRound, listOf(LlmDelta(content = "好"), LlmDelta(finishReason = "stop"))),
+        )
+        ChatEngine(transport).run(config, request(userText = "钟楼")).toList()
+
+        val first = transport.requests[0].messages
+        val second = transport.requests[1].messages
+        assertTrue(second.size > first.size)
+        first.forEachIndexed { index, message ->
+            assertEquals(
+                "工具续跑也必须保持前缀（第 $index 条）",
+                message.toOpenAiJson().toString(),
+                second[index].toOpenAiJson().toString(),
+            )
+        }
+    }
+
+    @Test
     fun `工具循环有上限：连续请求工具不会无限循环`() = runTest {
         val toolRound = listOf(
             LlmDelta(toolCalls = listOf(ToolCallDelta(index = 0, id = "c", name = WorldBookTool.Name, argumentsChunk = "{}"))),
             LlmDelta(finishReason = "tool_calls"),
         )
         val transport = FakeTransport(listOf(toolRound, toolRound, toolRound, toolRound, toolRound))
-        val events = ChatEngine(transport).run(config, emptyList(), "钟楼").toList()
+        val events = ChatEngine(transport).run(config, request(userText = "钟楼")).toList()
         assertEquals(3, transport.requests.size)
         assertEquals("max_rounds", events.filterIsInstance<ChatEngine.Event.Finished>().single().finishReason)
     }
@@ -181,7 +220,7 @@ class ChatEngineTest {
     @Test
     fun `传输错误转成 Failed 事件且不抛异常`() = runTest {
         val transport = FakeTransport(listOf(listOf(LlmDelta(error = LlmError("HTTP 401", httpStatus = 401), finishReason = "error"))))
-        val events = ChatEngine(transport).run(config, emptyList(), "你好").toList()
+        val events = ChatEngine(transport).run(config, request(userText = "你好")).toList()
         assertEquals("HTTP 401", events.filterIsInstance<ChatEngine.Event.Failed>().single().message)
         assertNotNull(events)
     }
@@ -189,11 +228,11 @@ class ChatEngineTest {
     @Test
     fun `工具开关是真实请求差异：关闭后请求体不带 tools`() = runTest {
         val on = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
-        ChatEngine(on).run(config, emptyList(), "你好").toList()
+        ChatEngine(on).run(config, request(userText = "你好")).toList()
         assertTrue("开启时请求应带工具定义", on.requests.first().tools.isNotEmpty())
 
         val off = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
-        ChatEngine(off).run(config.copy(toolsEnabled = false), emptyList(), "你好").toList()
+        ChatEngine(off).run(config.copy(toolsEnabled = false), request(userText = "你好")).toList()
         assertTrue("关闭时请求不应带任何工具定义", off.requests.first().tools.isEmpty())
     }
 }

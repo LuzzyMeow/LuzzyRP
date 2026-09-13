@@ -111,6 +111,13 @@ interface MessageDao {
      * 实测 90 条会话 = 332ms（`PerfProfileTest` 基线），而这里的写法是**常数次**查询：
      * 内层 `GROUP BY` 取条数与末条下标，两个 `LEFT JOIN` 靠 `scopeId` 索引把末条正文取回来。
      * 全部是 SQLite 3.18（API 26 自带）就支持的能力，**没用窗口函数**。
+     *
+     * **只数真正的消息**（A6）：`messages` 表里还住着**尾部快照**行
+     * （`role = 'snapshot'`，见 `ChatSessionRepository.ROLE_SNAPSHOT`）——它是给模型的运行时
+     * 上下文，不是对话内容。若算进 `COUNT(*)`，总览页的「N 条」会凭空多出约一倍；
+     * 而 `lastContent` 若取到快照行，预览会显示 `Current runtime context…` 这种给人看的噪声。
+     * 所以条数与末条下标都按 `role IN ('user','assistant')` 过滤；
+     * `lastUserContent` 因为写的就是 `role = 'user'`，天然不受影响。
      */
     @Query(
         """
@@ -118,7 +125,9 @@ interface MessageDao {
                c.n AS messageCount,
                la.content AS lastContent,
                lu.content AS lastUserContent
-        FROM (SELECT scopeId AS scopeId, COUNT(*) AS n, MAX(sortIndex) AS lastIdx
+        FROM (SELECT scopeId AS scopeId,
+                     SUM(CASE WHEN role IN ('user','assistant') THEN 1 ELSE 0 END) AS n,
+                     MAX(CASE WHEN role IN ('user','assistant') THEN sortIndex ELSE -1 END) AS lastIdx
               FROM messages GROUP BY scopeId) c
         LEFT JOIN messages la ON la.scopeId = c.scopeId AND la.sortIndex = c.lastIdx
         LEFT JOIN (SELECT scopeId AS scopeId, MAX(sortIndex) AS userIdx

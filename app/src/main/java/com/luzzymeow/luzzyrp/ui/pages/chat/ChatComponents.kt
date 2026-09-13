@@ -160,13 +160,44 @@ sealed class ChatMessage {
         /** 就地改写内容（「编辑」用）。 */
         fun edited(text: String): User = copy(text = text)
     }
+
+    /**
+     * 运行时上下文**尾部快照**（A3/A6）——一条**真实历史消息**，但**界面上不渲染**。
+     *
+     * ## 为什么必须落盘成消息（而不是只记在内存里）
+     *
+     * 快照在请求里的位置是「历史之后、本轮输入之前」。若只把它的文本记在 `kv` 里而不落盘，
+     * 下一轮请求里就**没有它**——模型看不到动态上下文（世界书漂移型条目 / 记忆召回），
+     * 而 `retained` 又说「已发过」于是不再发 → 上下文静默丢失。
+     * 反证用例见 `PromptSectionsTest.快照不落盘就会每轮重发`。
+     *
+     * ## 为什么不渲染
+     *
+     * 它**不是**对话内容：`Current runtime context. This snapshot supersedes earlier…` 是给模型的
+     * 运行时事实，给人看只会污染对话（而且每条用户消息前都插一段）。所以列表把它过滤掉，
+     * 但它照常进请求（[RequestBuilder.historyOf] 把它们按原序搬进去）。
+     */
+    data class Snapshot(val text: String) : ChatMessage() {
+        override val name: String = "运行时上下文"
+    }
 }
 
 /** 消息纯文本（分支统计/检索用；与渲染同源，不再二次拼接）。 */
 fun ChatMessage.text(): String = when (this) {
     is ChatMessage.User -> text
     is ChatMessage.Ai -> raw
+    is ChatMessage.Snapshot -> text
 }
+
+/**
+ * 会话日志里**给人看**的那部分（把尾部快照滤掉）。
+ *
+ * 用途有三处，判据同一条：快照不是对话内容。
+ * ① 列表渲染（否则每条用户消息前会冒出一段 `Current runtime context…`）；
+ * ② 楼数/字数统计（否则分支列表的「N 楼」直接翻倍）；
+ * ③ 「删除这条及之后」的条数说明（不能把看不见的行算进去让用户以为会多删）。
+ */
+fun List<ChatMessage>.visibleMessages(): List<ChatMessage> = filterNot { it is ChatMessage.Snapshot }
 
 /** AI 消息段落已由 Markdown 渲染器接管（[com.luzzymeow.luzzyrp.ui.markdown.MarkdownText]）。 */
 

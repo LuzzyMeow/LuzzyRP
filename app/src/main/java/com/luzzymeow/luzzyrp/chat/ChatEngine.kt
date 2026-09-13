@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.flow
  * 聊天引擎（P2）：把「真实会话检索 → 真实工具调用 → 真实流式生成」串成一条事件流。
  *
  * **零模拟**：每个事件都由真实来源产生——
- * ① [Event.Recall] 来自本机会话检索（[RecallEngine]，词面重叠打分）；
+ * ① [Event.Recall] 由装配层（`RequestBuilder`）检索后经 [ChatRequest.recallHits] 传入；
  * ② [Event.ToolCallStarted] / [Event.ToolCallArgs] 来自模型真实发出的 `tool_calls` 增量分片；
  * ③ [Event.ToolCallFinished] 来自 [WorldBookTool] 对模型参数的真实执行结果；
  * ④ [Event.Reasoning] / [Event.Content] 来自 SSE 帧的 `reasoning_content` / `content` 增量；
@@ -22,8 +22,10 @@ import kotlinx.coroutines.flow.flow
  *
  * 工具循环：模型请求工具 → 应用执行 → 结果回填 → **再次真实请求**继续生成（最多 [MaxRounds] 轮）。
  *
- * **请求组装已外移**（P5-A）：messages 由 [PromptAssembler] 拼（角色/用户/预设/世界书/召回/历史），
- * 引擎只负责「发出去 → 收回来 → 事件化」。这样组装语义可以纯 JVM 单测，引擎也不必知道世界书怎么排。
+ * **请求组装已完全外移**（P5-A / A6）：引擎只面对一个**已装配好的** [ChatRequest]，
+ * 负责「发出去 → 收回来 → 事件化 → 工具续跑」。组装（含召回检索与尾部快照）全在纯函数层
+ * （[PromptAssembler] + `ui.pages.chat.RequestBuilder`）——只有这样「前缀是否纯追加」才可单测，
+ * 也才不会出现「界面走一条组装路径、测试走另一条」的双真源。
  *
  * 取消：取消本 Flow 的收集即可（[com.luzzymeow.luzzyrp.chat.llm.SseClient] 会立即关闭连接）。
  */
@@ -70,18 +72,14 @@ class ChatEngine(
     /**
      * 发起一轮真实对话。
      *
-     * @param history 既有对话（仅 user/assistant 正文，按时间升序）。
-     * @param userText 本轮用户输入。
-     * @param promptInput 本轮组装输入（角色/用户/预设/世界书/召回/上次快照）。
-     *        调用方从真库取（见 [PromptInputSource]）；缺省是空输入。
+     * @param request 已装配好的请求（[PromptAssembler] + `RequestBuilder` 的纯函数产物）。
+     *        引擎**不再自己组装**：装配语义属于纯函数层，只有这样「前缀是否纯追加」才可单测。
      * @param toolRunner 本轮工具执行器。**按轮传入**（而不是构造时固定）是因为
      *        「本次激活的世界书条目」是逐轮算出来的；传 null 用构造时的默认。
      */
     fun run(
         config: TransportConfig,
-        history: List<LlmMessage>,
-        userText: String,
-        promptInput: PromptAssembler.Input = PromptAssembler.Input(history = history, userText = userText),
+        request: ChatRequest,
         toolRunner: ((String, String) -> String)? = null,
     ): Flow<Event> = flow {
         if (!config.configured) {
@@ -89,30 +87,13 @@ class ChatEngine(
             return@flow
         }
 
-        // ── ① 真实会话检索（本机执行；命中的历史轮次注入 system） ──
-        var turnNo = 0
-        val turns: List<Pair<Int, String>> = history
-            .filter { it.role == LlmRole.USER || it.role == LlmRole.ASSISTANT }
-            .map { m ->
-                if (m.role == LlmRole.USER) turnNo++
-                turnNo to m.content
-            }
-        val hits = RecallEngine.search(turns, userText)
-        if (hits.isNotEmpty()) {
-            emit(Event.Recall(hits, RecallEngine.rangeLabel(hits)))
+        // ── ① 真实会话召回：命中已在装配层算好，这里只把事件回放给界面 ──
+        // 召回块本身已经写进尾部快照（见 RequestBuilder），引擎不持有第二份。
+        if (request.recallHits.isNotEmpty()) {
+            emit(Event.Recall(request.recallHits, RecallEngine.rangeLabel(request.recallHits)))
         }
 
-        // ── ② 组装 messages（角色 + 用户 + 预设 + 世界书 + 召回 + 历史） ──
-        //
-        // 组装全部交给 PromptAssembler（纯函数可单测）；引擎这里只把召回块补进去。
-        // 注意：召回块在组装**之后**补，因为它由本轮检索决定——而它落在 system 末尾。
-        var messages: List<LlmMessage> = PromptAssembler.assemble(
-            promptInput.copy(
-                history = history,
-                userText = userText,
-                recallBlock = RecallEngine.renderForPrompt(hits),
-            ),
-        )
+        var messages: List<LlmMessage> = request.messages
 
         var round = 0
         // 工具调用被写成文本时的协议噪声过滤（逐轮独立：每轮正文各自成段）

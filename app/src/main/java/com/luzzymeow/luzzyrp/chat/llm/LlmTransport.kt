@@ -101,6 +101,15 @@ data class LlmMessage(
      * 不参与任何协议序列化（`toOpenAiJson` 不读它）。
      */
     val fromHistory: Boolean = false,
+    /**
+     * 这条是**运行时上下文尾部快照**（[com.luzzymeow.luzzyrp.chat.RuntimeSnapshots] 的产物）。
+     *
+     * 与 [fromHistory] 同类：**不参与任何协议序列化**（`toOpenAiJson` 不读它）——
+     * 线上它就是一条普通 user 消息。标记只有两个用途：
+     * 1. 记忆召回的**轮号**不把它算成一轮用户发言（否则轮号逐轮虚高）；
+     * 2. 观测层（`CacheObserver`）区分「真实历史」与「运行时快照」。
+     */
+    val runtimeSnapshot: Boolean = false,
 ) {
     /**
      * 归一消息 → OpenAI 形态对象（[raw] 优先，无 raw 时按字段合成）。

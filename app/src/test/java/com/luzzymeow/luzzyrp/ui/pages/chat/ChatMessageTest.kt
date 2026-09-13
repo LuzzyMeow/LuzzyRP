@@ -2,6 +2,7 @@ package com.luzzymeow.luzzyrp.ui.pages.chat
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -70,16 +71,34 @@ class ChatMessageTest {
     }
 
     @Test
-    fun `消息类型只有两种——错误已移出消息流（结构上不可能再被算作楼层）`() {
+    fun `消息类型有三种——错误已移出消息流，运行时快照独立成一种`() {
         // 悬浮错误卡改造（T3）后的不变式：错误不再是「消息」，
         // 因此 BranchStat.of 无论怎么写都不会把错误算成楼层。
+        // A6 起多出第三种：**尾部快照**（给模型的运行时上下文）。它必须是独立变体而不是
+        // 复用 User——否则「界面不渲染」「不计楼数」这些判据只能靠字符串前缀去猜。
         // 用 Java 反射而非 sealedSubclasses（后者要 kotlin-reflect，不为一条测试加依赖）
         val base = ChatMessage::class.java
         val variants = base.declaredClasses
             .filter { base.isAssignableFrom(it) && it != base }
             .map { it.simpleName }
             .sorted()
-        assertEquals(listOf("Ai", "User"), variants)
+        assertEquals(listOf("Ai", "Snapshot", "User"), variants)
+    }
+
+    @Test
+    fun `快照有独立文本通道，且被 visibleMessages 滤出给人看的列表`() {
+        val snapshot = ChatMessage.Snapshot("Current runtime context. 今晚下着雨。")
+        assertEquals("Current runtime context. 今晚下着雨。", snapshot.text())
+
+        val log: List<ChatMessage> = listOf(
+            ChatMessage.User("第一句"),
+            snapshot,
+            ChatMessage.Ai(results = listOf(AiResult(raw = "回复"))),
+        )
+        val visible = log.visibleMessages()
+        assertEquals("快照不得出现在给人看的列表里", 2, visible.size)
+        assertTrue(visible.none { it is ChatMessage.Snapshot })
+        assertEquals(listOf("第一句", "回复"), visible.map { it.text() })
     }
 
     @Test

@@ -62,64 +62,6 @@ private fun PageScaffold(
     ) { padding -> content(padding) }
 }
 
-/** 行卡通用：把手 + 名 + 徽标 + toggle + 编辑/删除（世界书/预设共用语义）。 */
-@Composable
-private fun EntryRow(
-    title: String,
-    badgeText: String,
-    badgeTint: Color,
-    checked: Boolean,
-    supporting: String? = null,
-) {
-    SettingCard(Modifier.padding(bottom = 8.dp)) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                painter = painterResource(LuzzyIcons.Menu),
-                contentDescription = "拖拽排序",
-                tint = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.size(16.dp),
-            )
-            Column(Modifier.weight(1f)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = title,
-                        fontSize = 14.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    BadgeChip(badgeText, badgeTint)
-                }
-                if (supporting != null) {
-                    Text(
-                        text = supporting,
-                        fontSize = 11.5.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            LuzzySwitch(checked)
-            Icon(
-                painter = painterResource(LuzzyIcons.Settings),
-                contentDescription = "编辑",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(17.dp),
-            )
-            Icon(
-                painter = painterResource(LuzzyIcons.Trash),
-                contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                modifier = Modifier.size(17.dp),
-            )
-        }
-    }
-}
-
 /** 页头右侧动作钮（图标占位）。 */
 @Composable
 private fun HeaderAction(iconRes: Int, desc: String, tint: Color = MaterialTheme.colorScheme.primary) {
@@ -247,31 +189,10 @@ private fun CharacterCard(name: String, desc: String, inUse: Boolean) {
 
 
 // ───────────────────────── 预设页 ─────────────────────────
+//
+// 2026-09-13（W4）**已迁出**：真页面在 `ui/pages/preset/PresetsPage.kt`（真数据 + 编辑器）。
+// 静态稿删除，不留两处定义。
 
-@Composable
-fun PresetsPage(onOpenDrawer: () -> Unit) {
-    PageScaffold("预设管理", LuzzyIcons.Sliders, onOpenDrawer, actions = {
-        HeaderAction(LuzzyIcons.Download, "导出")
-        HeaderAction(LuzzyIcons.Plus, "新建预设")
-        Spacer(Modifier.width(8.dp))
-    }) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(12.dp),
-        ) {
-            item { SectionTitle("提示词预设 · 3") }
-            item {
-                EntryRow("破限预设 · v4", "system", Color(0xFF8B5CF6), true, "越狱主预设 · 注入 system")
-            }
-            item {
-                EntryRow("COT 思维链", "system", Color(0xFF8B5CF6), false, "思维链引导 · 与抗截断互斥")
-            }
-            item {
-                EntryRow("写作风格 · 轻小说", "user", Color(0xFFD4A017), true, "文风注入 · 注入 user")
-            }
-        }
-    }
-}
 
 // ───────────────────────── 记忆页 ─────────────────────────
 

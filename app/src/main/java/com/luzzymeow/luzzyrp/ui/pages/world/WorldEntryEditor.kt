@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -23,7 +22,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -47,14 +45,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.luzzymeow.luzzyrp.data.world.EntryRef
 import com.luzzymeow.luzzyrp.data.world.WorldEntry
 import com.luzzymeow.luzzyrp.data.world.WorldPosition
 import com.luzzymeow.luzzyrp.data.world.WorldScope
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
+import com.luzzymeow.luzzyrp.ui.pages.common.EditorHeader
+import com.luzzymeow.luzzyrp.ui.pages.common.FieldLabel
+import com.luzzymeow.luzzyrp.ui.pages.common.LongTextEditorDialog
+import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
+import com.luzzymeow.luzzyrp.ui.pages.common.PrimaryButton
+import com.luzzymeow.luzzyrp.ui.pages.common.SegmentChips
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
+import com.luzzymeow.luzzyrp.ui.pages.common.ToggleRow
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlin.math.roundToInt
 
@@ -62,11 +65,7 @@ import kotlin.math.roundToInt
 data class WorldEditorRequest(val ref: EntryRef?, val initial: WorldEntry)
 
 /**
- * 世界书条目编辑器（W3）。全屏 sheet，字段分组；**正文走二级全屏**。
- *
- * 为什么正文要二级：真实数据里单条正文可达 3.7KB（「自动生图」那条就是），
- * 在 240dp 的框里编辑是折磨；而且「可滚动文本域套在可滚动列表里」本身是嵌套滚动反模式
- * （jetpack-compose 栈规约 #29）。所以这里列表只放单行字段，正文单独一屏、只有一个滚动容器。
+ * 世界书条目编辑器（W3）。全屏 sheet，字段分组；**正文走二级全屏**（[LongTextEditorDialog]）。
  *
  * 纪律：
  * - 草稿用 `rememberSaveable`（旋转/进程重建不丢，栈规约 #7）；
@@ -173,11 +172,21 @@ fun WorldEntryEditorSheet(
                     SettingCard {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             FieldLabel("注入", hint = "这条内容插到哪里、按什么顺序")
-                            ScopePicker(
-                                selected = draft.scope,
-                                canBindCharacter = canBindCharacter,
-                                onSelect = { draft = draft.copy(scope = it) },
+                            FieldLabel("范围")
+                            SegmentChips(
+                                labels = WorldScope.entries.map { it.label },
+                                selectedIndex = WorldScope.entries.indexOf(draft.scope),
+                                onSelect = { draft = draft.copy(scope = WorldScope.entries[it]) },
+                                selectable = WorldScope.entries.map { it == WorldScope.Global || canBindCharacter },
                             )
+                            if (!canBindCharacter) {
+                                Text(
+                                    text = "还没有角色，只能建全局条目",
+                                    fontSize = 12.sp,
+                                    fontFamily = LuzzyFonts.Body,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+                            }
                             PositionPicker(
                                 selected = draft.position,
                                 expanded = positionMenuOpen,
@@ -302,14 +311,17 @@ fun WorldEntryEditorSheet(
     }
 
     if (contentEditing) {
-        ContentEditorDialog(
+        LongTextEditorDialog(
             title = draft.comment.ifBlank { "正文" },
             initial = draft.content,
+            placeholder = "这段内容会在命中关键词时注入给模型",
+            footerHint = "命中关键词时整段注入",
             onCancel = { contentEditing = false },
             onDone = {
                 draft = draft.copy(content = it)
                 contentEditing = false
             },
+            testTag = "world_editor_content",
         )
     }
 
@@ -333,200 +345,7 @@ fun WorldEntryEditorSheet(
     }
 }
 
-/**
- * 正文全屏编辑器：**只有一个滚动容器**（文本域本身），底部实时字数。
- *
- * 取消 = 回到打开时的内容（不写回草稿）；完成 = 写回草稿（**仍不算保存**，
- * 外层编辑器的「保存」才是落盘点）。
- */
-@Composable
-private fun ContentEditorDialog(
-    title: String,
-    initial: String,
-    onCancel: () -> Unit,
-    onDone: (String) -> Unit,
-) {
-    var text by rememberSaveable(initial) { mutableStateOf(initial) }
-    Dialog(
-        onDismissRequest = onCancel,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .imePadding(),
-        ) {
-            EditorHeader(
-                title = title,
-                onClose = onCancel,
-                trailing = {
-                    TextButton(onClick = { onDone(text) }) {
-                        Text("完成", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.Medium)
-                    }
-                },
-            )
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Placeholder("这段内容会在命中关键词时注入给模型") },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .testTag("world_editor_content"),
-            )
-            Text(
-                text = "${text.length} 字 · 命中关键词时整段注入",
-                fontSize = 12.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            )
-        }
-    }
-}
-
-// ------------------------------------------------------------------ 共用小件
-
-@Composable
-private fun EditorHeader(
-    title: String,
-    onClose: () -> Unit,
-    trailing: @Composable (() -> Unit)? = null,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onClose) {
-            Icon(
-                painter = painterResource(LuzzyIcons.Close),
-                contentDescription = "关闭",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Text(
-            text = title,
-            fontFamily = LuzzyFonts.Lora,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        trailing?.invoke()
-    }
-}
-
-@Composable
-private fun FieldLabel(text: String, hint: String? = null) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            fontFamily = LuzzyFonts.Body,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        if (hint != null) {
-            Text(
-                text = hint,
-                fontSize = 12.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.outline,
-            )
-        }
-    }
-}
-
-@Composable
-private fun Placeholder(text: String) {
-    Text(text = text, fontSize = 14.sp, fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.outline)
-}
-
-@Composable
-private fun ToggleRow(
-    title: String,
-    hint: String,
-    checked: Boolean,
-    onChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-            )
-            Text(
-                text = hint,
-                fontSize = 12.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch(
-            checked = checked,
-            onCheckedChange = if (enabled) onChange else null,
-            label = title,
-        )
-    }
-}
-
-/** 归属选择（两段式）。无角色时第二段不可选，并说明原因。 */
-@Composable
-private fun ScopePicker(selected: WorldScope, canBindCharacter: Boolean, onSelect: (WorldScope) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        FieldLabel("范围")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            WorldScope.entries.forEach { scope ->
-                val selectable = scope == WorldScope.Global || canBindCharacter
-                val active = scope == selected
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            when {
-                                !selectable -> MaterialTheme.colorScheme.surfaceContainer
-                                active -> MaterialTheme.colorScheme.primaryContainer
-                                else -> MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                        )
-                        .then(
-                            if (selectable) Modifier.clickable { onSelect(scope) } else Modifier,
-                        )
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                ) {
-                    Text(
-                        text = scope.label,
-                        fontSize = 13.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = when {
-                            !selectable -> MaterialTheme.colorScheme.outline
-                            active -> MaterialTheme.colorScheme.onPrimaryContainer
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-            }
-        }
-        if (!canBindCharacter) {
-            Text(
-                text = "还没有角色，只能建全局条目",
-                fontSize = 12.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = MaterialTheme.colorScheme.outline,
-            )
-        }
-    }
-}
-
-/** 注入位置（7 项，认不完的别名由 `WorldPosition.fromRaw` 处理）。 */
+/** 注入位置（7 项；别名与数字映射由 `WorldPosition.fromRaw` 在读取时处理）。 */
 @Composable
 private fun PositionPicker(
     selected: WorldPosition,
@@ -534,59 +353,57 @@ private fun PositionPicker(
     onExpandChange: (Boolean) -> Unit,
     onSelect: (WorldPosition) -> Unit,
 ) {
-    Column {
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "位置",
-                fontSize = 13.sp,
-                fontFamily = LuzzyFonts.Body,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-            Box {
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onExpandChange(true) }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = selected.label,
-                        fontSize = 13.5.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = MaterialTheme.colorScheme.primary,
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "位置",
+            fontSize = 13.sp,
+            fontFamily = LuzzyFonts.Body,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        Box {
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onExpandChange(true) }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = selected.label,
+                    fontSize = 13.5.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Icon(
+                    painter = painterResource(LuzzyIcons.ChevronDown),
+                    contentDescription = "选择注入位置",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { onExpandChange(false) }) {
+                WorldPosition.entries.forEach { position ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = position.label,
+                                fontFamily = LuzzyFonts.Body,
+                                fontSize = 14.sp,
+                                color = if (position == selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                        onClick = {
+                            onExpandChange(false)
+                            onSelect(position)
+                        },
                     )
-                    Icon(
-                        painter = painterResource(LuzzyIcons.ChevronDown),
-                        contentDescription = "选择注入位置",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-                DropdownMenu(expanded = expanded, onDismissRequest = { onExpandChange(false) }) {
-                    WorldPosition.entries.forEach { position ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = position.label,
-                                    fontFamily = LuzzyFonts.Body,
-                                    fontSize = 14.sp,
-                                    color = if (position == selected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                            onClick = {
-                                onExpandChange(false)
-                                onSelect(position)
-                            },
-                        )
-                    }
                 }
             }
         }
@@ -611,26 +428,6 @@ private fun NumberField(
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = (if (testTag != null) modifier.testTag(testTag) else modifier).fillMaxWidth(),
     )
-}
-
-@Composable
-private fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.primary)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            fontSize = 15.sp,
-            fontFamily = LuzzyFonts.Body,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onPrimary,
-        )
-    }
 }
 
 /**

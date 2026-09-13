@@ -126,8 +126,15 @@ data class MigratedData(
     val conversations: List<MigratedConversation>,
     val vectorMemories: Map<ScopeId, List<JsonElement>>,
     val classicMemories: Map<ScopeId, List<JsonElement>>,
+    /**
+     * **恒为空**（会话 72 起）。旧键 `rp_hub_worldinfo` 由 `LegacyMigrator.resolveWorldInfo` 按
+     * 上游口径裁决：全局键存在则整份忽略，否则并入 [globalWorldEntries]。
+     * 字段保留只为让导入仍然**清空**该桶——重跑一次迁移即清掉历史幽灵行。
+     */
     val worldEntries: List<JsonElement>,
     val globalWorldEntries: List<JsonElement>,
+    /** 因「全局世界书已存在」而被忽略的遗留键条数（进迁移报告；无则为 0）。 */
+    val legacyWorldEntriesDropped: Int = 0,
     val regexes: List<JsonElement>,
     val globalRegexes: List<JsonElement>,
     val presets: List<JsonElement>,

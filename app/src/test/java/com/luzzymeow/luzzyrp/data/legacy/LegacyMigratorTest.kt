@@ -35,6 +35,13 @@ class LegacyMigratorTest {
 
     private val migrated: MigratedData by lazy { LegacyMigrator.migrate(fixture) }
 
+    /**
+     * 夹具的 `main` 是按**原始键**（带 `rp_hub_` 前缀）索引的，而 [LegacyKeys] 里是逻辑键。
+     * 造变体时必须拼回前缀——否则 `main - "global_worldinfo"` 删了个不存在的键，
+     * 测试会「安静地什么都没改」（会话 72 实踩）。
+     */
+    private fun rawKey(logical: String): String = LegacyKeys.STORAGE_PREFIX + logical
+
     @Test
     fun `夹具可解析且两库键数符合来源`() {
         assertEquals(29, fixture.main.size)
@@ -56,11 +63,73 @@ class LegacyMigratorTest {
         assertEquals(5 + 5 + 1 + 3 + 2, counts["messages"])
         assertEquals(4, counts["vectorMemories"])
         assertEquals(4, counts["classicMemories"])
-        assertEquals(4, counts["worldEntries"])
+        // 世界书：全局 2 条生效；旧键 rp_hub_worldinfo 的 2 条与全局**逐字节相同** → 按上游口径整份忽略
+        // （坑 13，会话 72）。此前记成 4 是虚数——编辑页照实渲染会显示双份同名条目。
+        assertEquals(2, counts["worldEntries"])
         assertEquals(2, counts["regexes"])
         assertEquals(19, counts["presets"])
         assertEquals(9, counts["usage"])
         assertEquals(2, counts["profiles"])
+    }
+
+    // ---------------------------------------------------------------- 坑 13（会话 72）
+
+    @Test
+    fun `坑13 全局世界书存在时旧键整份忽略`() {
+        // 真实夹具里两个键的正文逐字节相同；上游在两键并存时忽略旧键（app.js:1906-1914）。
+        assertEquals(2, migrated.globalWorldEntries.size)
+        assertTrue("旧键桶必须恒空（否则编辑页出现双份）", migrated.worldEntries.isEmpty())
+        assertEquals("被忽略的条数要进报告", 2, migrated.legacyWorldEntriesDropped)
+        assertEquals(
+            listOf("自动生图", "全局：语言风格"),
+            migrated.globalWorldEntries.map { ((it as JsonObject)["comment"] as? JsonPrimitive)?.content },
+        )
+        assertTrue(
+            "忽略这件事必须在 notes 里说清，便于人工核对",
+            migrated.notes.any { it.contains("遗留世界书键") },
+        )
+    }
+
+    @Test
+    fun `坑13 全局缺失时旧键被当作全局书`() {
+        val noGlobal = fixture.copy(main = fixture.main - rawKey(LegacyKeys.GLOBAL_WORLDINFO))
+        val result = LegacyMigrator.migrate(noGlobal)
+        assertEquals("旧键的 2 条应被采纳为全局书", 2, result.globalWorldEntries.size)
+        assertTrue(result.worldEntries.isEmpty())
+        assertEquals(0, result.legacyWorldEntriesDropped)
+        assertTrue(
+            "采纳时要有说明",
+            result.notes.any { it.contains("采用遗留键") },
+        )
+    }
+
+    @Test
+    fun `坑13 采纳旧键时只归一 scope，其余字段逐字保留`() {
+        // 夹具里的旧键本来就带 scope=global，证明不了「归一动作」存在 → 构造一条没有 scope 的
+        val onlyLegacy = fixture.copy(
+            main = (fixture.main - rawKey(LegacyKeys.GLOBAL_WORLDINFO)) + (
+                rawKey(LegacyKeys.WORLDINFO) to buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("comment", JsonPrimitive("没有 scope 的旧条目"))
+                            put("content", JsonPrimitive("正文"))
+                            put("keys", buildJsonArray { add(JsonPrimitive("雾")) })
+                            put("probability", JsonPrimitive(60))
+                        },
+                    )
+                }
+                ),
+        )
+        val entry = LegacyMigrator.migrate(onlyLegacy).globalWorldEntries.single() as JsonObject
+        assertEquals("global", (entry["scope"] as? JsonPrimitive)?.content)
+        assertEquals("没有 scope 的旧条目", (entry["comment"] as? JsonPrimitive)?.content)
+        assertEquals("正文", (entry["content"] as? JsonPrimitive)?.content)
+        assertEquals("60", (entry["probability"] as? JsonPrimitive)?.content)
+        assertEquals(
+            "keys 数组原样",
+            "雾",
+            ((entry["keys"] as? kotlinx.serialization.json.JsonArray)?.firstOrNull() as? JsonPrimitive)?.content,
+        )
     }
 
     @Test

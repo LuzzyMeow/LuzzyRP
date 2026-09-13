@@ -29,6 +29,12 @@ object LegacyMigrator {
 
     // ------------------------------------------------------------------ 入口
 
+    /** [Context.resolveWorldInfo] 的产物：归一后的全局条目 + 被忽略的旧键条数（进迁移报告）。 */
+    data class WorldInfoResolution(
+        val global: List<JsonElement>,
+        val droppedLegacy: Int,
+    )
+
     fun migrate(db: LegacyDb, options: Options = Options()): MigratedData {
         val index = LegacyIndex.of(db.main, db.legacy)
         val ctx = Context(index, options)
@@ -74,6 +80,9 @@ object LegacyMigrator {
         }
         val user = ctx.extractAvatarIn(index.value(LegacyKeys.USER), "${options.avatarDir}/user-self")
 
+        // 坑 13：世界书旧键与全局键的裁决（不再产出旧键桶）
+        val worldInfo = ctx.resolveWorldInfo()
+
         return MigratedData(
             characters = allCharacters,
             branchesByCharacter = branchesByCharacter,
@@ -81,8 +90,9 @@ object LegacyMigrator {
             conversations = conversations,
             vectorMemories = vectorMemories,
             classicMemories = classicMemories,
-            worldEntries = ctx.payloadArrayOf(LegacyKeys.WORLDINFO),
-            globalWorldEntries = ctx.payloadArrayOf(LegacyKeys.GLOBAL_WORLDINFO),
+            worldEntries = emptyList(),
+            globalWorldEntries = worldInfo.global,
+            legacyWorldEntriesDropped = worldInfo.droppedLegacy,
             regexes = ctx.payloadArrayOf(LegacyKeys.REGEX),
             globalRegexes = ctx.payloadArrayOf(LegacyKeys.GLOBAL_REGEX),
             presets = ctx.payloadArrayOf(LegacyKeys.PRESETS),
@@ -497,6 +507,46 @@ object LegacyMigrator {
         }
 
         // -------------------------------------------------------------- 全局记录
+
+        /**
+         * 坑 13（会话 72）：世界书**旧键 vs 全局键**的裁决。
+         *
+         * 上游 `app.js:1906-1914` 的口径是：**全局键存在 → 旧键整份忽略**；只有全局键缺失时，
+         * 旧键才被当作全局书（逐条按 `scope='global'` 归一）。
+         *
+         * 为什么非改不可：v1 的迁移把旧键单独落成了一个桶，而实测夹具里它与全局键
+         * **逐字节相同**（两条正文 md5 `1716d4c2` / `61466feb`）——照实渲染会让用户看到
+         * **双份**「自动生图 / 全局：语言风格」，报告里的「世界书 4」也是虚数。
+         *
+         * 裁决后旧键桶恒空（[MigratedData.worldEntries]），被忽略的条数进迁移报告。
+         */
+        fun resolveWorldInfo(): WorldInfoResolution {
+            val global = payloadArrayOf(LegacyKeys.GLOBAL_WORLDINFO)
+            val legacy = payloadArrayOf(LegacyKeys.WORLDINFO)
+            if (global.isNotEmpty()) {
+                if (legacy.isNotEmpty()) {
+                    note(
+                        "遗留世界书键 ${LegacyKeys.WORLDINFO}（${legacy.size} 条）在全局世界书已存在时" +
+                            "整份忽略（上游 app.js:1906-1914 口径）",
+                    )
+                }
+                return WorldInfoResolution(global = global, droppedLegacy = legacy.size)
+            }
+            if (legacy.isNotEmpty()) {
+                note(
+                    "全局世界书缺失：采用遗留键 ${LegacyKeys.WORLDINFO} 的 ${legacy.size} 条作为全局书" +
+                        "（scope 统一写为 global，与上游同）",
+                )
+                return WorldInfoResolution(global = legacy.map(::asGlobalEntry), droppedLegacy = 0)
+            }
+            return WorldInfoResolution(global = emptyList(), droppedLegacy = 0)
+        }
+
+        /** 采纳旧键时把 `scope` 归一到 `global`（**只覆盖这一个键**，其余字段逐字保留）。 */
+        private fun asGlobalEntry(element: JsonElement): JsonElement {
+            val obj = element as? JsonObject ?: return element
+            return put(obj, "scope", JsonPrimitive("global"))
+        }
 
         /**
          * 坑 8：`memory_settings.emptyTurns` 的键是内嵌的作用域标识 `<scope>:<mode>`。

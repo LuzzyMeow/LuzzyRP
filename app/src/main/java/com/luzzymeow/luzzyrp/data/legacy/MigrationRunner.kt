@@ -79,7 +79,24 @@ class MigrationRunner(
         if (store.characterCount() > 0) {
             // 新库里已经有数据（用户已经用过新版）→ 不能拿旧数据去覆盖它。
             // 记下标记，避免每次启动都重试。
-            writer.markMigrated(MigrationWriter.Outcome(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), System.currentTimeMillis())
+            // 全零 = 「没有搬任何东西」的事实记录。**用具名参数**：这一行原本是 11 个位置参数，
+            // 给 Outcome 加字段时会静默错位（会话 72 实踩）。
+            writer.markMigrated(
+                MigrationWriter.Outcome(
+                    characters = 0,
+                    branches = 0,
+                    messages = 0,
+                    vectorMemories = 0,
+                    classicMemories = 0,
+                    worldEntries = 0,
+                    regexes = 0,
+                    presets = 0,
+                    usage = 0,
+                    profiles = 0,
+                    assets = 0,
+                ),
+                System.currentTimeMillis(),
+            )
             Log.i(TAG, "新库已有数据，跳过旧数据迁移")
             return Outcome.Skipped
         }
@@ -139,6 +156,9 @@ class MigrationRunner(
         append("已从旧版迁移：")
         append("角色 ${outcome.characters} · 会话 ${outcome.messages} 条 · 记忆 ${outcome.vectorMemories + outcome.classicMemories}")
         if (outcome.worldEntries > 0) append(" · 世界书 ${outcome.worldEntries}")
+        if (outcome.legacyWorldEntriesDropped > 0) {
+            append(" · 忽略遗留世界书 ${outcome.legacyWorldEntriesDropped} 条")
+        }
         if (outcome.presets > 0) append(" · 预设 ${outcome.presets}")
         if (outcome.skipped > 0) append(" · 跳过 ${outcome.skipped}")
     }

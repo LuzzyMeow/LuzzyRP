@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -22,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.R
+import com.luzzymeow.luzzyrp.chat.CacheObserver
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
 import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
@@ -316,6 +320,10 @@ private fun androidx.compose.foundation.layout.RowScope.StatMini(label: String, 
 
 @Composable
 fun UsagePage(onOpenDrawer: () -> Unit) {
+    // ★ A8：本页的「前缀缓存」段是**真数据**——直接订阅观测层（A7）。
+    //   它只统计不干预，所以这一页读它就等于读真实发生过的请求，不是又一处占位。
+    val cache by CacheObserver.summary.collectAsState()
+
     PageScaffold("用量统计", LuzzyIcons.ChartBar, onOpenDrawer, actions = {
         HeaderAction(LuzzyIcons.Trash, "清空记录", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
         Spacer(Modifier.width(8.dp))
@@ -364,7 +372,7 @@ fun UsagePage(onOpenDrawer: () -> Unit) {
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        // 静态趋势占位折线（P1 示意；P5 接真数据画 Canvas 折线）
+                        // 静态趋势占位折线（P1 示意；C1 接真库时改 Canvas 折线）
                         Box(
                             Modifier
                                 .fillMaxWidth()
@@ -385,7 +393,7 @@ fun UsagePage(onOpenDrawer: () -> Unit) {
                             }
                         }
                         Text(
-                            text = "粒度 日 / 周 / 月 · 供应商筛选（P1 静态占位）",
+                            text = "粒度 日 / 周 / 月 · 供应商筛选（静态占位，C1 接真库）",
                             fontSize = 11.sp,
                             fontFamily = LuzzyFonts.Body,
                             color = MaterialTheme.colorScheme.outline,
@@ -394,47 +402,126 @@ fun UsagePage(onOpenDrawer: () -> Unit) {
                     }
                 }
             }
-            item { SectionTitle("请求日志 · 最近 2 条") }
-            item { UsageLogRow("[STA1N] DeepSeek-V4-Pro", "主对话", "6.2s · 42 tok/s") }
-            item { UsageLogRow("[STA1N] DeepSeek-V4-Flash", "记忆系统", "1.1s · 88 tok/s") }
+
+            // ── 前缀缓存（A7 观测层 → A8 展示）：本页唯一的**真实数据**段 ──
+            item { SectionTitle("前缀缓存 · 本次运行") }
+            item { CacheSummaryCard(cache) }
+            if (cache.turns.isEmpty()) {
+                item {
+                    SettingCard {
+                        Text(
+                            text = "还没有请求记录。发一条消息后这里会显示：每轮与上一轮的公共前缀占比、供应商报告的缓存命中率。",
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontFamily = LuzzyFonts.Body,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+            } else {
+                item { SectionTitle("请求日志 · 最近 ${minOf(cache.turns.size, CacheLogRows)} 条") }
+                items(cache.turns.reversed().take(CacheLogRows), key = { it.index }) { turn ->
+                    CacheTurnRow(turn)
+                }
+            }
         }
     }
 }
 
+/** 请求日志展示的条数上限（观测层本身最多留 [CacheObserver.MAX_TURNS] 条）。 */
+private const val CacheLogRows = 10
+
+/**
+ * 前缀缓存汇总卡（A8）。
+ *
+ * 三个数字直接对应 PLAN §7.1 的验收判据：公共前缀占比（≥0.95 达标）、
+ * 命中率（cached/prompt）、缓存纪元变化次数（改设置/换模型就该 +1）。
+ */
 @Composable
-private fun UsageLogRow(model: String, type: String, meta: String) {
+private fun CacheSummaryCard(summary: CacheObserver.Summary) {
+    SettingCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "公共前缀占比（相邻两轮）",
+                    fontSize = 12.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (summary.rounds > 1) {
+                    BadgeChip(
+                        text = if (summary.meetsTarget) "达标 ≥0.95" else "未达标",
+                        tint = if (summary.meetsTarget) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Text(
+                text = cachePercent(summary.avgCommonRatio),
+                fontSize = 24.sp,
+                fontFamily = LuzzyFonts.Lora,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                StatMini("缓存命中率", cachePercent(summary.hitRate))
+                StatMini("请求轮数", "${summary.rounds}")
+                StatMini("缓存纪元变化", "${summary.headerChanges}")
+            }
+            Text(
+                text = "命中 " + summary.cachedTokens.toString() + " / " + summary.promptTokens.toString() +
+                    " tokens · 末轮公共前缀 " + cachePercent(summary.lastCommonRatio),
+                fontSize = 11.sp,
+                fontFamily = LuzzyFonts.Body,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            summary.lastHeaderLabel?.let { label ->
+                Text(
+                    text = "请求头：$label",
+                    fontSize = 11.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+    }
+}
+
+/** 一行请求日志：模型 + 公共前缀占比 + 命中率（全部来自真实观测）。 */
+@Composable
+private fun CacheTurnRow(turn: CacheObserver.Turn) {
     SettingCard(Modifier.padding(bottom = 8.dp)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    text = model,
+                    text = "#${turn.index} ${turn.header.model}",
                     fontSize = 13.sp,
                     fontFamily = LuzzyFonts.Body,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
-                BadgeChip(type, MaterialTheme.colorScheme.primary)
+                if (turn.headerChanged) {
+                    BadgeChip("缓存纪元变化", MaterialTheme.colorScheme.error)
+                }
             }
             Text(
-                text = meta,
+                text = "公共前缀 " + cachePercent(turn.commonRatio) +
+                    " · 命中 " + cachePercent(turn.hitRate) +
+                    " · ${turn.messageCount} 条消息 / ${turn.chars} 字符",
                 fontSize = 11.5.sp,
                 fontFamily = LuzzyFonts.Body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                listOf("输入 12,004", "输出 1,842", "¥ 0.031").forEach {
-                    Text(
-                        text = it,
-                        fontSize = 11.sp,
-                        fontFamily = LuzzyFonts.Body,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
         }
     }
 }
+
+/** 占比文案：没有对比对象/未上报时如实写「无数据」，不编一个 0%。 */
+private fun cachePercent(value: Double?): String =
+    if (value == null) "无数据" else "%.4f".format(value)
 
 // ───────────────────────── 设置页 ─────────────────────────
 

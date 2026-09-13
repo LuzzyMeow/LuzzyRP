@@ -105,20 +105,23 @@ class ChatEngine(
             var finishReason: String? = null
             var error: String? = null
 
-            transport.stream(
-                LlmRequest(
-                    messages = messages,
-                    protocol = Protocol,
-                    baseUrl = config.chatEndpoint(),
-                    apiKey = config.apiKey,
-                    model = config.model,
-                    temperature = config.temperature,
-                    maxTokens = config.maxTokens,
-                    stream = true,
-                    // 工具开关是**真实请求差异**：关闭后不发 tools，模型无从请求工具
-                    tools = if (config.toolsEnabled) WorldBookTool.schemas else emptyList(),
-                ),
-            ).collect { delta ->
+            val llmRequest = LlmRequest(
+                messages = messages,
+                protocol = Protocol,
+                baseUrl = config.chatEndpoint(),
+                apiKey = config.apiKey,
+                model = config.model,
+                temperature = config.temperature,
+                maxTokens = config.maxTokens,
+                stream = true,
+                // 工具开关是**真实请求差异**：关闭后不发 tools，模型无从请求工具
+                tools = if (config.toolsEnabled) WorldBookTool.schemas else emptyList(),
+            )
+            // 观测层（A7）：**只统计不干预**——它自己吞掉一切异常，绝不打断生成。
+            // 放在这里（而不是界面层）是因为只有这里能看到**每一次真实请求**，含工具续跑那一轮。
+            CacheObserver.onRequest(llmRequest)
+
+            transport.stream(llmRequest).collect { delta ->
                 delta.error?.let { error = it.message }
                 delta.reasoning?.takeIf { it.isNotEmpty() }?.let { emit(Event.Reasoning(it)) }
                 delta.content?.takeIf { it.isNotEmpty() }?.let { chunk ->
@@ -135,7 +138,10 @@ class ChatEngine(
                     }
                 }
                 // 用量：供应商在流末尾给（OpenAI 已开 stream_options.include_usage）
-                UsageInfo.from(delta)?.let { emit(Event.Usage(it)) }
+                UsageInfo.from(delta)?.let {
+                    CacheObserver.onUsage(it)
+                    emit(Event.Usage(it))
+                }
                 delta.finishReason?.let { finishReason = it }
             }
 

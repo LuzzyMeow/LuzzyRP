@@ -561,6 +561,9 @@ fun ChatPage(
             }
             onFinish(turn)
 
+            // 缓存观测（A7）的每轮一行：真机验收就是读这一行（PLAN §7.1 的三项指标都在里面）。
+            Log.i(TAG_CACHE, "本轮 " + com.luzzymeow.luzzyrp.chat.CacheObserver.current().report())
+
             // 截断可见化（T5）：结束原因若为输出上限，用一句可操作的话告诉用户——
             // 此前 finishReason 只是被存下来、应用内完全看不见，「回复为什么断了」无法定性。
             if (com.luzzymeow.luzzyrp.chat.UsageFormat.isTruncated(turn.finishReason)) {

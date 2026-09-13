@@ -68,6 +68,11 @@ import com.luzzymeow.luzzyrp.chat.BranchStat
 import com.luzzymeow.luzzyrp.chat.BranchTree
 import com.luzzymeow.luzzyrp.chat.ChatBranch
 import com.luzzymeow.luzzyrp.chat.ChatEngine
+import android.util.Log
+import com.luzzymeow.luzzyrp.chat.PromptAssembler
+import com.luzzymeow.luzzyrp.chat.PromptInputSource
+import com.luzzymeow.luzzyrp.chat.WorldBookTool
+import com.luzzymeow.luzzyrp.data.legacy.ScopeId
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.chat.VanioCard
@@ -88,7 +93,9 @@ import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -179,6 +186,11 @@ fun ChatPage(
     /** 预设面板的「管理」去向（跳到预设页）。 */
     onOpenPresets: () -> Unit = {},
     /**
+     * 组装取数层（默认真库）。**测试接缝**：注入指向临时库的实例，
+     * 否则「本轮请求里有什么」会取决于设备上恰好有什么数据。
+     */
+    promptInputSource: PromptInputSource? = null,
+    /**
      * 两个用户数据仓库（默认真实 Room 存储）。**测试接缝**：仪器化测试必须注入指向临时库的
      * 仓库，否则面板会去读设备上真实的 `luzzy.db` ——「界面取决于这台机器恰好有什么数据」
      * 是隐藏耦合（本用例第一版就因为读不到注入夹具的数据而超时）。
@@ -225,6 +237,28 @@ fun ChatPage(
         sessionRepository ?: ChatSessionRepository(
             LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)),
         )
+    }
+
+    /**
+     * 「生效」的取数层（A1b）：角色 / 用户 / 预设 / 世界书全部来自真库。
+     *
+     * 与 [repository] 同一套接缝纪律——仪器化测试注入指向临时库的实例，
+     * 否则「本轮请求里有什么」会取决于这台机器恰好装了什么数据（隐藏耦合）。
+     *
+     * **注意**：这里**不能**自己 new `LuzzyStore` 再拼一个 source——那会绕过注入，
+     * 让测试读到设备上的真库（本用例第一版正是这么红的：预设面板等不到注入夹具的条目）。
+     * 所以整条链只在**没注入**时才自建，且 store 由注入的仓库反推。
+     */
+    val promptSource = remember(repository, worldBookRepository, presetRepository, promptInputSource) {
+        promptInputSource ?: run {
+            val store = LuzzyStore(DatabaseProvider.luzzy(context.applicationContext))
+            PromptInputSource(
+                store = store,
+                sessions = repository,
+                presets = presetRepository ?: PresetRepository(store),
+                worldBook = worldBookRepository ?: WorldBookRepository(store, repository),
+            )
+        }
     }
     var characterUuid by remember { mutableStateOf<String?>(null) }
 
@@ -412,22 +446,70 @@ fun ChatPage(
         val turn = LiveTurn()
         live = turn
         regeneratingIndexState = regeneratingIndex
+        val turnBranchId = activeBranchId
         job = scope.launch {
             pinToBottom()
+            // ── 「生效」的取数（A1b）：角色 / 用户 / 预设 / 世界书全部来自真库 ──
+            //
+            // 两条纪律（都踩过）：
+            // ① **DB 读必须切 IO**：生产库没有 `allowMainThreadQueries`，在主线程读会抛
+            //    `Cannot access database on the main thread`（测试库曾放宽该限制 → 「测试绿、
+            //    真机崩」，那个放宽已于本批移除）。
+            // ② **Compose 状态必须在主线程读**：`withContext` 会换线程，若在 IO 段里读
+            //    `characterUuid` 这类快照状态，会触发
+            //    `Detected multithreaded access to SnapshotStateObserver`。
+            //    故：先把要用的值**取进局部变量**，再交给 IO 段只做 DB 操作。
+            // 失败一律**降级为空输入**（不注任何块），绝不让取数失败打断对话。
+            val source = promptSource
+            val uuidForTurn = characterUuid
+            val historyForScan = history.map { it.role to it.content }
+            val bundle = if (source == null) null else withContext(Dispatchers.IO) {
+                runCatching {
+                    source.bundle(
+                        characterUuid = uuidForTurn,
+                        branchId = turnBranchId,
+                        history = history,
+                        userText = userText,
+                        recentMessages = historyForScan.mapNotNull { (role, content) ->
+                            content.takeIf { role == LlmRole.USER || role == LlmRole.ASSISTANT }
+                        },
+                    )
+                }.onFailure {
+                    Log.w("LuzzyPrompt", "组装取数失败，本轮按空输入组装（不注入角色/预设/世界书）", it)
+                }.getOrNull()
+            }
+            val promptInput = bundle?.input ?: PromptAssembler.Input(history = history, userText = userText)
+            // 工具执行器用**同一批激活条目**：模型查到的与生成前扫到的是同一份数据
+            val runner = bundle?.activatedWorldEntries?.let { WorldBookTool.withEntries(it) }
             try {
-                engine.run(config = config, history = history, userText = userText).collect { event ->
-                    // 「是否贴底」要在内容变化**之前**判定：变化之后末项会变高、判据立刻变 false，
-                    // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
-                    // 另加 `!isScrollInProgress`：用户正在拖动/惯性滑动时不抢滚动（rikkahub 同条件）。
-                    val follow = isAtBottom() && !listState.isScrollInProgress
-                    traceStreamEvent(event)
-                    turn.apply(event)
-                    if (follow) pinToBottom() else unseenWhileAway = true
-                }
+                engine.run(
+                    config = config,
+                    history = history,
+                    userText = userText,
+                    promptInput = promptInput,
+                    toolRunner = runner,
+                )
+                    .collect { event ->
+                        // 「是否贴底」要在内容变化**之前**判定：变化之后末项会变高、判据立刻变 false，
+                        // 那时再判会把「本来贴着底」误判成「用户上滑了」而停止跟随。
+                        // 另加 `!isScrollInProgress`：用户正在拖动/惯性滑动时不抢滚动（rikkahub 同条件）。
+                        val follow = isAtBottom() && !listState.isScrollInProgress
+                        traceStreamEvent(event)
+                        turn.apply(event)
+                        if (follow) pinToBottom() else unseenWhileAway = true
+                    }
             } catch (_: CancellationException) {
                 // 用户点「停止」：保留已真实到达的正文与节点（不丢弃）
             }
+            // 记住本轮发出的快照：**去重靠它**，也是下一轮「内容没变就不发」的判据。
+            // 注意这**不替代落盘**——快照还要作为一条历史消息存在（见 DESIGN-compose §24）。
+            if (source != null && bundle != null) {
+                runCatching {
+                    source.rememberSnapshot(ScopeId(bundle.characterUuid.orEmpty(), bundle.branchId).suffix(), promptInput.retainedSnapshot)
+                }
+            }
             onFinish(turn)
+
             // 截断可见化（T5）：结束原因若为输出上限，用一句可操作的话告诉用户——
             // 此前 finishReason 只是被存下来、应用内完全看不见，「回复为什么断了」无法定性。
             if (com.luzzymeow.luzzyrp.chat.UsageFormat.isTruncated(turn.finishReason)) {

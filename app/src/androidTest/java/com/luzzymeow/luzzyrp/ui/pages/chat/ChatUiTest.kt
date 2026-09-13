@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.chat.PromptInputSource
 import com.luzzymeow.luzzyrp.data.preset.PresetRepository
 import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
 import com.luzzymeow.luzzyrp.chat.TransportConfig
@@ -95,9 +96,15 @@ class ChatUiTest {
                     onOpenDrawer = {},
                     engineFactory = { ChatEngine(FakeTransport(script)) },
                     sessionRepository = fixture.repository,
-                    // 两个用户数据仓库也必须注入：否则面板会去读设备上真实的 luzzy.db
+                    // 用户数据仓库与组装取数层也必须注入：否则会去读设备上真实的 luzzy.db
                     worldBookRepository = WorldBookRepository(fixture.store, fixture.repository),
                     presetRepository = PresetRepository(fixture.store),
+                    promptInputSource = PromptInputSource(
+                        store = fixture.store,
+                        sessions = fixture.repository,
+                        presets = PresetRepository(fixture.store),
+                        worldBook = WorldBookRepository(fixture.store, fixture.repository),
+                    ),
                 )
             }
         }

@@ -122,6 +122,10 @@ object PromptAssembler {
         val messagePresets = enabledPresets.filter { it.role != PresetRole.System }
 
         // ── 1. system：只放稳定块（会变的内容一律不进 system） ──
+        //
+        // 即使一个块都没有，也**始终发一条 system**：空库/未配置时若整个 system 消失，
+        // 部分供应商会因为「没有 system / 首条不是 system」而拒绝请求，而且工具提示、
+        // 将来的全局规则都失去了落点。内容为空的 system 是无害的。
         val systemText = PromptSections.render(
             PromptSections.stableSections(
                 presets = input.presets,
@@ -188,7 +192,8 @@ object PromptAssembler {
         // 连续 user），而换来的「历史逐字节不变」是缓存成立的前提。
         val bands = listOf(
             // 本轮新构造的段：可合并（它们每轮都重算，合并与否不影响缓存）
-            listOfNotNull(systemText.takeIf { it.isNotBlank() }?.let { LlmMessage(LlmRole.SYSTEM, it) }),
+            // system 恒定存在（见上），内容为空也没有关系
+            listOf(LlmMessage(role = LlmRole.SYSTEM, content = systemText)),
             presetMessages,
             listOfNotNull(preludeMessage),
             listOfNotNull(firstMesMessage),

@@ -30,13 +30,12 @@ import kotlinx.coroutines.flow.flow
 class ChatEngine(
     private val transport: LlmTransport = OpenAiTransport(),
     /**
-     * 本轮的组装输入（角色 / 用户 / 预设 / 世界书 / 召回）。
+     * 工具执行器（读真库世界书）。
      *
-     * 默认是**空输入**：不注入任何块、不硬编码任何演示人设。调用方（`ChatPage`）负责从真库取。
-     * 这是 P5-A 的关键变化——此前这里写死 `VanioCard.persona`，真角色的人设**根本没进请求**。
+     * 默认走演示书（`WorldBookTool.execute` 的无参路径），只为「单独使用引擎不崩」；
+     * 正常路径由调用方用 `WorldBookTool.withEntries(激活条目)` 注入——
+     * 这样「模型查到的」与「生成前扫到的」是**同一份数据**。
      */
-    private val promptInput: PromptAssembler.Input = PromptAssembler.Input(),
-    /** 工具执行器（读真库世界书）。默认用演示书，保证单独使用引擎时不崩。 */
     private val toolRunner: (String, String) -> String = { name, args -> WorldBookTool.execute(name, args) },
 ) {
 
@@ -73,11 +72,17 @@ class ChatEngine(
      *
      * @param history 既有对话（仅 user/assistant 正文，按时间升序）。
      * @param userText 本轮用户输入。
+     * @param promptInput 本轮组装输入（角色/用户/预设/世界书/召回/上次快照）。
+     *        调用方从真库取（见 [PromptInputSource]）；缺省是空输入。
+     * @param toolRunner 本轮工具执行器。**按轮传入**（而不是构造时固定）是因为
+     *        「本次激活的世界书条目」是逐轮算出来的；传 null 用构造时的默认。
      */
     fun run(
         config: TransportConfig,
         history: List<LlmMessage>,
         userText: String,
+        promptInput: PromptAssembler.Input = PromptAssembler.Input(history = history, userText = userText),
+        toolRunner: ((String, String) -> String)? = null,
     ): Flow<Event> = flow {
         if (!config.configured) {
             emit(Event.Failed("未配置供应商：请填写 Base URL / API Key / 模型"))
@@ -166,7 +171,7 @@ class ChatEngine(
                 val calls = acc.build()
                 messages = messages + LlmMessage(role = LlmRole.ASSISTANT, toolCalls = calls)
                 for (call in calls) {
-                    val result = toolRunner(call.name, call.rawArguments)
+                    val result = (toolRunner ?: this@ChatEngine.toolRunner)(call.name, call.rawArguments)
                     emit(Event.ToolCallFinished(call.name, call.rawArguments, result))
                     messages = messages + LlmMessage(
                         role = LlmRole.TOOL,

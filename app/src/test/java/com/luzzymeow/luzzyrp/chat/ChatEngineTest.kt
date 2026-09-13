@@ -62,7 +62,7 @@ class ChatEngineTest {
     }
 
     @Test
-    fun `命中历史时先发召回事件并把召回块注入 system`() = runTest {
+    fun `命中历史时先发召回事件并把召回块放进尾部快照`() = runTest {
         val transport = FakeTransport(listOf(listOf(LlmDelta(content = "嗯"), LlmDelta(finishReason = "stop"))))
         val history = listOf(
             LlmMessage(role = LlmRole.USER, content = "钟楼顶上长着红苹果树"),
@@ -76,18 +76,25 @@ class ChatEngineTest {
         // 召回事件必须发生在第一次请求之前
         assertTrue(events.indexOf(recall) < events.indexOfFirst { it is ChatEngine.Event.Content })
 
-        val system = transport.requests.first().messages.first()
+        // [P5-A] 召回块**不再进 system**，改放进尾部快照（会随轮次变 → 进 system 会每轮打断前缀缓存）。
+        // 这条断言就是那次改道的守卫：将来有人把它挪回 system 会立刻红。
+        val sent = transport.requests.first().messages
+        val system = sent.first()
         assertEquals(LlmRole.SYSTEM, system.role)
-        assertTrue(system.content.contains("<memory_recall>"))
-        assertTrue(system.content.contains(VanioCard.persona.take(10)))
+        assertTrue("system 里不该有召回块", !system.content.contains("<memory_recall>"))
+        val snapshot = sent.firstOrNull { it.content.startsWith(RuntimeSnapshots.HEADER) }
+        assertTrue("召回块必须在尾部快照里", snapshot != null && snapshot.content.contains("<memory_recall>"))
     }
 
     @Test
-    fun `未命中历史时不发召回事件`() = runTest {
+    fun `未命中历史时不发召回事件也没有召回块`() = runTest {
         val transport = FakeTransport(listOf(listOf(LlmDelta(finishReason = "stop"))))
         val events = ChatEngine(transport).run(config, emptyList(), "你好呀").toList()
         assertTrue(events.none { it is ChatEngine.Event.Recall })
-        assertTrue(transport.requests.first().messages.first().content.contains("<world_info>").not())
+        assertTrue(
+            "没有任何动态内容时**一条快照都不该发**",
+            transport.requests.first().messages.none { it.content.startsWith(RuntimeSnapshots.HEADER) },
+        )
     }
 
     @Test

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.markdown.MarkdownText
+import com.luzzymeow.luzzyrp.ui.markdown.looksLikeHtmlCard
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyThemeColors
 import com.luzzymeow.luzzyrp.ui.theme.Motion
@@ -346,8 +347,10 @@ fun AiMessagePanel(
         modifier = modifier
             .widthIn(max = 336.dp)
             .let {
-                if (isLive) it
-                else it.animateContentSize(animationSpec = tween(Motion.EnterMs))
+                // 含 HTML 卡片的气泡**不做尺寸动画**：卡片要等 WebView 载完才知道自己多高，
+                // 挂动画就会重演 §16.2.1 修过的「矮壳撑开弹出」（那正是当初去掉动画的原因）。
+                val animates = !isLive && !looksLikeHtmlCard(raw)
+                if (animates) it.animateContentSize(animationSpec = tween(Motion.EnterMs)) else it
             },
     ) {
         Column(
@@ -365,8 +368,14 @@ fun AiMessagePanel(
             NameBadgeRow(name)
             // 正文交给 Markdown 渲染器：`*动作*` 是 emphasis 斜体、`「对白」`是普通文本
             // ——与上游 marked 渲染一致（此前的「对白/动作/叙述」三分类是自造语义）。
+            // **HTML 直通**（2026-09-14）：模型写在正文里的卡片（RP 常见的铭文/状态面板）
+            // 由 `MessageBody` 分段后交给 WebView 渲染——上游 v-html 同义，见 HtmlCard 的说明。
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                MarkdownText(content = raw, live = isLive, modifier = Modifier.fillMaxWidth())
+                com.luzzymeow.luzzyrp.ui.markdown.MessageBody(
+                    content = raw,
+                    live = isLive,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             if (isLive) TypingDots()
         }

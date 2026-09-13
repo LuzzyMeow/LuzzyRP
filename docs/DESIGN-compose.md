@@ -469,7 +469,7 @@ adb shell am broadcast -a com.luzzymeow.luzzyrp.DEV_INPUT \
 | 未闭合围栏 ` ```json\n{"a":1 ` | 仍产出代码块，`closed=false` → UI 左上显示「生成中…」 | 上游「未闭合按代码渲染到当前为止」同语义；这里把「没写完」显式化 |
 | 未闭合强调符 `**他还没写完` | 不产出 Strong，**标记符原样保留**（不吞字符） | 单测钉死 |
 | 半截链接 `[文字](htt` | 退化为普通文本 | 不猜 URL |
-| HTML 块 | **按纯文本原样展示** | 上游把 HTML 塞 sandbox iframe 渲染；本版不做直通（安全 + 复杂度），P5 单独立项。原样展示让「未渲染」可见，不静默吞内容 |
+| HTML 块 | ~~**按纯文本原样展示**~~ → **已由 §26 取代（2026-09-14）：正文里的 HTML 现在直通渲染成卡片** | 当时的判断是「上游把 HTML 塞 sandbox iframe 渲染；本版不做直通（安全 + 复杂度），P5 单独立项」——用户报「卡片没渲染」后于 §26 补齐（安全边界改为「关 JS / 关网络 / 清洗 / CSP」四道，而不是不做） |
 
 **明确不做**：LaTeX / Mermaid（GFM 的 math 节点降级为纯文本）、图片（我们走 `image###`
 私有格式 + 消息附件，P5）、表格的列宽自适应与复制工具栏（现为等宽列 + 表头加粗 + 行间 hairline）。
@@ -977,3 +977,115 @@ adb -s <真机序号> logcat -s LuzzyMigrate                                    
 - **未做（如实登记）**：压缩 / 压缩失败在**界面上不可见**——那是视觉产出，须先走设计流程（AGENTS §2.1）；
   B4 的 `interrupted` 标记同样只有数据没有界面。
 - **未验收**：B5/B6 的**真机**验收（JVM 侧 12 例 + 6 例已绿）；真机装包前须用户授权。
+
+---
+
+## 26 · 正文里的 HTML 直通（卡片渲染，2026-09-14 · 用户报「卡片没渲染」后补）
+
+### 26.1 问题与上游行为（真机实测提出，2026-09-14）
+
+用户在真机上看到模型输出的 `<div style="background:#0d1416;…">墙垣铭文·残译…</div>`
+**以纯文本形式**铺在气泡里。核实上游 `assets/js/runtime-services.js` 的 `renderMarkdown`：
+它有三条 HTML 通道，结果一致——**模型写进正文的 HTML 是要渲染出来的**：
+
+| 通道 | 上游位置 | 判据 |
+|---|---|---|
+| 整条消息以块级标签开头 | `runtime-services.js:131-134` | `/^\s*<(div|table|section|article|aside|header|footer|style|script)/i` |
+| 消息中间的 HTML | `:145`（`marked.parse`） | marked **默认透传 HTML** |
+| 代码围栏里的 HTML | `:61-74` | 语言是 `html/xml` 或内容像 HTML → 换成可执行 iframe |
+
+链路是 `processRegex(显示期) → marked.parse → DOMPurify.sanitize → v-html`。
+Compose 侧此前只有 Markdown 渲染器（`ui/markdown/`），所以 HTML 只能当纯文本显示。
+PLAN 曾把它记为「HTML 直通…Compose 侧需单独立项」，但**没有排成任务**——本次补齐。
+
+### 26.2 实现（四个新文件 + 一处接线）
+
+| 文件 | 职责 |
+|---|---|
+| `ui/markdown/HtmlBlocks.kt`（纯函数） | 正文分段：`Markdown` / `Html`。只把**配平**的块级 HTML 区域当 HTML 段；围栏里的 HTML **连围栏一起**换成 HTML 段（对应上游第三条通道） |
+| `ui/markdown/HtmlSanitizer.kt`（纯函数） | 清洗 + 包成带 CSP 的完整文档（安全边界，见 26.3） |
+| `ui/markdown/HtmlCard.kt` | `AndroidView(WebView)`：透明底、`wrap_content` 高度、`onRelease` 销毁 |
+| `ui/markdown/MessageBody.kt` | 无 HTML → 直接走既有 `MarkdownText`（零变化）；有 HTML → 依次渲染各段 |
+| `ChatComponents.kt` `AiMessagePanel` | 正文渲染由 `MarkdownText` 换成 `MessageBody` |
+
+**流式期间的行为**：只有配平的 HTML 才变卡片。写到一半的标签留在 Markdown 段里显示为文本，
+闭合标签到达的那一帧才「长成卡片」——不会每帧重建 WebView。
+
+### 26.3 安全边界（三条，缺一不可；与上游的**有意偏离**）
+
+消息 HTML 来自模型 = **不可信输入**，而渲染容器是原生应用里的 WebView：
+
+1. **容器层**（`HtmlCard`）：JS 关、DOM Storage 关、文件/内容访问关、**网络加载关**；
+2. **内容层**（`HtmlSanitizer`）：删 `script`/`iframe`/`object`/`embed`/`form`/`on*`/脚本 URL（含
+   实体编码与内嵌空白绕过）/`srcdoc`；**保留** `style`/`class`/`<style>` 与全部结构标签；
+3. **文档层**：注入 CSP（`default-src 'none'; script-src 'none'; object-src 'none' …`）。
+
+上游把消息 HTML 与整页应用放在**同一个文档**里，且 `DOMPurify` 白名单放行 `script`/`onclick`
+（`runtime-services.js:51-56`）——那是它们的「可执行卡片」特性。我们不给执行能力：
+**代价**是依赖 JS 的卡片只显示静态帧；**收益**是模型输出碰不到应用。
+
+### 26.4 容器视觉决策（本次设计门评审对象）
+
+卡片**不自带任何装饰**：无 padding、无背景、无圆角、无描边、无阴影、无动画——样子完全由模型写的
+内联 CSS 决定（与上游「v-html 进 markdown-body」同义）。宽度 = 气泡内容宽（受 `GlassPanel`
+`widthIn(max = 336.dp)` 约束），段间距沿用既有 `8.dp`，深色卡片在浅色主题下不做适配或反转。
+
+**设计门记录（2026-09-14）**：本条属硬性规定 9 的**豁免②「已选定方向后的迭代」**——
+HTML 直通是**上游既有行为**（§16.4 当时已登记为「P5 单独立项」），方向不是本次新选；
+实现触发视觉产出，故按流程委托独立评审读完 4 项 SKILL 主文档 + 本文件相关节，结论
+**GO（需调整）**，六条必须调整项已全部落实（见 26.7）。
+
+**宽度登记（评审建议①）**：卡片可用宽只有 **312dp**（336 − 2×12 内边距），比上游消息区
+（整页视口宽）窄——按固定 px 设计的卡片会更早换行。这是既有气泡宽度的后果，不再为卡片单独放宽。
+
+### 26.7 设计门「必须调整项」的落实（2026-09-14，逐条）
+
+| # | 评审要求 | 落实 |
+|---|---|---|
+| ① | 字号要跟随系统缩放（Dynamic Type 不破版） | `textZoom` 由 `LocalDensity.fontScale` 算出（夹在 50–300） |
+| ② | 高度治理：不许首帧「撑开弹出」、不许静默裁内容 | 含卡气泡**跳过 `animateContentSize`**（`looksLikeHtmlCard` 廉价判据）；清洗时**去掉**内联样式里的 `height`/`max-height`/`overflow*`，卡片按内容自然长高 |
+| ③ | 主题最小基线 + 亮/暗双主题目测 | 文档注入 `body{color:主题 onSurface}` + `a{color:主题 primary}` + 正文字号/行高兜底（低特异性，模型的元素级 CSS 仍赢）；**亮/暗各目测一次**（下方证据） |
+| ④ | reduced-motion | 系统 `ANIMATOR_DURATION_SCALE == 0` 时注入无条件停用；另始终带 `@media (prefers-reduced-motion: reduce)` |
+| ⑤ | 流式成本与线程安全 | 流式期间分段改到 `Dispatchers.Default`（与 `MarkdownText` 同一套纪律）；`HtmlBlocks` 的正则表与 `HtmlSanitizer` 的正则全部**预编译只读**（原来的可变 HashMap 缓存会成数据竞争） |
+| ⑥ | 真源自相矛盾 | §16.4 的「HTML 块按纯文本原样展示」已标注**被 §26 取代** |
+
+另采纳两条建议：清洗器正则预编译（同上）；删掉多余的 `@SuppressLint("SetJavaScriptEnabled")`
+（JS 已关，留着反而会让 lint 在将来误开 JS 时闭嘴）。
+评审提到的「死控件」（`button`/`label` 点了没反应）也已处理：`button`/`label` **降级为 `span`**、
+`input`/`select`/`textarea` 直接删除。
+
+**仍登记为风险（未处理，如实说明）**：① 长列表里每张卡一个 WebView，滚出滚回会反复
+创建/销毁——卡片密集会话可能掉帧，需要「同会话 10 张卡」的帧率 A/B 才能定性；
+② 卡片配色写死在模型的 CSS 里，切主题后仍是一块深色（③ 的兜底只管可读性，不管配色一致）；
+③ WebView 会抢占长按选择，且「复制」拿到的是源码而非卡片可见文本。
+
+### 26.8 真机证据（`df97f3c4`，2026-09-14）
+
+| 项 | 结果 |
+|---|---|
+| 卡片渲染 | 模型 CSS 全生效（深青底 / 虚线分隔 / 等宽字 / `letter-spacing`），正文前后正常续接 |
+| 亮主题 | ✅ 深卡压在暖色气泡上，卡内文字可读、无裁剪 |
+| 暗主题 | ✅ 卡片保持自身配色，气泡与正文随主题切换 |
+| 滚动往返 | ✅ 滚出再滚回，卡片不空白（`AndroidView` 重建后按同一文档重新载入） |
+| 唤醒 | ✅ 息屏唤醒后卡片内容仍在 |
+| 修掉的缺陷 | 清洗器把 `</span>` 拼成 `<>`（卡片每行多一个 `<>`）——纯文本断言看不见，回归判据已改为**整串等价** |
+
+### 26.5 真机证据与踩到的缺陷
+
+- 真机（`df97f3c4`）目测：卡片按模型 CSS 渲染（深青底、虚线分隔、等宽字、`letter-spacing` 生效），
+  正文在卡片前后正常续接。
+- **缺陷（真机目测抓到）**：清洗器把闭合标签 `</span>` 拼成了 `<>`，卡片每行末尾多一个 `<>`。
+  纯文本断言（`contains`）看不见这种破坏 → 已改为**整串等价**断言
+  （`HtmlSanitizerTest.闭合标签必须原样保留`）。
+- **天花板（`ponytail:`）**：网络被禁 → 卡片里引用**网络图片/字体**不会加载（`data:` 内联图可用）。
+  放开它等于允许模型让设备访问任意地址，属产品决策；要做得先问用户。
+
+### 26.6 相邻但**未实现**的两条上游显示机制（如实登记，别当成已完成）
+
+1. **显示期正则**（上游 `applyDisplayRegex` → `processRegex(text, {isDisplay:true, role})`）：
+   用户的正则脚本应在**显示前**改写正文。Compose 版从未实现（迁移搬来了 `rp_hub_regex` 记录，
+   没有消费方）。用户 2026-09-13 报的「引号内文字高亮没了」即此项。**待做（批 C）**。
+2. **UI 模板变量块**（上游 `findUiTemplateUpdateBlock` / `parseUiTemplateUpdates` /
+   `renderUiTemplateHtml` + `globalUiTemplates`）：模型输出 JSON 变量块 → 渲染模板面板，
+   同时把变量块从正文里**剥掉**。Compose 版未实现；用户预设里若带这类指令
+   （例如正文里出现 `!set_color` 之类的控制行），当前会原样显示成文本。

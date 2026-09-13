@@ -4167,6 +4167,66 @@ I LuzzyCache: 本轮 … 命中 0.8079（7,504/9,288）· 纪元变化 0 · [Clo
 
 ---
 
+### 11. 用户报「卡片没渲染」→ 实现 HTML 直通（同日续，真机目测通过）
+
+**用户原话**：「这个 ai 输出这一段是不是正则，原本是不是能渲染成卡片的？为什么不实现这个效果？」
+看屏幕（截图）确认：模型正文里写的是**内联样式 HTML**：
+
+```html
+<div style="display:block;margin:16px auto;max-width:520px;background:#0d1416;border:1px solid #1f3a3c;…">
+  <div style="…letter-spacing:3px;…">墙垣铭文 · 残译</div>
+  <div style="…">PÆRMIΓ</div><div>…[一] 此并不通天，纳万物之影。…</div>
+</div>
+```
+
+**定性（核实上游 `assets/js/runtime-services.js`）**：不是正则。上游 `renderMarkdown` 的链路是
+`processRegex(显示期) → marked.parse → DOMPurify.sanitize → v-html`，而 **marked 默认透传 HTML** →
+这段是当 HTML 渲染成卡片的（`:131-134` 整条以块级标签开头 / `:145` 中间的 HTML /
+`:61-74` 围栏里的 HTML）。Compose 侧只有 Markdown 渲染器 → 只能显示成文本。
+**为什么此前没做**：PLAN 把它记为「HTML 直通…Compose 侧需单独立项」，**但没排成任务**（欠账，如实登记）。
+
+**实现**（新增 4 文件 + 1 处接线，见 `DESIGN-compose §26`）：
+`HtmlBlocks.kt`（分段，只认**配平**的块级区域）/ `HtmlSanitizer.kt`（清洗 + CSP 文档）/
+`HtmlCard.kt`（`AndroidView(WebView)`：JS 关 / 网络关 / 文件关 / 透明底 / wrap_content / onRelease 销毁）/
+`MessageBody.kt`（无 HTML 时零变化地走既有 Markdown 路径）；`AiMessagePanel` 接线。
+
+**安全边界（三条）**：容器关 JS 与网络、内容剥 `script`/`iframe`/`on*`/脚本 URL（含实体编码绕过）、
+文档注入 CSP。与上游的**有意偏离**：上游放行 `script`（可执行卡片特性），我们不给执行能力——
+代价是依赖 JS 的卡片只显示静态帧，收益是模型输出碰不到应用。
+
+**门禁**：新增 `HtmlBlocksTest` 11 例 + `HtmlSanitizerTest` 16 例（含「闭合标签必须原样保留」这条
+回归判据）；全量 **588 条 / 0 失败**。三条安全用例在首轮就抓到真问题（未闭合 script 的内容残留、
+CSP 缺 `script-src`、实体编码绕过未拦）——已按判据修实现，不是改测试。
+
+**设计门（硬性规定 9，触发）**：委托独立评审完整读完 4 项 SKILL 主文档 + `DESIGN-compose`
+相关节，结论 **GO（需调整）**，六条必须调整项**全部落实**：
+
+| # | 评审要求 | 落实 |
+|---|---|---|
+| ① | 卡片字号要跟随系统缩放 | `textZoom` 由 `LocalDensity.fontScale` 算出（夹 50–300） |
+| ② | 高度治理：不许首帧撑开弹出、不许静默裁内容 | 含卡气泡跳过 `animateContentSize`；清洗时去掉内联样式里的 `height`/`max-height`/`overflow*` |
+| ③ | 主题基线 + 亮/暗双主题目测 | 注入 `body{color:主题色}` + 链接色 + 基准字号（低特异性）；**亮/暗各目测一次** |
+| ④ | reduced-motion | `ANIMATOR_DURATION_SCALE == 0` 时无条件停用卡内动效；另始终带 `prefers-reduced-motion` 查询 |
+| ⑤ | 流式成本与线程安全 | 流式分段改到后台线程；正则表全部**预编译只读**（原可变缓存会成数据竞争） |
+| ⑥ | 真源自相矛盾 | `DESIGN-compose §16.4` 的「HTML 按纯文本展示」已标注**被 §26 取代** |
+
+另采纳建议：清洗器正则预编译、删多余的 `@SuppressLint`；评审指出的**死控件**（`button`/`label`
+点了没反应）已处理为降级 `span` / 删除输入类。**未处理的风险如实登记**：卡片密集会话的
+滚动帧率（需「10 张卡」A/B）、卡片配色不随主题（兜底只管可读性）、WebView 抢占长按选择。
+
+**真机目测（`df97f3c4`）**：卡片按模型 CSS 正常渲染（深青底 / 虚线分隔 / 等宽字 / `letter-spacing`），
+正文在卡片前后正常续接；**亮主题与暗主题各验一次**；滚出滚回不空白；息屏唤醒后内容仍在。
+**过程中目测抓到并修掉一个真缺陷**：清洗器把 `</span>` 拼成 `<>`（卡片每行多一个 `<>`）——
+`contains` 类断言看不见这种破坏，回归判据已改为**整串等价**。
+
+**仍未实现的两条相邻上游机制（别当成已完成）**：
+① **显示期正则**（`applyDisplayRegex`）——用户 2026-09-13 报的「引号内文字高亮没了」即此项；
+② **UI 模板变量块**（模型输出 JSON 变量块 → 渲染模板面板 + 从正文剥掉该块）——
+用户预设里若带控制行（如正文出现 `!set_color` 之类）当前会原样显示成文本。
+两条都已登记进 `DESIGN-compose §26.6`，属批 C 待办。
+
+---
+
 ## 📍 当前工作节点（会话 75 暂停 · 批 B 代码完成并在真机抽验 · 供下次接手直接续）
 
 > **接手三件事**：① 读这一节；② 读 `docs/HANDOFF-p5-batch-c.md`（下一轮的完整提示词）；

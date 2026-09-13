@@ -485,8 +485,10 @@ adb -s df97f3c4 logcat -c && adb -s df97f3c4 logcat -s LuzzyCache
 - [x] B3 工具配对完整性（顺序 / abort 合成结果 / 工具抛异常不掀翻 turn）
 - [x] B3b **工具轨迹落库**（`chat/ToolTrail.kt` + payload 键 `luzzyToolTrail`；展开进请求时补悬空）
 - [x] B4 中断保留部分内容（补上 `interrupted` 标记的记账与落库；**UI 显示未做**）
-- [ ] B5 压缩（`contextWindow` 进配置 + 保配对 + 摘要重放吃缓存）—— **未开始**
-- [ ] B6 请求重试（网络错误 / context-overflow 各一次）—— **未开始**
+- [x] B5 压缩（`Compaction`：阈值 0.8 / 保留 0.16 / 保配对 / 摘要按原前缀重放吃缓存；
+      简报以 `ChatMessage.Compacted` **落库成水位线**，故压缩只断前缀一次）—— 会话 75 完成
+- [x] B6 请求重试（`RetryPolicy`：溢出→先压缩再重发 / 网络类→原样重发；各一次，
+      且只在「本次尝试没有任何内容上屏」时重发）—— 会话 75 完成
 - [x] B7 不变量守卫：工具续跑也必须纯追加（新老各一条逐字节用例）
 
 ### 批 C

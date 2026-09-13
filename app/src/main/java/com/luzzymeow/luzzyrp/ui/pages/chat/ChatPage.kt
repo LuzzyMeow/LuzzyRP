@@ -72,6 +72,8 @@ import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.chat.VanioCard
 import com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository
+import com.luzzymeow.luzzyrp.data.preset.PresetRepository
+import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.legacy.MigrationCoordinator
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
@@ -172,6 +174,17 @@ fun ChatPage(
      * 入口在**聊天页顶栏**（用户 2026-09-13 拍板；侧栏不加项，故总览自身 `inDrawer = false`）。
      */
     onOpenSessions: () -> Unit = {},
+    /** 世界书面板的「管理」去向（跳到世界书页）。 */
+    onOpenWorldInfo: () -> Unit = {},
+    /** 预设面板的「管理」去向（跳到预设页）。 */
+    onOpenPresets: () -> Unit = {},
+    /**
+     * 两个用户数据仓库（默认真实 Room 存储）。**测试接缝**：仪器化测试必须注入指向临时库的
+     * 仓库，否则面板会去读设备上真实的 `luzzy.db` ——「界面取决于这台机器恰好有什么数据」
+     * 是隐藏耦合（本用例第一版就因为读不到注入夹具的数据而超时）。
+     */
+    worldBookRepository: WorldBookRepository? = null,
+    presetRepository: PresetRepository? = null,
 ) {
     val hazeState = remember { HazeState() }
     // 稳定测试选择器（ui-ux-pro-max 的 Compose 栈规约要求 testTag 而非依赖文案）
@@ -186,10 +199,11 @@ fun ChatPage(
     var showConfig by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
 
-    // 功能面板（真实现）：模型切换 / 工具开关 / 世界书只读
+    // 功能面板（真实现）：模型切换 / 工具开关 / 世界书与预设（真数据、只读 + 管理入口）
     var showModels by remember { mutableStateOf(false) }
     var showTools by remember { mutableStateOf(false) }
     var showWorldBook by remember { mutableStateOf(false) }
+    var showPresets by remember { mutableStateOf(false) }
 
     // 操作行接线的宿主状态
     val snackbarHostState = remember { SnackbarHostState() }
@@ -704,7 +718,7 @@ fun ChatPage(
                         onTools = { showTools = true },
                         // 依赖后续期的入口**保留**，点击给出如实说明（不装死、也不删组件）
                         onAttach = { pendingFeatureHint("附件", "P5 的图片管线（选图 + 图片消息）") },
-                        onPresets = { pendingFeatureHint("预设", "P4 的数据层（预设是用户数据）") },
+                        onPresets = { showPresets = true },
                         onWorkspace = { pendingFeatureHint("工作区", "P5 的工作区特性") },
                     )
                 },
@@ -996,7 +1010,25 @@ fun ChatPage(
     }
 
     if (showWorldBook) {
-        WorldBookSheet(onDismiss = { showWorldBook = false })
+        WorldBookSheet(
+            onDismiss = { showWorldBook = false },
+            onManage = {
+                showWorldBook = false
+                onOpenWorldInfo()
+            },
+            repository = worldBookRepository,
+        )
+    }
+
+    if (showPresets) {
+        PresetsSheet(
+            onDismiss = { showPresets = false },
+            onManage = {
+                showPresets = false
+                onOpenPresets()
+            },
+            repository = presetRepository,
+        )
     }
 
     if (showBranches) {

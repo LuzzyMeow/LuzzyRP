@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,9 +36,23 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository
+import com.luzzymeow.luzzyrp.data.preset.PresetRepository
+import com.luzzymeow.luzzyrp.data.preset.PresetRole
+import com.luzzymeow.luzzyrp.data.preset.PresetRow
+import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
+import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import com.luzzymeow.luzzyrp.data.world.WorldBook
+import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.luzzymeow.luzzyrp.chat.ModelCatalog
 import com.luzzymeow.luzzyrp.chat.TransportConfig
-import com.luzzymeow.luzzyrp.chat.VanioCard
 import com.luzzymeow.luzzyrp.chat.WorldBookTool
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
@@ -247,11 +262,32 @@ fun ToolsSheet(
     }
 }
 
-/** 世界书面板（**只读**）：展示当前生效的真实条目；编辑依赖 P4 数据层，此处明说。 */
+/**
+ * 世界书面板（**真数据**，只读）：列出当前会参与注入的条目——全局 + 当前角色绑定。
+ *
+ * 为什么只读：编辑在「世界书」页（全屏、有字段说明与二级正文编辑器），
+ * 在聊天里的半屏面板上改这些字段会挤成一团。这里给一个「管理」直达入口。
+ *
+ * 面板上如实写着本版边界：**检索注入尚未接入**（P5），现在改条目还不会影响回复。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorldBookSheet(onDismiss: () -> Unit) {
+fun WorldBookSheet(
+    onDismiss: () -> Unit,
+    onManage: () -> Unit,
+    repository: WorldBookRepository? = null,
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val repo = remember(repository) {
+        repository ?: run {
+            val store = LuzzyStore(DatabaseProvider.luzzy(context.applicationContext))
+            WorldBookRepository(store, ChatSessionRepository(store))
+        }
+    }
+    var book by remember { mutableStateOf<WorldBook?>(null) }
+    LaunchedEffect(repo) { book = repo.load() }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -267,62 +303,226 @@ fun WorldBookSheet(onDismiss: () -> Unit) {
             SheetHeader(
                 icon = LuzzyIcons.BookOpen,
                 title = "世界书",
-                trailing = "${VanioCard.worldBook.size} 条",
+                trailing = book?.let { "${it.rows.size} 条" },
             )
             Text(
-                text = "来源：${VanioCard.Name} 的内置世界书（演示角色的真实数据）。" +
-                    "按关键词命中激活，命中即注入 system；编辑与多角色归 P4 数据层。",
-                fontSize = 11.5.sp,
+                text = "来源：本机数据（全局" +
+                    (book?.characterName?.let { " + $it 绑定" } ?: "") +
+                    "）。本版面板只读与跳转管理；**检索注入在 P5 接入**——现在改条目还不会影响回复。",
+                fontSize = 12.sp,
                 lineHeight = 17.sp,
                 fontFamily = LuzzyFonts.Body,
                 color = MaterialTheme.colorScheme.outline,
             )
-            Column(
-                Modifier
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                VanioCard.worldBook.forEach { entry ->
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                RoundedCornerShape(12.dp),
-                            )
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        Text(
-                            text = entry.title,
-                            fontSize = 13.5.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            entry.keys.forEach { key ->
-                                BadgeChip(key, MaterialTheme.colorScheme.tertiary)
-                            }
-                        }
-                        Text(
-                            text = entry.content,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetAction("管理", onManage)
+                SheetAction("关闭", onDismiss, subtle = true)
+            }
+            val current = book
+            when {
+                current == null -> Text(
+                    text = "读取中…",
+                    fontSize = 12.5.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                current.isEmpty -> Text(
+                    text = "还没有世界书条目。到「世界书」页新建——全局条目对所有角色生效，绑定条目只对当前角色生效。",
+                    fontSize = 12.5.sp,
+                    lineHeight = 19.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                else -> Column(
+                    Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    current.rows.forEach { row ->
+                        SheetEntryCard(
+                            title = row.entry.displayName,
+                            badges = buildList {
+                                add(row.group.label to MaterialTheme.colorScheme.primary)
+                                if (!row.entry.enabled) add("已停用" to MaterialTheme.colorScheme.outline)
+                                if (row.entry.constant) add("常驻" to MaterialTheme.colorScheme.tertiary)
+                                if (row.entry.useProbability && row.entry.probability < 100) {
+                                    add("概率 ${row.entry.probability}%" to MaterialTheme.colorScheme.outline)
+                                }
+                            },
+                            supporting = row.entry.triggerSummary,
+                            body = row.entry.content,
                         )
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * 预设面板（**真数据**，只读）：只列**启用中**的条目——因为只有它们参与组装
+ * （上游 `app.js:4534-4536` 把 `enabled=false` 与空正文直接丢弃）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PresetsSheet(
+    onDismiss: () -> Unit,
+    onManage: () -> Unit,
+    repository: PresetRepository? = null,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val repo = remember(repository) {
+        repository ?: PresetRepository(LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)))
+    }
+    var rows by remember { mutableStateOf<List<PresetRow>?>(null) }
+    LaunchedEffect(repo) { rows = repo.enabled() }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            SheetHeader(
+                icon = LuzzyIcons.Sliders,
+                title = "预设",
+                trailing = rows?.let { "启用中 ${it.size} 条" },
+            )
+            Text(
+                text = "顺序即注入顺序：系统类按列表序拼进 system，User / AI 类作为独立消息插入。" +
+                    "本版面板只读与跳转管理；**拼进请求在 P5 接入**——现在改这些还不会影响回复。",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                fontFamily = LuzzyFonts.Body,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetAction("管理", onManage)
+                SheetAction("关闭", onDismiss, subtle = true)
+            }
+            val current = rows
+            when {
+                current == null -> Text(
+                    text = "读取中…",
+                    fontSize = 12.5.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                current.isEmpty() -> Text(
+                    text = "没有启用中的预设。到「预设」页新建或打开某一条。",
+                    fontSize = 12.5.sp,
+                    lineHeight = 19.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                else -> Column(
+                    Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    current.forEach { row ->
+                        SheetEntryCard(
+                            title = row.entry.displayName,
+                            badges = listOf(
+                                row.entry.role.label to when (row.entry.role) {
+                                    PresetRole.System -> MaterialTheme.colorScheme.primary
+                                    PresetRole.User -> MaterialTheme.colorScheme.secondary
+                                    PresetRole.Assistant -> MaterialTheme.colorScheme.tertiary
+                                },
+                            ),
+                            supporting = row.entry.summary,
+                            body = null,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 面板里的一张条目卡（只读展示：名称 + 徽标 + 触发说明 + 正文摘录）。 */
+@Composable
+private fun SheetEntryCard(
+    title: String,
+    badges: List<Pair<String, androidx.compose.ui.graphics.Color>>,
+    supporting: String,
+    body: String?,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = 13.5.sp,
+                fontFamily = LuzzyFonts.Body,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            badges.forEach { (text, tint) -> BadgeChip(text, tint) }
+        }
+        Text(
+            text = supporting,
+            fontSize = 12.sp,
+            fontFamily = LuzzyFonts.Body,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!body.isNullOrBlank()) {
+            Text(
+                text = body.lineSequence().filter { it.isNotBlank() }.take(6).joinToString("\n"),
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontFamily = LuzzyFonts.Body,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 6,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** 面板上的小动作按钮（管理 / 关闭）。 */
+@Composable
+private fun SheetAction(text: String, onClick: () -> Unit, subtle: Boolean = false) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (subtle) MaterialTheme.colorScheme.surfaceContainerHigh
+                else MaterialTheme.colorScheme.primaryContainer,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontFamily = LuzzyFonts.Body,
+            fontWeight = FontWeight.Medium,
+            color = if (subtle) MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.onPrimaryContainer,
+        )
     }
 }
 

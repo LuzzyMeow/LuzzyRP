@@ -13,6 +13,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.luzzymeow.luzzyrp.chat.ChatEngine
+import com.luzzymeow.luzzyrp.data.preset.PresetRepository
+import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.chat.llm.LlmDelta
@@ -21,6 +23,7 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmRequest
 import com.luzzymeow.luzzyrp.chat.llm.LlmTransport
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.flow
 import com.luzzymeow.luzzyrp.testing.FakeTransport
 import com.luzzymeow.luzzyrp.testing.TestStoreFixture
@@ -92,6 +95,9 @@ class ChatUiTest {
                     onOpenDrawer = {},
                     engineFactory = { ChatEngine(FakeTransport(script)) },
                     sessionRepository = fixture.repository,
+                    // 两个用户数据仓库也必须注入：否则面板会去读设备上真实的 luzzy.db
+                    worldBookRepository = WorldBookRepository(fixture.store, fixture.repository),
+                    presetRepository = PresetRepository(fixture.store),
                 )
             }
         }
@@ -192,13 +198,26 @@ class ChatUiTest {
         compose.onNodeWithText("取消").performClick()
     }
 
-    // ── 用例 6：世界书面板列出真实条目（只读数据源） ──
+    // ── 用例 6：世界书面板列出**本机真数据**（不再读演示角色的内置书） ──
     @Test
-    fun 世界书面板展示真实条目() {
+    fun 世界书面板展示本机真实条目() {
+        // 样例里的旧键条目经 W0 口径成为**全局**条目（世界书面板只读真库）
+        runBlocking { fixture.seedFromSample() }
         setChatContent()
         compose.onNodeWithTag("slot_世界书").performClick()
-        waitForText("钟楼红苹果树")
-        compose.onNodeWithText("钟楼红苹果树").assertExists()
+        waitForText("一条世界书", timeoutMs = 8_000)
+        compose.onNodeWithText("一条世界书").assertExists()
+        compose.onNodeWithText("全局").assertExists()
+    }
+
+    // ── 用例 6b：预设面板只列**启用中**的条目 ──
+    @Test
+    fun 预设面板展示启用中的条目() {
+        runBlocking { fixture.seedFromSample() }
+        setChatContent()
+        compose.onNodeWithTag("slot_预设").performClick()
+        waitForText("一条预设", timeoutMs = 8_000)
+        compose.onNodeWithText("一条预设").assertExists()
     }
 
     // ── 用例 7：工具开关真实可切换（文案随之变化） ──

@@ -93,6 +93,8 @@ class ComposeActivity : ComponentActivity() {
                             onToggleDarkMode = toggleDark,
                             onOpenDrawer = onOpenDrawer,
                             onOpenSessions = { route = LuzzyRoute.Sessions },
+                            onOpenWorldInfo = { route = LuzzyRoute.WorldInfo },
+                            onOpenPresets = { route = LuzzyRoute.Presets },
                         )
                         LuzzyRoute.Sessions -> SessionsPage(
                             onOpenDrawer = onOpenDrawer,

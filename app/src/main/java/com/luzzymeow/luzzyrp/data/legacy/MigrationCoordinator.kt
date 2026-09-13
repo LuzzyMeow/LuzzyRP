@@ -37,14 +37,25 @@ object MigrationCoordinator {
 
     private val mutex = Mutex()
 
-    /** 幂等：重复调用只跑一次（Activity 重建、多次进入都会调）。 */
-    suspend fun ensureMigrated(context: Context) {
+    /**
+     * 幂等：重复调用只跑一次（Activity 重建、多次进入都会调）。
+     *
+     * @param startup **迁移之后的启动准备**（旧设置搬运等），在状态离开 [State.Running]
+     *        **之前**执行完。为什么必须挂在这里而不是各调各的：界面等的就是「离开 Running」
+     *        这个信号，若启动准备在它之后才跑，页面会用「未配置」渲染首帧、
+     *        而配置其实马上就要搬进来（真机实测：首次启动显示未配置，切页或重启才正常）。
+     */
+    suspend fun ensureMigrated(context: Context, startup: suspend () -> Unit = {}) {
         mutex.withLock {
             if (_state.value != State.Idle) return
             _state.value = State.Running
             val store = LuzzyStore(DatabaseProvider.luzzy(context))
             _state.value = try {
-                when (val outcome = MigrationRunner(context, store).runIfNeeded()) {
+                val outcome = MigrationRunner(context, store).runIfNeeded()
+                // 启动准备失败**不能**把迁移结论判成失败：迁移本身已经成功落库了。
+                runCatching { startup() }
+                    .onFailure { android.util.Log.w("LuzzyStartup", "启动准备失败（不阻断启动）", it) }
+                when (outcome) {
                     is MigrationRunner.Outcome.Skipped -> State.Skipped
                     is MigrationRunner.Outcome.Migrated -> State.Done(outcome.report)
                     is MigrationRunner.Outcome.Failed -> State.Failed(outcome.reason)

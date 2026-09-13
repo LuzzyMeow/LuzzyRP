@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -113,6 +114,13 @@ import androidx.compose.runtime.snapshotFlow
  * 用法：`adb -s <真机> logcat -s LuzzyCache`。
  */
 private const val TAG_CACHE = "LuzzyCache"
+
+/** 落盘条目的**抗混淆**标签（`::class.simpleName` 在 release 包会被 R8 改名，日志就不可读了）。 */
+private fun appendLabel(message: ChatMessage): String = when (message) {
+    is ChatMessage.Snapshot -> "Snapshot"
+    is ChatMessage.User -> "User"
+    is ChatMessage.Ai -> "Ai"
+}
 
 /**
  * 演示角色的历史（真实数据源：会话上下文与记忆检索都读它）。
@@ -309,6 +317,10 @@ fun ChatPage(
             // 等迁移出结论再读库：否则会在迁移还没写完时按空库渲染成演示数据
             // （用户先看到演示角色、数据随后「悄悄出现」，或要重启才出现）。
             MigrationCoordinator.state.first { it !is MigrationCoordinator.State.Running }
+            // ★ 供应商配置可能**刚刚**才被「旧设置搬运」写进 SharedPreferences，而本页的
+            //   `remember { store.load() }` 发生在启动准备之前（首帧早于它）→ 这里补读一次。
+            //   不补的话首次启动会一直显示「未配置」，要切页或重启才正常（真机实测）。
+            config = store.load()
             val session = repository.load()
             if (session != null) {
                 characterUuid = session.character.uuid
@@ -605,9 +617,11 @@ fun ChatPage(
             // 而且不报错。顺序只在这里决定一次，见 `RequestBuilder.Plan.appends`。
             // 落盘顺序的现场：真机 release 包不可 `run-as`（数据目录读不到），
             // logcat 是验收「存储顺序 = 请求顺序」的唯一外部探针通道。
+            // 标签**必须是字面量**：`it::class.simpleName` 在 release 包里会被 R8 改名成
+            // `bp`/`cp` 这种不可读的形式（实测），日志就失去了判据价值。
             Log.i(
                 TAG_CACHE,
-                "落盘 idx=${state.size} 顺序=${prepared.plan.appends.joinToString("→") { it::class.simpleName.orEmpty() }}",
+                "落盘 idx=${state.size} 顺序=" + prepared.plan.appends.joinToString("→") { appendLabel(it) },
             )
             prepared.plan.appends.forEach { appendTo(turnBranchId, it) }
 
@@ -762,6 +776,20 @@ fun ChatPage(
             }
 
             Scaffold(
+                // 输入法抬起时输入岛应跟着上移（2026-09-13 真机实测缺陷，用户报告）。
+                //
+                // ⚠️ **本行尚未修好该缺陷，如实登记**：`ComposeActivity` 开了 `enableEdgeToEdge()`
+                // （`setDecorFitsSystemWindows(false)`），Manifest 的
+                // `windowSoftInputMode="adjustResize"` 因此**不再生效**，窗口不会被顶起来 ——
+                // 必须由应用自己消费 IME inset。这里加 `imePadding()` 是标准做法，
+                // 但真机（小米 25098PN5AC / Android 16）实测 **IME inset 根本没被投递**：
+                // 键盘弹起（`mImeWindowVis=3`）时 `WindowInsets.ime.getBottom() = 1px`，
+                // 于是 `imePadding()` 无东西可消费，输入岛仍被键盘盖住（用户看不见自己在打什么）。
+                // 结论：**根因在 inset 投递一侧**（MIUI / Android 15+ 的 IME layering，
+                // 该窗口同时是 imeLayeringTarget / imeInputTarget / imeControlTarget），
+                // 需要单独立项排查；留这一行是因为它在能正常投递 inset 的设备上是对的。
+                // 详见 `docs/WORKLOG.md` 会话 74 与 `PLAN-v3.0-p5-agent-loop.md` §11.3。
+                modifier = Modifier.fillMaxSize().imePadding(),
                 containerColor = Color.Transparent,
                 // 操作反馈（复制/已生成第 N 个结果/未开放功能提示）——pro-rules：每个可点元素都要有反馈
                 snackbarHost = { SnackbarHost(snackbarHostState) },

@@ -3787,12 +3787,20 @@ AVD 原值备份在 `config.ini.bak-perf`。
 | 最新发布 | 仍是 v1.4.0；v3.0.0 未发版 |
 | 设计真源 | `DESIGN-compose.md`（§24/§25 待回填）／`PLAN-v3.0-p5-agent-loop.md`（本轮计划） |
 
-### 下一步（按序，第 1 步是恢复现场）
+### 下一步（按序，第 1 步已由用户指示取消）
 
-1. **恢复模拟器数据集**（⚠️ 会话 73 误卸载了应用，数据清空）：
-   重装 release → root 下把 `app/src/test/resources/legacy/webview-db-fixture.json`
-   推到 `filesDir/migration/incoming/legacy-export.json` → 启动触发迁移 → 核对
-   `角色 5 · 会话 16 条 · 记忆 8 · 世界书 2 · 忽略遗留世界书 2 条 · 预设 19`。
+1. ~~**恢复模拟器数据集**~~ **【会话 74 取消 · 用户指示「不用恢复模拟机 / 不要启动模拟机」】**
+   - 本轮**完全不用模拟器**：门禁改为 `:app:testDebugUnitTest`（JVM）+ **真机实测**；
+     `checkChat`（含 `connectedDebugAndroidTest`）本轮**未跑**，如实登记为「按用户指示跳过」。
+   - ⚠️ **节点节原先写的恢复步骤本身是错的**（会话 74 核实，勿再照抄）：
+     `MigrationRunner.runIfNeeded()` 会先开隐藏 WebView 跑 `ext/luzzy-migrate.html`，
+     该页第一件事就是 `LuzzyBridge.migrateStart()` → `MigrationInbox.start()` **删掉**
+     `filesDir/migration/incoming/legacy-export.json`，再用**当前 WebView 的 IndexedDB**
+     重新分块写入。所以预推夹具文件必然被覆盖；应用被卸载后 IndexedDB 已随包数据清空，
+     导出页会以「读不到任何键」失败（不写完成标记 → 下次启动重试）。
+     **要恢复数据集，正确做法是先把夹具的 `databases.RPHubDB/SillyTavernDB.entries`
+     写回 WebView 的 IndexedDB**（同 file:// origin；模拟器可 root + CDP 注入），
+     再触发迁移——而不是只推 JSON 文件。
 2. **A6/A7 重做**（照 PLAN §11 三步，勿从零摸索）。
 3. **门禁**：干净重启模拟器后 `checkChat` 全绿 + `ChatUiTest` 连跑 3 次稳定。
 4. A7 观测层 `CacheObserver.kt` + A8 用量页命中率。
@@ -3800,14 +3808,105 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 ### 用户将连真机测试（注意）
 
-- 真机 = 小米 A9210 / adb `PA921BMGL3190210G`；**只装 release 包**（无 debug 包）；
-  覆盖安装步骤与回滚见 `DESIGN-compose §20.4`；
-- 真机连上后 `adb devices` 会同时有真机与模拟器 → **仪器化测试必须
-  `ANDROID_SERIAL=emulator-5554`**（已有门禁强制），adb 操作真机要显式 `-s PA921BMGL3190210G`；
+- **真机目标（会话 74 用户拍板）**：`df97f3c4` = 小米 25098PN5AC / Android 16 / product pandora
+  （**日常机、含真实数据**，与 AGENTS §6.1 的记录一致；已装 `com.luzzymeow.luzzyrp`
+  v2.0.0 / versionCode 13，2026-09-12 更新）。用户明确选择**装在这台**做真机实测。
+- ⚠️ **上一轮交接文档写错了真机序号**：`HANDOFF-p5-next.md` 与本节点原写
+  「小米 A9210 / `PA921BMGL3190210G`」，而 `PA921BMGL3190210G`（A9210 / Android 14）
+  上**根本没装过 LuzzyRP**（`pm list packages` 无该包），是另一台备用机。会话 74 已与用户
+  确认改回 `df97f3c4`。
+- 真机**只装 release 包**（无 debug 包）；覆盖安装步骤与回滚见 `DESIGN-compose §20.4`；
+- 仪器化测试仍然**严禁**指向真机（`ANDROID_SERIAL` 必须是 `emulator-*` 的硬门保留），
+  故本轮**不跑仪器化测试**（无模拟器）；
 - 真机上的数据是用户的真实数据：**写任何东西之前先问**（本会话教训：我在模拟器上
   卸载应用前没有确认——模拟器数据可以丢，真机数据绝不能动）。
 
 ### 待用户拍板
 
-1. **真机覆盖安装实测**（Stage 4 剩余）：是否授权 `install -r` 并触发迁移。
-2. P5 批 A 完成后：真机试一轮确认回复质量（PLAN §10 停止点 1）。
+1. ~~**真机覆盖安装实测**（Stage 4 剩余）~~ → **会话 74 已执行**（见下节）。
+2. P5 批 A 完成后：真机试一轮确认回复质量（PLAN §10 停止点 1）→ 用户已试，
+   提交了 4 条主观发现（见下节「用户实测发现」）。
+
+---
+
+## 会话 74 · 2026-09-13 · P5 批 A 收口（A6/A7 重做 + 观测层 + 命中率）+ 真机实测
+
+**用户指令**：继续 P5 批 A；**不用恢复模拟器数据集、不要启动模拟器**；**直接真机测试**，
+并且「你来测试」。真机目标经确认改为 `df97f3c4`（日常机）。
+
+### 1. 批 A 收口（两个提交，均已 push）
+
+- `3a22cded` **A6/A7 重做**：`RequestBuilder`（请求 = 状态纯函数 + 落盘顺序 = 请求顺序）、
+  `ChatMessage.Snapshot` 第三变体、`emitSnapshot` 重放开关、`ChatRequest` 引擎入参、
+  存储编解码认回、`scopeStats` 只数真消息。**顺带修**：重跑路径把目标用户消息重复注入。
+- `d2a29a4d` **A7 观测层 + A8 命中率**：`CacheObserver`（口径与 WebView 版
+  `luzzy-prefix-guard.js` 逐字对齐）+ 请求头指纹（**A4 遗漏项**）+ 用量页真实缓存段。
+- **门禁**：JVM 单测 **484 条 / 0 失败**（连跑 3 次稳定）。
+  `checkChat`（仪器化）**按用户指示未跑**——无模拟器；`ChatPage` 接线那一跳因此
+  **只有纯函数层被自动覆盖**，UI 层改由真机实测兜（下文）。
+- **两次变异验证**（确认测试真会红，而不是恰好绿）：① `appends` 顺序倒过来 → 3 条红
+  （含字节级「连续五轮纯追加」）；② `retained` 恒为 null → 2 条红；
+  ③ 设置搬运标记无条件种下 → 1 条红。
+
+### 2. 真机实测（`df97f3c4`，release 包同签名覆盖安装，数据保留）
+
+**批 A 验收（PLAN §7.1）——达标**：
+
+| 判据 | 真机实测 |
+|---|---|
+| 公共前缀占比（相邻两轮） | **1.0000**（验收线 0.95，目标 1.0） |
+| 缓存命中率 | 该轮 `输入 10,956（缓存 9,756）` = **89.0%**；会话累计 0.4710（9,756/20,712） |
+| 缓存纪元变化 | **0**（同模型同设置，无虚假失效） |
+| 落盘顺序 | `落盘 idx=5 顺序=Snapshot→User` —— **快照先于用户消息**（A6 的核心不变式） |
+| 快照不渲染 | 对话里未出现 `Current runtime context…` |
+
+轮数如实登记：真机只跑到 **2 轮**（用户认为够了）；结构性质（1.0000 = 严格延伸）不随轮数变化，
+但「连续 5 轮」的字面要求**未在真机满足**，JVM 侧由 `BatchACacheAcceptanceTest` 覆盖 5 轮。
+
+**同一台机器上发现并修掉的两个真缺陷**（都只在真机上看得见）：
+
+1. **旧设置搬运标记被误种 → 供应商配置永久丢失**（`SettingsBootstrap`）：
+   首次打开界面时旧数据 28.6 MB 的迁移还没跑完 → `kv["settings"]` 还空着 →
+   原实现**无条件**写下 `legacy_imported` → 第二次启动迁移成功也不再搬运 →
+   界面一直「未配置」，用户得手填 API Key。修法两步（`SettingsBootstrapPlanTest` 9 条钉住）：
+   ① 读不到旧设置就**不种标记**；② 快路径改判「有没有空缺可补」——这条同时**自愈**已被误种的设备。
+   真机复验：`已搬来旧设置：主题=Light · 供应商配置（模型 [Cloud]DeepSeek-V4.1-Flash）`。
+2. **首帧 vs 启动准备竞速**：`ChatPage` 的 `remember { store.load() }` 早于旧设置搬运完成 →
+   首帧渲染「未配置」，且永不刷新（要切页/重启才正常）。修法：搬运作为
+   `MigrationCoordinator.ensureMigrated` 的 `startup` 回调（状态离开 Running 之前跑完）
+   + 聊天页在同一个启动门之后再读一次配置。
+
+### 3. 未修好的真机缺陷（如实登记，勿当已解决）
+
+**输入岛不随输入法上移**（用户报告：键盘盖住输入框，看不见自己在打什么）：
+`ComposeActivity` 开了 `enableEdgeToEdge()` ⇒ Manifest 的 `adjustResize` 失效，
+必须由应用消费 IME inset。加 `Modifier.imePadding()` 后**真机仍然不动**——
+探针实测键盘弹起（`mImeWindowVis=3`）时 `WindowInsets.ime.getBottom() = 1px`，
+即 **inset 根本没被投递**（该窗口同时是 `imeLayeringTarget`/`imeInputTarget`/`imeControlTarget`，
+MIUI / Android 16 的 IME layering 行为）。**根因在 inset 投递一侧，需单独立项**。
+`imePadding()` 留着（对能正常投递 inset 的设备是对的），并在代码注释里写明它**尚未修好**本机。
+
+### 4. 用户实测发现（4 条主观反馈，待分诊）
+
+| # | 现象 | 初步分诊 |
+|---|---|---|
+| 1 | 真流式输出失效（感觉不到逐字） | **未定位**。会话 74 的 diff 恰好改了 `send`/`runTurn`/列表项，**是首要嫌疑**，需与上一版 v3.0 包做 A/B |
+| 2 | 划到底部时不自动吸附跟随流式 | **未定位**。但 `isAtBottom()` 对「末项比视口还高」的情形判 false，长回复下本来就不跟随——属既有逻辑缺口，A/B 一并确认 |
+| 3 | 对话高亮（正则，引号内文字等）没有了 | **Compose 版从未实现**正则脚本的显示应用（迁移把 `rp_hub_regex` 搬进来了，但没有消费方）→ 属功能缺口，不是回归 |
+| 4 | 第一轮正文里看到「记忆整理」等 CoT，且输出完毕后消失（既不在节点也不在正文） | **既有行为**：流式期 `LiveTurn.body` 是模型原样正文，收尾时 `AiResult.body = CotParser.mainOf(raw)` 把未识别的 CoT 剥掉。真问题是**流式期与收尾后显示不一致** + 该段 CoT 未被识别成节点 |
+
+**明确未做**：这 4 条**本轮没有修**（属批 C 的缺陷清理项），也没写成结论——只有分诊意见。
+
+### 5. 本轮对真机做过的写操作（全部如实登记）
+
+- `install -r` 覆盖安装 release 包 ×4（同签名，数据保留）；
+- **触发了一次真实迁移**：旧 WebView 数据 28.6 MB / 160 块 → 新库
+  （`角色 2 · 会话 6 条 · 记忆 3 · 世界书 1 · 忽略遗留世界书 1 条 · 预设 18`）；
+  迁移对旧数据**只读**（旧 WebView 库未改动）；
+- 旧设置搬运写入 SharedPreferences（含用户自己的 API Key，仅存本机）；
+- 测试期间由**用户本人**在 Aurelion Sol 会话里发了 2 条消息（用户消息与模型回复留在库里）；
+- **输入法改动**：诊断「叫不出键盘」时执行了 `ime reset`，把你默认输入法从
+  `com.tencent.wetype/.plugin.hld.WxHldService`（微信输入法）切成搜狗；**已按你要求切回微信输入法**，
+  搜狗仍保持启用留作后备（原状态只启用微信输入法——要恢复原样我再执行一次 `ime disable`）。
+  注：该「叫不出键盘」疑似是我用 `input keyevent` 反复试探造成的 IME 卡死状态，
+  **不能**记成产品缺陷。

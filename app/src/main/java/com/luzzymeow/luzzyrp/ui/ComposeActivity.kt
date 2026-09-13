@@ -59,10 +59,15 @@ class ComposeActivity : ComponentActivity() {
         LuzzyFonts.appContext = applicationContext
         // 旧数据迁移：进界面**之前**发起（协调器保证只跑一次），界面会等它出结论再读库
         // （见 MigrationCoordinator 的类注释：否则会先按空库渲染成演示数据）。
+        // 旧设置搬运作为「启动准备」挂在迁移之后、状态离开 Running 之前 ——
+        // 否则聊天页会用「未配置」渲染首帧（真机实测）。
         lifecycleScope.launch {
-            MigrationCoordinator.ensureMigrated(applicationContext)
-            // 旧设置一次性搬运（在迁移之后：旧设置就存在迁移进来的 kv 里）
-            SettingsBootstrap.importOnce(applicationContext, LuzzyStore(DatabaseProvider.luzzy(applicationContext)))
+            MigrationCoordinator.ensureMigrated(applicationContext) {
+                SettingsBootstrap.importOnce(
+                    applicationContext,
+                    LuzzyStore(DatabaseProvider.luzzy(applicationContext)),
+                )
+            }
             // 搬运完再读主题：否则会把「刚搬来的旧主题」覆盖回系统默认
             themeMode = SettingsStore(applicationContext).load().themeMode ?: ThemeMode.System
         }

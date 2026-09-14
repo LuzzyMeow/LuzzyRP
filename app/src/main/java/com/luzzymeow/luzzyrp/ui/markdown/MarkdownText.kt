@@ -261,11 +261,23 @@ private fun CodeFenceView(fence: MdBlock.CodeFence, tokens: MarkdownTokens) {
     }
 }
 
-/** GFM 表格：等宽列（每列等分）+ 表头加粗 + 行间 hairline。完整对齐/列宽自适应归 P5。 */
+/**
+ * GFM 表格：**列宽按内容估宽分配**（C5）+ 表头加粗 + 行间 hairline。
+ *
+ * ## 为什么不是等分（此前行为，P5 的缺口）
+ *
+ * 等分在「有一列明显更宽」的表格上是错的：`| 项 | 说明 |` 这种两列表，说明列常常是
+ * 项列的 5-10 倍长 —— 等分会让项列大量留白、说明列疯狂折行，整表高得离谱。
+ * 估宽按各列**最长单元格**分配，宽列拿宽、窄列拿窄。
+ *
+ * 估宽口径见 [estimateTableWeights]（纯函数，可单测）。
+ */
 @Composable
 private fun TableView(table: MdBlock.Table, tokens: MarkdownTokens) {
     val columns = maxOf(table.header.size, table.rows.maxOfOrNull { it.size } ?: 0)
     if (columns == 0) return
+    // 权重用 remember 缓存：表格在滚动时可被反复重组，而估宽要遍历全部单元格的文本
+    val weights = remember(table) { estimateTableWeights(table, columns) }
     Column(
         Modifier
             .fillMaxWidth()
@@ -277,22 +289,76 @@ private fun TableView(table: MdBlock.Table, tokens: MarkdownTokens) {
             ),
     ) {
         if (table.header.isNotEmpty()) {
-            TableRow(table.header, columns, tokens, header = true)
+            TableRow(table.header, columns, tokens, weights, header = true)
         }
         table.rows.forEachIndexed { index, row ->
             if (index > 0 || table.header.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
-            TableRow(row, columns, tokens, header = false)
+            TableRow(row, columns, tokens, weights, header = false)
         }
     }
 }
+
+/**
+ * 各列的**相对宽度权重**（纯函数，C5）。
+ *
+ * ## 估宽口径
+ *
+ * 1. 取该列所有单元格（表头 + 全部数据行）的**最长**文本长度——最长的那格决定它需要多宽；
+ * 2. 按**显示宽度**而非字符数计：CJK 与全角标点占两格，拉丁字符占一格
+ *    （与等宽字体下的观感一致；中文表格里这一条差别很大）；
+ * 3. 每列再加一个**最小权重**：一列全是「是/否」时它的原始权重极小，
+ *    但那一列仍必须看得见（列宽被压成 0 与「用户看不见」是同一件事，见坑表）；
+ * 4. 加权的**平方根**收敛：直接用原始长度会让最长的列吞掉整张表的宽度（说明列可能是
+ *    项列的 10 倍长，按 10:1 分配会让项列窄到不可读）。开方后 10:1 变成约 3.2:1，
+ *    既体现差异又保证窄列可读。
+ */
+internal fun estimateTableWeights(table: MdBlock.Table, columns: Int): List<Float> {
+    if (columns <= 0) return emptyList()
+    val longest = FloatArray(columns)
+    fun scan(cells: List<List<MdSpan>>) {
+        cells.forEachIndexed { i, cell ->
+            if (i >= columns) return@forEachIndexed
+            val width = displayWidth(cell.plainText()).toFloat()
+            if (width > longest[i]) longest[i] = width
+        }
+    }
+    scan(table.header)
+    table.rows.forEach { scan(it) }
+    return List(columns) { i -> sqrtOf(longest[i].coerceAtLeast(1f)) + MIN_COLUMN_WEIGHT }
+}
+
+/** 文本的**显示宽度**：CJK / 全角占 2 格，其余占 1 格。 */
+private fun displayWidth(text: String): Int = text.sumOf { ch ->
+    val code = ch.code
+    val wide = (code in 0x1100..0x115F) ||   // 韩文字母
+        (code in 0x2E80..0xA4CF) ||          // CJK 部首/汉字/假名等
+        (code in 0xAC00..0xD7A3) ||          // 韩文音节
+        (code in 0xF900..0xFAFF) ||          // CJK 兼容汉字
+        (code in 0xFE30..0xFE6F) ||          // CJK 兼容形式
+        (code in 0xFF00..0xFF60) ||          // 全角形式
+        (code in 0xFFE0..0xFFE6)             // 全角符号
+    if (wide) 2 else 1
+}
+
+private fun sqrtOf(value: Float): Float = kotlin.math.sqrt(value)
+
+/**
+ * 每列的**基础权重**。
+ *
+ * 取值 1.0 的用意：一列内容全是「是」（估宽 2）时，开方后约 1.41，加上它得 2.41；
+ * 而一个 40 字的说明列约 8.2 —— 比值约 3.4:1，窄列仍有约 1/6 宽度（在 4 列表里可读）。
+ * 若没有这个底，窄列会退化成一条缝。
+ */
+private const val MIN_COLUMN_WEIGHT = 1.0f
 
 @Composable
 private fun TableRow(
     cells: List<List<MdSpan>>,
     columns: Int,
     tokens: MarkdownTokens,
+    weights: List<Float>,
     header: Boolean,
 ) {
     Row(Modifier.fillMaxWidth()) {
@@ -306,7 +372,8 @@ private fun TableRow(
                 fontWeight = if (header) FontWeight.Medium else FontWeight.Normal,
                 color = if (header) MaterialTheme.colorScheme.onSurface else LocalContentColor.current,
                 modifier = Modifier
-                    .weight(1f)
+                    // C5：按内容估宽分配（`weights` 与列下标一一对应；缺项时退回等分）
+                    .weight(weights.getOrNull(i) ?: 1f)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }

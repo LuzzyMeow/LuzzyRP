@@ -104,6 +104,13 @@ fun LuzzyNavShell(
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    // C7：减弱动效时抽屉与跨页交叉淡化都瞬时完成。
+    // 为什么这里也要管：转场是**全屏**运动（抽屉占屏 80%），对前庭敏感用户来说
+    // 它比点呼吸那种小动效更值得关掉。
+    val reduceMotion = com.luzzymeow.luzzyrp.ui.rememberReduceMotion()
+    val drawerCloseMs = com.luzzymeow.luzzyrp.ui.scaledDuration(DrawerCloseMs, reduceMotion)
+    val contentTxMs = com.luzzymeow.luzzyrp.ui.scaledDuration(ContentTxMs, reduceMotion)
+    val oldFadeMs = com.luzzymeow.luzzyrp.ui.scaledDuration(OldFadeMs, reduceMotion)
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -145,7 +152,7 @@ fun LuzzyNavShell(
                             scope.launch {
                                 drawerState.animateTo(
                                     DrawerValue.Closed,
-                                    tween(DrawerCloseMs, easing = TxEasing),
+                                    tween(drawerCloseMs, easing = TxEasing),
                                 )
                             }
                         },
@@ -162,10 +169,10 @@ fun LuzzyNavShell(
                 // 现取 400ms：交叉段延伸到抽屉收完之后，两页交叠可见时间 ≈ 400ms，
                 // 新页 alpha 0.35→1（抬高起点防灰陷），旧页 1→0；ease-out；禁 scale(0)。
                 (fadeIn(
-                    animationSpec = tween(ContentTxMs, easing = TxEasing),
+                    animationSpec = tween(contentTxMs, easing = TxEasing),
                     initialAlpha = 0.30f,   // 关键帧起点：抬高防灰陷，同时让淡化幅度更大更可见
                 )).togetherWith(
-                    fadeOut(animationSpec = tween(OldFadeMs, easing = TxEasing)),
+                    fadeOut(animationSpec = tween(oldFadeMs, easing = TxEasing)),
                 )
             },
             label = "pageTransition",

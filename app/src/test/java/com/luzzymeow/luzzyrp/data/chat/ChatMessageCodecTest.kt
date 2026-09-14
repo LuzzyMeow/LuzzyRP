@@ -254,4 +254,119 @@ class ChatMessageCodecTest {
         val restored = decodeMessage(entity)
         assertTrue("认错的后果是「用户以为自己说过这段话」", restored is ChatMessage.Compacted)
     }
+
+    // ---------------------------------------------------------------- C3：多候选持久化
+
+    private fun multiCandidate() = ChatMessage.Ai(
+        name = "谢昭",
+        results = listOf(
+            AiResult(raw = "第一版回答", finishReason = "stop", elapsedMs = 1_200L),
+            AiResult(
+                raw = "第二版回答",
+                thinkNodes = listOf(
+                    com.luzzymeow.luzzyrp.ui.pages.chat.ThinkNode.Brainstorm(text = "先想了想", seconds = 3.5, streaming = false),
+                ),
+                finishReason = "length",
+                usage = com.luzzymeow.luzzyrp.chat.UsageInfo(input = 100, output = 20, cached = 80),
+                elapsedMs = 2_400L,
+                toolTrail = listOf(com.luzzymeow.luzzyrp.chat.ToolStep("world_info_lookup", """{"keywords":["钟楼"]}""", "两条设定")),
+            ),
+            AiResult(raw = "第三版回答", interrupted = true),
+        ),
+        index = 1,
+    )
+
+    @Test
+    fun `多候选整组落库并在重启后逐字段回来`() {
+        val original = multiCandidate()
+        val restored = decodeMessage(row(original)) as ChatMessage.Ai
+
+        assertEquals("候选条数必须回来（否则切换器消失）", 3, restored.results.size)
+        assertEquals("当前展示的候选下标必须回来（否则应用像改了他的选择）", 1, restored.index)
+        assertEquals("当前正文对得上", "第二版回答", restored.raw)
+        assertEquals("各候选的正文逐字回来", listOf("第一版回答", "第二版回答", "第三版回答"), restored.results.map { it.raw })
+    }
+
+    @Test
+    fun `候选的用量 耗时 结束原因 中断标记都回来`() {
+        val restored = decodeMessage(row(multiCandidate())) as ChatMessage.Ai
+
+        val second = restored.results[1]
+        assertEquals("stop", restored.results[0].finishReason)
+        assertEquals(1_200L, restored.results[0].elapsedMs)
+        assertEquals("length", second.finishReason)
+        assertEquals(2_400L, second.elapsedMs)
+        assertEquals("用量三个数都要回来（缓存命中数用于命中率展示）", 80, second.usage?.cached)
+        assertEquals(100, second.usage?.input)
+        assertEquals(20, second.usage?.output)
+        assertEquals("第三版的中断标记", true, restored.results[2].interrupted)
+        assertEquals("未中断的候选不误标", false, restored.results[0].interrupted)
+    }
+
+    @Test
+    fun `候选的思考正文与工具轨迹都回来`() {
+        val restored = decodeMessage(row(multiCandidate())) as ChatMessage.Ai
+        val second = restored.results[1]
+
+        val brainstorm = second.thinkNodes.filterIsInstance<com.luzzymeow.luzzyrp.ui.pages.chat.ThinkNode.Brainstorm>()
+        assertEquals("reasoning 正文是模型说过的话，必须回来", 1, brainstorm.size)
+        assertEquals("先想了想", brainstorm.single().text)
+        assertEquals(3.5, brainstorm.single().seconds, 0.001)
+        assertEquals("历史思考不是「正在流式」", false, brainstorm.single().streaming)
+
+        assertEquals("该候选自己的工具轨迹随候选走", 1, second.toolTrail.size)
+        assertEquals("world_info_lookup", second.toolTrail.single().name)
+    }
+
+    @Test
+    fun `单候选不写候选数组（payload 不白撑大）`() {
+        val single = ChatMessage.Ai(results = listOf(AiResult(raw = "只有一版")))
+        assertEquals("{}", ChatSessionRepository.payloadOf(single))
+        assertTrue("没有候选键时读回空表", ChatSessionRepository.candidatesOf("{}").isEmpty())
+    }
+
+    @Test
+    fun `老行没有候选键时走单候选回落路径`() {
+        val entity = MessageEntity(
+            scopeId = "char-1",
+            sortIndex = 4,
+            id = null,
+            role = "assistant",
+            name = "谢昭",
+            content = "老消息正文",
+            reasoning = null,
+            payload = "{}",
+        )
+        val restored = decodeMessage(entity) as ChatMessage.Ai
+        assertEquals("回落成单候选（与候选键出现之前的行为一致）", 1, restored.results.size)
+        assertEquals("老消息正文", restored.raw)
+        assertEquals(0, restored.index)
+    }
+
+    @Test
+    fun `坏候选数据一律回落单候选，绝不抛异常`() {
+        assertTrue(ChatSessionRepository.candidatesOf("{").isEmpty())
+        assertTrue(ChatSessionRepository.candidatesOf("""{"luzzyCandidates":"不是数组"}""").isEmpty())
+        assertTrue("缺 raw 的候选丢掉", ChatSessionRepository.candidatesOf("""{"luzzyCandidates":[{"finishReason":"stop"}]}""").isEmpty())
+        assertEquals("越界/坏下标一律 0", 0, ChatSessionRepository.candidateIndexOf("""{"luzzyCandidateIndex":"abc"}"""))
+        assertEquals("负数下标归一为 0", 0, ChatSessionRepository.candidateIndexOf("""{"luzzyCandidateIndex":-3}"""))
+    }
+
+    @Test
+    fun `候选里坏一个字段不丢整条候选的正文`() {
+        // 用量是 null、耗时写坏、思考数组里混了非对象——正文仍然必须读得回来
+        val payload = """
+            {"luzzyCandidates":[
+              {"raw":"第一版","usage":null,"elapsedMs":"坏了","thinkNodes":[1,{"text":"思考"}]},
+              {"raw":"第二版"}
+            ],"luzzyCandidateIndex":0}
+        """.trimIndent()
+        val results = ChatSessionRepository.candidatesOf(payload)
+
+        assertEquals(2, results.size)
+        assertEquals("第一版", results[0].raw)
+        assertEquals(null, results[0].elapsedMs)
+        assertEquals(null, results[0].usage)
+        assertEquals("能认出的思考节点仍保留", 1, results[0].thinkNodes.size)
+    }
 }

@@ -130,16 +130,20 @@ sealed interface ThinkNode {
 /** 记忆分片（召回节点展开内容）。 */
 data class MemoryShard(val turn: String, val score: String, val text: String)
 
-/** 点呼吸（live 态图标槽；对齐 rikkahub DotLoading）。 */
+/** 点呼吸（live 态图标槽；对齐 rikkahub DotLoading）。减弱动效时停在满亮（不闪）。 */
 @Composable
 fun DotLoading(sizeDp: Int = 10) {
+    val reduceMotion = com.luzzymeow.luzzyrp.ui.rememberReduceMotion()
     val transition = rememberInfiniteTransition(label = "dot")
-    val alpha by transition.animateFloat(
+    val animated by transition.animateFloat(
         initialValue = 0.3f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
         label = "dotAlpha",
     )
+    // C7：减弱动效时不闪 —— 停在满亮（0.3 的暗点是「正在呼吸」的语义，
+    // 静止时用满亮更像一个普通的状态点，不会让人误以为它卡住了）
+    val alpha = if (reduceMotion) 1f else animated
     Box(
         Modifier
             .size(sizeDp.dp)
@@ -162,6 +166,8 @@ private fun ThinkNodeRow(
     onToggle: () -> Unit,
     content: (@Composable () -> Unit)?,
 ) {
+    // C7：减弱动效时展开/收起瞬时完成
+    val durations = com.luzzymeow.luzzyrp.ui.rememberMotionDurations(Motion.EnterMs, Motion.ExitMs)
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -219,8 +225,8 @@ private fun ThinkNodeRow(
         // 展开/收起 = 高度 + 淡入淡出（§14.3③「完成后自动收起」的可见动效）
         AnimatedVisibility(
             visible = expanded && content != null,
-            enter = expandVertically(animationSpec = tween(Motion.EnterMs)) + fadeIn(tween(Motion.EnterMs)),
-            exit = shrinkVertically(animationSpec = tween(Motion.ExitMs)) + fadeOut(tween(Motion.ExitMs)),
+            enter = expandVertically(animationSpec = tween(durations.enterMs)) + fadeIn(tween(durations.enterMs)),
+            exit = shrinkVertically(animationSpec = tween(durations.exitMs)) + fadeOut(tween(durations.exitMs)),
         ) {
             Box(
                 Modifier
@@ -309,9 +315,11 @@ fun ThinkingCard(
     var cardOverride by remember { mutableStateOf<Boolean?>(null) }
     val expanded = cardOverride ?: isLive
     val opens = remember { mutableStateMapOf<Int, Boolean>() }
+    // C7：减弱动效时箭头瞬时到位、展开瞬时完成
+    val durations = com.luzzymeow.luzzyrp.ui.rememberMotionDurations(Motion.EnterMs, Motion.ExitMs)
     val chevron by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(Motion.EnterMs),
+        animationSpec = tween(durations.enterMs),
         label = "cotChevron",
     )
 
@@ -381,8 +389,8 @@ fun ThinkingCard(
 
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(Motion.EnterMs)) + fadeIn(tween(Motion.EnterMs)),
-            exit = shrinkVertically(animationSpec = tween(Motion.ExitMs)) + fadeOut(tween(Motion.ExitMs)),
+            enter = expandVertically(animationSpec = tween(durations.enterMs)) + fadeIn(tween(durations.enterMs)),
+            exit = shrinkVertically(animationSpec = tween(durations.exitMs)) + fadeOut(tween(durations.exitMs)),
         ) {
             Column(
                 Modifier.drawBehind {

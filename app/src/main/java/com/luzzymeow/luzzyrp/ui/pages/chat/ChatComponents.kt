@@ -332,13 +332,18 @@ fun UserBubble(
         )
     }
     val annotated = com.luzzymeow.luzzyrp.ui.markdown.rememberInlineSpans(shown, 13.5.sp)
+    // C7：减弱动效时尺寸过渡瞬时完成（时长归零）
+    val sizeAnimMs = com.luzzymeow.luzzyrp.ui.scaledDuration(
+        Motion.EnterMs,
+        com.luzzymeow.luzzyrp.ui.rememberReduceMotion(),
+    )
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         GlassPanel(
             shape = RoundedCornerShape(16.dp),
             tint = glassTint(user = true),
             borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
             modifier = Modifier.widthIn(max = 320.dp).animateContentSize(
-                animationSpec = tween(Motion.EnterMs),
+                animationSpec = tween(sizeAnimMs),
             ),
         ) {
             Text(
@@ -377,8 +382,20 @@ fun AiMessagePanel(
             .let {
                 // 含 HTML 卡片的气泡**不做尺寸动画**：卡片要等 WebView 载完才知道自己多高，
                 // 挂动画就会重演 §16.2.1 修过的「矮壳撑开弹出」（那正是当初去掉动画的原因）。
+                // C7：减弱动效时时长归零（尺寸变化瞬时完成）
                 val animates = !isLive && !looksLikeHtmlCard(raw)
-                if (animates) it.animateContentSize(animationSpec = tween(Motion.EnterMs)) else it
+                if (animates) {
+                    it.animateContentSize(
+                        animationSpec = tween(
+                            com.luzzymeow.luzzyrp.ui.scaledDuration(
+                                Motion.EnterMs,
+                                com.luzzymeow.luzzyrp.ui.rememberReduceMotion(),
+                            ),
+                        ),
+                    )
+                } else {
+                    it
+                }
             },
     ) {
         Column(
@@ -426,14 +443,16 @@ val LocalChatHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.c
  * 「组件太多」而删掉了三个入口——那是改需求。入口全部保留，改的是**分区与视觉层级**：
  *
  * ```
- * 功能行：[附件][预设][世界书][工具][工作区]  ←——— 次级工具，统一规格、彼此相邻
+ * 功能行：[附件][预设][世界书][工具]                  ←——— 次级工具，统一规格、彼此相邻
  *                                        deepseek-flash ⌄   ← 状态信息，最弱（纯文字+箭头，无底色）
  * 输入行：[ 写点什么……                      ] [ ➤ ]        ← 主体与主操作
  * ```
  *
- * - **功能行**：5 个入口统一 48dp 热区 / 17dp 图标、**彼此相邻不留缝**（热区不重叠、
- *   视觉成簇不散）；未实现的三项**照样可点**，点击给出「需要哪一期」的如实说明——
+ * - **功能行**：入口统一 48dp 热区 / 17dp 图标、**彼此相邻不留缝**（热区不重叠、
+ *   视觉成簇不散）；附件尚未实现，点击给出「需要哪一期」的如实说明——
  *   保留入口但不说谎，比删掉入口或装死都更合适；
+ *   **C6（会话 78）撤掉了「工作区」入口**：上游零对应物（已核实），保留它只会让功能行
+ *   在窄屏上更挤——它此前点击也只给提示，不是真功能。
  * - **模型**：从「实心珊瑚胶囊」降为**纯文字 + 下拉箭头**，只占一行尾部——
  *   这样「最强对比」留给输入框与发送键（此前胶囊比输入框还抢眼，层级是反的），
  *   同时箭头补上了「可点开选择」的可供性（此前无任何可供性提示）；
@@ -452,7 +471,6 @@ fun InputIsland(
     onPresets: () -> Unit,
     onWorldBook: () -> Unit,
     onTools: () -> Unit,
-    onWorkspace: () -> Unit,
     toolsEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -559,12 +577,6 @@ fun InputIsland(
                         tag = "slot_tools",
                         onClick = onTools,
                     )
-                    ActionSlot(
-                        icon = LuzzyIcons.Workspace,
-                        description = "工作区",
-                        tag = "slot_workspace",
-                        onClick = onWorkspace,
-                    )
                 }
 
                 // 发送 / 停止（固定件，永不被左簇挤走）
@@ -654,11 +666,12 @@ private fun ActionSlot(
     }
 }
 
-/** 流式打字点（三点呼吸；live 态气泡尾部）。 */
+/** 流式打字点（三点呼吸；live 态气泡尾部）。减弱动效时三点停在满亮（不闪）。 */
 @Composable
 fun TypingDots(modifier: Modifier = Modifier) {
+    val reduceMotion = com.luzzymeow.luzzyrp.ui.rememberReduceMotion()
     val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "typing")
-    val alpha by transition.animateFloat(
+    val animated by transition.animateFloat(
         initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = androidx.compose.animation.core.infiniteRepeatable(
@@ -667,6 +680,7 @@ fun TypingDots(modifier: Modifier = Modifier) {
         ),
         label = "typingAlpha",
     )
+    val alpha = if (reduceMotion) 1f else animated
     Row(modifier = modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(3) {
             Box(

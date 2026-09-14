@@ -110,50 +110,24 @@ class ChatUiTest {
                 )
             }
         }
+        // 首帧必须稳定后再操作：`setContent` 返回时首帧组合可能还没跑完，
+        // 此时立刻点击功能行 → 面板的进入动画/状态建立在半成品树上，其取数 `LaunchedEffect`
+        // 会不启动（面板停在「读取中…」）——会话 78 用四组对照探针实证：
+        // **加了这一步的四组全绿，不加的那一版在整套跑里会红**（且失败在两条面板用例间飘移）。
+        compose.mainClock.advanceTimeBy(100)
+        compose.waitForIdle()
     }
 
 
     /**
      * 等一个条件成立（弹窗/菜单/面板内容都走它）。
      *
-     * ## 为什么不能只用 `waitUntil` 自旋（会话 78 实测的坑，确定性复现）
-     *
-     * 面板内容是**异步取数**来的（`LaunchedEffect` 里读库 → setState）。本测试环境把
-     * 协程续体的恢复挂在**帧回调（measure/layout）**上，而纯 `waitUntil` 自旋**不产出帧**：
-     * 续体永不恢复 → 条件永不成立。实测自旋 8s 仍停在「读取中…」；同一份代码只要
-     * **先让帧跑起来再查**，200ms 内即绿（`世界书` / `预设` 两条面板用例交替红，根因同一个）。
-     *
-     * 所以这里是「推帧 → 查 → 让出真实时间」的轮询：每次迭代先 [waitForIdle]（产出帧、
-     * 恢复续体），未命中再让出 50ms 真实时间——库查询在后台线程上，同样需要真实时间完成。
-     * 两个条件缺一不可：只推帧不等待，后台查询还没回来；只等待不推帧，续体不恢复。
+     * 实现统一在 `testing/Await.kt` —— 那里解释了为什么**不能**用 `compose.waitUntil` 自旋
+     * （不推进测试时钟 → 帧驱动的取数协程恢复不了 → 以「超时」的形式假红；
+     * 会话 78 用四组对照探针证实，且 5 个测试文件同族中招）。
      */
-    private fun awaitCondition(what: String, timeoutMs: Long, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (true) {
-            compose.waitForIdle()
-            if (condition()) return
-            if (System.currentTimeMillis() >= deadline) break
-            Thread.sleep(50)
-        }
-        // 超时后再推一次帧，然后给出**带描述**的失败信息（比原 waitUntil 的裸超时更可读）
-        compose.waitForIdle()
-        if (!condition()) {
-            // 把当前语义树落到 logcat：失败时「面板到底画了什么」是唯一能自证的证据。
-            // 注意多 root（BottomSheet / Dialog 是独立窗口）时 onRoot 会因「找到 2 个 root」抛错，
-            // 所以逐个 dump，dump 自身失败也绝不能盖掉真正的断言失败。
-            runCatching {
-                val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes().size
-                android.util.Log.e("LuzzyTest", "等待超时：$what（当前 root 数=$roots）")
-                repeat(roots) { i ->
-                    val dumped = runCatching {
-                        compose.onAllNodes(isRoot())[i].printToString(maxDepth = 10)
-                    }.getOrElse { "<dump 失败：$it>" }
-                    android.util.Log.e("LuzzyTest", "ROOT[$i]:\n$dumped")
-                }
-            }
-            throw AssertionError("等待超时（${timeoutMs}ms）：$what 未出现")
-        }
-    }
+    private fun awaitCondition(what: String, timeoutMs: Long, condition: () -> Boolean) =
+        com.luzzymeow.luzzyrp.testing.Await.until(compose, what, timeoutMs, dumpTree = true, condition = condition)
 
     /** 等某个 tag 出现在语义树里（弹窗/菜单/新条目都用它，避免时序误差）。 */
     private fun waitForTag(tag: String, timeoutMs: Long = 5_000) {
@@ -278,6 +252,19 @@ class ChatUiTest {
         compose.onNodeWithTag("slot_tools").performClick()
         waitForText("已开启", substring = true)
         compose.onNodeWithText("已开启", substring = true).assertExists()
+    }
+
+    // ── 用例 8（C6）：工作区入口已撤（上游零对应物，保留只会挤窄功能行） ──
+    @Test
+    fun 工作区入口已撤除() {
+        setChatContent()
+        // 判据是**不可见**：入口存在时这条会红（与「删了就绿」互为反面，
+        // 避免「删了东西没人发现」这类静默回归）
+        org.junit.Assert.assertEquals(
+            "工作区入口应已撤除（C6）",
+            0,
+            compose.onAllNodes(hasTestTag("slot_workspace")).fetchSemanticsNodes().size,
+        )
     }
 }
 

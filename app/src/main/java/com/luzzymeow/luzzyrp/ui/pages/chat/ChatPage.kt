@@ -466,7 +466,17 @@ fun ChatPage(
         if (index !in list.indices) return
         list[index] = transform(list[index])
         branchMessages[branchId] = list
-        persist { repo, uuid -> repo.updateContent(uuid, branchId, index, list[index].text()) }
+        // C3：AI 消息的**候选数组与当前下标住在 payload 里**（重新生成/切换候选都要落盘，
+        // 否则重启后候选全丢、切换器消失）。所以这里写「正文 + payload」两条路径合一的更新；
+        // 用户消息没有 payload 状态，走的仍是只动 content 列的老路径（保住旧行的多余字段）。
+        val updated = list[index]
+        persist { repo, uuid ->
+            if (updated is ChatMessage.Ai) {
+                repo.updateMessage(uuid, branchId, index, updated)
+            } else {
+                repo.updateContent(uuid, branchId, index, updated.text())
+            }
+        }
     }
 
     fun removeMessage(branchId: String, index: Int, andAfter: Boolean) {
@@ -1107,7 +1117,6 @@ fun ChatPage(
                         // 依赖后续期的入口**保留**，点击给出如实说明（不装死、也不删组件）
                         onAttach = { pendingFeatureHint("附件", "P5 的图片管线（选图 + 图片消息）") },
                         onPresets = { showPresets = true },
-                        onWorkspace = { pendingFeatureHint("工作区", "P5 的工作区特性") },
                     )
                 },
             ) { innerPadding ->
@@ -1261,14 +1270,16 @@ fun ChatPage(
                     )
                     // 回到底部（脱离底部时出现；rikkahub 的 MessageJumper 取其中最必要的一钮）
                     // 动效遵 DESIGN 纪律：进入 200ms / 退出 140ms，禁 scale(0)（起点 0.9）
+                    // C7：减弱动效时瞬时出现/消失
+                    val fabDurations = com.luzzymeow.luzzyrp.ui.rememberMotionDurations(Motion.EnterMs, Motion.ExitMs)
                     AnimatedVisibility(
                         // 「我不在底部」**且**「我没在跟随」才出按钮：跟随中几何判据会有单帧抖动
                         // （内容刚长高、贴底还没跑），只看 atBottom 会让按钮在流式期间一闪一闪。
                         visible = !atBottom && !followTail,
-                        enter = fadeIn(tween(Motion.EnterMs)) +
-                            scaleIn(initialScale = 0.9f, animationSpec = tween(Motion.EnterMs)),
-                        exit = fadeOut(tween(Motion.ExitMs)) +
-                            scaleOut(targetScale = 0.9f, animationSpec = tween(Motion.ExitMs)),
+                        enter = fadeIn(tween(fabDurations.enterMs)) +
+                            scaleIn(initialScale = 0.9f, animationSpec = tween(fabDurations.enterMs)),
+                        exit = fadeOut(tween(fabDurations.exitMs)) +
+                            scaleOut(targetScale = 0.9f, animationSpec = tween(fabDurations.exitMs)),
                         modifier = Modifier.padding(end = 6.dp),
                     ) {
                         Box(

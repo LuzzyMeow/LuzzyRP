@@ -58,10 +58,12 @@ fun ChatErrorCards(
     onCopy: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // C7：减弱动效时错误卡瞬时出现/消失
+    val durations = com.luzzymeow.luzzyrp.ui.rememberMotionDurations(Motion.EnterMs, Motion.ExitMs)
     AnimatedVisibility(
         visible = errors.isNotEmpty(),
-        enter = fadeIn(tween(Motion.EnterMs)) + scaleIn(initialScale = 0.92f, animationSpec = tween(Motion.EnterMs)),
-        exit = fadeOut(tween(Motion.ExitMs)) + scaleOut(targetScale = 0.92f, animationSpec = tween(Motion.ExitMs)),
+        enter = fadeIn(tween(durations.enterMs)) + scaleIn(initialScale = 0.92f, animationSpec = tween(durations.enterMs)),
+        exit = fadeOut(tween(durations.exitMs)) + scaleOut(targetScale = 0.92f, animationSpec = tween(durations.exitMs)),
         modifier = modifier,
     ) {
         Column(

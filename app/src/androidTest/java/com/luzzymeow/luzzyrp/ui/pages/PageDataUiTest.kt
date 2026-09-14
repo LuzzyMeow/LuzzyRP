@@ -113,11 +113,7 @@ class PageDataUiTest {
             }
         }
 
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasText("1,234", substring = true),
-            ).fetchSemanticsNodes().isNotEmpty()
-        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "1,234", 5_000, substring = true)
         // assertIsDisplayed：语义树里存在**且被布局到屏幕上**（拦「存在但宽度为 0」）。
         // ⚠️ 用 onAllNodes(...).assertCountEquals / onFirst() 的形态，不要用 onNodeWithText：
         //    「1,234」在页面上可能出现**多个**节点（总用量大字 + 输入/输出那行也含它），
@@ -142,11 +138,7 @@ class PageDataUiTest {
             }
         }
 
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasText("还没有可统计的用量记录", substring = true),
-            ).fetchSemanticsNodes().isNotEmpty()
-        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "还没有可统计的用量记录", 5_000, substring = true)
         compose.onNodeWithText("还没有可统计的用量记录", substring = true).assertIsDisplayed()
     }
 
@@ -200,11 +192,7 @@ class PageDataUiTest {
             }
         }
 
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasText("覆盖轮数", substring = true),
-            ).fetchSemanticsNodes().isNotEmpty()
-        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "覆盖轮数", 5_000, substring = true)
         // ⚠️ 断言写法（模拟器实测纠正）：页面上有**两张卡**（向量分片 / 总结记忆），
         //    「覆盖轮数」这个标签**各出现一次** → onNodeWithText 的「唯一匹配」会抛
         //    「Expected at most 1 node but found 2」。这不是页面错，是断言写法错。
@@ -235,11 +223,7 @@ class PageDataUiTest {
             }
         }
 
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasText("库里还没有角色卡", substring = true),
-            ).fetchSemanticsNodes().isNotEmpty()
-        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "库里还没有角色卡", 5_000, substring = true)
         compose.onNodeWithText("库里还没有角色卡", substring = true).assertIsDisplayed()
         // 写死的演示角色必须不存在（原先的静态稿正是这两张卡）
         assertEquals(
@@ -271,11 +255,7 @@ class PageDataUiTest {
             }
         }
 
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasText("谢昭", substring = true),
-            ).fetchSemanticsNodes().isNotEmpty()
-        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "谢昭", 5_000, substring = true)
         compose.onNodeWithText("谢昭", substring = true).assertIsDisplayed()
         // monogram 降级也要可见（无头像时显示首字「谢」）
         compose.onNodeWithText("谢", substring = false).assertExists()

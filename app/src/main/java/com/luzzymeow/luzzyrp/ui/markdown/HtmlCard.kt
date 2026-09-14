@@ -56,10 +56,10 @@ fun HtmlCard(html: String, modifier: Modifier = Modifier) {
     val baseFontSize = MaterialTheme.typography.bodyLarge.fontSize.value.let {
         if (it > 0f) it.toInt() else 15
     }
-    // 系统动画关闭（开发者选项/无障碍里的「移除动画」）→ 卡内动效也停
-    val reduceMotion = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
+    // 系统动画关闭（开发者选项/无障碍里的「移除动画」）→ 卡内动效也停。
+    // C7 起改用共享读取器（`ui/MotionSettings.kt`）：口径与自绘动效那一侧**同一处定义**，
+    // 避免两处各写一遍 `== 0f` 以后慢慢漂移。
+    val reduceMotion = com.luzzymeow.luzzyrp.ui.readReduceMotion(context)
     val document = remember(html, textColor, linkColor, baseFontSize, reduceMotion, fontScale) {
         HtmlSanitizer.document(
             html = html,

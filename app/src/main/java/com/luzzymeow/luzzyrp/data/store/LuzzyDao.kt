@@ -102,6 +102,17 @@ interface MessageDao {
     @Query("UPDATE messages SET content = :content WHERE scopeId = :scopeId AND sortIndex = :sortIndex")
     suspend fun updateContent(scopeId: String, sortIndex: Int, content: String)
 
+    /**
+     * 就地改写**正文 + payload**。
+     *
+     * 与 [updateContent] 的区别：那条**故意**不碰 payload（保住旧结构的多余字段）。
+     * 这条用于「payload 本身就是应用产出的状态」的场景——目前唯一调用方是
+     * **多候选持久化（C3）**：候选数组与当前下标存在 payload 里，重新生成/切换候选后
+     * 必须落盘，否则重启就丢。
+     */
+    @Query("UPDATE messages SET content = :content, payload = :payload WHERE scopeId = :scopeId AND sortIndex = :sortIndex")
+    suspend fun updateContentAndPayload(scopeId: String, sortIndex: Int, content: String, payload: String)
+
     @Query("DELETE FROM messages WHERE scopeId = :scopeId AND sortIndex = :sortIndex")
     suspend fun deleteAt(scopeId: String, sortIndex: Int)
 

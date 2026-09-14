@@ -63,15 +63,15 @@ class SessionsPageTest {
         }
     }
 
-    private fun awaitText(text: String, timeoutMs: Long = 8_000) {
-        compose.waitUntil(timeoutMs) {
-            compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
-        }
-    }
+    /**
+     * 等待纪律统一在 `testing/Await.kt`（会话 78）：`waitUntil` 自旋**不推进测试时钟**，
+     * 帧驱动的协程续体（页面取数 / 落盘）恢复不了，会以「超时」的形式假红。
+     */
+    private fun awaitText(text: String, timeoutMs: Long = 8_000) =
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, text, timeoutMs)
 
-    private fun awaitDb(timeoutMs: Long = 8_000, block: suspend () -> Boolean) {
-        compose.waitUntil(timeoutMs) { runBlocking { block() } }
-    }
+    private fun awaitDb(timeoutMs: Long = 8_000, block: suspend () -> Boolean) =
+        com.luzzymeow.luzzyrp.testing.Await.db(compose, timeoutMs, block)
 
     @Test
     fun showsGroupHeadersAndBranchRows() {

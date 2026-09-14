@@ -119,6 +119,10 @@ class LuzzyStore(private val db: LuzzyDatabase) {
     suspend fun updateMessageContent(scopeId: String, sortIndex: Int, content: String) =
         db.messages().updateContent(scopeId, sortIndex, content)
 
+    /** 就地改写正文 + payload（多候选持久化 C3：候选数组与下标住在 payload 里）。 */
+    suspend fun updateMessage(scopeId: String, sortIndex: Int, content: String, payload: String) =
+        db.messages().updateContentAndPayload(scopeId, sortIndex, content, payload)
+
     /** 删掉单条（「删除此消息」）。 */
     suspend fun deleteMessageAt(scopeId: String, sortIndex: Int) =
         db.messages().deleteAt(scopeId, sortIndex)

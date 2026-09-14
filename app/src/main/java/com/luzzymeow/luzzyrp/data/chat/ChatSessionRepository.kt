@@ -2,6 +2,7 @@ package com.luzzymeow.luzzyrp.data.chat
 
 import com.luzzymeow.luzzyrp.chat.ChatBranch
 import com.luzzymeow.luzzyrp.chat.ToolStep
+import com.luzzymeow.luzzyrp.chat.UsageInfo
 import com.luzzymeow.luzzyrp.data.legacy.LegacyKeys
 import com.luzzymeow.luzzyrp.data.legacy.ScopeId
 import com.luzzymeow.luzzyrp.data.store.BranchEntity
@@ -13,6 +14,7 @@ import com.luzzymeow.luzzyrp.ui.pages.chat.ChatMessage
 import com.luzzymeow.luzzyrp.ui.pages.chat.ThinkNode
 import com.luzzymeow.luzzyrp.ui.pages.chat.text
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -229,6 +231,27 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         store.updateMessageContent(scopeOf(characterUuid, branchId).suffix(), index, text)
     }
 
+    /**
+     * 就地改写**整条消息**（正文 + payload）。
+     *
+     * ## 与 [updateContent] 的分工（为什么必须两个都有）
+     *
+     * [updateContent] 只动 content 列，这是**刻意的**：老行 payload 里躺着旧结构的多余字段
+     * （`isSelf` / `avatar` / `imageAttachments`），整条重写会把它们擦掉（静默丢数据）。
+     * 所以「只改文字」的动作（编辑正文）继续走它。
+     *
+     * 但**多候选（C3）落在 payload 里**：重新生成一次就多一版、切一次候选就换下标 ——
+     * 这些变化必须写进 payload，否则重启后候选全丢、切换器消失。这条路径写入的是
+     * **本应用自己产出的 payload**（`payloadOf` 的结果），不涉及老行多余字段：
+     * 能走到这里的前提是这条消息**已经在库里**且刚被应用改写过。
+     *
+     * 调用方应只在「payload 真的需要变」时用它（候选增删/切换、中断标记翻面）；
+     * 纯文字编辑仍用 [updateContent]。
+     */
+    suspend fun updateMessage(characterUuid: String, branchId: String, index: Int, message: ChatMessage) {
+        store.updateMessage(scopeOf(characterUuid, branchId).suffix(), index, message.text(), payloadOf(message))
+    }
+
     /** 删除某条，或删除它及之后（`andAfter = true`）。 */
     suspend fun delete(characterUuid: String, branchId: String, index: Int, andAfter: Boolean) {
         val scope = scopeOf(characterUuid, branchId)
@@ -354,6 +377,29 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         /** payload 里存**「这次生成被中断」**（B4）的私有键。 */
         const val PAYLOAD_INTERRUPTED_KEY = "luzzyInterrupted"
 
+        /**
+         * payload 里存**全部候选生成**（C3）的私有键。
+         *
+         * ## 为什么需要它（这是一个已登记的真实缺口）
+         *
+         * 一条 AI 消息在内存里是 `results: List<AiResult>`（重新生成一次就多一条候选，
+         * 切换器 `‹ n/m ›` 在它们之间切）。但**落盘只写当前选中的那一版**：
+         * 重启后候选全丢、切换器消失 —— 用户以为「重新生成过的几版都在」，实际只剩最后一版。
+         *
+         * ## 为什么用数组 + 下标，而不是多行
+         *
+         * 候选不是「多条消息」，它们是**同一条消息的多个版本**（同一楼、同一 sortIndex）。
+         * 拆成多行会让楼数统计、分支 fork 楼层、工具配对全部错位。所以整组塞进
+         * **同一行的 payload**（不改表结构，与 [PAYLOAD_TOOL_TRAIL_KEY] 同法）。
+         *
+         * 键名与 [PAYLOAD_CANDIDATES_INDEX_KEY] 成对：只存数组而不存下标，
+         * 重启后「当前在看第几版」会静默回到第 0 版（用户会以为应用改了他的选择）。
+         */
+        const val PAYLOAD_CANDIDATES_KEY = "luzzyCandidates"
+
+        /** 与 [PAYLOAD_CANDIDATES_KEY] 成对：当前展示的候选下标。 */
+        const val PAYLOAD_CANDIDATES_INDEX_KEY = "luzzyCandidateIndex"
+
         /** 存储行 role：快照与压缩简报各独立成一种；其余按 user/assistant。 */
         fun roleOf(message: ChatMessage): String = when (message) {
             is ChatMessage.Snapshot -> ROLE_SNAPSHOT
@@ -372,9 +418,13 @@ class ChatSessionRepository(private val store: LuzzyStore) {
          * 键名写错一个字母就再也读不回来，而显式写出让它在 review 时一眼可见。
          */
         fun payloadOf(message: ChatMessage): String {
-            val trail = (message as? ChatMessage.Ai)?.current?.toolTrail.orEmpty()
-            val interrupted = (message as? ChatMessage.Ai)?.current?.interrupted == true
-            if (message !is ChatMessage.Snapshot && trail.isEmpty() && !interrupted) return "{}"
+            val ai = message as? ChatMessage.Ai
+            val trail = ai?.current?.toolTrail.orEmpty()
+            val interrupted = ai?.current?.interrupted == true
+            // 候选只在「真的多于一条」时落盘：单候选是绝大多数消息的常态，
+            // 给它们也写一份数组只是把 payload 撑大（正文可能几 KB），没有信息增益。
+            val candidates = ai?.takeIf { it.results.size > 1 }?.results.orEmpty()
+            if (message !is ChatMessage.Snapshot && trail.isEmpty() && !interrupted && candidates.isEmpty()) return "{}"
             return buildJsonObject {
                 if (message is ChatMessage.Snapshot) put(PAYLOAD_SNAPSHOT_KEY, JsonPrimitive(true))
                 if (interrupted) put(PAYLOAD_INTERRUPTED_KEY, JsonPrimitive(true))
@@ -393,7 +443,66 @@ class ChatSessionRepository(private val store: LuzzyStore) {
                         ),
                     )
                 }
+                if (candidates.isNotEmpty()) {
+                    put(
+                        PAYLOAD_CANDIDATES_KEY,
+                        JsonArray(candidates.map { candidate -> candidateJson(candidate) }),
+                    )
+                    put(PAYLOAD_CANDIDATES_INDEX_KEY, JsonPrimitive(ai!!.index))
+                }
             }.toString()
+        }
+
+        /**
+         * 一条候选 → JSON。
+         *
+         * **逐字段显式写出**（与轨迹同规）：这些键要长期躺在库里，写错一个字母就永远读不回来。
+         * `usage` 与 `elapsedMs` 是**可空**的（供应商可能不给用量；耗时可能没测），
+         * 所以显式写 null 而不是省略键——省略会让「没测到」和「键名写错」长得一样。
+         */
+        private fun candidateJson(result: AiResult): JsonObject = buildJsonObject {
+            put("raw", JsonPrimitive(result.raw))
+            put("finishReason", result.finishReason?.let { JsonPrimitive(it) } ?: JsonNull)
+            put("elapsedMs", result.elapsedMs?.let { JsonPrimitive(it) } ?: JsonNull)
+            put("interrupted", JsonPrimitive(result.interrupted))
+            put(
+                "usage",
+                result.usage?.let { usage ->
+                    buildJsonObject {
+                        put("input", JsonPrimitive(usage.input))
+                        put("output", JsonPrimitive(usage.output))
+                        put("cached", usage.cached?.let { JsonPrimitive(it) } ?: JsonNull)
+                    }
+                } ?: JsonNull,
+            )
+            put(
+                "toolTrail",
+                JsonArray(
+                    result.toolTrail.map { step ->
+                        buildJsonObject {
+                            put("name", JsonPrimitive(step.name))
+                            put("args", JsonPrimitive(step.args))
+                            put("result", step.result?.let { JsonPrimitive(it) } ?: JsonNull)
+                        }
+                    },
+                ),
+            )
+            // 思考节点只落「头脑风暴（reasoning 正文）」：工具节点与召回节点是**本次生成过程**
+            // 的产物，重启后重跑一次请求自然会有；而 reasoning 正文是模型说过的话，
+            // 丢了就真丢了（且它可能很长、是用户会回看的内容）。
+            put(
+                "thinkNodes",
+                JsonArray(
+                    result.thinkNodes.mapNotNull { node ->
+                        (node as? ThinkNode.Brainstorm)?.let {
+                            buildJsonObject {
+                                put("text", JsonPrimitive(it.text))
+                                put("seconds", JsonPrimitive(it.seconds))
+                            }
+                        }
+                    },
+                ),
+            )
         }
 
         /** payload 是否带快照标记（宽松解析：坏 JSON / 缺键一律 false）。 */
@@ -420,6 +529,83 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         fun interruptedOf(payload: String): Boolean = payloadObject(payload)
             ?.get(PAYLOAD_INTERRUPTED_KEY)
             ?.let { (it as? JsonPrimitive)?.content == "true" } == true
+
+        /**
+         * 从 payload 重建**多候选**（C3）；缺键 / 坏数据一律空表。
+         *
+         * 空表 = 「这条消息只有当前这一版」（老消息、单候选、坏数据都归这一类），
+         * 调用方据此回落到「用 content 列建一条候选」的旧路径。
+         *
+         * 只有**解析不出 raw** 的候选才会被丢弃：`raw` 是正文，它缺失说明这条数据不可用；
+         * 其余字段（用量 / 耗时 / 思考）坏了都按 null/空处理——**不因为装饰性字段坏了就
+         * 丢掉用户可能想看的正文**。
+         */
+        fun candidatesOf(payload: String): List<AiResult> {
+            val array = payloadObject(payload)?.get(PAYLOAD_CANDIDATES_KEY) as? JsonArray ?: return emptyList()
+            val parsed = array.mapNotNull { element ->
+                val obj = element as? JsonObject ?: return@mapNotNull null
+                val raw = (obj["raw"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return@mapNotNull null
+                AiResult(
+                    raw = raw,
+                    thinkNodes = brainstormOf(obj["thinkNodes"]),
+                    finishReason = (obj["finishReason"] as? JsonPrimitive)?.takeIf { it.isString }?.content,
+                    usage = usageOf(obj["usage"]),
+                    elapsedMs = (obj["elapsedMs"] as? JsonPrimitive)?.content?.toLongOrNull(),
+                    toolTrail = trailOfArray(obj["toolTrail"]),
+                    interrupted = (obj["interrupted"] as? JsonPrimitive)?.content == "true",
+                )
+            }
+            // 只认回一条等于没有候选列表（调用方走回落路径），与「空表」同义
+            return if (parsed.size > 1) parsed else emptyList()
+        }
+
+        /** 从 payload 读候选下标（缺键 / 越界 / 坏数据一律 0）。 */
+        fun candidateIndexOf(payload: String): Int =
+            payloadObject(payload)
+                ?.get(PAYLOAD_CANDIDATES_INDEX_KEY)
+                ?.let { (it as? JsonPrimitive)?.content?.toIntOrNull() }
+                ?.coerceAtLeast(0)
+                ?: 0
+
+        /** 候选数组里的思考节点（只认 reasoning 正文，见 `candidateJson` 的说明）。 */
+        private fun brainstormOf(element: JsonElement?): List<ThinkNode> {
+            val array = element as? JsonArray ?: return emptyList()
+            return array.mapNotNull { item ->
+                val obj = item as? JsonObject ?: return@mapNotNull null
+                val text = (obj["text"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return@mapNotNull null
+                ThinkNode.Brainstorm(
+                    text = text,
+                    seconds = (obj["seconds"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: 0.0,
+                    // 历史思考一律非流式（与 decodeMessage 里既有的一致：落库内容不再 "正在流式"）
+                    streaming = false,
+                )
+            }
+        }
+
+        private fun usageOf(element: JsonElement?): UsageInfo? {
+            val obj = element as? JsonObject ?: return null
+            val input = (obj["input"] as? JsonPrimitive)?.content?.toIntOrNull() ?: return null
+            val output = (obj["output"] as? JsonPrimitive)?.content?.toIntOrNull() ?: return null
+            return UsageInfo(
+                input = input,
+                output = output,
+                cached = (obj["cached"] as? JsonPrimitive)?.content?.toIntOrNull(),
+            )
+        }
+
+        /** 候选内的工具轨迹（与 [toolTrailOf] 同一套宽松规则）。 */
+        private fun trailOfArray(element: JsonElement?): List<ToolStep> {
+            val array = element as? JsonArray ?: return emptyList()
+            return array.mapNotNull { item ->
+                val obj = item as? JsonObject ?: return@mapNotNull null
+                val name = (obj["name"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+                ToolStep(
+                    name = name,
+                    args = (obj["args"] as? JsonPrimitive)?.content.orEmpty(),
+                    result = (obj["result"] as? JsonPrimitive)?.takeIf { it.isString }?.content,
+                )
+            }
+        }
 
         /** 宽松解析 payload 为对象；坏 JSON 一律空对象（**绝不抛**：一条坏行不该让整段会话读不出来）。 */
         private fun payloadObject(payload: String): JsonObject? =
@@ -484,16 +670,21 @@ internal fun decodeMessage(entity: MessageEntity): ChatMessage = when {
         }
         ChatMessage.Ai(
             name = entity.name ?: "AI",
-            results = listOf(
-                AiResult(
-                    raw = entity.content,
-                    thinkNodes = nodes,
-                    // B3/B4：工具轨迹与「被中断」标记随行回来——不认这两样，
-                    // 重启后模型就看不见上一轮查过什么，悬空配对也无从修复。
-                    toolTrail = ChatSessionRepository.toolTrailOf(entity.payload),
-                    interrupted = ChatSessionRepository.interruptedOf(entity.payload),
+            // C3：多候选优先（内存里重新生成过的几版都在 payload 里）；
+            // 只有一条 / 没有候选键的老行 → 用 content 列建单条候选（旧路径不变）。
+            results = ChatSessionRepository.candidatesOf(entity.payload).takeIf { it.isNotEmpty() }
+                ?: listOf(
+                    AiResult(
+                        raw = entity.content,
+                        thinkNodes = nodes,
+                        // B3/B4：工具轨迹与「被中断」标记随行回来——不认这两样，
+                        // 重启后模型就看不见上一轮查过什么，悬空配对也无从修复。
+                        toolTrail = ChatSessionRepository.toolTrailOf(entity.payload),
+                        interrupted = ChatSessionRepository.interruptedOf(entity.payload),
+                    ),
                 ),
-            ),
+            // 候选列表存在时下标也随行回来；否则 0（单候选没有「在看第几版」这回事）
+            index = ChatSessionRepository.candidateIndexOf(entity.payload),
         )
     }
 }

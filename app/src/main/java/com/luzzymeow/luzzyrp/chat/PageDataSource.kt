@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.chat
 
+import com.luzzymeow.luzzyrp.data.legacy.MigrationReport
 import com.luzzymeow.luzzyrp.data.legacy.ScopeId
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import kotlinx.serialization.json.JsonObject
@@ -30,6 +31,17 @@ class PageDataSource(private val store: LuzzyStore) {
             .mapNotNull { UsageAggregate.Record.from(it) }
         UsageAggregate.summarize(records)
     }.getOrElse { UsageAggregate.summarize(emptyList()) }
+
+    /**
+     * 迁移报告（D3）：迁移成功后写的计数 + 时间；**没迁移过 → null**（界面显式呈现
+     * 「未迁移」，不许当空表渲染）。读失败也按未迁移降级（与全层「读失败给空结果」同口径）。
+     */
+    suspend fun migrationReport(): MigrationReport? = runCatching {
+        MigrationReport.parse(
+            counts = store.json(LuzzyStore.KEY_LEGACY_MIGRATION_COUNTS),
+            migratedAtRaw = store.string(LuzzyStore.KEY_LEGACY_MIGRATED_AT),
+        )
+    }.getOrNull()
 
     /**
      * 记忆统计：**向量分片**与**总结记忆**各给一份（页面分两段展示，与上游两种模式同义）。

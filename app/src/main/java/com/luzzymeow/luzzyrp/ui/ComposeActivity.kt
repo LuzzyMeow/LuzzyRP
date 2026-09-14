@@ -1,22 +1,29 @@
 package com.luzzymeow.luzzyrp.ui
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.data.legacy.MigrationCoordinator
 import com.luzzymeow.luzzyrp.data.settings.SettingsBootstrap
 import com.luzzymeow.luzzyrp.data.settings.SettingsStore
 import com.luzzymeow.luzzyrp.data.settings.ThemeMode
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import com.luzzymeow.luzzyrp.data.transfer.TransferStore
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyNavShell
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyRoute
 import com.luzzymeow.luzzyrp.ui.pages.AboutPage
@@ -51,6 +58,8 @@ class ComposeActivity : ComponentActivity() {
      * 重启后仍在 —— 这就是 DESIGN-compose 里「持久化在 P4 接」的那一项。
      */
     private var themeMode by mutableStateOf(ThemeMode.System)
+    /** 用户字号缩放（D1；null 存储语义 → 运行态用 1f）。 */
+    private var fontScale by mutableStateOf(1f)
     private var route by mutableStateOf<LuzzyRoute>(LuzzyRoute.Chat)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,8 +77,11 @@ class ComposeActivity : ComponentActivity() {
                     LuzzyStore(DatabaseProvider.luzzy(applicationContext)),
                 )
             }
-            // 搬运完再读主题：否则会把「刚搬来的旧主题」覆盖回系统默认
-            themeMode = SettingsStore(applicationContext).load().themeMode ?: ThemeMode.System
+            // 搬运完再读主题/字号：否则会把「刚搬来的旧值」覆盖回默认
+            SettingsStore(applicationContext).load().let {
+                themeMode = it.themeMode ?: ThemeMode.System
+                fontScale = it.fontScale ?: 1f
+            }
         }
         setContent {
             val currentDark = when (themeMode) {
@@ -85,7 +97,66 @@ class ComposeActivity : ComponentActivity() {
                     SettingsStore(applicationContext).load().copy(themeMode = next),
                 )
             }
-            LuzzyTheme(darkTheme = currentDark) {
+            // ── D2 导入导出：SAF 接线（文本格式在 TransferFormat/TransferStore；运行时验证留真机）──
+            val scope = rememberCoroutineScope()
+            val transfer = remember { TransferStore(LuzzyStore(DatabaseProvider.luzzy(applicationContext))) }
+            val notify: (String) -> Unit = { Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show() }
+            var pendingExport by remember { mutableStateOf<(suspend () -> String)?>(null) }
+            var pendingImport by remember { mutableStateOf<(suspend (String) -> String)?>(null) }
+            val exportLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/json"),
+            ) { uri ->
+                val producer = pendingExport
+                if (uri == null || producer == null) return@rememberLauncherForActivityResult
+                scope.launch {
+                    runCatching {
+                        val text = producer()
+                        val stream = applicationContext.contentResolver.openOutputStream(uri)
+                            ?: error("无法打开写入流")
+                        stream.bufferedWriter().use { it.write(text) }
+                    }.onSuccess { notify("导出完成") }
+                        .onFailure { notify("导出失败：${it.message}") }
+                }
+            }
+            val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                val consumer = pendingImport
+                if (uri == null || consumer == null) return@rememberLauncherForActivityResult
+                scope.launch {
+                    runCatching {
+                        val stream = applicationContext.contentResolver.openInputStream(uri)
+                            ?: error("无法打开读取流")
+                        val text = stream.bufferedReader().use { it.readText() }
+                        consumer(text)
+                    }.onSuccess { notify(it) }
+                        .onFailure { notify("导入失败：${it.message}") }
+                }
+            }
+            val transferActions = com.luzzymeow.luzzyrp.ui.pages.TransferActions(                exportPresets = { pendingExport = { transfer.exportPresets() }; exportLauncher.launch("presets.json") },
+                exportWorldInfo = { pendingExport = { transfer.exportWorldInfo() }; exportLauncher.launch("world_info.json") },
+                exportCharacters = { pendingExport = { transfer.exportCharacters() }; exportLauncher.launch("characters.json") },
+                importPresets = {
+                    pendingImport = { text -> "导入预设 ${transfer.importPresets(text)} 条" }
+                    importLauncher.launch(arrayOf("application/json"))
+                },
+                importWorldInfo = {
+                    pendingImport = { text -> "导入世界书 ${transfer.importWorldInfo(text)} 条" }
+                    importLauncher.launch(arrayOf("application/json"))
+                },
+                importCharacters = {
+                    pendingImport = { text -> transfer.importCharacters(text).let { (created, replaced) -> "导入角色卡：新增 $created · 覆盖 $replaced" } }
+                    importLauncher.launch(arrayOf("application/json"))
+                },
+            )
+
+            // 字号实时预览（state 立即生效于两条 token 体系），松手才落盘
+            val pageData = remember { PageDataSource(LuzzyStore(DatabaseProvider.luzzy(applicationContext))) }
+            val changeFontScale: (Float) -> Unit = { fontScale = it }
+            val commitFontScale: () -> Unit = {
+                SettingsStore(applicationContext).save(
+                    SettingsStore(applicationContext).load().copy(fontScale = fontScale),
+                )
+            }
+            LuzzyTheme(darkTheme = currentDark, fontScale = fontScale) {
                 LuzzyNavShell(
                     route = route,
                     onNavigate = { route = it },
@@ -112,7 +183,14 @@ class ComposeActivity : ComponentActivity() {
                         LuzzyRoute.Presets -> PresetsPage(onOpenDrawer)
                         LuzzyRoute.Memory -> MemoryPage(onOpenDrawer)
                         LuzzyRoute.Usage -> UsagePage(onOpenDrawer)
-                        LuzzyRoute.Settings -> SettingsPage(onOpenDrawer)
+                        LuzzyRoute.Settings -> SettingsPage(
+                            onOpenDrawer,
+                            fontScale = fontScale,
+                            onFontScaleChange = changeFontScale,
+                            onFontScaleFinished = commitFontScale,
+                            transfer = transferActions,
+                            migrationReportProvider = { pageData.migrationReport() },
+                        )
                         LuzzyRoute.About -> AboutPage(onOpenDrawer)
                     }
                 }

@@ -28,10 +28,14 @@ class SettingsStore(context: Context) {
     fun load(): AppSettings = AppSettings(
         themeMode = prefs.getString(KEY_THEME_MODE, null)
             ?.let { raw -> ThemeMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } },
+        fontScale = prefs.getFloat(KEY_FONT_SCALE, Float.NaN)
+            .takeUnless { it.isNaN() || it <= 0f },
     )
 
     fun save(settings: AppSettings) = prefs.edit {
         if (settings.themeMode == null) remove(KEY_THEME_MODE) else putString(KEY_THEME_MODE, settings.themeMode.name)
+        val fontScale = settings.fontScale
+        if (fontScale == null) remove(KEY_FONT_SCALE) else putFloat(KEY_FONT_SCALE, fontScale)
     }
 
     /** 一次性旧数据搬运是否已做过（防止每次启动都用旧值覆盖用户当前选择）。 */
@@ -42,6 +46,7 @@ class SettingsStore(context: Context) {
     private companion object {
         const val PREFS_NAME = "luzzy_settings"
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_FONT_SCALE = "font_scale"
         const val KEY_LEGACY_IMPORTED = "legacy_imported"
     }
 }

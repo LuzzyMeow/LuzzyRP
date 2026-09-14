@@ -43,3 +43,24 @@ data class MarkdownTokens(
 }
 
 val LocalMarkdownTokens = staticCompositionLocalOf { MarkdownTokens() }
+
+/**
+ * 按用户字号设置整体缩放（D1，上游 `settings.fontSize` 同语义）。
+ *
+ * 只缩字号与行高；`blockGap` / `listIndent` 是 dp 间距（上游只缩字体，不缩布局间距），
+ * `codeCollapseLines` 是行数阈值、与字号无关。
+ */
+fun MarkdownTokens.scaled(scale: Float): MarkdownTokens {
+    if (scale == 1f) return this
+    return copy(
+        bodySize = (bodySize.value * scale).sp,
+        bodyLineHeight = (bodyLineHeight.value * scale).sp,
+        h1Size = (h1Size.value * scale).sp,
+        h2Size = (h2Size.value * scale).sp,
+        h3Size = (h3Size.value * scale).sp,
+        h4Size = (h4Size.value * scale).sp,
+        headingLineHeight = (headingLineHeight.value * scale).sp,
+        codeSize = (codeSize.value * scale).sp,
+        codeLineHeight = (codeLineHeight.value * scale).sp,
+    )
+}

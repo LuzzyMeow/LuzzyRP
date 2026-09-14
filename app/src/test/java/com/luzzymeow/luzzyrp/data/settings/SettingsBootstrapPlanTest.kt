@@ -43,12 +43,14 @@ class SettingsBootstrapPlanTest {
         legacy: LegacySettings = legacyProvider,
         existing: TransportConfig = TransportConfig(),
         theme: ThemeMode? = null,
+        fontScale: Float? = null,
         alreadyImported: Boolean = false,
     ) = SettingsBootstrap.plan(
         legacyBlobPresent = blobPresent,
         legacy = legacy,
         existingTransport = existing,
         currentTheme = theme,
+        currentFontScale = fontScale,
         alreadyImported = alreadyImported,
     )
 
@@ -85,12 +87,20 @@ class SettingsBootstrapPlanTest {
 
     @Test
     fun `没有空缺时不必再读旧设置（快路径的判据）`() {
-        assertTrue(SettingsBootstrap.hasGap(existing = TransportConfig(), currentTheme = null))
-        assertTrue(SettingsBootstrap.hasGap(existing = configured, currentTheme = null))
-        assertTrue(SettingsBootstrap.hasGap(existing = TransportConfig(), currentTheme = ThemeMode.Dark))
+        assertTrue(SettingsBootstrap.hasGap(existing = TransportConfig(), currentTheme = null, currentFontScale = null))
+        assertTrue(SettingsBootstrap.hasGap(existing = configured, currentTheme = null, currentFontScale = 1f))
+        assertTrue(SettingsBootstrap.hasGap(existing = TransportConfig(), currentTheme = ThemeMode.Dark, currentFontScale = 1f))
         assertFalse(
-            "供应商已配 + 主题已设 = 没有空缺，才允许跳过",
-            SettingsBootstrap.hasGap(existing = configured, currentTheme = ThemeMode.Dark),
+            "供应商已配 + 主题已设 + 字号已设 = 没有空缺，才允许跳过",
+            SettingsBootstrap.hasGap(existing = configured, currentTheme = ThemeMode.Dark, currentFontScale = 1f),
+        )
+    }
+
+    @Test
+    fun `字号空缺会让快路径保持通畅（防标记误种同型缺陷）`() {
+        assertTrue(
+            "旧数据里有字号但新版还没设置过 → 不许被快路径拦下（会话 74 供应商配置永久丢失的同型缺陷）",
+            SettingsBootstrap.hasGap(existing = configured, currentTheme = ThemeMode.Dark, currentFontScale = null),
         )
     }
 
@@ -123,5 +133,33 @@ class SettingsBootstrapPlanTest {
         assertTrue("要能看出搬了供应商：$applied", applied.any { it.contains("供应商配置") })
         assertTrue("要能看出搬了主题：$applied", applied.any { it.contains("主题") })
         assertTrue("没有可搬的东西时不该编造说明", plan(blobPresent = false, legacy = LegacySettings()).applied.isEmpty())
+    }
+
+    // ---------------------------------------------------------------- D1 · 字号搬运
+
+    @Test
+    fun `旧字号按 16px 基准换算成缩放并补空缺`() {
+        val min = plan(legacy = legacyProvider.copy(fontSize = 12), fontScale = null)
+        assertEquals(0.75f, min.fontScale!!, 1e-6f)
+        val max = plan(legacy = legacyProvider.copy(fontSize = 20), fontScale = null)
+        assertEquals(1.25f, max.fontScale!!, 1e-6f)
+        val mid = plan(legacy = legacyProvider.copy(fontSize = 16), fontScale = null)
+        assertEquals(1f, mid.fontScale!!, 1e-6f)
+    }
+
+    @Test
+    fun `新版已设置字号时旧值不覆盖（用户后来改的优先）`() {
+        assertNull(plan(legacy = legacyProvider.copy(fontSize = 14), fontScale = 1f).fontScale)
+    }
+
+    @Test
+    fun `旧数据没有字号时不产生缩放`() {
+        assertNull("legacyProvider 没有 fontSize", plan(fontScale = null).fontScale)
+    }
+
+    @Test
+    fun `applied 说明含字号（按 px 语义显示）`() {
+        val applied = plan(legacy = legacyProvider.copy(fontSize = 14), fontScale = null).applied
+        assertTrue("要能看出搬了字号：$applied", applied.any { it.contains("字号=14px") })
     }
 }

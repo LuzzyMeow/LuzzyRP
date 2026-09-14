@@ -5,6 +5,7 @@ import android.util.Log
 import com.luzzymeow.luzzyrp.chat.TransportConfig
 import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import kotlin.math.roundToInt
 
 /**
  * 设置搬运（P4-B-3.3）：把旧数据里的**应用设置**一次性接过来。
@@ -42,6 +43,9 @@ object SettingsBootstrap {
 
     private const val TAG = "LuzzySettings"
 
+    /** 旧字号(px) → 缩放的换算基准：上游正文默认 16px（`app.js`：`innerWidth > 768 ? 16 : 14`，取桌面档）。 */
+    const val LEGACY_PX_BASE = 16f
+
     /**
      * 一次搬运的**决定**（纯数据）。
      *
@@ -50,6 +54,8 @@ object SettingsBootstrap {
     data class Plan(
         val transport: TransportConfig? = null,
         val themeMode: ThemeMode? = null,
+        /** 旧字号换算出的缩放（null = 不用灌）。 */
+        val fontScale: Float? = null,
         /** 是否该把「已搬运」标记种下（见类注释的两条规则）。 */
         val latch: Boolean = false,
     ) {
@@ -58,6 +64,7 @@ object SettingsBootstrap {
             get() = buildList {
                 themeMode?.let { add("主题=$it") }
                 transport?.let { add("供应商配置（模型 ${it.model}）") }
+                fontScale?.let { add("字号=${(it * LEGACY_PX_BASE).roundToInt()}px") }
             }
     }
 
@@ -75,10 +82,12 @@ object SettingsBootstrap {
         legacy: LegacySettings,
         existingTransport: TransportConfig,
         currentTheme: ThemeMode?,
+        currentFontScale: Float? = null,
         alreadyImported: Boolean = false,
     ): Plan {
         val fillTransport = !existingTransport.configured && legacy.hasProvider
         val fillTheme = currentTheme == null && legacy.themeMode != null
+        val fillFont = currentFontScale == null && legacy.fontSize != null
         return Plan(
             transport = if (fillTransport) {
                 TransportConfig(
@@ -92,6 +101,7 @@ object SettingsBootstrap {
                 null
             },
             themeMode = legacy.themeMode.takeIf { fillTheme },
+            fontScale = legacy.fontSize?.let { it / LEGACY_PX_BASE }?.takeIf { fillFont },
             // ★ 只有真的读到过旧设置才种标记；已经种着的保持种着。
             latch = alreadyImported || legacyBlobPresent,
         )
@@ -101,10 +111,14 @@ object SettingsBootstrap {
      * 是否还有**空缺可补**——快路径的判据。
      *
      * 刻意不看「已搬运」标记：那个标记可能在旧设置还读不到的时候就被种下了（真机实测）。
-     * 「供应商已配 + 主题已设」才说明真的没什么可补了。
+     * 「供应商已配 + 主题已设 + 字号已设」才说明真的没什么可补了。
+     *
+     * ⚠️ 字号必须进判据（D1）：否则「标记已种 + 旧数据里有字号但还没搬」时快路径会把
+     * 搬运拦在门外——正是真机撞过的「标记误种 → 字段永久搬不过来」同型缺陷。
+     * 代价是「旧数据里根本没有字号」的设备每次启动都多走一次 kv 读（<1ms），正确性优先。
      */
-    fun hasGap(existing: TransportConfig, currentTheme: ThemeMode?): Boolean =
-        !existing.configured || currentTheme == null
+    fun hasGap(existing: TransportConfig, currentTheme: ThemeMode?, currentFontScale: Float? = null): Boolean =
+        !existing.configured || currentTheme == null || currentFontScale == null
 
     /** 返回一行给日志/报告看的说明；无事可做时返回 null。 */
     suspend fun importOnce(context: Context, store: LuzzyStore): String? {
@@ -115,7 +129,7 @@ object SettingsBootstrap {
         val current = settingsStore.load()
 
         // 快路径：没有空缺可补 → 连旧设置都不必读（标记只在这里参与，见类注释）
-        if (settingsStore.legacyImported && !hasGap(existing, current.themeMode)) return null
+        if (settingsStore.legacyImported && !hasGap(existing, current.themeMode, current.fontScale)) return null
 
         val blob = store.json(LuzzyStore.KEY_SETTINGS)
         val legacy = LegacySettingsReader.read(blob)
@@ -124,17 +138,22 @@ object SettingsBootstrap {
             legacy = legacy,
             existingTransport = existing,
             currentTheme = current.themeMode,
+            currentFontScale = current.fontScale,
             alreadyImported = settingsStore.legacyImported,
         )
 
         decision.transport?.let { transport.save(it) }
-        decision.themeMode?.let { settingsStore.save(current.copy(themeMode = it)) }
+        // 设置项合并成一次落盘：分成两次 current.copy 会互相覆盖（第二次丢掉第一次的字段）
+        val nextSettings = current.copy(
+            themeMode = decision.themeMode ?: current.themeMode,
+            fontScale = decision.fontScale ?: current.fontScale,
+        )
+        if (nextSettings != current) settingsStore.save(nextSettings)
         if (decision.latch) settingsStore.legacyImported = true
 
         legacy.notes.forEach { Log.i(TAG, "旧设置提示：$it") }
-        if (legacy.fontSize != null) {
-            // 用户可调字号属字体排版，按硬性规定 9 需要单独走设计流程；先如实记录读到过
-            Log.i(TAG, "旧设置里的字号为 ${legacy.fontSize}（尚未接入：需先过设计流程）")
+        if (legacy.fontSize != null && decision.fontScale == null) {
+            Log.i(TAG, "旧设置里的字号 ${legacy.fontSize}px 未搬运（新版已设置字号，旧值不覆盖）")
         }
         if (decision.applied.isEmpty()) {
             Log.i(

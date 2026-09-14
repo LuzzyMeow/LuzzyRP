@@ -76,11 +76,13 @@ object LuzzyFonts {
     var appContext: android.content.Context? = null
 }
 
-/** M3 Typography：默认骨架 + Luzzy 字体覆盖（DESIGN-compose §3：正文 ≥14sp/1.68 行高）。 */
-@Suppress("unused")
-private val base = Typography()
-
-val LuzzyTypography = Typography().copy(
+/**
+ * M3 Typography（DESIGN-compose §3：正文 ≥14sp/1.68 行高）。
+ *
+ * D1：按用户字号整体缩放——[luzzyTypography] 会把**全部 15 个样式**（含此处未覆盖的
+ * M3 默认样式）一起缩放；只缩 6 个品牌样式会让其余样式半缩放（字号不跟随，层级破版）。
+ */
+private val baseBrand = Typography().copy(
     headlineSmall = TextStyle(
         fontFamily = LuzzyFonts.Lora, fontSize = 22.sp, lineHeight = 30.sp,
         fontWeight = FontWeight.SemiBold,
@@ -103,4 +105,34 @@ val LuzzyTypography = Typography().copy(
         fontFamily = LuzzyFonts.Body, fontSize = 12.sp, lineHeight = 18.sp,
         fontWeight = FontWeight.Medium,
     ),
+)
+
+/** 1.0 基线（无缩放时直接复用同一实例，避免每次重组重建）。 */
+val LuzzyTypography: Typography = baseBrand
+
+/** 按用户字号缩放的 Typography（D1；`scale == 1f` 返回基线实例）。 */
+fun luzzyTypography(scale: Float = 1f): Typography =
+    if (scale == 1f) baseBrand else baseBrand.scaled(scale)
+
+private fun Typography.scaled(scale: Float): Typography = copy(
+    displayLarge = displayLarge.scaledStyle(scale),
+    displayMedium = displayMedium.scaledStyle(scale),
+    displaySmall = displaySmall.scaledStyle(scale),
+    headlineLarge = headlineLarge.scaledStyle(scale),
+    headlineMedium = headlineMedium.scaledStyle(scale),
+    headlineSmall = headlineSmall.scaledStyle(scale),
+    titleLarge = titleLarge.scaledStyle(scale),
+    titleMedium = titleMedium.scaledStyle(scale),
+    titleSmall = titleSmall.scaledStyle(scale),
+    bodyLarge = bodyLarge.scaledStyle(scale),
+    bodyMedium = bodyMedium.scaledStyle(scale),
+    bodySmall = bodySmall.scaledStyle(scale),
+    labelLarge = labelLarge.scaledStyle(scale),
+    labelMedium = labelMedium.scaledStyle(scale),
+    labelSmall = labelSmall.scaledStyle(scale),
+)
+
+private fun TextStyle.scaledStyle(scale: Float): TextStyle = copy(
+    fontSize = (fontSize.value * scale).sp,
+    lineHeight = if (lineHeight.isSp) (lineHeight.value * scale).sp else lineHeight,
 )

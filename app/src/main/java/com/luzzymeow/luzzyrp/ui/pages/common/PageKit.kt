@@ -141,6 +141,9 @@ fun SettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // onClick 参数此前只是声明了、从未接上（参数存在但 Row 不可点）——D3 的迁移报告行
+            // 是第一个真实调用方，一跑就暴露。修在组件层：一处设防，所有调用方受益。
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -9,7 +9,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
+import com.luzzymeow.luzzyrp.ui.markdown.LocalMarkdownTokens
+import com.luzzymeow.luzzyrp.ui.markdown.MarkdownTokens
+import com.luzzymeow.luzzyrp.ui.markdown.scaled
 
 /** 动效令牌（DESIGN-compose §7；open-design 动效哲学，硬约束）。 */
 object Motion {
@@ -28,22 +30,28 @@ object Motion {
  *
  * @param darkTheme 亮暗（null = 跟随系统）；由宿主持有状态以支持手动切换
  *   （P1 验证项「主题切换正常」；持久化在 P4 接 DataStore）。
+ * @param fontScale 用户可调字号缩放（D1；1f = 默认）。宿主持有状态——设置页改完立即生效，
+ *   且决定 `MaterialTheme.typography` 与 [LocalMarkdownTokens] 两条字号 token 体系。
  */
 @Composable
 fun LuzzyTheme(
     darkTheme: Boolean? = null,
+    fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val dark = darkTheme ?: isSystemInDarkTheme()
     val colorScheme = remember(dark) { luzzyColorScheme(dark = dark) }
     val extendColors = remember(dark) { extendFor(dark = dark) }
+    val typography = remember(fontScale) { luzzyTypography(fontScale) }
+    val markdownTokens = remember(fontScale) { MarkdownTokens().scaled(fontScale) }
     CompositionLocalProvider(
         LocalDarkMode provides dark,
         LocalExtendColors provides extendColors,
+        LocalMarkdownTokens provides markdownTokens,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = LuzzyTypography,
+            typography = typography,
             content = content,
         )
     }

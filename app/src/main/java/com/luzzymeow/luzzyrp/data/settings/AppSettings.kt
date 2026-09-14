@@ -8,16 +8,21 @@ import kotlinx.serialization.json.JsonPrimitive
 enum class ThemeMode { System, Light, Dark }
 
 /**
- * 应用级设置（P4-B-3.3）。
+ * 应用级设置（P4-B-3.3；D1 增字号）。
  *
- * **为什么只有这两项**：主题模式是 DESIGN-compose 已规定、且 KDoc 明确「持久化在 P4」的东西；
- * 旧数据里还有 `fontSize`（12–20），但**用户可调字号属于字体排版**——按硬性规定 9 要单独走设计流程
- * （现状只有「系统 150% 字号不破版」这条鲁棒性要求，没有用户可调字号的规格），故本轮只把它读出来
- * 记进报告、不擅自接成可用设置。
+ * 两项各有出处：主题模式是 DESIGN-compose 已规定、且 KDoc 明确「持久化在 P4」的东西；
+ * 用户可调字号的设计规格在 D1 走完硬性规定 9（方向 A 延续豁免，登记 DESIGN-compose §3/§8）后接入——
+ * 语义照上游 `settings.fontSize`（12–20px，默认 16），存储用相对缩放 [fontScale]。
  */
 data class AppSettings(
     /** null = 跟随系统（默认）。用户手动切过亮/暗就记成显式值。 */
     val themeMode: ThemeMode? = null,
+    /**
+     * 用户字号相对缩放（1f = 默认；null = 未设置）。决定 `MaterialTheme.typography` 与
+     * `LocalMarkdownTokens` 两条字号 token 体系（`LuzzyTheme` 的 provide 点）。
+     * 换算基准：旧版字号是 px（12–20），上游正文默认 16px → `scale = px / 16f`。
+     */
+    val fontScale: Float? = null,
 )
 
 /**
@@ -33,7 +38,7 @@ data class LegacySettings(
     val providerBaseUrl: String? = null,
     val providerApiKey: String? = null,
     val providerModel: String? = null,
-    /** 旧版字号（仅记录，见 [AppSettings] 的说明）。 */
+    /** 旧版字号（px；12–20，读取时按 8..40 过滤异常值）。 */
     val fontSize: Int? = null,
     val notes: List<String> = emptyList(),
 ) {

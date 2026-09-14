@@ -23,6 +23,11 @@ data class AppSettings(
      * 换算基准：旧版字号是 px（12–20），上游正文默认 16px → `scale = px / 16f`。
      */
     val fontScale: Float? = null,
+    /**
+     * 文风过滤总开关（上游 `settings.styleFilterEnabled`，**默认开**——用户拍板「照上游」）。
+     * 同一开关作用在**三处**（提示词侧 / 显示期 / 生成收尾落库前），此处是唯一真源。
+     */
+    val styleFilterEnabled: Boolean = true,
 )
 
 /**

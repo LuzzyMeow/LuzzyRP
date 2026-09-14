@@ -391,6 +391,8 @@ fun AiMessagePanel(
     /** 显示期正则脚本（全局 + 当前角色）；空列表 = 没配过，零成本。 */
     scripts: List<com.luzzymeow.luzzyrp.chat.RegexScript> = emptyList(),
     userName: String = "",
+    /** 文风过滤总开关（与提示词侧/落库前同源同开关；上游默认开）。 */
+    styleFilterEnabled: Boolean = true,
 ) {
     GlassPanel(
         modifier = modifier
@@ -438,6 +440,7 @@ fun AiMessagePanel(
                     modifier = Modifier.fillMaxWidth(),
                     scripts = scripts,
                     userName = userName,
+                    styleFilterEnabled = styleFilterEnabled,
                 )
             }
             if (isLive) TypingDots()

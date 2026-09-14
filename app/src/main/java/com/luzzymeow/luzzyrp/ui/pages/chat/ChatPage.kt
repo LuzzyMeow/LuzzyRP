@@ -245,6 +245,11 @@ fun ChatPage(
 
     val store = remember { TransportStore(context) }
     var config by remember { mutableStateOf(store.load()) }
+    // 文风过滤总开关（设置页可切）：唯一真源在 AppSettings——三处消费（提示词侧/显示期/落库前）
+    // 都从这里的局部值取；开关切换发生在设置页，切回本页 remember 重算即拿到最新值。
+    val styleFilterEnabled = remember {
+        com.luzzymeow.luzzyrp.data.settings.SettingsStore(context).load().styleFilterEnabled
+    }
     var showConfig by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
 
@@ -721,7 +726,7 @@ fun ChatPage(
             promptUserName = userNameForTurn,
             // ② 文风过滤也走提示词侧（上游同处）：assistant 的历史在发给模型前会被过滤，
             //    与本页 ③ 落库前那次过滤同源同开关
-            styleFilterEnabled = true,
+            styleFilterEnabled = styleFilterEnabled,
             userAttachments = userAttachments,
         )
         // C4：路径 → data URL（发请求前的最后一步，IO 在本协程上）。
@@ -885,7 +890,7 @@ fun ChatPage(
                         turnBranchId,
                         ChatMessage.Ai(
                             results = listOf(
-                                resultOf(turn),
+                                resultOf(turn, styleFilterEnabled),
                             ),
                         ),
                     )
@@ -932,7 +937,7 @@ fun ChatPage(
                         turnBranchId,
                         ChatMessage.Ai(
                             results = listOf(
-                                resultOf(turn),
+                                resultOf(turn, styleFilterEnabled),
                             ),
                         ),
                     )
@@ -976,7 +981,7 @@ fun ChatPage(
                     editMessage(turnBranchId, messageIndex) { current ->
                         if (current is ChatMessage.Ai) {
                             current.withResult(
-                                resultOf(turn),
+                                resultOf(turn, styleFilterEnabled),
                             )
                         } else {
                             current
@@ -1213,6 +1218,7 @@ fun ChatPage(
                                     modifier = Modifier.fillMaxWidth(),
                                     scripts = regexScripts,
                                     userName = currentUserName,
+                                    styleFilterEnabled = styleFilterEnabled,
                                 )
                             }
                             return@items
@@ -1229,6 +1235,7 @@ fun ChatPage(
                                     modifier = Modifier.fillMaxWidth(),
                                     scripts = regexScripts,
                                     userName = currentUserName,
+                                    styleFilterEnabled = styleFilterEnabled,
                                 )
                                 MessageNerdLine(
                                     usage = m.current.usage,
@@ -1311,6 +1318,7 @@ fun ChatPage(
                                     modifier = Modifier.fillMaxWidth(),
                                     scripts = regexScripts,
                                     userName = currentUserName,
+                                    styleFilterEnabled = styleFilterEnabled,
                                 )
                             }
                         }
@@ -1753,9 +1761,9 @@ private fun traceStreamEvent(event: AgentLoop.Event) {
  * [AiResult] 的 `body` 由 `raw` 在构造时算出（`CotParser.mainOf`），
  * 所以这里过滤 [AiResult.raw] 之后，`body` 自然跟着是过滤后的文本 —— 显示与提示词同源。
  */
-private fun resultOf(turn: LiveTurn): AiResult {
+private fun resultOf(turn: LiveTurn, styleFilterEnabled: Boolean): AiResult {
     // 只对 AI 正文过滤（上游 `role === 'assistant'` 的判据）；工具轨迹与思维链不参与
-    val filtered = com.luzzymeow.luzzyrp.chat.StyleFilter.filter(turn.body).text
+    val filtered = com.luzzymeow.luzzyrp.chat.StyleFilter.filter(turn.body, enabled = styleFilterEnabled).text
     return AiResult(
         raw = filtered,
         thinkNodes = turn.nodes,

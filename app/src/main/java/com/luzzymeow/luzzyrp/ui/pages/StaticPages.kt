@@ -51,6 +51,7 @@ import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.R
 import com.luzzymeow.luzzyrp.chat.CacheObserver
 import com.luzzymeow.luzzyrp.chat.PageDataSource
+import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.UsageAggregate
 import com.luzzymeow.luzzyrp.chat.UsageFormat
 import com.luzzymeow.luzzyrp.data.legacy.MigrationReport
@@ -696,6 +697,25 @@ data class TransferActions(
     val importCharacters: () -> Unit = {},
 )
 
+/** API 连接卡的一行真实状态（由 [SettingsData] 注入取数；显示语义在设置页内归一）。 */
+data class ApiStatusRow(
+    val configured: Boolean,
+    val model: String,
+    val endpoint: String,
+)
+
+/**
+ * 设置页的数据接线（宿主注入；测试注入 fake）。
+ * 取数是 suspend lambda：设置页进入时各取一次。不注入（null）时对应行显示占位——
+ * **绝不显示编造的数据**（P1 静态稿的假行已在本轮全部撤掉）。
+ */
+class SettingsData(
+    val apiStatus: suspend () -> ApiStatusRow?,
+    val userProfile: suspend () -> PromptAssembler.UserView?,
+    val styleFilterEnabled: () -> Boolean,
+    val onStyleFilterChange: (Boolean) -> Unit,
+)
+
 @Composable
 fun SettingsPage(
     onOpenDrawer: () -> Unit,
@@ -709,10 +729,20 @@ fun SettingsPage(
     transfer: TransferActions = TransferActions(),
     /** 迁移报告取数（D3）；null = 不显示入口（旧调用/测试兼容）。 */
     migrationReportProvider: (suspend () -> MigrationReport?)? = null,
+    /** 真实数据接线（用户设置/API 连接/文风过滤开关）；null = 显示占位。 */
+    data: SettingsData? = null,
 ) {
+    var userView by remember { mutableStateOf<PromptAssembler.UserView?>(null) }
+    var apiStatus by remember { mutableStateOf<ApiStatusRow?>(null) }
+    LaunchedEffect(data) {
+        data ?: return@LaunchedEffect
+        runCatching { data.userProfile() }.onSuccess { userView = it }
+        runCatching { data.apiStatus() }.onSuccess { apiStatus = it }
+    }
+    var styleFilter by remember(data) { mutableStateOf(data?.styleFilterEnabled?.invoke() ?: false) }
+    val reportScope = rememberCoroutineScope()
     var showReport by remember { mutableStateOf(false) }
     var reportState by remember { mutableStateOf<Result<MigrationReport?>?>(null) }
-    val reportScope = rememberCoroutineScope()
     PageScaffold("设置", LuzzyIcons.Settings, onOpenDrawer) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("settings_list"),
@@ -736,9 +766,15 @@ fun SettingsPage(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
-                            SettingRow("角色名", null, trailing = {})
-                            SettingRow("叙事视角", "第二人称", trailing = {})
-                            SettingRow("偏好设定", "已填写 120 字", trailing = {})
+                            SettingRow(
+                                "角色名",
+                                userView?.name?.takeIf { it.isNotBlank() } ?: "未设置",
+                            )
+                            SettingRow(
+                                "偏好设定",
+                                userView?.let { "描述 ${it.description.length} 字 · 偏好 ${it.preferences.length} 字" }
+                                    ?: "—",
+                            )
                         }
                     }
                 }
@@ -760,10 +796,29 @@ fun SettingsPage(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
-                            SettingRow("API 提供商", "[STA1N] DeepSeek · 已连接", trailing = {})
-                            SettingRow("聊天模型", "已配置 3 / 3 个槽位", leadingIconRes = LuzzyIcons.Search)
-                            SettingRow("识图模型", "未配置", leadingIconRes = LuzzyIcons.Search)
-                            SettingRow("刷新可用模型", null, leadingIconRes = LuzzyIcons.Refresh)
+                            val status = apiStatus
+                            SettingRow(
+                                "API 提供商",
+                                when {
+                                    status == null -> "—"
+                                    status.configured -> "已配置"
+                                    else -> "未配置"
+                                },
+                            )
+                            SettingRow(
+                                "聊天模型",
+                                apiStatus?.model?.takeIf { it.isNotBlank() } ?: "未配置",
+                            )
+                            SettingRow(
+                                "端点",
+                                apiStatus?.endpoint?.takeIf { it.isNotBlank() } ?: "—",
+                            )
+                            Text(
+                                text = "模型与供应商在聊天页输入岛的「模型」面板配置",
+                                fontSize = 11.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
                         }
                     }
                 }
@@ -821,10 +876,20 @@ fun SettingsPage(
                                 onChange = onFontScaleChange,
                                 onFinished = onFontScaleFinished,
                             )
-                            SettingRow("使用封面背景", null, trailing = { LuzzySwitch(true) })
-                            SettingRow("沉浸模式", null, trailing = { LuzzySwitch(true) })
-                            SettingRow("显示最新用量", null, trailing = { LuzzySwitch(false) })
-                            SettingRow("文风过滤", null, trailing = { LuzzySwitch(false) })
+                            SettingRow(
+                                "文风过滤",
+                                "删改 AI 措辞（提示词侧、显示、落库三处同源；照上游默认开）",
+                                trailing = {
+                                    LuzzySwitch(
+                                        checked = styleFilter,
+                                        onCheckedChange = { next ->
+                                            styleFilter = next
+                                            data?.onStyleFilterChange?.invoke(next)
+                                        },
+                                        label = "文风过滤",
+                                    )
+                                },
+                            )
                         }
                     }
                 }

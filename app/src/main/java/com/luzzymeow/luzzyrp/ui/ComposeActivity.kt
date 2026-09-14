@@ -21,6 +21,7 @@ import com.luzzymeow.luzzyrp.data.legacy.MigrationCoordinator
 import com.luzzymeow.luzzyrp.data.settings.SettingsBootstrap
 import com.luzzymeow.luzzyrp.data.settings.SettingsStore
 import com.luzzymeow.luzzyrp.data.settings.ThemeMode
+import com.luzzymeow.luzzyrp.chat.TransportStore
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.data.transfer.TransferStore
@@ -150,6 +151,23 @@ class ComposeActivity : ComponentActivity() {
 
             // 字号实时预览（state 立即生效于两条 token 体系），松手才落盘
             val pageData = remember { PageDataSource(LuzzyStore(DatabaseProvider.luzzy(applicationContext))) }
+            // 设置页的真实数据接线（B 项）：读同步 SharedPreferences / 走 PageDataSource
+            val settingsData = remember {
+                com.luzzymeow.luzzyrp.ui.pages.SettingsData(
+                    apiStatus = {
+                        val cfg = TransportStore(applicationContext).load()
+                        com.luzzymeow.luzzyrp.ui.pages.ApiStatusRow(cfg.configured, cfg.model, cfg.baseUrl)
+                    },
+                    userProfile = { pageData.userProfile() },
+                    styleFilterEnabled = {
+                        SettingsStore(applicationContext).load().styleFilterEnabled
+                    },
+                    onStyleFilterChange = { enabled ->
+                        val settings = SettingsStore(applicationContext)
+                        settings.save(settings.load().copy(styleFilterEnabled = enabled))
+                    },
+                )
+            }
             val changeFontScale: (Float) -> Unit = { fontScale = it }
             val commitFontScale: () -> Unit = {
                 SettingsStore(applicationContext).save(
@@ -190,6 +208,7 @@ class ComposeActivity : ComponentActivity() {
                             onFontScaleFinished = commitFontScale,
                             transfer = transferActions,
                             migrationReportProvider = { pageData.migrationReport() },
+                            data = settingsData,
                         )
                         LuzzyRoute.About -> AboutPage(onOpenDrawer)
                     }

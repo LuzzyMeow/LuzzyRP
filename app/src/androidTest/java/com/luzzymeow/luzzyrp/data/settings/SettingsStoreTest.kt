@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.data.settings
 
+import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.luzzymeow.luzzyrp.chat.TransportStore
@@ -152,5 +153,29 @@ class SettingsStoreTest {
         assertTrue("样例旧设置应能读出供应商：$legacy", legacy.hasProvider)
         assertEquals("https://example.invalid/v1", legacy.providerBaseUrl)
         assertEquals("test-model", legacy.providerModel)
+    }
+
+    /**
+     * 文风过滤开关（P6-B）：默认开（上游 `settings.styleFilterEnabled` 口径）+ 存取往返。
+     *
+     * 三处消费（提示词侧 / 显示期 / 落库前）共用这一个真源——存储层只负责「默认值正确 +
+     * 存了能读回来」，消费侧的接线由 ChatPage/StaticPages 的调用点保证。
+     */
+    @Test
+    fun styleFilterEnabledDefaultsTrueAndRoundTrips() {
+        // 全新状态（清空 prefs 文件，等价首次安装、键不存在）读出来必须是默认开
+        // （PREFS_NAME 是 private companion 常量，测试侧用字面量；改名时这里会红）
+        context.getSharedPreferences("luzzy_settings", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        assertEquals("文风过滤默认应为开（照上游）", true, SettingsStore(context).load().styleFilterEnabled)
+
+        // 存取往返：关掉 → 重开一个实例再读（等价重新读一次 SharedPreferences）仍是关
+        SettingsStore(context).save(AppSettings(styleFilterEnabled = false))
+        assertEquals("关闭后应能读回 false", false, SettingsStore(context).load().styleFilterEnabled)
+        assertEquals("再开一个实例读仍应是 false", false, SettingsStore(context).load().styleFilterEnabled)
+
+        // 反向再开回去，确认双向都能落盘
+        SettingsStore(context).save(AppSettings(styleFilterEnabled = true))
+        assertEquals("重新打开后应能读回 true", true, SettingsStore(context).load().styleFilterEnabled)
     }
 }

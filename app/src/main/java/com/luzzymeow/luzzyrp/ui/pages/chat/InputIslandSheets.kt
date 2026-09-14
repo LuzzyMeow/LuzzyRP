@@ -278,7 +278,7 @@ fun ToolsSheet(
  * 为什么只读：编辑在「世界书」页（全屏、有字段说明与二级正文编辑器），
  * 在聊天里的半屏面板上改这些字段会挤成一团。这里给一个「管理」直达入口。
  *
- * 面板上如实写着本版边界：**检索注入尚未接入**（P5），现在改条目还不会影响回复。
+ * 面板上如实写明边界：本面板**只读**（编辑在「世界书」页）；检索注入已接入请求组装。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -318,7 +318,7 @@ fun WorldBookSheet(
             Text(
                 text = "来源：本机数据（全局" +
                     (book?.characterName?.let { " + $it 绑定" } ?: "") +
-                    "）。本版面板只读与跳转管理；「检索注入」在 P5 接入——现在改条目还不会影响回复。",
+                    "）。本版面板只读与跳转管理；条目已接入请求组装（生成前按扫描深度检索注入）。",
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 fontFamily = LuzzyFonts.Body,
@@ -410,7 +410,7 @@ fun PresetsSheet(
             )
             Text(
                 text = "顺序即注入顺序：系统类按列表序拼进 system，User / AI 类作为独立消息插入。" +
-                    "本版面板只读与跳转管理；「拼进请求」在 P5 接入——现在改这些还不会影响回复。",
+                    "本版面板只读与跳转管理；启用的条目已按注入位置拼进请求。",
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 fontFamily = LuzzyFonts.Body,

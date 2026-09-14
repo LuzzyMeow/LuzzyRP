@@ -92,7 +92,6 @@ object TransferFormat {
         is JsonArray -> "数组"
         is JsonObject -> "对象"
         is JsonPrimitive -> "标量（${element.content.take(20)}）"
-        else -> element.toString().take(20)
     }
 
     private fun JsonObject.stringOf(field: String): String? =

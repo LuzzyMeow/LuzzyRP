@@ -323,7 +323,3 @@ private fun <T, K> List<T>.groupAdjacentBy(key: (T) -> K): List<Pair<K, List<T>>
     }
     return out.map { it.first to it.second.toList() }
 }
-
-/** 分支主线的判定（呈现层用；与存储层的 `isMain` 语义一致）。 */
-private val ChatSessionRepository.SessionSummary.isMain: Boolean
-    get() = branchId == ChatBranch.MainId

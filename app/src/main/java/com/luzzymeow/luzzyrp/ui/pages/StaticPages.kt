@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,6 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -59,14 +62,18 @@ import com.luzzymeow.luzzyrp.data.settings.SettingsBootstrap
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
+import com.luzzymeow.luzzyrp.ui.markdown.MarkdownText
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
+import com.luzzymeow.luzzyrp.ui.pages.common.EmptyState
 import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
 import com.luzzymeow.luzzyrp.ui.pages.common.PageHeader
 import com.luzzymeow.luzzyrp.ui.pages.common.SectionTitle
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingRow
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /**
@@ -121,11 +128,9 @@ fun CharactersPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
         rows = source.characters(active)
     }
 
-    PageScaffold("角色卡管理", LuzzyIcons.Assistants, onOpenDrawer, actions = {
-        HeaderAction(LuzzyIcons.Search, "检索")
-        HeaderAction(LuzzyIcons.Plus, "添加角色卡")
-        Spacer(Modifier.width(8.dp))
-    }) { padding ->
+    // 页头不放装饰性图标：此前的「检索 / +」是无点击的占位（假按钮，P6 验收撤下）——
+    // 导入走「设置 → 数据 · 导入与导出」，入口在空态里写明。
+    PageScaffold("角色卡管理", LuzzyIcons.Assistants, onOpenDrawer) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(12.dp),
@@ -143,16 +148,12 @@ fun CharactersPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
             when {
                 rows == null -> Unit // 首帧：只有上面那行「正在读取…」
                 rows!!.isEmpty() -> item {
-                    SettingCard {
-                        Text(
-                            text = "库里还没有角色卡。导入角色卡后会在这里列出，并带上真实头像。",
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
+                    EmptyState(
+                        iconRes = LuzzyIcons.Assistants,
+                        title = "库里还没有角色卡",
+                        supporting = "从「设置 → 数据 · 导入与导出」导入（PNG / JSON）；" +
+                            "导入后这里会列出，并带上真实头像。",
+                    )
                 }
 
                 else -> items(rows!!, key = { it.uuid }) { row ->
@@ -772,8 +773,10 @@ fun SettingsPage(
                             )
                             SettingRow(
                                 "偏好设定",
-                                userView?.let { "描述 ${it.description.length} 字 · 偏好 ${it.preferences.length} 字" }
-                                    ?: "—",
+                                userView
+                                    ?.takeIf { it.description.isNotBlank() || it.preferences.isNotBlank() }
+                                    ?.let { "描述 ${it.description.length} 字 · 偏好 ${it.preferences.length} 字" }
+                                    ?: "未填写",
                             )
                         }
                     }
@@ -1052,7 +1055,7 @@ fun AboutPage(onOpenDrawer: () -> Unit) {
             }
             item {
                 SettingCard {
-                    SettingRow("版本", "v2.0.0（P1 静态稿 · versionCode 见构建）", leadingIconRes = LuzzyIcons.Info)
+                    SettingRow("版本", "${BuildConfig.VERSION_NAME}（versionCode ${BuildConfig.VERSION_CODE}）", leadingIconRes = LuzzyIcons.Info)
                     SettingRow("上游基线", "RP-Hub 1.9.3（同步已退役）", leadingIconRes = LuzzyIcons.ExternalLink)
                     SettingRow(
                         "许可",
@@ -1062,32 +1065,7 @@ fun AboutPage(onOpenDrawer: () -> Unit) {
                 }
             }
             item {
-                SettingCard {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "v3.0.0 — 全面转 Jetpack Compose（开发中）",
-                            fontSize = 14.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        changelogBullets.forEach {
-                            Text(
-                                text = "·  $it",
-                                fontSize = 12.5.sp,
-                                lineHeight = 19.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            text = "完整更新日志见仓库 CHANGELOG.md（P5 接入真实数据源 ext/luzzy-changelog.js）",
-                            fontSize = 11.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                }
+                AboutChangelogCard()
             }
             item {
                 Text(
@@ -1102,9 +1080,112 @@ fun AboutPage(onOpenDrawer: () -> Unit) {
     }
 }
 
-private val changelogBullets = listOf(
-    "P1 空壳可跑：Compose 座 + HCT 主题 + 字体 + 沉浸聊天页",
-    "雾纸玻璃气泡 + 假流式 + 思考卡节点（复刻原项目聊天页）",
-    "全页面静态稿 + 页面切换转场 + 关于页（本版新增）",
-    "上游同步退役：基线定格 1.9.3，自有代码转 AGPL-3.0",
-)
+/**
+ * 关于页「更新日志」卡（P6 验收修复）：真实数据源 = 构建期生成的
+ * `assets/ext/luzzy-changelog.js`（硬性规定 5 的自动同步机制，构建前由
+ * gen-changelog 从仓库根 CHANGELOG.md 重生成）——此处不再维护静态副本。
+ *
+ * 形态：版本下拉（默认最新）+ 该版本的 Markdown 正文（复用 [MarkdownText]，
+ * 与聊天正文同一套渲染与记忆化）。
+ */
+private data class ChangelogSection(val version: String, val title: String, val body: String)
+
+private const val CHANGELOG_ASSET = "ext/luzzy-changelog.js"
+private const val CHANGELOG_MARKER = "window.LuzzyChangelog = { md: `"
+private const val CHANGELOG_FOOTER = "` };"
+
+private fun parseChangelogSections(context: Context): List<ChangelogSection> {
+    val raw = context.assets.open(CHANGELOG_ASSET).bufferedReader().use { it.readText() }
+    val start = raw.indexOf(CHANGELOG_MARKER)
+    val end = raw.lastIndexOf(CHANGELOG_FOOTER)
+    if (start < 0 || end <= start) return emptyList()
+    // 生成侧的转义顺序是 \ → \\ 、` → \` 、${ → \${，逆向按反序还原
+    val md = raw.substring(start + CHANGELOG_MARKER.length, end)
+        .replace("\\`", "`")
+        .replace("\\$", "$")
+        .replace("\\\\", "\\")
+    val header = Regex("(?m)^### (v\\d+\\.\\d+\\.\\d+) — (.*)$")
+    val hits = header.findAll(md).toList()
+    if (hits.isEmpty()) return emptyList()
+    return hits.mapIndexed { i, m ->
+        val bodyStart = m.range.last + 1
+        val bodyEnd = hits.getOrNull(i + 1)?.range?.first ?: md.length
+        ChangelogSection(
+            version = m.groupValues[1],
+            title = m.groupValues[2].trim(),
+            body = md.substring(bodyStart, bodyEnd).trim(),
+        )
+    }
+}
+
+@Composable
+private fun AboutChangelogCard() {
+    val context = LocalContext.current
+    var sections by remember { mutableStateOf<List<ChangelogSection>?>(null) }
+    var selected by remember { mutableStateOf(0) }
+    var menuOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        sections = withContext(Dispatchers.IO) {
+            runCatching { parseChangelogSections(context) }.getOrDefault(emptyList())
+        }
+    }
+    val list = sections
+    SettingCard {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "更新日志",
+                    fontSize = 14.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                if (!list.isNullOrEmpty()) {
+                    Box {
+                        TextButton(onClick = { menuOpen = true }) {
+                            Text(
+                                text = list[selected].version,
+                                fontSize = 13.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            list.forEachIndexed { i, section ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "${section.version} — ${section.title}",
+                                            fontSize = 13.sp,
+                                            fontFamily = LuzzyFonts.Body,
+                                        )
+                                    },
+                                    onClick = {
+                                        selected = i
+                                        menuOpen = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            when {
+                list == null -> Text(
+                    text = "读取中…",
+                    fontSize = 13.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                list.isEmpty() -> Text(
+                    text = "更新日志数据缺失（构建期生成失败；不影响使用）。",
+                    fontSize = 13.sp,
+                    fontFamily = LuzzyFonts.Body,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                else -> MarkdownText(content = list[selected].body)
+            }
+        }
+    }
+}

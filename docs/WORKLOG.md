@@ -4893,3 +4893,112 @@ C3 候选切换器、D1 字号滑杆（ awesome-design-md 建议落 §3 Typograp
 批 D 四项 + 文档收尾（DESIGN 回填 / CHANGELOG / WORKLOG）+ push。模拟器劣化就冷启动。
 
 ---
+
+## 会话 79 · 2026-09-14 · 批 D 收官（D1-D4 + 文档收尾 + push）
+
+### 开始
+
+用户：「完整阅读工作区内容，执行下阶段的工作规划」。接手盘点：批 A/B/C 全部完成
+（JVM 788 + 仪器化 85 全绿），main 领先 origin **5 个提交**未 push（交接文档写 4，
+`8d9b0b31` 文档提交在其后）；下阶段照 `docs/HANDOFF-p5-batch-d.md` 执行批 D。
+计划已获批准；设计门按「方向 A 延续豁免」执行（动手前仍完整读 4 份 SKILL 主文档），
+D1/D3 复用既有组件、不新造视觉语言。
+
+### 一、接手基线（Step 0）
+
+- 模拟器冷启动（删锁 → `Start-Process` 独立进程 → `sys.boot_completed=1` + 20s）→
+  `checkChat` **85 / 0**（2m21s）+ JVM **788 / 0**——基线成立。
+- **设计门（硬性规定 9）**：完整重读 4 项 SKILL 主文档（huashu `SKILL.md` 579 行全文 /
+  open-design `AGENTS.md` 454 行全文 / ui-ux-pro-max `CLAUDE.md`+`SKILL.md` /
+  awesome-design-md `README.md`）+ `--stack jetpack-compose` 检索（规则「Don't Hardcode sp」
+  直接约束 D1 实现）。三方向门走「方向 A 延续豁免」。
+- 用户纠正了一次执行顺序（先读 SKILL 再动手）——已补齐阅读后才开始设计相关工作。
+
+### 二、D1 用户可调字号（字体排版）
+
+- **设置层**：`AppSettings.fontScale`（相对缩放；旧版 12–20px 按 `LEGACY_PX_BASE=16f` 换算为
+  0.75–1.25）+ `SettingsStore` 读写（非法值 → 未设置）；`SettingsBootstrap` 接入 legacy `fontSize`
+  （原「只记日志」，此前按设计门豁免待办）。
+- **⚠️ 字号必须纳入 `hasGap` 快路径判据**：否则「标记已种 + 旧数据有字号但未搬」时快路径把
+  搬运拦在门外——**正是真机撞过的「标记误种 → 供应商配置永久丢失」同型缺陷**（会话 74）。
+  代价是「旧数据无字号」的设备每次启动多一次 kv 读（<1ms），正确性优先。用例钉住。
+- **一次落盘合并**：`importOnce` 的设置写回从「逐字段 `current.copy` 分次 save」改为合并一次——
+  分次会互相覆盖（第二次丢掉第一次的字段）。
+- **缩放实现（两处 token 体系）**：`MarkdownTokens.scaled()`（字号/行高缩放，dp 间距与
+  折叠行数不缩——上游只缩字体）+ `luzzyTypography(scale)`（**全部 15 个 M3 样式一起缩**，
+  本仓库只覆盖 6 个品牌样式，漏缩默认样式 = 半缩放破版）。`LocalMarkdownTokens` 的 provide 点
+  全仓**新建**于 `LuzzyTheme(fontScale=…)`（此前零 provide，HANDOFF 已预告）。
+- **设置页**：`FontSizeSliderRow`（照 `WorldInfoPage.SettingSlider` 范式；12–20px 语义显示，
+  scale 存储；拖动实时预览、松手落盘）；宿主 `ComposeActivity` 持有 `fontScale` state。
+- **边界（有意简化，DESIGN §3 登记天花板）**：各页面硬编码 `fontSize = N.sp` 不随用户字号缩放；
+  全量收敛是后续独立工作。
+
+### 三、D2 导入导出（序列化半）
+
+- `data/transfer/TransferFormat.kt`（纯 Kotlin）：预设/世界书 = `records` 原样数组**零映射**；
+  角色卡 `data` 外壳与顶层平铺**原样保留**（与 `characterViewOf` 同一判据）；
+  **导出注入 uuid**——迁移器按内容哈希补的身份不在 payload 里，不注入会让导出→导入重复入库。
+- `data/transfer/TransferStore.kt`：世界书导出取**生效桶**（W0 口径：全局桶非空取全局），
+  导入固定回写全局桶；角色卡导入「同 uuid 覆盖但**保留原卡头像文件与创建时间**」；
+  覆盖语义在界面文案写明（与初次迁移的「uuid 合并」是两种意图）。
+- **UI**：设置页「数据 · 导入与导出」卡（六行）；SAF launcher（`CreateDocument`/`OpenDocument`）
+  在宿主，Toast 反馈，读写失败**如实报错**。**运行时 SAF 验证留真机**（无设备，如实登记）。
+
+### 四、D3 迁移报告页
+
+- `data/legacy/MigrationReport.kt`（纯 Kotlin）：`kv[legacy.migrationCounts]` 12 字段解析，
+  **无记录 → null**（界面显式呈现「未迁移」，不许渲染成空表）；缺字段按 0 兜底。
+- `PageDataSource.migrationReport()`（照既有 runCatching 降级模式）；
+  设置页数据卡底「迁移报告」行 → AlertDialog（12 行计数 + 尾注「迁移于 … · 迁移对旧数据只读」）。
+- 视觉复用 PageKit（豁免路径）；亮/暗目测留真机 B 栏。
+
+### 五、门禁抓出的真缺陷 + 本轮踩坑
+
+1. **`SettingRow.onClick` 参数从未接线（真缺陷，会话 54 坑「契约写了、实现没接」再现）**：
+   参数在签名里、Row 的 modifier 里**没有 clickable**——D3 的迁移报告行是**第一个真实调用方**，
+   一跑就暴露。修在组件层（一处设防）。既有页面从没用过它，所以一直没炸。
+2. **main 源集编译失败被旧测试结果掩盖**：`rememberCoroutineScope` 漏 import 使
+   `compileDebugKotlin` 失败，而 `checkChat` 报告里 tests=89/2 是**上一轮测试 APK 的结果文件**
+   ——差点把「滚动修复无效」当成结论。**教训：读仪器化结果先看 XML mtime 是否新鲜**
+   （AGENTS §7「adb install 后务必确认装的是新构建」的 Gradle 结果版本）。
+3. **JVM 反引号测试名也不允许点号**：`` fun `dp 间距不缩放（上游 settings.fontSize 只缩字体）`() ``
+   → `Name contains illegal characters: ..`（`.` 是 JVM 方法名保留字符）。
+   坑表「androidTest 方法名 ASCII」的 JVM 侧变体：空格可以，**点号不行**。
+4. **LazyColumn 滚出视口的条目不在语义树**（第二次踩）：设置页滑杆在「高级设置」卡里，
+   断言前必须 `performScrollToNode`——已给列表加 `testTag("settings_list")`。
+5. **`Await.text` 精确匹配 vs 含变体文案**：尾注「迁移于 <时间> · 迁移对旧数据只读」含时间，
+   按 Await 注释的放宽条款用 `substring = true` 并写明理由。
+6. **PowerShell 的 `ANDROID_SERIAL=… bash 前缀`又踩一次**（坑表在案）：`$env:ANDROID_SERIAL` 才对；
+   顺带确认 `verifyEmulatorDevice` 硬门工作正常（未设变量时直接拦下）。
+7. **模拟器劣化再现**：第 4 轮全量时 `ChatUiTest.世界书面板…` 偶红——冷重启模拟器后同代码
+   **91/0 全绿**，确认是环境劣化不是回归（未改代码迎合）。
+
+### 六、D4 文档反向修正（R1-R7 全部核实后落地）
+
+- R1（占位符已实现，`chat/Placeholders.kt` 存在且接线）/ R6（增删排序已实现，写模型收编）/ 
+  R3（迁移入口已做）→ `DESIGN-migration` §8.5/§9 表/§10.6 三处改判 + 顺带把「多候选要改表」
+  的旧判据也修正（C3 用 payload 私有键，不改表）；
+- R2/R4/D1/D3 → `DESIGN-compose` §20.3 三项闭环 + **§28（批 C 设计落点）/§29（D2/D3）新节**
+  + §3/§9 登记字号自由度与「系统字号 vs 应用内字号」边界；
+- R5 → `PLAN-v3.0-compose` P4 主条目勾选 + 删 P4-C 重复行；
+- R7 → CHANGELOG v2.0.0「at_depth 冲突未解」加「已于 v3.0.0 批 A 解决」括注（历史条目不改写）；
+- CHANGELOG v3.0.0 段补批 C 余项 + 批 D 条目 → `node tools/gen-changelog.mjs` 重跑
+  （应用内 `luzzy-changelog.js` 已重生成）。
+
+### 七、门禁终值
+
+| 门禁 | 结果 |
+|---|---|
+| 仪器化 `checkChat` | **91 条 / 0 失败**（85 + D1 字号 4 + D3 迁移报告 2；冷启动后 2m11s） |
+| JVM 单测 | **814 条 / 0 失败 ×3**（788 → +13 D1 缩放/搬运 +9 D2 round-trip +4 D3 解析；`--rerun-tasks` 3 连跑） |
+
+### 八、遗留 / 下一步
+
+- **真机 B 栏**（`HANDOFF-p5-static.md` 可勾选清单）：B1 行内高亮目视、B2 批 C/D 页面可见性
+  （含设置页新卡与迁移报告 Dialog 亮/暗目测）、B3 缓存命中率复核、B6 压缩水位线清理；
+- **真机设置还原**（会话 77 遗留）：`stay_on_while_plugged_in 0` / `screen_off_timeout 600000`；
+- **D2 运行时 SAF 验证**（导出/导入真实走一遍系统文件选择器）——归真机 B 栏；
+- **P6 切换与发版**（需用户在场）：切 launcher 到 `ui.ComposeActivity`（用户「点图标进 WebView」
+  的根因）、单 APK + 签名一致 + 真机回归、§3.4 全流程。
+
+---

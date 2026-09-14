@@ -400,9 +400,12 @@ ext/luzzy-migrate.html (JS)  →  MigrationInbox (Kotlin, 分块拼装 + sha256)
 
 ### 8.5 未决
 
-- `presets` / `worldinfo` 元素没有稳定 id，`slot` 用下标。**在支持用户增删排序之前必须重做**
-  （插入一条会让后面所有 slot 位移 → 变更被当成多条改动）。当前阶段（只读展示）无影响。
-- 迁移入口接线（谁在什么时候启动迁移 WebView、进度与报告怎么呈现）尚未做，见 §9。
+- ~~`presets` / `worldinfo` 元素没有稳定 id，`slot` 用下标。**在支持用户增删排序之前必须重做**~~
+  → **已解决（2026-09-13，会话 72 W0-W7）**：预设 / 世界书编辑页已实现增删与上下移排序，
+  写模型是「整组 patch-merge 后 `replaceRecords` 重排 slot」（`data/world/` / `data/preset/`）；
+  元素仍无稳定 id（下标即身份），这条语义已被写模型收编——整组覆盖下不存在「位移被当成多条改动」。
+- ~~迁移入口接线（谁在什么时候启动迁移 WebView、进度与报告怎么呈现）尚未做，见 §9。~~
+  → **已做（§11，端到端实测通过）**。
 
 ### 8.6 一条工具链坑（会花掉一小时的那种）
 
@@ -425,7 +428,7 @@ androidTest 里一律用 ASCII camelCase（`dataSurvivesDatabaseReopen`）。
 | 导出器端到端 | 设备上真实跑通、与夹具一致 | **已验证**（§6.4）：31/32 键逐字节相同，多块路径内容一致 |
 | 数据层**运行时** | Room 在真实设备上开库/事务/重开 | **已建**：`LuzzyStoreTest`（仪器化）9 例全绿（§8.1） |
 | 真机覆盖安装 | v2.x release → v3.0 release 覆盖安装，数据完好 | **待做**（阶段 4） |
-| 迁移入口接线 | 谁在什么时候启动迁移 WebView、进度与报告怎么呈现 | **待做**（P4-C） |
+| 迁移入口接线 | 谁在什么时候启动迁移 WebView、进度与报告怎么呈现 | **已做**（§11，2026-09-13） |
 
 ---
 
@@ -484,12 +487,14 @@ androidTest 里一律用 ASCII camelCase（`dataSurvivesDatabaseReopen`）。
 
 ### 10.6 未做
 
-- **设置持久化（3.3）**：主题 / 字号 / 供应商 / 模型 / 工具开关收敛到统一存储 +
-  旧 `SharedPreferences`（`luzzy_transport`）自动迁移；apiKey 仍只存设备本地。
-  目前这些仍由 `TransportStore`（SharedPreferences）承担，与旧版行为一致。
-- **多候选持久化**：`‹ n/m ›` 只持久化当前展示的那一版（存储里一消息一行，候选集合是纯界面态）。
-  要持久化需改表（一条消息多行候选），属 P5。
-- **迁移入口接线**：谁在什么时候启动迁移 WebView、进度与报告怎么呈现（P4-C）。
+- ~~**设置持久化（3.3）**：主题 / 字号 / 供应商 / 模型 / 工具开关收敛到统一存储 +
+  旧 `SharedPreferences`（`luzzy_transport`）自动迁移；apiKey 仍只存设备本地。~~
+  → **已做（2026-09-13，会话 71）**：主题模式 + 字号（D1，2026-09-14）落 `SettingsStore`
+  （SharedPreferences，首帧同步可读）；供应商配置走 `TransportStore` + 旧设置一次性搬运
+  （`SettingsBootstrap`，含「读不到不种标记」与「快路径看空缺」两条真机实测修正）。
+- ~~**多候选持久化**~~ → **已做（2026-09-14，会话 78 C3）**：候选集合以 payload 私有键
+  `luzzyCandidates`/`luzzyCandidateIndex` 持久化，**不改表**（原判据「要改表」不成立）。
+- ~~**迁移入口接线**~~ → **已做**（§11）。
 
 ---
 

@@ -269,6 +269,40 @@
     本机模拟器**用不了 GPU 加速**（`-gpu host` 刷屏 ColorBuffer 错误起不来；`angle_indirect` 缺 `opengl32sw` 崩溃），
     故帧数字只作相对比较。两条纪律已写入 `AGENTS.md` §7 坑表。
 
+- **P5 批 C 余项五条**（2026-09-14，会话 78；提交 `40fbd4cc` / `195b6beb`）：
+  - **C3 多候选持久化**：`‹ n/m ›` 候选集合以 payload 私有键 `luzzyCandidates`/`luzzyCandidateIndex`
+    持久化（**不改表**），杀进程重开认回；
+  - **C4 附件真功能**：选图 → 1024px/JPEG85 压缩落盘 → payload `imageAttachments`（旧键同构）→
+    三家 wire parts（正文在前图片在后，纯文本消息逐字节不变）+ 待发缩略图条；
+    读不到图**如实报错**不静默丢图；NAI 生图管线按用户拍板跳过；
+  - **C5 表格列宽自适应**：`estimateTableWeights` 按最长单元格显示宽度（CJK×2）估宽 + 最小权重兜底；
+  - **C6 撤工作区入口**（删按钮/参数/提示分支）；
+  - **C7 reduced-motion**：共享层 `MotionSettings`（口径 `ANIMATOR_DURATION_SCALE == 0f`，
+    0.5 是快不是停）应用到 8 处自绘动效；
+  - **测试基建**：`testing/Await.kt` 统一仪器化等待纪律（推时钟 + waitForIdle + 让出真实时间）——
+    修掉「`waitUntil` 自旋饿死帧」「首帧未稳不触发取数」两类整跑红；门禁 **85 仪器化 / 788 JVM 全绿**。
+
+- **P5 批 D 收官**（2026-09-14，会话 79）：
+  - **D1 用户可调字号**：`AppSettings.fontScale`（相对缩放，1f = 默认；旧版 12–20px 按
+    16px 基准换算为 0.75–1.25）落 `SettingsStore`；旧设置搬运接入字号（「只补空缺」纪律 +
+    **字号纳入 `hasGap` 快路径判据**——否则即真机撞过的「标记误种 → 字段永久搬不过来」同型缺陷）；
+    两条字号 token 体系一起缩放：`MaterialTheme.typography`（**全 15 个样式**，防半缩放）+
+    `LocalMarkdownTokens`（provide 点全仓新增）；设置页「高级设置」字号滑杆
+    （12–20px 语义，拖动实时预览、松手落盘）。设计自由度登记 `DESIGN-compose §3/§9/§29`；
+  - **D2 导入导出（序列化半）**：设置页新增「数据 · 导入与导出」卡（导出/导入 × 预设/世界书/角色卡），
+    SAF launcher 在宿主、Toast 反馈；预设/世界书 = `records` 原样 JSON **零映射**
+    （导出 = 原样数组，导入 = 整组覆盖）；世界书导出取**生效桶**（W0 口径）并固定回写全局桶；
+    角色卡 = `data` 外壳与顶层平铺**原样保留** + **导出注入 uuid**（迁移器补的身份不在 payload 里，
+    不注入会让导出→导入重复入库）；导入覆盖保留原卡的头像文件与创建时间；
+    **运行时 SAF 验证留真机**（无设备，如实登记）；
+  - **D3 迁移报告页**：设置页「迁移报告」行 → Dialog（12 项计数 + 迁移时间 +
+    「未迁移」显式态——不许渲染成空表）；数据源 `kv[legacy.migrationCounts]`，
+    取数照 `PageDataSource` 模式；视觉复用 PageKit（豁免路径，方向 A 延续）；
+  - **D4 文档反向修正**：`DESIGN-migration` §8.5/§9/§10.6 四处过期陈述修正（字号/候选/入口已做）、
+    `DESIGN-compose` §20.3 三项闭环（预设/世界书编辑、字号、迁移报告页）+ §28/§29 新节回填
+    （C3/C4/C7 设计落点 + D2/D3）、`PLAN-v3.0-compose` P4 主条目勾选 + 删重复行、
+    CHANGELOG v2.0.0「at_depth 冲突未解」加「已于 v3.0.0 批 A 解决」括注。
+
 **修复**
 - **上游式「整键优先」会丢掉整张角色卡**（迁移器实现时发现并修）：上游 `dbGetWithLegacy` 的
   「新键优先」是**整键替换**——新库里只要存在 `characters`，旧库（及同库旧前缀）的那一份就整体不看。
@@ -406,6 +440,9 @@
   revert 对照，故不下结论**，待真实 Gemini key 复核。
 - 已知未完成：世界书 / 向量召回的「距尾 depth」插入点（`at_depth`）与「纯追加」存在**语义冲突**
   （「距尾 N 轮」本质上不是追加式），需要专门设计，本版**未改**。
+  〔2026-09-14 注：已于 v3.0.0 批 A 以「尾部快照」方案解决——随轮次漂移的三个注入位置改道
+  尾部 user 快照，纯追加在结构上成立；见 `docs/DESIGN-compose.md` §24.3 与
+  `docs/PLAN-v3.0-p5-agent-loop.md` §1.3。〕
 - **许可安排变更（2026-09-12，v3.0 立项决定）**：因 v3.0「全面转 Compose」需以
   [rikkahub](https://github.com/rikkahub/rikkahub)（AGPL-3.0）为 Compose 设计参照并源码级复用，
   **自有代码自 v3.0 起转为 AGPL-3.0 分发**（新增 `LICENSE-AGPL-3.0`；上游

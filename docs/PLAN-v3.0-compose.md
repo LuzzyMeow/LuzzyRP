@@ -185,7 +185,7 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
   > 详见 `DESIGN-compose.md` §18/§19 + `docs/CHAT-REGRESSION.md` +
   > `docs/design/regression-p3.md`（十步逐条 E/M）+ WORKLOG 会话 67/68/69。
   > 单测 **304 全绿** + UI 测试 **7 全绿**。
-- [ ] P4 数据层与迁移原型（**最高风险**；含跨角色平铺会话总览）——设计真源 `docs/DESIGN-migration.md`
+- [x] P4 数据层与迁移原型（**最高风险**；含跨角色平铺会话总览）——设计真源 `docs/DESIGN-migration.md`
   - [x] **P4-A-2.1 真实旧数据夹具**（会话 70）：模拟器 release 包 + CDP 驱动**前端自身函数**造数据
         （角色/两轮真实生成/剧情分支/世界书/正则/预设/经典记忆/**真实 3072 维向量记忆**/两人设），
         导出 `app/src/test/resources/legacy/webview-db-fixture.json`（29 主库键 + 3 旧库键），
@@ -249,8 +249,6 @@ Compose 版本读不到它 —— **IndexedDB 属于 WebView 的 origin 存储�
         用户豁免三方向（落档 `docs/design/boards-v6/`）；设计落点与实测见 `DESIGN-compose` §23。
         **「生效」（接进请求组装）仍归 P5**——界面上如实写着。本批顺带修掉：旧键世界书桶的幽灵双份（W0）、
         文案里的 Markdown 星号、一条假绿门禁判据。
-  - [ ] P4-C **真机覆盖安装实测**（需用户授权，步骤见 §20.4）
-        ／**用户可调字号**（字体排版 → 需设计门）／**迁移报告页**（视觉产出 → 需设计门）
   - [ ] P4-C **真机覆盖安装实测**（需用户授权，步骤见 §20.4）
         ／**用户可调字号**（字体排版 → 需设计门）／**迁移报告页**（视觉产出 → 需设计门）
   - [x] P4-C 迁移顺带暴露的渲染缺口 **① `{{char}}`/`{{user}}` 占位符**：已修（会话 71，渲染期替换、

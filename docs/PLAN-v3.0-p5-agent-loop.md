@@ -521,8 +521,21 @@ adb -s df97f3c4 logcat -c && adb -s df97f3c4 logcat -s LuzzyCache
       LRU + **SVG 解码失败→首字 monogram 的真实降级路径**，夹具里 2/3 头像是 SVG 所以这条路必须存在）
 - [ ] **设置页绑定**（原属 C1）：用户档案已能取（`PageDataSource.userProfile()`，喂 A2 用户信息块），
       但**页面上的开关与输入仍未接线**——那要真机验证写路径。**如实登记为未做**。
-- [ ] C3 多候选持久化 　[ ] C4 附件真功能（含 **NAI 生图管线**，见 `RegexScripts.IMAGE_GEN_UNSUPPORTED`）
-- [ ] C5 表格列宽 　[ ] C6 撤工作区 　[ ] C7 reduced-motion
+- [x] C3 多候选持久化（会话 78：payload 私有键 `luzzyCandidates`/`luzzyCandidateIndex` 不改表；
+      新增 `LuzzyStore.updateMessage` 写 payload；仪器化「重新生成 → 落库 → 杀进程重开认回」）
+- [x] C4 附件真功能（会话 78：选图→1024px/JPEG85 落盘→payload `imageAttachments` **旧键同构**→
+      三家 wire parts（正文在前图片在后，纯文本消息逐字节不变）+ 待发缩略图条；
+      路径→data URL 在发请求前最后一步，读不到**如实报错**不静默丢图；
+      **NAI 生图管线仍按用户拍板跳过**；SAF 真机交互留 B 栏）
+- [x] C5 表格列宽（会话 78：`estimateTableWeights` 按最长单元格显示宽度（CJK×2）估宽，
+      平方根收敛 + 最小权重兜底；纯文本消息字节不变的思路同样适用于此——估宽是纯函数）
+- [x] C6 撤工作区（会话 78：删按钮/参数/提示分支；仪器化断言入口不存在）
+- [x] C7 reduced-motion（会话 78：`ui/MotionSettings.kt` 共享层（ContentObserver 订阅）+
+      8 处自绘动效应用；口径 = `ANIMATOR_DURATION_SCALE == 0f`，0.5 是「快」不是「停」；
+      `HtmlCard` 收编同一读取器）
+- [x] **测试基建（会话 78 顺带）**：`testing/Await.kt` 统一仪器化等待纪律——
+      `waitUntil` 自旋不推进测试时钟（帧驱动协程续体恢复不了）+ `setContent` 后首帧未稳
+      两个根因，5 文件 12 处收敛；修完后此前「每轮必红 1-3 条」的整套跑连绿
 
 ### 批 D
 - [ ] D1 字号 　[ ] D2 导入导出 　[ ] D3 迁移报告页 　[ ] D4 文档反向修正 + 设计真源

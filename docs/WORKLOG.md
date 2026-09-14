@@ -4826,3 +4826,70 @@ dump 自身失败绝不盖掉断言失败 —— 这个坑在第一版诊断代�
 - 真机 B 栏（B1/B2/B3/B6）与 P6 切 launcher —— **仍待用户与设备**
 
 ---
+
+## 会话 78（续）· 2026-09-14 · 批 C 余项全部完成：C3/C5/C6/C7/C4（无真机轮，判据全在 JVM + 仪器化）
+
+> **一句话**：接续本会话上半场（收尾 + 80/0 终值），把**批 C 余项五条全部做完并提交**
+> （`40fbd4cc` 批 C 前半 / `195b6beb` C4），并把门禁从 80 条扩到 **85 条仪器化 / 788 条 JVM**，
+> 全绿收口。**批 D 未开始**（下一轮的事，见 `docs/HANDOFF-p5-batch-d.md`）。
+
+### 一、完成清单（带提交号）
+
+| 项 | 落点 | 判据 |
+|---|---|---|
+| **C3 多候选持久化** | `ChatSessionRepository` 私有键 `luzzyCandidates`/`luzzyCandidateIndex`（不改表）；`LuzzyStore.updateMessage`（候选变更必须写 payload，与只动 content 的 `updateContent` 分工） | JVM 7 例（往返/老行回落/坏数据）+ 仪器化 1 例（重新生成→payload 落库→杀进程重开认回） |
+| **C5 表格列宽自适应** | `estimateTableWeights` 纯函数（最长单元格显示宽度 CJK×2 → 平方根收敛 → +1.0 最小权重兜底），`TableView` 用 `weight` | JVM 7 例（宽列/兜底/CJK/缺列/表头计入） |
+| **C6 撤工作区入口** | 删按钮 + `onWorkspace` 参数 + 提示分支（图标定义保留） | 仪器化 1 例断言 `slot_workspace` 不存在 |
+| **C7 reduced-motion** | 新增 `ui/MotionSettings.kt`（ContentObserver 订阅 + 纯函数折算）应用到 8 处自绘动效；`HtmlCard` 收编同一读取器 | JVM 7 例（口径：`==0f` 才算；0.5 是快不是停；NaN 按照常播） |
+| **C4 附件真功能** | `ChatAttachment`（location 双形态与迁移同构）+ payload `imageAttachments`（旧键同构）+ `userContentParts`/`resolveImageParts` + `AttachmentStore`（选图→1024px/JPEG85→落盘）+ 三家 wire 对照 + 待发缩略图条 | JVM 14 例（parts/解析/三协议/往返）+ 仪器化 3 例（真解码/降采样/落盘/读回） |
+
+**提交**：`40fbd4cc`（批 C 前半 + 测试基建）→ `195b6beb`（C4）。工作区干净，**未 push**（用户指示本轮到此）。
+
+### 二、门禁终值
+
+| 门禁 | 结果 |
+|---|---|
+| 仪器化 `checkChat` | **85 条 / 0 失败**（426 秒；82 → 85：C3 重启用例 + C6 断言 + C4 存储用例） |
+| JVM 单测 | **788 条 / 0 失败**（751 → 788：C3 +7、C5 +7、C7 +7、C4 +15、其余 +1） |
+
+### 三、测试基建的系统级修复（本轮最值钱的方法论产出）
+
+上一轮定位的「面板用例交替红」在整套跑里反复重现，本轮挖到了**两层根因**并统一收口：
+
+1. **`compose.waitUntil` 自旋不推进测试时钟** → 帧驱动的取数/落盘协程续体恢复不了
+   （症状：面板停在「读取中…」「界面上消息出来了但库里 8 秒没写进去」）；
+2. **`setContent` 后首帧未稳定就操作** → 面板的取数 `LaunchedEffect` 干脆不启动
+   （单跑绿、整套跑红的真凶——整套跑用例顺序与单跑不同，暴露概率随负载变化）。
+
+修复：新增 `testing/Await.kt` 统一等待纪律（推时钟 + `waitForIdle` + 让出真实时间 + 首帧稳定），
+5 个测试文件 12 处各自为政的 `waitUntil` 全部收敛；`ChatUiTest`/`ChatPersistenceTest` 的
+`setChatContent`/`setContent` 补首帧稳定。**修完后整套连跑全绿**（此前每一轮至少红 1-3 条）。
+
+> ⚠️ 过程中一次**归因错误**记一笔：我曾把失败判给「上一条用例的 sheet 残留污染」，
+> 写了 tearDown 关弹层——结果红得更多（9 红 2），撤销后才回到正确根因。
+> 教训：**跨用例干扰假设要用「最小组合复现」验证，别在 tearDown 里做 UI 操作**。
+
+### 四、设计门记录（硬性规定 9）
+
+本会话**完整读过** `docs/skills/` 四份主文档（huashu-design SKILL.md 579 行 + animation-pitfalls/best-practices、
+awesome-design-md README、open-design AGENTS.md + critique-theater + craft、ui-ux-pro-max CLAUDE/SKILL/pro-rules
++ jetpack-compose.csv 52 条）。要点已用于实现：三方向门走「已选定方向 A 后的迭代」豁免；
+pro-rules 的 reduced-motion / Dynamic Type 必查；compose 规则 34「不硬编码 sp」（D1 的合规底线）。
+
+**待下一轮回填 `DESIGN-compose.md`**：C4 缩略图条（56dp 圆角 + 错误色移除钮）、C7 口径、
+C3 候选切换器、D1 字号滑杆（ awesome-design-md 建议落 §3 Typography + §8 Responsive）。
+
+### 五、未做（如实登记）
+
+- **批 D 全部**：D1 字号 / D2 导入导出 / D3 迁移报告页 / D4 文档反向修正 R1-R7 —— 下一轮做
+  （详案与落点已写进 `docs/HANDOFF-p5-batch-d.md`）；
+- **真机 B 栏**（B1/B2/B3/B6）与**真机设置还原**（`df97f3c4` 本轮不在线）；
+- **P6 切 launcher 与发版**（需用户在场）；C4 的 SAF 真机交互与缩略图观感；
+- 设置页绑定（写路径）；CoT 视觉节点渲染；变量块模板面板；
+- **`git push` 未做**（用户指示本轮到此；main 领先 origin 4 个提交）。
+
+### 六、下一步（照 `docs/HANDOFF-p5-batch-d.md` 执行）
+
+批 D 四项 + 文档收尾（DESIGN 回填 / CHANGELOG / WORKLOG）+ push。模拟器劣化就冷启动。
+
+---

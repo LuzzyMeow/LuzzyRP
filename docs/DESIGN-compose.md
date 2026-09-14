@@ -1374,4 +1374,38 @@ Kotlin 的 `Regex.replace` 只认 `$n` 与 `\`，照搬会把 `<span>$&</span>` 
 （角色描述·性格·场景·人设·创作者笔记）/ 触发器类型 / outlet 宏 / 向量化激活（🔗）/
 AN 两档位置（本应用提示词无 AN 模块）/ 定时效果的分支继承与编辑清除。
 
+## 31 · 设置页重设计（boards-v7 方向 A · 织机卡组，2026-09-15）
+
+> **触发**：用户「设置页的组件摆放形式还是很难看，请你重新设计」。
+> **三方向门**：`docs/design/boards-v7/`（SPEC + 三方向真实渲染图 + 速览）；
+> 用户选择原话：「**按照你的设计思路 最花哨 最好看的 符合设计语言的即可**」→
+> 落档 `direction-approved-v7.md`，取装饰性最强的 **A · 织机卡组**。
+
+### 31.1 组件：`BandCard`（`ui/pages/common/BandCard.kt`）
+
+| 件 | 规格 |
+|---|---|
+| 壳 | 同 `SettingCard`：16dp 圆角 + hairline 边 + `surfaceContainer` 底 |
+| 头带 | **96dp**；横向渐变（`bandFirst` → `bandTone(bandFirst, surface)` = 同色相与画布混 34%）；**两层白色贝塞尔波纹**（alpha 18% / 9%） |
+| 带内容 | 白/深字标题 + 图标**内嵌带内**（16dp 内边距，与下方行同一条竖线） |
+| 叠压件 | `avatar` 半出带外（`offset(y = 22.dp)`），内容区自动让出 30dp |
+| 行分隔 | `ThinDivider`（`outlineVariant@40%`，1dp） |
+| 参数块 | `surfaceContainerLow` + 12dp 圆角 + 12/10dp 内边距（字号滑杆落此） |
+
+### 31.2 色相纪律（旧版病根的根治）
+
+- 头带颜色**只从 M3 role 取**：用户=primary / API=secondary / 数据=tertiary / 高级=primaryContainer；
+  第二色由 `bandTone`（同色相 lerp 画布 34%）——**删除了三处硬编码 `Color(0xFF…)` 色相**（违 §8「临场发明色相」）；
+- **带上文字必须传对应 on 色**（`onPrimary` / `onSecondary` / `onTertiary`）：
+  暗色下 `primary` 是浅桃色，白字压上去读不清——本页第一版真机截图抓到的对比度缺陷，
+  已在组件签名上强制（`bandContent` 为必填参数，调用点无法漏）。
+
+### 31.3 与参考实现（rp-hub）的对应
+
+上游 `settings-page-header` 的「渐变头带 + 纹理 + 头带内标题/操作簇 + 头像叠压」四件全数翻译；
+额外做了两处**本项目判断**：纹理改两层（单层在小屏太淡）、参数块承载滑杆（上游是 2 列控件网格，
+本应用可调项只有字号与文风过滤，2 列会空半格）。
+
+**行为零改动**：`SettingsData` 注入 / 文风过滤真开关 / 字号滑杆 / 导入导出 / 迁移报告 Dialog 全部原样。
+
 

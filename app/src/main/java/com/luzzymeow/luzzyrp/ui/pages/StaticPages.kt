@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,12 +65,15 @@ import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.markdown.MarkdownText
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
+import com.luzzymeow.luzzyrp.ui.pages.common.BandCard
 import com.luzzymeow.luzzyrp.ui.pages.common.EmptyState
 import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
 import com.luzzymeow.luzzyrp.ui.pages.common.PageHeader
 import com.luzzymeow.luzzyrp.ui.pages.common.SectionTitle
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingRow
+import com.luzzymeow.luzzyrp.ui.pages.common.ThinDivider
+import com.luzzymeow.luzzyrp.ui.pages.common.bandTone
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -751,150 +755,155 @@ fun SettingsPage(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                SettingCard {
-                    Column {
+                BandCard(
+                    title = "用户设置",
+                    iconRes = LuzzyIcons.Assistants,
+                    bandFirst = MaterialTheme.colorScheme.primary,
+                    bandSecond = bandTone(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.surface),
+                    bandContent = MaterialTheme.colorScheme.onPrimary,
+                    avatar = {
+                        // 头像叠压头带下沿（方向 A 的品牌签名位）；没名字时用「鹿」
                         Box(
                             Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .background(Brush.horizontalGradient(listOf(Color(0xFF9A5638), Color(0xFF723520)))),
-                        )
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .border(3.dp, MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(
-                                text = "用户设置",
-                                fontSize = 15.sp,
-                                fontFamily = LuzzyFonts.Body,
+                                text = userView?.name?.takeIf { it.isNotBlank() }?.take(1) ?: "鹿",
+                                fontFamily = LuzzyFonts.Lora,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            SettingRow(
-                                "角色名",
-                                userView?.name?.takeIf { it.isNotBlank() } ?: "未设置",
-                            )
-                            SettingRow(
-                                "偏好设定",
-                                userView
-                                    ?.takeIf { it.description.isNotBlank() || it.preferences.isNotBlank() }
-                                    ?.let { "描述 ${it.description.length} 字 · 偏好 ${it.preferences.length} 字" }
-                                    ?: "未填写",
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
+                    },
+                ) {
+                    SettingRow(
+                        "角色名",
+                        userView?.name?.takeIf { it.isNotBlank() } ?: "未设置",
+                    )
+                    ThinDivider()
+                    SettingRow(
+                        "偏好设定",
+                        userView
+                            ?.takeIf { it.description.isNotBlank() || it.preferences.isNotBlank() }
+                            ?.let { "描述 ${it.description.length} 字 · 偏好 ${it.preferences.length} 字" }
+                            ?: "未填写",
+                    )
+                }
+            }
+            item {
+                BandCard(
+                    title = "API 连接",
+                    iconRes = LuzzyIcons.Chip,
+                    bandFirst = MaterialTheme.colorScheme.secondary,
+                    bandSecond = bandTone(MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.surface),
+                    bandContent = MaterialTheme.colorScheme.onSecondary,
+                ) {
+                    val status = apiStatus
+                    SettingRow(
+                        "API 提供商",
+                        when {
+                            status == null -> "—"
+                            status.configured -> "已配置"
+                            else -> "未配置"
+                        },
+                    )
+                    ThinDivider()
+                    SettingRow(
+                        "聊天模型",
+                        apiStatus?.model?.takeIf { it.isNotBlank() } ?: "未配置",
+                    )
+                    ThinDivider()
+                    SettingRow(
+                        "端点",
+                        apiStatus?.endpoint?.takeIf { it.isNotBlank() } ?: "—",
+                    )
+                    Text(
+                        text = "模型与供应商在聊天页输入岛的「模型」面板配置",
+                        fontSize = 11.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+            item {
+                BandCard(
+                    title = "数据 · 导入与导出",
+                    iconRes = LuzzyIcons.Download,
+                    bandFirst = MaterialTheme.colorScheme.tertiary,
+                    bandSecond = bandTone(MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.surface),
+                    bandContent = MaterialTheme.colorScheme.onTertiary,
+                ) {
+                    SettingRow("导出预设（presets.json）", onClick = transfer.exportPresets)
+                    ThinDivider()
+                    SettingRow(
+                        "导出世界书（world_info.json）",
+                        "仅全局书；角色绑定的条目随角色卡导出",
+                        onClick = transfer.exportWorldInfo,
+                    )
+                    ThinDivider()
+                    SettingRow("导出角色卡（characters.json）", "正文与头像引用原样携带", onClick = transfer.exportCharacters)
+                    ThinDivider()
+                    SettingRow("导入预设", "整组覆盖现有预设", onClick = transfer.importPresets)
+                    ThinDivider()
+                    SettingRow("导入世界书", "整组覆盖全局书", onClick = transfer.importWorldInfo)
+                    ThinDivider()
+                    SettingRow("导入角色卡", "同卡覆盖；外来卡新建", onClick = transfer.importCharacters)
+                    if (migrationReportProvider != null) {
+                        ThinDivider()
+                        SettingRow("迁移报告", "从旧版搬来了什么", onClick = {
+                            showReport = true
+                            reportState = null
+                            val provider = migrationReportProvider ?: return@SettingRow
+                            reportScope.launch { reportState = runCatching { provider() } }
+                        })
                     }
                 }
             }
             item {
-                SettingCard {
-                    Column {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .background(Brush.horizontalGradient(listOf(Color(0xFF3E6B6E), Color(0xFF2F5D50)))),
+                BandCard(
+                    title = "高级设置",
+                    iconRes = LuzzyIcons.Sliders,
+                    // 高级卡用 primaryContainer（与用户卡同族但更沉一档）——色相仍只来自 M3 role
+                    bandFirst = MaterialTheme.colorScheme.primaryContainer,
+                    bandSecond = bandTone(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surface),
+                    bandContent = MaterialTheme.colorScheme.onPrimaryContainer,
+                ) {
+                    SectionTitle("显示", Modifier.padding(start = 16.dp, top = 6.dp))
+                    // 参数块（方向 A 的承载件：底色块 + 内嵌控件）
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        FontSizeSliderRow(
+                            fontScale = fontScale,
+                            onChange = onFontScaleChange,
+                            onFinished = onFontScaleFinished,
                         )
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "API 连接",
-                                fontSize = 15.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            val status = apiStatus
-                            SettingRow(
-                                "API 提供商",
-                                when {
-                                    status == null -> "—"
-                                    status.configured -> "已配置"
-                                    else -> "未配置"
+                    }
+                    SettingRow(
+                        "文风过滤",
+                        "删改 AI 措辞（提示词侧、显示、落库三处同源；照上游默认开）",
+                        trailing = {
+                            LuzzySwitch(
+                                checked = styleFilter,
+                                onCheckedChange = { next ->
+                                    styleFilter = next
+                                    data?.onStyleFilterChange?.invoke(next)
                                 },
+                                label = "文风过滤",
                             )
-                            SettingRow(
-                                "聊天模型",
-                                apiStatus?.model?.takeIf { it.isNotBlank() } ?: "未配置",
-                            )
-                            SettingRow(
-                                "端点",
-                                apiStatus?.endpoint?.takeIf { it.isNotBlank() } ?: "—",
-                            )
-                            Text(
-                                text = "模型与供应商在聊天页输入岛的「模型」面板配置",
-                                fontSize = 11.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                color = MaterialTheme.colorScheme.outline,
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                SettingCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "数据 · 导入与导出",
-                            fontSize = 15.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        SettingRow("导出预设（presets.json）", onClick = transfer.exportPresets)
-                        SettingRow(
-                            "导出世界书（world_info.json）",
-                            "仅全局书；角色绑定的条目随角色卡导出",
-                            onClick = transfer.exportWorldInfo,
-                        )
-                        SettingRow("导出角色卡（characters.json）", "正文与头像引用原样携带", onClick = transfer.exportCharacters)
-                        SettingRow("导入预设", "整组覆盖现有预设", onClick = transfer.importPresets)
-                        SettingRow("导入世界书", "整组覆盖全局书", onClick = transfer.importWorldInfo)
-                        SettingRow("导入角色卡", "同卡覆盖；外来卡新建", onClick = transfer.importCharacters)
-                        if (migrationReportProvider != null) {
-                            SettingRow("迁移报告", "从旧版搬来了什么", onClick = {
-                                showReport = true
-                                reportState = null
-                                val provider = migrationReportProvider ?: return@SettingRow
-                                reportScope.launch { reportState = runCatching { provider() } }
-                            })
-                        }
-                    }
-                }
-            }
-            item {
-                SettingCard {
-                    Column {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .background(Brush.horizontalGradient(listOf(Color(0xFF54426B), Color(0xFF3D3352)))),
-                        )
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "高级设置",
-                                fontSize = 15.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            FontSizeSliderRow(
-                                fontScale = fontScale,
-                                onChange = onFontScaleChange,
-                                onFinished = onFontScaleFinished,
-                            )
-                            SettingRow(
-                                "文风过滤",
-                                "删改 AI 措辞（提示词侧、显示、落库三处同源；照上游默认开）",
-                                trailing = {
-                                    LuzzySwitch(
-                                        checked = styleFilter,
-                                        onCheckedChange = { next ->
-                                            styleFilter = next
-                                            data?.onStyleFilterChange?.invoke(next)
-                                        },
-                                        label = "文风过滤",
-                                    )
-                                },
-                            )
-                        }
-                    }
+                        },
+                    )
                 }
             }
         }

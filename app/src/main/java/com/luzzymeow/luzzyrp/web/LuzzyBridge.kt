@@ -28,7 +28,8 @@ class LuzzyBridge(private val context: Context) {
     /**
      * 原生 → JS 事件出口（v2.0）。
      *
-     * 由 [com.luzzymeow.luzzyrp.MainActivity] 在创建 WebView 后设置，契约：
+     * 由 WebView 宿主在创建 WebView 后设置（原主壳 MainActivity 已于 P6 随 WebView 路径
+     * 退役删除；v3.0 Compose 路径不经过 WebView，本属性仅作为 v2.x 契约保留），契约：
      * 收到的字符串是**完整的 JS 表达式**，宿主须在 **UI 线程** 调
      * `webView.evaluateJavascript(js, null)`；WebView 销毁前须置回 null。
      */

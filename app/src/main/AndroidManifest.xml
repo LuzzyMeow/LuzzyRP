@@ -1,19 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- LuzzyRP 主清单（v1.0.0 WebView 壳） -->
+<!-- LuzzyRP 主清单（v3.0 P6 起：唯一界面为 Compose；WebView 仅剩迁移通道的隐藏用法） -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 网络访问：用户配置的 LLM API 端点请求（RP-Hub 运行时需要） -->
+    <!-- 网络访问：用户配置的 LLM API 端点请求；迁移页（files/ext/）资产加载 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- 导出下载（DownloadManager 写入外部下载目录；API 29+ 走 SAF 无需此权限） -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <!-- 助手「日历读写」工具（calendar_read / calendar_write）：运行时权限，**未声明则永远无法授予**。
-         2026-09-11 静态审查修复——此前只在代码里检查权限却没在清单声明，且 App 内也没有申请流程，
-         该工具必然失败。授权入口：助手设置页 → 工具开关 → 日历权限 → 授予。 -->
-    <uses-permission android:name="android.permission.READ_CALENDAR" />
-    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- [v3.0 P6 移除] WRITE_EXTERNAL_STORAGE（DownloadHandler 专用，已随 WebView 路径退役删除，
+         导入导出全部走 SAF 无需权限）；
+         READ/WRITE_CALENDAR（已移除的「助手」日历工具专用，功能不存在即无权限必要） -->
 
     <application
         android:allowBackup="true"
@@ -24,8 +19,11 @@
         android:theme="@style/Theme.LuzzyRP"
         tools:targetApi="37">
 
+        <!-- [v3.0 P6] launcher 切换：Compose 界面成为唯一入口。
+             P1-P5 期间 launcher 挂在 WebView MainActivity 下（「点图标进老界面」的根因），
+             P6 随 WebView 路径退役移交本 Activity 并删除 MainActivity 声明。 -->
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.ComposeActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale">
@@ -34,14 +32,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- [v3.0 P1] Compose 界面宿主（空壳验证用）：launcher 仍为 MainActivity（WebView），
-             本 Activity 仅经 adb am start 显式启动做 P1-P5 开发验证；P6 切换时才接任 launcher。 -->
-        <activity
-            android:name=".ui.ComposeActivity"
-            android:exported="true"
-            android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale" />
     </application>
 
 </manifest>

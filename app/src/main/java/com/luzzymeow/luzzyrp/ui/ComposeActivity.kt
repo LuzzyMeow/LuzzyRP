@@ -39,13 +39,12 @@ import com.luzzymeow.luzzyrp.ui.pages.preset.PresetsPage
 import com.luzzymeow.luzzyrp.ui.pages.world.WorldInfoPage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
+import com.luzzymeow.luzzyrp.util.AssetExtractor
 import kotlinx.coroutines.launch
 
 /**
- * v3.0 Compose 界面宿主（P1 静态稿验证）。
- *
- * launcher 仍为 [com.luzzymeow.luzzyrp.MainActivity]（WebView 壳，v2.x 体验零影响）；
- * 本 Activity 经 `adb shell am start` 显式启动做开发验证，P6 切换时才接任 launcher。
+ * v3.0 Compose 界面宿主（P6 起**唯一 launcher**——WebView 主壳 MainActivity 已随
+ * WebView 路径退役删除，launcher intent-filter 于 P6 移交本 Activity）。
  *
  * 路由：LuzzyNavShell（抽屉壳 + AnimatedContent 页面转场，DESIGN-compose §13.2）；
  * 聊天页沉浸形态（§12），其余页静态稿（§13.1）。
@@ -67,6 +66,10 @@ class ComposeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         LuzzyFonts.appContext = applicationContext
+        // [v3.0 P6] WebView 主壳退役后，解压只剩 ext/（迁移页在其中）。
+        // 必须发生在迁移**之前**：全新安装也要先解压出 files/ext/luzzy-migrate.html，
+        // 否则 MigrationRunner 会以「导出页缺失」失败（原触发点在被删除的 MainActivity）。
+        AssetExtractor.ensureExtExtracted(applicationContext)
         // 旧数据迁移：进界面**之前**发起（协调器保证只跑一次），界面会等它出结论再读库
         // （见 MigrationCoordinator 的类注释：否则会先按空库渲染成演示数据）。
         // 旧设置搬运作为「启动准备」挂在迁移之后、状态离开 Running 之前 ——

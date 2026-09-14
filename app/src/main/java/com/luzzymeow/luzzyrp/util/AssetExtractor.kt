@@ -8,16 +8,15 @@ import java.io.FileOutputStream
 import java.io.IOException
 
 /**
- * assets 解压器（rphub 上游 + ext 扩展层）。
+ * assets 解压器（v3.0 P6 起**只剩 ext 扩展层**——rphub 上游资产已随 WebView 路径退役删除）。
  *
- * [HARD-REQ-GUIDE] 壳工程关键决策（AGENTS.md §7）：
- * 必须加载 filesDir 而非 android_asset —— WebView 的 localStorage 在
- * `file:///android_asset` 路径下不可靠（部分系统 WebView 不持久化），
- * 解压到应用私有目录 (filesDir) 是标准做法，数据持久化才有保障。
+ * [HARD-REQ-GUIDE] 解压到 filesDir 的历史决策（AGENTS.md §7）：WebView 的 file:// origin
+ * 存储（localStorage / IndexedDB）依赖可写路径；老用户的旧数据仍在设备侧 filesDir 下，
+ * 迁移通道（MigrationRunner 的隐藏 WebView）按同 origin 读取。
  *
- * 解压两个根目录：
- * - `rphub/` → filesDir/rphub/（RP-Hub 上游文件，index.html 入口）
- * - `ext/`   → filesDir/ext/（二创扩展层，index.html 尾部挂载 ../ext/ 引用）
+ * 解压根目录：
+ * - `ext/` → filesDir/ext/（迁移页 luzzy-migrate.html 在其中；其余 v2.x 扩展文件
+ *   不再被执行但无害，不清理——见 docs/HANDOFF-p6-static.md §二）
  *
  * 幂等：目标目录已存在且标记文件版本匹配时跳过；首次启动执行完整解压。
  */
@@ -25,9 +24,8 @@ object AssetExtractor {
 
     private const val TAG = "AssetExtractor"
 
-    /** 需要解压的 assets 根目录（assets 内）→ filesDir 目标子目录名 */
+    /** 需要解压的 assets 根目录（assets 内）→ filesDir 目标子目录名（P6 起只剩 ext） */
     private val ROOTS = listOf(
-        "rphub" to "rphub",
         "ext" to "ext"
     )
 
@@ -35,17 +33,19 @@ object AssetExtractor {
     private const val MARKER_NAME = ".extracted_sig"
 
     /**
-     * 返回 WebView 实际加载的入口 HTML 的绝对路径。
+     * 确保 ext/ 已解压到 filesDir 并返回该目录。
      * 首次调用会执行解压（若未解压或版本不符）。
+     * 必须在迁移（MigrationCoordinator.ensureMigrated）**之前**调用：
+     * 迁移页 files/ext/luzzy-migrate.html 由这里解压出来，全新安装也要先有它。
      */
-    fun ensureExtracted(context: Context): File {
+    fun ensureExtExtracted(context: Context): File {
         for ((assetRoot, targetName) in ROOTS) {
             val target = File(context.filesDir, targetName)
             if (needsExtract(target)) {
                 extract(context, assetRoot, target)
             }
         }
-        return File(context.filesDir, "rphub")
+        return File(context.filesDir, "ext")
     }
 
     private fun needsExtract(target: File): Boolean {

@@ -13,7 +13,8 @@ import org.junit.Test
  * extraBody 插入位置、tools 簇的出现与否，一处不对就红。
  *
  * 期望值一律是**手写常量**（不是从实现回显出来的），且与 JS 参考实现
- * `assets/rphub/assets/js/api-utils.js` 的三段 body 对象字面量逐键对齐：
+ * `rp-hub-reference/` 下 `assets/js/api-utils.js`（1.9.3 基线；运行时 rphub 资产已随
+ * WebView 路径退役删除）的三段 body 对象字面量逐键对齐：
  * - OpenAI：`requestChatCompletionOnce`；
  * - Anthropic：`requestAnthropicCompletionInternal`；
  * - Gemini：`requestGeminiCompletionInternal`。

@@ -8,7 +8,8 @@ import kotlinx.serialization.json.buildJsonObject
 /**
  * 抗截断「正文工具」定义（`output_reply`）。
  *
- * 与前端 JS（`assets/rphub/assets/js/api-utils.js` 的 `replyTool`）**逐字段同构**：
+ * 与上游前端 JS（`rp-hub-reference/` 下 `assets/js/api-utils.js` 的 `replyTool`，
+ * 1.9.3 基线）**逐字段同构**：
  * 描述文案、参数 schema、`required` / `additionalProperties` 全部照抄，
  * 否则模型在原生路径与 JS 路径下会看到不同的工具说明。
  */

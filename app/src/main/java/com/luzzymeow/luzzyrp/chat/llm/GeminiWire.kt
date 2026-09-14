@@ -9,7 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 /**
  * Google Gemini `generateContent` / `streamGenerateContent` 的**纯函数**线协议层。
  *
- * 与 JS（`assets/rphub/assets/js/api-utils.js` 的 `requestGeminiCompletionInternal`
+ * 与上游 JS（`rp-hub-reference/` 下 `assets/js/api-utils.js` 的 `requestGeminiCompletionInternal`
  * 与 `GEMINI_THINKING_BUDGETS`）逐键对应：
  * - 端点由本层拼接：`{base}/v1beta/models/{encodeURIComponent(model)}:` +
  *   `streamGenerateContent?alt=sse&` / `generateContent?` + `key={encodeURIComponent(apiKey)}`；

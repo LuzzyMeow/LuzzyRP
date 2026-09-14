@@ -9,7 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 /**
  * Anthropic Messages API 的**纯函数**线协议层。
  *
- * 与 JS（`assets/rphub/assets/js/api-utils.js` 的 `toAnthropicMessages` /
+ * 与上游 JS（`rp-hub-reference/` 下 `assets/js/api-utils.js` 的 `toAnthropicMessages` /
  * `anthropicThinkingConfig` / `requestAnthropicCompletionInternal`）逐键对应：
  * - **URL 原样使用** baseUrl（JS 已剥掉 `/chat/completions`；本层**不**追加 `/v1/messages`）；
  * - 键序固定：`model, max_tokens, [system], messages, [temperature], [thinking],

@@ -26,14 +26,15 @@ plugins {
 }
 
 // [LuzzyRP v1.2.3] 资产签名自动解压（根治「改 assets 忘 bump EXTRACT_VERSION」）：
-// 构建时对 rphub/ext 资产树计算（文件数+总大小+最新 mtime）签名并注入
+// 构建时对 ext 资产树计算（文件数+总大小+最新 mtime）签名并注入
 // BuildConfig.ASSET_SIGNATURE；AssetExtractor 启动时与设备侧标记比对，
 // 资产有任何变更即自动重新解压——无需任何手动版本操作。
 fun assetSignature(): String {
     var count = 0L
     var total = 0L
     var latest = 0L
-    listOf(file("src/main/assets/rphub"), file("src/main/assets/ext")).forEach { root ->
+    // [v3.0 P6] rphub 资产已随 WebView 路径退役删除，签名只剩 ext 树
+    listOf(file("src/main/assets/ext")).forEach { root ->
         root.walkTopDown().filter { it.isFile }.forEach { f ->
             count++
             total += f.length()
@@ -59,8 +60,8 @@ android {
 
         // 资产签名（见 assetSignature）：资产变更即触发设备侧重新解压
         buildConfigField("String", "ASSET_SIGNATURE", """"$assetSignature"""")
-        versionCode = 13
-        versionName = "2.0.0"
+        versionCode = 14
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

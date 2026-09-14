@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.luzzymeow.luzzyrp.chat.AgentLoop
+import com.luzzymeow.luzzyrp.chat.CotParser
 import com.luzzymeow.luzzyrp.chat.RecallEngine
 
 /** 一次工具调用的实时槽位（参数由模型真实逐片发出，故内容会持续增长）。 */
@@ -70,6 +71,29 @@ class LiveTurn {
     private var reasoningStartMs = 0L
     private var reasoningEndMs = 0L
 
+    /**
+     * 正文**原始**累积（含内联 CoT 标记；[body] 是剥掉 CoT 后的展示口径）。
+     *
+     * 为什么流式期就剥：此前 Content 直接追加原文，收尾 `AiResult` 才 `CotParser.mainOf`——
+     * 结果是「首轮正文出现 CoT、输出完毕后消失」的跳变（用户实测缺陷）。
+     * 现在流式与收尾**同源**（都过 [CotParser]），顺带治掉半截标签（`<thi`）的闪现
+     * （残片被 [CotParser] 剔除，不再显示）。
+     */
+    private var rawBody = ""
+
+    /** SSE 独立思考流的原始累积（`reasoning_content`）；与内联 CoT 分开记，展示层拼接。 */
+    private var sseReasoning = ""
+
+    /** 内联 CoT 是否出现过（决定 Content 期间思考节点的展开/收起时序）。 */
+    private var inlineCotShown = false
+
+    private fun composedReasoning(parsed: CotParser.Parsed = CotParser.parse(rawBody)): String =
+        when {
+            sseReasoning.isEmpty() -> parsed.cot
+            parsed.cot.isEmpty() -> sseReasoning
+            else -> "$sseReasoning\n\n${parsed.cot}"
+        }
+
     /** 按真实发生顺序组装节点（召回 → 工具 → 思考）。 */
     val nodes: List<ThinkNode>
         get() = buildList {
@@ -133,15 +157,37 @@ class LiveTurn {
             is AgentLoop.Event.Reasoning -> {
                 if (reasoningStartMs == 0L) reasoningStartMs = System.currentTimeMillis()
                 reasoningEndMs = System.currentTimeMillis()
-                reasoning += event.chunk
+                sseReasoning += event.chunk
+                reasoning = composedReasoning()
                 activeNode = nodes.lastIndex
             }
 
             is AgentLoop.Event.Content -> {
-                // 思考内容流式结束 → 思考节点自动收起（下标移走），正文接管
-                if (!reasoningDone && reasoning.isNotEmpty()) reasoningDone = true
-                activeNode = -1
-                body += event.chunk
+                rawBody += event.chunk
+                val parsed = CotParser.parse(rawBody)
+                // 展示与收尾同源（AiResult 构造时也是 CotParser.mainOf）
+                body = parsed.main
+                if (parsed.cot.isNotEmpty()) {
+                    // 内联 CoT：并入思考节点（此前收尾后「既不在节点也不在正文」地消失）
+                    reasoning = composedReasoning(parsed)
+                    reasoningEndMs = System.currentTimeMillis()
+                    if (!inlineCotShown) {
+                        inlineCotShown = true
+                        if (reasoningStartMs == 0L) reasoningStartMs = System.currentTimeMillis()
+                        reasoningDone = false
+                    }
+                    if (parsed.isFinished) {
+                        // CoT 闭合：节点收起，正文接管
+                        reasoningDone = true
+                        activeNode = -1
+                    } else {
+                        activeNode = nodes.lastIndex
+                    }
+                } else {
+                    // 无内联 CoT：正文开始 → 既有思考流收起
+                    if (!reasoningDone && sseReasoning.isNotEmpty()) reasoningDone = true
+                    activeNode = -1
+                }
             }
 
             is AgentLoop.Event.Usage -> {

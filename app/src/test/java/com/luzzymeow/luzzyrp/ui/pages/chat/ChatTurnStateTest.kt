@@ -143,4 +143,58 @@ class ChatTurnStateTest {
         turn.apply(AgentLoop.Event.Finished(AgentLoop.FinishReason.Completed, "stop"))
         assertTrue(turn.nodes.isEmpty())
     }
+
+    // ---------------- 内联 CoT（流式与收尾同源，用户实测缺陷 #4） ----------------
+
+    @Test
+    fun `内联 CoT 流式期间进思考节点，正文不含标记`() {
+        val turn = LiveTurn()
+        turn.apply(AgentLoop.Event.Content("<thinking>分析情景</thinking>"))
+        assertEquals("分析情景", turn.reasoning)
+        assertEquals("", turn.body)
+        assertTrue("CoT 已闭合：节点应收起", turn.reasoningDone)
+
+        turn.apply(AgentLoop.Event.Content("正文开始"))
+        assertEquals("正文开始", turn.body)
+        assertEquals("分析情景", turn.reasoning)
+    }
+
+    @Test
+    fun `CoT 未闭合时节点展开流入，闭合后收起`() {
+        val turn = LiveTurn()
+        turn.apply(AgentLoop.Event.Content("<thinking>想"))
+        assertFalse("思维链还在流入：节点应保持展开", turn.reasoningDone)
+        assertTrue(turn.nodes.any { it is ThinkNode.Brainstorm })
+
+        turn.apply(AgentLoop.Event.Content("</thinking>"))
+        assertTrue("闭合后收起", turn.reasoningDone)
+        assertEquals(-1, turn.activeNode)
+    }
+
+    @Test
+    fun `流式半截标签不闪现（残片剔除）`() {
+        val turn = LiveTurn()
+        turn.apply(AgentLoop.Event.Content("<thi"))
+        assertEquals("半截开标签不该出现在正文", "", turn.body)
+
+        turn.apply(AgentLoop.Event.Content("nking>内心戏</thinking>好"))
+        assertEquals("好", turn.body)
+        assertEquals("内心戏", turn.reasoning)
+    }
+
+    @Test
+    fun `SSE 思考与内联 CoT 并存时拼接展示，流式与收尾同源`() {
+        val turn = LiveTurn()
+        turn.apply(AgentLoop.Event.Reasoning("先想"))
+        turn.apply(AgentLoop.Event.Content("<thinking>内联分析</thinking>正文"))
+        assertEquals("先想\n\n内联分析", turn.reasoning)
+        assertEquals("正文", turn.body)
+
+        // 收尾构造（ChatPage 用 AiResult(raw = turn.body)）与流式期展示同源：
+        // body 已剥过 CoT，再过一次 mainOf 必须幂等
+        assertEquals(
+            com.luzzymeow.luzzyrp.chat.CotParser.mainOf(turn.body),
+            turn.body,
+        )
+    }
 }

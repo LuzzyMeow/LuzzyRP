@@ -5002,3 +5002,91 @@ D1/D3 复用既有组件、不新造视觉语言。
   的根因）、单 APK + 签名一致 + 真机回归、§3.4 全流程。
 
 ---
+
+## 📍 当前工作节点（会话 80 暂停 · P6 静态工作进行中 · B 项改动未提交）
+
+> **接手三件事**（按序）：① 读本节点 + `docs/HANDOFF-p6-static.md`（剩余工作的完整执行细节）；
+> ② `git status` 核对未提交清单与本节一致；③ 跑 `./gradlew :app:testDebugUnitTest`
+> 取接手基线（**B 项改动编译已过，但 JVM 全量未跑**——接手先补跑）。
+
+### 状态一览
+
+| 项 | 值 |
+|---|---|
+| 阶段 | **P6 静态工作（计划已获用户批准）推进到 B 项**；A 已提交、B 实现完未提交、C/D/E 未开始 |
+| HEAD | `042f131b`（A 项，**已提交未 push**） |
+| 未提交 | B 项 6 文件（见下表）——编译通过，测试未写 |
+| 真机 | `df97f3c4` 不在线；模拟器已按收尾要求关闭 |
+| 用户指令 | 「先完成 P6 的静态工作……先完成所有代码层的工作，然后再进行 bug 修复与真机检测」→「现在暂停，记录节点」 |
+
+### 已完成（本会话）
+
+1. **A 项 ✅ 已提交（`042f131b`）**：CoT 流式一致性（用户实测缺陷 #4）——`LiveTurn` 的 Content
+   事件统一「rawBody 累积 → `CotParser.parse` → body=main」，内联 CoT 并入思考节点
+   （与 SSE `reasoning_content` 拼接），流式与收尾同源；顺带治掉半截标签（`<thi`）闪现。
+   `ChatTurnStateTest` +4。
+2. **B 项实现完（未提交，编译通过）**：
+   - `AppSettings.styleFilterEnabled`（默认 true，上游口径）+ `SettingsStore` 读写；
+   - ChatPage 顶层读一次开关，**三处消费接线**（提示词侧 `prepareTurn` / 落库前 `resultOf`
+     （签名加参）/ 显示期 `AiMessagePanel`→`MessageBody` 新参数）——此前三处**硬编码 true**
+     （会话 76 A4 欠的 UI 开关）；
+   - 设置页三卡接真：用户设置卡（真实 `userProfile`）、API 连接卡（真实 `TransportConfig`
+     状态 + 引导文案）、高级设置卡文风过滤真开关；**撤掉三个假开关**（使用封面背景/沉浸模式/
+     显示最新用量——功能本体不存在，「不留假按钮」）；
+   - 新增 `SettingsData`/`ApiStatusRow` 接线对象（宿主注入、测试可 fake）；
+     `ComposeActivity` 构造传入。
+
+### 未提交改动清单（接手先验证再提交）
+
+| 文件 | 改动 |
+|---|---|
+| `data/settings/AppSettings.kt` | + `styleFilterEnabled`（默认 true） |
+| `data/settings/SettingsStore.kt` | `KEY_STYLE_FILTER` 读写 |
+| `ui/pages/chat/ChatPage.kt` | 顶层读开关 + `prepareTurn`/`resultOf`/三处 `AiMessagePanel` 接线 |
+| `ui/pages/chat/ChatComponents.kt` | `AiMessagePanel` 加 `styleFilterEnabled` 参数 → `MessageBody` |
+| `ui/pages/StaticPages.kt` | `SettingsData`/`ApiStatusRow` + 三卡接真 + 撤假开关 |
+| `ui/ComposeActivity.kt` | 构造 `SettingsData` 传入设置页 |
+
+### 剩余工作（照已批准的计划，按序）
+
+3. **B 收尾**：`SettingsStoreTest`（androidTest，**ASCII 方法名**）补 `styleFilterEnabled`
+   往返用例 → JVM 全量 + `checkChat`（若模拟器可用）→ 提交
+   「feat(v3.0-P6): 设置页接真 + 文风过滤开关接线（撤假开关）」。
+4. **C · WebView 路径退役 + launcher 切换**（大项，删除清单已获批准）：
+   - Manifest：launcher intent-filter 移交 `ui.ComposeActivity`、删 `.MainActivity` 声明、
+     权限清理（`READ/WRITE_CALENDAR`、`WRITE_EXTERNAL_STORAGE`）
+   - 删：`MainActivity.kt`、`web/DownloadHandler.kt`、`web/FileChooserHandler.kt`、
+     `assets/rphub/**`（20.5MB）
+   - 改：`AssetExtractor` `ROOTS` 只留 `ext/`、`ensureExtracted` 返回迁移页路径；
+     解压触发点移到 ComposeActivity（`MigrationCoordinator` **之前**）
+   - **保留**：`LuzzyBridge` / `WebViewSetup` / `MigrationRunner` / `assets/ext/` 全部
+     （迁移通道已核实与 MainActivity/rphub 解耦——导出页直接用 `window.LuzzyBridge`）
+5. **D · 版本与发版静态件**：`versionCode 14` / `versionName "3.0.0"`；
+   `docs/release-notes-v3.0.0.md` 草稿（照 v1.4.0 排版）；gen-changelog 重跑；
+   本地 `assembleRelease`（单 APK + 体积约 -20MB）+ `apksigner verify --print-certs`
+   指纹核对（`ed78235d…` 不变）。
+6. **E · 真机验收清单**：`docs/HANDOFF-p6-device.md`（CHAT-REGRESSION 十步 +
+   `HANDOFF-p5-static.md` B 栏 + P6 专项 + 真机设置还原两条命令）。
+7. **收尾**：WORKLOG 节点收尾 + JVM 3 连跑 + `git push origin main`（A/B/C/D 一起推）。
+
+### 接手需读文档（按序）
+
+| # | 文档 | 为什么 |
+|---|---|---|
+| 1 | `docs/HANDOFF-p6-static.md` | **本轮交接**：剩余工作的执行细节、判据与顺序 |
+| 2 | 本节（`docs/WORKLOG.md` 末尾） | 接手基线 + 未提交清单 + 已批准计划的边界 |
+| 3 | `AGENTS.md` §3.1 / §7 | 接手流程 + 坑表（本轮新增 2 条，见下） |
+| 4 | `docs/PLAN-v3.0-compose.md` §2/§5 | P6 目标边界（切 launcher / 移除 WebView / 单 APK / 发版） |
+| 5 | `docs/DESIGN-compose.md` §3/§9/§28/§29 | 设计真源（D1-D3 落档处；设置页接真的豁免依据） |
+| 6 | `docs/HANDOFF-p5-static.md` B 栏 | 真机验收清单底稿（E 项要合并它） |
+| 7 | `docs/CHAT-REGRESSION.md` §4 | 仪器化测试写法纪律（写 B 项测试前必读） |
+
+### 本轮新增坑（值得进 `AGENTS.md` §7）
+
+1. **委托属性不能 smart cast**：`var apiStatus by remember { mutableStateOf<ApiStatusRow?>(null) }`
+   在 `when` 判空后直接访问成员 → `Smart cast is impossible`——先落局部变量再判。
+2. **PowerShell 管道让 exit code 失真**：`./gradlew … | Select-String 'BUILD'` 输出
+   `BUILD SUCCESSFUL` 但整体报 `[exit code: 1]`（stderr 的 NativeCommandError 干扰）——
+   **以输出里的 BUILD 行为准**，别只看 exit code（本轮被误导过一次）。
+
+---

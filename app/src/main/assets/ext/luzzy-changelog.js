@@ -308,6 +308,32 @@
     （C3/C4/C7 设计落点 + D2/D3）、\`PLAN-v3.0-compose\` P4 主条目勾选 + 删重复行、
     CHANGELOG v2.0.0「at_depth 冲突未解」加「已于 v3.0.0 批 A 解决」括注。
 
+- **P6 静态工作：CoT 流式一致性 + 设置页接真 + WebView 路径退役 + 发版静态件**（2026-09-14，会话 80-81）：
+  - **A CoT 流式一致性**（提交 \`042f131b\`）：流式期 Content 事件统一「rawBody 累积 →
+    \`CotParser.parse\` → body=main」，内联思维链并入思考节点（与 SSE reasoning 拼接），
+    流式与收尾同源——治掉用户实测缺陷 #4（首轮正文出现「记忆整理」等 CoT、结束后消失）
+    与半截标签（\`<thi\`）闪现；\`ChatTurnStateTest\` +4；
+  - **B 设置页接真 + 文风过滤开关接线**：此前三处硬编码 true（会话 76 A4 欠的 UI 开关）——
+    提示词侧 / 落库前 / 显示期三处同源同一开关，唯一真源 \`AppSettings.styleFilterEnabled\`
+    （默认开，照上游）；设置页三卡接真（用户设置卡 / API 连接卡 / 文风过滤真开关）；
+    **撤掉三个假开关**（使用封面背景 / 沉浸模式 / 显示最新用量——功能本体不存在，不留假按钮）；
+    新增 \`SettingsData\`/\`ApiStatusRow\` 接线对象（宿主注入、测试可 fake）；
+  - **C launcher 切换 + WebView 路径退役**：launcher intent-filter 移交 \`ui.ComposeActivity\`
+    （「点图标进 WebView 老界面」的根因消除）；删 \`MainActivity\` / \`web/DownloadHandler\` /
+    \`web/FileChooserHandler\` / \`assets/rphub/**\`（20.5MB / 38 文件）；权限清理
+    （\`READ/WRITE_CALENDAR\`、\`WRITE_EXTERNAL_STORAGE\`——功能本体均已不存在，导入导出走 SAF）；
+    \`AssetExtractor\` 只解压 \`ext/\`、触发点移到 \`ComposeActivity.onCreate\`（迁移**之前**）；
+    **迁移通道保留**（\`MigrationRunner\` 隐藏 WebView + \`assets/ext/\` 全部，与已删路径解耦，
+    老用户升级仍自动迁移）；
+  - **D 版本与发版静态件**：versionCode 14 / versionName 3.0.0；\`docs/release-notes-v3.0.0.md\` 草稿
+    （照 v1.4.0 排版）；gen-changelog 重跑；assembleRelease 单 APK **23.70 MB**
+    （v2.0.0 为 40.96 MB，约 -17MB）；\`apksigner\` 指纹 \`ed78235d…ffb1\` 与上一版一致（签名不变纪律）；
+  - **E 真机验收清单**：\`docs/HANDOFF-p6-device.md\`（十步走查 + P5 B 栏目视项 + P6 专项 +
+    发版检查单 + 真机设置还原两条命令）；**Release 发布与附 APK 留到真机回归通过后**；
+  - 门禁：JVM **818 / 0**（+4 A 项）；仪器化 \`checkChat\` **92 / 0**（+1 \`SettingsStoreTest\`
+    文风过滤默认值与往返）；首轮 \`ChatUiTest.世界书面板\` 偶红为坑表在案的模拟器长跑劣化
+    （冷重启后同代码全绿，未改代码迎合）。
+
 **修复**
 - **上游式「整键优先」会丢掉整张角色卡**（迁移器实现时发现并修）：上游 \`dbGetWithLegacy\` 的
   「新键优先」是**整键替换**——新库里只要存在 \`characters\`，旧库（及同库旧前缀）的那一份就整体不看。

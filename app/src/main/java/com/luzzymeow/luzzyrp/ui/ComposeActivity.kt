@@ -80,6 +80,11 @@ class ComposeActivity : ComponentActivity() {
                     applicationContext,
                     LuzzyStore(DatabaseProvider.luzzy(applicationContext)),
                 )
+                // [v3.1] 世界书多书迁移（幂等：旧全局桶 → 「默认世界书」；
+                // 角色卡内嵌 worldInfo → 「<角色名> 的世界书」）。旧键一个不删 → 回滚安全。
+                com.luzzymeow.luzzyrp.data.world.LoreBookRepository(
+                    LuzzyStore(DatabaseProvider.luzzy(applicationContext)),
+                ).migrateLegacyWorldInfo()
             }
             // 搬运完再读主题/字号：否则会把「刚搬来的旧值」覆盖回默认
             SettingsStore(applicationContext).load().let {
@@ -200,7 +205,7 @@ class ComposeActivity : ComponentActivity() {
                             onOpenSession = { _, _ -> route = LuzzyRoute.Chat },
                         )
                         LuzzyRoute.Characters -> CharactersPage(onOpenDrawer)
-                        LuzzyRoute.WorldInfo -> WorldInfoPage(onOpenDrawer)
+                        LuzzyRoute.WorldInfo -> com.luzzymeow.luzzyrp.ui.pages.world.LoreBookPage(onOpenDrawer)
                         LuzzyRoute.Presets -> PresetsPage(onOpenDrawer)
                         LuzzyRoute.Memory -> MemoryPage(onOpenDrawer)
                         LuzzyRoute.Usage -> UsagePage(onOpenDrawer)

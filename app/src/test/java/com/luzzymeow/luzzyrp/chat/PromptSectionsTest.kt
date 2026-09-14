@@ -1,13 +1,16 @@
-package com.luzzymeow.luzzyrp.chat
+﻿package com.luzzymeow.luzzyrp.chat
 
 import com.luzzymeow.luzzyrp.data.preset.PresetEntry
 import com.luzzymeow.luzzyrp.data.preset.PresetRole
+import com.luzzymeow.luzzyrp.data.world.DepthRole
 import com.luzzymeow.luzzyrp.data.world.WorldEntry
 import com.luzzymeow.luzzyrp.data.world.WorldPosition
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -249,6 +252,63 @@ class PromptSectionsTest {
     }
 
     // ---------------------------------------------------------------- 组装层面的缓存性质
+
+    /**
+     * v3.1 专项（S3 硬指标）：`@Depth` 的 **role 标注**落在快照文本内，
+     * 快照不变时相邻两轮仍是**严格纯追加**（不新增消息、不改历史字节）。
+     */
+    @Test
+    fun `role 标注落在快照内——快照不变时仍是纯追加`() {
+        val drifting = listOf(
+            worldEntry("系统段", WorldPosition.AtDepth).copy(depthRole = DepthRole.System),
+            worldEntry("用户段", WorldPosition.AtDepth).copy(depthRole = DepthRole.User),
+            worldEntry("助手段", WorldPosition.AtDepth).copy(depthRole = DepthRole.Assistant),
+            worldEntry("用户顶", WorldPosition.UserTop),
+            worldEntry("助手顶", WorldPosition.AssistantTop),
+        )
+        val snapshots = PromptSections.snapshotSections(drifting)
+        assertEquals("漂移型条目合成一条快照", 1, snapshots.size)
+        val text = snapshots[0].text
+
+        assertTrue("带 [system] 段", text.contains("[system]"))
+        assertTrue("带 [user] 段", text.contains("[user]"))
+        assertTrue("带 [assistant] 段", text.contains("[assistant]"))
+        assertTrue("user_top 归到 user 段", text.contains("用户顶"))
+        assertTrue("assistant_top 归到 assistant 段", text.contains("助手顶"))
+
+        // 同一批条目两次渲染 → 逐字节相同（决定化排序）
+        assertEquals("两次渲染必须逐字节一致（决定化）", text, PromptSections.snapshotSections(drifting)[0].text)
+
+        // 快照不变 → project 返回 null（不发新消息）→ 历史不被改写 → 纯追加。
+        // ⚠️ retained 必须传 **project 上一次的输出**（含 HEADER），不是裸的 section 文本——
+        //    这正是 RequestBuilder 用「日志里最后一条快照」当 retained 的原因。
+        val first = RuntimeSnapshots.project(snapshots, retained = null)
+        assertNotNull("首次应发快照", first)
+        assertNull("内容未变 → 不再发", RuntimeSnapshots.project(snapshots, retained = first))
+    }
+
+    @Test
+    fun `role 段为空时不出现空标题`() {
+        val onlyUser = listOf(worldEntry("只有用户段", WorldPosition.AtDepth).copy(depthRole = DepthRole.User))
+        val text = PromptSections.snapshotSections(onlyUser)[0].text
+        assertTrue("有 user 段", text.contains("[user]"))
+        assertFalse("不该出现空的 system 段", text.contains("[system]"))
+        assertFalse("不该出现空的 assistant 段", text.contains("[assistant]"))
+    }
+
+    @Test
+    fun `条目顺序变化不改变快照字节（拖拽序不进请求）`() {
+        val a = listOf(
+            worldEntry("A", WorldPosition.AtDepth),
+            worldEntry("B", WorldPosition.AtDepth),
+        )
+        val b = a.reversed()
+        assertEquals(
+            "同一批条目换个顺序 → 快照逐字节相同（缓存稳定）",
+            PromptSections.snapshotSections(a)[0].text,
+            PromptSections.snapshotSections(b)[0].text,
+        )
+    }
 
     @Test
     fun `相邻两轮请求在快照不变时是纯追加`() {

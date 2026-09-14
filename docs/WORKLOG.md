@@ -5159,5 +5159,144 @@ D1/D3 复用既有组件、不新造视觉语言。
   自动迁移 → 数据完好 → 设置页三卡 / 迁移报告目测 → SAF 导入导出走查 → 发版检查单；
   通过后 GitHub Release v3.0.0（仅附那一个 APK）。
 - 真机设置还原两条命令（会话 77 遗留）在清单 §五。
-- 会话 80 节点提的「两条坑入 AGENTS §7」（委托属性 smart cast / PowerShell 管道失真）
-  本轮**未**做（不在已批准计划内），留给下轮文档轮顺手落。
+## 会话 82-83 · 2026-09-15 · **用户插入：世界书（World Info）v3.1 全量开发**
+
+> **用户指令**：「先停下并记录当前工作节点，然后完成世界书相关开发任务，才可继续测试」。
+> 前序（P6 模拟器验收 Phase 0-2）已在上方「会话 82」节点存档——**Phase 3 三方向板与 P6 剩余项挂起**。
+
+### 一、调研（两个项目 + 参考图，全部落档）
+
+- **SillyTavern**：官方文档 `World Info` 全页 + `world-info.js` 源码关键类
+  （`world_info_logic` / `WorldInfoBuffer` / `WorldInfoTimedEffects` / `world_info_position`）；
+- **上游 RP-Hub**：`data-services.js:789-860` 的 `resolveWorldInfoEntries`（本地 `rp-hub-reference/`）；
+  实测结论：**上游只有 4 项能力**（常驻 / 关键词+扫描深度 / 概率 / order 排序），
+  参考图展示的是 **ST 的完整模型**——即用户要的是「把 ST 的能力带到 LuzzyRP」；
+- **参考图 10 张**（`app.bitbear.t`，Flutter，ST 谱系）：世界书列表（搜索 + 新建/导入）→
+  编辑世界书（书名 + 条目行：策略图标/编辑/复制/删除/开关）→ 编辑条目
+  （名字/内容/激活策略/激活概率/注入位置/关键词匹配/延时作用）→ 三个二级选择页；
+  参考 APK（53.4 MB）已解包确认（Flutter + objectbox，UI 规格以截图为准）。
+- 产出：`docs/RESEARCH-worldbook-sillytavern.md`（三方对照表 + ST 机制 + **缓存不变量**）、
+  `docs/PLAN-worldbook-v3.1.md`（分阶段计划 + 风险）、`DESIGN-compose §30`（设计落点）。
+
+### 二、用户拍板（4 项）
+
+① 范围 = 参考图展示的全部；② 全词匹配**默认关**（唯一偏离 ST 处，中文友好）；
+③ `@Depth` role 走**缓存安全路径**（快照内标注，不插历史）；④ 做**多书** + **自动迁移**；
+⑤ 设计门：沿用既有范式，**不重开三方向**（照参考图扩展既有页面族）。
+
+### 三、实现（S1-S4，全部落地）
+
+| 阶段 | 内容 | 证据 |
+|---|---|---|
+| S1 数据层 | `WorldEntry` +8 字段（次级关键词/四逻辑/大小写/全词/@Depth role/粘性/冷却/延迟，含 ST 别名归一）；`LoreBook` + `LoreBookRepository`（多书 CRUD / 启用 / 绑定 / 导入导出）；`WorldBookMigration`（纯函数计划 + 幂等 + 只读旧数据）；`WorldBookFormats`（三形态导入识别） | `WorldBookMigrationTest` 15 例 |
+| S2 激活层 | 四逻辑真值表 / 大小写（正则键同步）/ 全词（中英差异）/ 扫描文本角色名前缀；`TimedEffects`（粘性·冷却·延迟，照 ST 时间线） | `WorldBookActivatorV31Test` 18 例 |
+| S3 注入层 | `@Depth` 按 role 分段进快照；稳定块新增**对话示例前/后**两档；清理两处死代码 | `PromptSectionsTest` +3 例；**缓存门禁全绿** |
+| S4 UI | 列表 / 编辑世界书 / 编辑条目 / 三个二级选择页（全部复用 PageKit + EditorKit） | 装机截图 30-34（含 read_image 审查） |
+
+**接线**：`PromptInputSource` 改用多书（无书时回落旧两桶）；定时效果状态存
+`kv[worldbook.timedEffects.<branchId>]`；`ComposeActivity` 启动触发幂等迁移；
+侧栏「世界书」路由切到新页（聊天页世界书面板的「管理」同一入口）。
+
+### 四、验收门禁
+
+- JVM：**850+ 例全绿**（新增 33 + 3）；
+- 缓存：`BatchACacheAcceptanceTest` + 7 条纯追加用例 + 新增 role 用例 **全绿**（硬约束达成）；
+- 模拟器截图审查（release 包）：列表空态 → 创建弹层 → 条目编辑（全部字段）→ 注入位置二级页；
+  **截图抓到 1 个真缺陷并当场修掉**：列表底部「新建世界书」按钮被空态的 `fillMaxSize()`
+  挤出屏幕（改用 `weight(1f)`）。
+
+### 五、未做（如实登记，不得当成已完成）
+
+递归激活 / max steps、包含组与权重、token 预算（Context%·Budget）、附加匹配源
+（角色描述·性格·场景·人设·创作者笔记）、触发器类型、outlet 宏、向量化激活（🔗）、
+AN 两档位置（本应用提示词无 AN 模块）、**定时效果的分支继承**（ST 语义：分支继承父状态）
+与**条目编辑时的效果清除**（UI 保存路径尚未接 `TimedEffects.forget`）。
+
+### 六、下一步
+
+1. **回到 P6 验收**：Phase 3 三方向板（boards-v7 的 direction-c + 渲染三张 PNG）→ 停轮等用户选方向；
+2. P6 剩余项 + 用户真机人工验收（`docs/HANDOFF-p6-device.md`，其中世界书链路需补真实生成走查）；
+3. 真机验收清单补：世界书多书/迁移/定时效果的真机走查项。
+
+---
+
+## 会话 82 · 2026-09-15 · P6 模拟器验收（Phase 0-2 完成）→ **用户插入世界书任务（优先）**
+
+> **节点性质**：用户中途插入新任务——「先停下并记录当前工作节点，然后完成世界书相关开发任务，
+> 才可继续测试」。本节点是**暂停点存档**：P6 验收做到 Phase 2（修复 + 门禁全绿），
+> Phase 3 三方向板写到一半；世界书任务完成后回来接着走 Phase 3+。
+
+### 用户指令（本轮，原文要点）
+
+1. **先模拟机完整验收，再用户真机人工验收**；模拟机发现的所有 BUG **自行修复**；
+2. 每个页面/组件/弹窗**必须实际截图 + `read_image` 亲自审查**；审查须**触发 4 项设计 SKILL**；
+   对齐 **rp-hub 组件摆放形式**；**聊天页用户满意、不要动**；**设置页「太简陋」需重点处理**；
+3. （插入）**世界书任务**：① 深度调研 SillyTavern 世界书架构与注入方式（**不得破坏现有 KV 缓存优化**）；
+   ② 调研上游 RP-Hub 的世界书注入实现；③ 按参考图实现（10 张图在 `C:\Users\Administrator\Downloads`，
+   参考 APK `C:\Users\Administrator\Desktop\tav-latest-release-official.apk`，53.4 MB Flutter 应用）。
+
+### 一、设计门（硬性规定 9）已过
+
+4 项 SKILL 主文档**完整重读**：huashu-design `SKILL.md`（579 行全文，含三方向硬门 §Fallback）、
+open-design `AGENTS.md`（454 行全文，含 UI 动效哲学）、ui-ux-pro-max `CLAUDE.md`（118）+ `.claude/skills/ui-ux-pro-max/SKILL.md`（214）、
+awesome-design-md `README.md`（250）。设计真源 `DESIGN-compose.md` §2 色板 / §3 字体 / §4 组件 /
+§7 动效 / §8 Do's & Don'ts / §13 页面骨架已逐条对齐。
+
+### 二、Phase 0-1：模拟器验收（已完成，证据在 `docs/design/verify-p6-acc/`）
+
+- 冷启动 `LuzzyRP_Test` → 装 release 3.0.0（23.70 MB）→ `ComposeActivity` 启动；
+  **P6 解压路径实证**：`AssetExtractor: 解压完成: ext -> files/ext`（新触发点生效）；
+  迁移通道在「无旧数据」设备上如实报 `ok=false 读不到任何键` → 按既定降级下次重试（非缺陷，登记）。
+- **23 张截图**（亮/暗）覆盖：抽屉、聊天（基线，不动）、设置（3 段滚动）、迁移报告 Dialog、
+  角色卡、世界书、预设、记忆、用量、关于、会话总览、剧情分支 BottomSheet、世界书面板、
+  工具面板、供应商配置 Dialog。全部经 `read_image` 人工审查。
+
+### 三、缺陷台账（11 项，Phase 1 产出）
+
+| # | 页面 | 缺陷 | 状态 |
+|---|---|---|---|
+| D1 | 关于 | 版本行硬编码「v2.0.0（P1 静态稿）」 | ✅ 已修（读 `BuildConfig`） |
+| D2 | 关于 | changelog 卡为 P1 静态 bullets；「P5 接入 ext/luzzy-changelog.js」欠账 | ✅ 已修（真数据源 + 版本下拉 + `MarkdownText`） |
+| D3 | 设置 | 头带 48dp 裸色块、标题在带外；上游 = 96dp 带纹理 + 标题内嵌 + 头像叠压 | ⏳ 归设置页重设计（boards-v7） |
+| D4 | 设置 | **头带渐变为硬编码色相**（棕/墨绿/紫黑，不在 §2 色板；暗色下发灰脏） | ⏳ 重设计时以 token 重定（任何方向都不得保留发明色） |
+| D5 | 设置 | 数据卡无头带（四卡不一致） | ⏳ 随重设计 |
+| D6 | 世界书/预设页+两个面板 | **文案落后实现**：「检索注入/拼进请求在 P5 接入——改了不影响回复」，而 `WorldBookActivator`/`PromptSections` 早已接入请求组装 | ✅ 已修（4 处文案 + 1 处注释） |
+| D7 | 角色卡 | 空态用文本卡而非 `EmptyState`；且页头「检索 / +」是**无点击的装饰图标（假按钮）** | ✅ 已修（换 `EmptyState` + 撤假按钮） |
+| D8 | 记忆 | 缺 §13.1 规格的「引擎设置折叠卡」（功能缺口非视觉 bug） | 📝 登记（不在本轮） |
+| D9 | 设置 | 用户卡空值显示「描述 0 字 · 偏好 0 字」生硬 | ✅ 已修（空态「未填写」） |
+| D10 | 迁移 | 无旧数据设备每次冷启动跑一次隐藏 WebView 并失败重试 | 📝 登记（安全优先的既定权衡，不改） |
+| D11 | 工程 | `TransferFormat` 冗余 `else`；`SessionsPage` 被成员遮蔽的死扩展 | ✅ 已清 |
+| D11b | 工程 | `LuzzyNavShell.animateTo` / `LocalClipboardManager` deprecated | 📝 有意保留（前者承载 §13.2 抽屉 200ms 与转场同拍编排，M3 新 API 不接受自定义 spec；后者替换需协程管道，收益低） |
+
+### 四、Phase 2 门禁（全绿）
+
+- `:app:compileDebugKotlin` + `:app:compileDebugAndroidTestKotlin`：**BUILD SUCCESSFUL**（0 warning 新增）；
+- `checkChat`（`ANDROID_SERIAL=emulator-5554`）：**92 条 / 0 失败**（2m40s，含 JVM 818 全量）。
+
+### 五、Phase 3（进行中，未完成）
+
+`docs/design/boards-v7/`：`SPEC.md` ✅ · `direction-a-cards.html`（织机卡组：rp-hub 摆放形式完整翻译）✅ ·
+`direction-b-cardgroup.html`（折叠卡组：rikkahub CardGroup 形态）✅ · **`direction-c-hub.html` 未写** ·
+三张 PNG **未渲染** · `direction-summary.md` / `direction-approved-v7.md` 未做。
+**未提交**（工作树上的未跟踪文件，节点存档后继续）。
+
+### 六、下一步（世界书任务完成后回来接着走）
+
+1. 写完 direction-c + 渲染三张 PNG → **停轮等用户选方向**（huashu：展示真实视觉后必须停）；
+2. 用户选定 → 实施设置页重设计（落 `DESIGN-compose` 新节 + §13.1 Settings 行更新）→ 亮暗复查 + 门禁；
+3. 补截修复验证图（关于页 / 角色卡空态 / 世界书 / 预设 / 设置用户卡）；
+4. 剩余 P6 项 + 用户真机人工验收（`docs/HANDOFF-p6-device.md`）。
+
+### 七、⚠️ 世界书任务（本轮插入，优先执行）
+
+**用户要求**：① 深度调研 **SillyTavern** 世界书架构与「如何注入聊天」（硬约束：**不得破坏现有 KV 前缀缓存优化**）；
+② 调研**上游 RP-Hub** 的世界书注入实现；③ 按参考图实现世界书功能。
+**参考素材**：图 10 张（`C:\Users\Administrator\Downloads\Screenshot_2026-09-15-00-1*.jpg`，
+来源应用 `app.bitbear.t`）；参考 APK `C:\Users\Administrator\Desktop\tav-latest-release-official.apk`
+（53.4 MB，Flutter + objectbox + quickjs）。
+
+**必须守住的既有不变量（不得破坏）**：
+- KV/prompt 前缀**纯追加**形态（批 A 验收：公共前缀占比 1.0000、命中 89%）；
+- `RequestBuilder` 的「请求 = 状态纯函数 + 落盘顺序 = 请求顺序」与**稳定块/易变块七位置分工**（§24.3）；
+- `CacheObserver` 口径与 `BatchACacheAcceptanceTest`（连续五轮纯追加、字节级断言）——世界书注入的
+  任何新文本**必须落在稳定块或按轮变化的正确位置**，禁止把每轮都变的内容塞进前缀稳定区。

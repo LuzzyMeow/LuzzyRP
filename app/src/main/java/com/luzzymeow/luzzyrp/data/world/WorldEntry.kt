@@ -45,6 +45,33 @@ data class WorldEntry(
     val useProbability: Boolean = true,
     val useRegex: Boolean = false,
     val constant: Boolean = false,
+    // ---- v3.1（世界书对齐 SillyTavern，2026-09-15）：全部给默认值 → 旧数据零破坏 ----
+
+    /** 次级关键词（ST `keysecondary`）：与主键按 [secondaryLogic] 组合。 */
+    val secondaryKeys: List<String> = emptyList(),
+    /** 次级关键词逻辑（ST `selectiveLogic`，数字映射 0/1/2/3）。 */
+    val secondaryLogic: SecondaryLogic = SecondaryLogic.AndAny,
+    /**
+     * 区分大小写（ST `caseSensitive`，可条目级覆盖全局）。
+     * `true` 时正则键不再强制加 `i`。
+     */
+    val caseSensitive: Boolean = false,
+    /**
+     * 全词匹配（ST `matchWholeWords`）。
+     *
+     * ⚠️ **默认 false = 有意偏离 ST**（ST 默认 true）：其官方文档明示「中日韩等不使用空格
+     * 分词的语言应关闭，否则会匹配不到」。本应用用户以中文为主，默认开会让中文条目**静默失效**。
+     * 界面上写明「中文建议关闭」。
+     */
+    val matchWholeWords: Boolean = false,
+    /** `@Depth` 注入的角色（ST `@Depth` 三档）——按缓存安全路径落在尾部快照内。 */
+    val depthRole: DepthRole = DepthRole.System,
+    /** 粘性：激活后保持 N 条消息（0 = 关）。粘性期内**忽略概率**（ST 规则）。 */
+    val sticky: Int = 0,
+    /** 冷却：激活后 N 条消息内不能再激活（0 = 关）。粘性结束时立即开始冷却。 */
+    val cooldown: Int = 0,
+    /** 延迟：聊天消息数 < N 时不能激活（0 = 关；ST `delay=1` = 空聊天不能激活）。 */
+    val delay: Int = 0,
 ) {
 
     /** 无关键词且非常驻 → 这条永远不会被触发。列表里如实提示，但不阻止保存。 */
@@ -83,6 +110,15 @@ data class WorldEntry(
         base["useProbability"] = JsonPrimitive(useProbability)
         base["useRegex"] = JsonPrimitive(useRegex)
         base["constant"] = JsonPrimitive(constant)
+        // ---- v3.1 新字段（ST 对齐；写规范名，别名在 ALIAS_KEYS 里删） ----
+        base["secondaryKeys"] = JsonArray(secondaryKeys.map { JsonPrimitive(it) })
+        base["secondaryLogic"] = JsonPrimitive(secondaryLogic.id)
+        base["caseSensitive"] = JsonPrimitive(caseSensitive)
+        base["matchWholeWords"] = JsonPrimitive(matchWholeWords)
+        base["depthRole"] = JsonPrimitive(depthRole.id)
+        base["sticky"] = JsonPrimitive(sticky.coerceAtLeast(0))
+        base["cooldown"] = JsonPrimitive(cooldown.coerceAtLeast(0))
+        base["delay"] = JsonPrimitive(delay.coerceAtLeast(0))
         return JsonObject(base)
     }
 
@@ -101,6 +137,12 @@ data class WorldEntry(
             "disable",
             "disabled",
             "extensions",
+            // ---- v3.1：ST 的原生键名（读取时优先，写回时归一为我们的规范名） ----
+            "keysecondary",
+            "selectiveLogic",
+            "role",
+            "sticky_start",
+            "cooldown_start",
         )
 
         fun from(element: JsonElement): WorldEntry {
@@ -119,6 +161,15 @@ data class WorldEntry(
                 useProbability = obj.field("useProbability", "use_probability").asBool(true),
                 useRegex = obj.field("use_regex", "useRegex").asBool(false),
                 constant = obj.field("constant").asBool(false),
+                // ---- v3.1 ----
+                secondaryKeys = parseKeys(obj.field("secondaryKeys", "keysecondary")),
+                secondaryLogic = SecondaryLogic.fromRaw(obj.field("secondaryLogic", "selectiveLogic")),
+                caseSensitive = obj.field("caseSensitive").asBool(false),
+                matchWholeWords = obj.field("matchWholeWords").asBool(false),
+                depthRole = DepthRole.fromRaw(obj.field("depthRole", "role")),
+                sticky = obj.field("sticky").asInt(0) ?: 0,
+                cooldown = obj.field("cooldown").asInt(0) ?: 0,
+                delay = obj.field("delay").asInt(0) ?: 0,
             )
         }
 
@@ -165,12 +216,69 @@ enum class WorldScope(val id: String, val label: String) {
     }
 }
 
-/** 注入位置（上游 7 个合法值；标签见计划附录 B）。 */
+/**
+ * 次级关键词逻辑（ST `selectiveLogic`：0/1/2/3）。
+ *
+ * | 值 | 语义（ST 官方文档原文） |
+ * |---|---|
+ * | [AndAny] | 主键命中 **且** 任一次级键命中 |
+ * | [NotAll] | 主键命中，但次级键**不是全部**命中（全中则阻止激活） |
+ * | [NotAny] | 主键命中 **且** 次级键**一个都不**命中 |
+ * | [AndAll] | 主键命中 **且** 全部次级键都命中 |
+ */
+enum class SecondaryLogic(val id: String, val numeric: Int, val label: String) {
+    AndAny("and_any", 0, "与任一（AND ANY）"),
+    NotAll("not_all", 1, "非全部（NOT ALL）"),
+    NotAny("not_any", 2, "非任一（NOT ANY）"),
+    AndAll("and_all", 3, "与全部（AND ALL）"),
+    ;
+
+    companion object {
+        fun fromId(raw: String?): SecondaryLogic? = entries.firstOrNull { it.id == raw }
+
+        /** 数字（ST 存储形态）或字符串 id；认不出回落 [AndAny]（ST 默认）。 */
+        fun fromRaw(value: JsonElement?): SecondaryLogic {
+            if (value == null || value is JsonNull) return AndAny
+            val text = (value as? JsonPrimitive)?.content ?: return AndAny
+            if (!value.isString) {
+                text.trim().toIntOrNull()?.let { n -> return entries.firstOrNull { it.numeric == n } ?: AndAny }
+            }
+            return fromId(text.lowercase().replace(' ', '_')) ?: AndAny
+        }
+    }
+}
+
+/**
+ * `@Depth` 注入的角色（ST `@Depth` 三档：⚙️system / 👤user / 🤖assistant）。
+ *
+ * **落点是尾部快照内的分段标注，不是插进历史**——插历史会改写已进历史的字节、
+ * 让每轮前缀从插入点断裂（详见 `docs/RESEARCH-worldbook-sillytavern.md` §4）。
+ */
+enum class DepthRole(val id: String, val label: String) {
+    System("system", "系统（system）"),
+    User("user", "用户（user）"),
+    Assistant("assistant", "助手（assistant）"),
+    ;
+
+    companion object {
+        fun fromId(raw: String?): DepthRole? = entries.firstOrNull { it.id == raw }
+
+        fun fromRaw(value: JsonElement?): DepthRole {
+            if (value == null || value is JsonNull) return System
+            val text = (value as? JsonPrimitive)?.content ?: return System
+            return fromId(text.lowercase().trim()) ?: System
+        }
+    }
+}
+
+/** 注入位置（上游 7 个合法值 + v3.1 的对话示例两档）。 */
 enum class WorldPosition(val id: String, val label: String) {
     SystemTop("system_top", "系统提示词开头"),
     GlobalNote("global_note", "全局注释（system）"),
     BeforeChar("before_char", "角色描述之前"),
     AfterChar("after_char", "角色描述之后"),
+    ExampleTop("example_top", "对话示例之前"),
+    ExampleBottom("example_bottom", "对话示例之后"),
     AtDepth("at_depth", "按深度插入"),
     UserTop("user_top", "用户消息上方"),
     AssistantTop("assistant_top", "AI 消息上方"),
@@ -184,10 +292,11 @@ enum class WorldPosition(val id: String, val label: String) {
             "after_character" to AfterChar,
             "character_top" to BeforeChar,
             "character_bottom" to AfterChar,
-            "before_examples" to BeforeChar,
-            "after_examples" to AfterChar,
-            "example_top" to BeforeChar,
-            "example_bottom" to AfterChar,
+            // v3.1：对话示例两档有真实锚点（角色块里的示例段前后），不再退化为角色描述前后
+            "before_examples" to ExampleTop,
+            "after_examples" to ExampleBottom,
+            "example_top" to ExampleTop,
+            "example_bottom" to ExampleBottom,
             "an_top" to GlobalNote,
             "author_note" to GlobalNote,
             "an_bottom" to GlobalNote,
@@ -199,6 +308,9 @@ enum class WorldPosition(val id: String, val label: String) {
             2 to GlobalNote,
             3 to GlobalNote,
             4 to AtDepth,
+            // ST 的 5/6 = EM_top / EM_bottom
+            5 to ExampleTop,
+            6 to ExampleBottom,
         )
 
         fun fromId(raw: String?): WorldPosition? = entries.firstOrNull { it.id == raw }

@@ -1,9 +1,10 @@
-package com.luzzymeow.luzzyrp.chat
+﻿package com.luzzymeow.luzzyrp.chat
 
 import com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository
 import com.luzzymeow.luzzyrp.data.preset.PresetRepository
 import com.luzzymeow.luzzyrp.data.store.CharacterEntity
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import com.luzzymeow.luzzyrp.data.world.LoreBookRepository
 import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -32,6 +33,8 @@ class PromptInputSource(
     private val sessions: ChatSessionRepository,
     private val presets: PresetRepository,
     private val worldBook: WorldBookRepository,
+    /** 多书模型（v3.1）。缺省 null → 只走旧两桶（兼容既有测试构造）。 */
+    private val loreBooks: LoreBookRepository? = null,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -60,17 +63,25 @@ class PromptInputSource(
         history: List<com.luzzymeow.luzzyrp.chat.llm.LlmMessage>,
         userText: String,
         recentMessages: List<String>,
+        /** 聊天消息总条数（定时效果的 delay 判定与窗口推进用）。 */
+        chatLength: Int = recentMessages.size,
+        /** `true` = 新轮（可用新快照）；`false` = 重放既有轮次（回退时清理定时效果）。 */
+        freshTurn: Boolean = true,
+        /** 扫描文本的角色名前缀（`null` = 不加，ST `include_names` 的等价物）。 */
+        speakerNames: List<String>? = null,
     ): Bundle {
         val characterRow = characterUuid?.let { store.character(it) }
         val character = characterRow?.let { characterViewOf(it) }
 
-        // 世界书：读全量（全局 + 角色绑定）→ 按当前设置扫描激活
         val settings = worldBook.settings()
-        val rows = if (characterUuid != null) worldBook.load(characterUuid).rows else worldBook.load(null).rows
-        val activated = WorldBookActivator.activate(
-            rows = rows,
+        val activated = activateWorldEntries(
+            characterUuid = characterUuid,
+            branchId = branchId,
             recentMessages = recentMessages,
             settings = settings,
+            chatLength = chatLength,
+            freshTurn = freshTurn,
+            speakerNames = speakerNames,
         )
 
         val input = PromptAssembler.Input(
@@ -89,6 +100,72 @@ class PromptInputSource(
             characterUuid = characterUuid,
             branchId = branchId,
         )
+    }
+
+    /**
+     * 世界书激活（v3.1：多书 + 定时效果；无书时回落旧两桶）。
+     *
+     * 定时效果的状态**不进消息序列**（那会改写历史字节 → 破缓存），
+     * 而是按**分支**存 `kv["worldbook.timedEffects.<branchId>"]`：
+     * 等价于 ST 的「效果只作用于激活它的那条聊天」。
+     */
+    private suspend fun activateWorldEntries(
+        characterUuid: String?,
+        branchId: String,
+        recentMessages: List<String>,
+        settings: com.luzzymeow.luzzyrp.data.world.WorldInfoSettings,
+        chatLength: Int,
+        freshTurn: Boolean,
+        speakerNames: List<String>?,
+    ): List<com.luzzymeow.luzzyrp.data.world.WorldEntry> {
+        val repo = loreBooks
+        val set = repo?.load(characterUuid)
+        if (repo == null || set == null || set.books.isEmpty()) {
+            // 兼容路径：还没有任何书（迁移未跑 / 确实没数据）→ 旧两桶
+            val rows = if (characterUuid != null) worldBook.load(characterUuid).rows else worldBook.load(null).rows
+            return WorldBookActivator.activate(
+                rows = rows,
+                recentMessages = recentMessages,
+                settings = settings,
+                speakerNames = speakerNames,
+            )
+        }
+
+        val pairs = set.activePairs()
+        val rows = pairs.mapIndexed { index, (_, entry) ->
+            com.luzzymeow.luzzyrp.data.world.WorldRow(
+                ref = com.luzzymeow.luzzyrp.data.world.EntryRef(
+                    com.luzzymeow.luzzyrp.data.world.WorldScope.Global,
+                    index,
+                ),
+                entry = entry,
+                group = com.luzzymeow.luzzyrp.data.world.WorldScope.Global,
+            )
+        }
+        val keys = pairs.map { it.first }
+        val kvKey = TimedEffects.kvKey(branchId)
+        val timed = TimedEffects.fromJson(store.json(kvKey))
+
+        val activated = WorldBookActivator.activate(
+            rows = rows,
+            recentMessages = recentMessages,
+            settings = settings,
+            timed = timed,
+            chatLength = chatLength,
+            entryKeys = { row -> keys.getOrNull(row.ref.slot) },
+            speakerNames = speakerNames,
+        )
+
+        // 推进并持久化（重放既有轮次时不推进，改为「聊天未推进则清理」的 ST 规则）
+        val activatedPairs = pairs.filter { (_, entry) -> activated.any { it === entry } }
+        val next = if (freshTurn) {
+            TimedEffects.advance(timed, chatLength, entries = pairs, activated = activatedPairs)
+        } else {
+            TimedEffects.pruneOnRewind(timed, chatLength)
+        }
+        if (next != timed) store.putJson(kvKey, TimedEffects.toJson(next))
+
+        return activated
     }
 
     // ------------------------------------------------------------------ 取数细节

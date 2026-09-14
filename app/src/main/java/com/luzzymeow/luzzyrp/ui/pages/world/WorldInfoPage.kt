@@ -159,8 +159,8 @@ fun WorldInfoPage(
             }
             item {
                 Text(
-                    text = "本版：在此管理条目（改动立即保存）；「检索注入」在 P5 接入——" +
-                        "现在改这些还不会影响回复。",
+                    text = "改动立即保存，并已接入请求组装：生成前按扫描深度检索注入；" +
+                        "开启工具时模型也可通过 world_info_lookup 查询。",
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
                     fontFamily = LuzzyFonts.Body,

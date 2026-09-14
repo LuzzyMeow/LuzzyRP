@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>方向 A · 织机卡组（rp-hub 摆放形式完整翻译）</title>
+<style>
+  :root{
+    --surface:#FFF4F1; --card:#FCEAE5; --low:#FFF1ED;
+    --primary:#8F4C35; --primary-container:#FFDBD0; --on-primary-container:#390C00;
+    --secondary:#77574D; --tertiary:#6A5E2F; --tertiary-container:#F4E2A7;
+    --outline:#85736E; --outline-variant:#D8C2BB; --on-surface:#2B211E; --on-surface-var:#6E5C56;
+    /* 头带渐变第二色 = 同色相 T 阶近似（实现由色板生成器产出，见 SPEC） */
+    --band-user-a:#8F4C35; --band-user-b:#B4715A;
+    --band-api-a:#77574D;  --band-api-b:#96776C;
+    --band-data-a:#6A5E2F; --band-data-b:#8C7F49;
+    --band-adv-a:#5C3A2C;  --band-adv-b:#8F4C35;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{width:412px;background:var(--surface);font-family:"Alibaba PuHuiTi 3.0","Alibaba Sans","PingFang SC",system-ui,sans-serif;color:var(--on-surface)}
+  .page{padding:10px 12px 24px}
+  .band-card{background:var(--card);border:1px solid rgba(216,194,187,.55);border-radius:16px;overflow:hidden;margin-bottom:14px}
+  .band{height:84px;position:relative;padding:16px 18px 0}
+  .band svg{position:absolute;inset:0;width:100%;height:100%;opacity:.14}
+  .band .t{position:relative;color:#fff;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
+  .band .t svg{position:static;width:17px;height:17px;opacity:1}
+  .b-user{background:linear-gradient(100deg,var(--band-user-a),var(--band-user-b))}
+  .b-api{background:linear-gradient(100deg,var(--band-api-a),var(--band-api-b))}
+  .b-data{background:linear-gradient(100deg,var(--band-data-a),var(--band-data-b))}
+  .b-adv{background:linear-gradient(100deg,var(--band-adv-a),var(--band-adv-b))}
+  .body{padding:6px 16px 10px}
+  .avatar-row{display:flex;align-items:center;gap:12px;margin-top:-34px;padding:0 4px 6px;position:relative}
+  .avatar{width:60px;height:60px;border-radius:50%;background:var(--primary-container);border:3px solid var(--card);
+    display:flex;align-items:center;justify-content:center;color:var(--primary);font-weight:700;font-size:22px;
+    font-family:Lora,Georgia,serif}
+  .avatar-meta .n{font-size:14px;font-weight:600}
+  .avatar-meta .s{font-size:12px;color:var(--on-surface-var)}
+  .row{display:flex;align-items:center;min-height:46px;padding:8px 0;border-top:1px solid rgba(216,194,187,.5)}
+  .row:first-child{border-top:none}
+  .row .lbl{font-size:14px;font-weight:500}
+  .row .sup{font-size:12px;color:var(--on-surface-var);margin-top:2px;line-height:1.5}
+  .row .grow{flex:1;min-width:0}
+  .row .val{font-size:13px;color:var(--outline);text-align:right}
+  .chip{display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:var(--outline);
+    border:1px solid var(--outline-variant);border-radius:999px;padding:2px 9px}
+  .note{font-size:11.5px;color:var(--outline);line-height:1.6;padding:6px 0 2px}
+  .sect{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--outline);
+    text-transform:uppercase;padding:14px 2px 8px;display:flex;align-items:center;gap:6px}
+  .sect::after{content:"";flex:1;height:1px;background:rgba(216,194,187,.6)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .param{background:var(--low);border:1px solid rgba(216,194,187,.45);border-radius:12px;padding:12px 14px}
+  .param .k{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--outline);text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+  .param .k b{color:var(--primary);font-size:13px;letter-spacing:0}
+  .slider{position:relative;height:20px;margin-top:4px}
+  .slider .track{position:absolute;left:0;right:0;top:8px;height:4px;border-radius:2px;background:var(--primary-container)}
+  .slider .fill{position:absolute;left:0;width:50%;top:8px;height:4px;border-radius:2px;background:var(--primary)}
+  .slider .dot{position:absolute;top:2.5px;left:50%;width:15px;height:15px;border-radius:50%;background:var(--primary);transform:translateX(-50%)}
+  .switch-row{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+  .sw{width:42px;height:24px;border-radius:12px;background:var(--primary);position:relative;flex:none}
+  .sw::after{content:"";position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:#fff}
+  .chev{color:var(--outline-variant);font-size:15px}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="band-card">
+    <div class="band b-user">
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M0,60 C25,10 50,50 75,18 C88,2 100,26 100,26 L100,60 Z" fill="#fff"/></svg>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>用户设置</div>
+    </div>
+    <div class="body">
+      <div class="avatar-row">
+        <div class="avatar">鹿</div>
+        <div class="avatar-meta"><div class="n">未设置</div><div class="s">当前角色 · 偏好未填写</div></div>
+      </div>
+      <div class="row"><div class="grow"><div class="lbl">角色名</div></div><div class="val">未设置</div></div>
+      <div class="row"><div class="grow"><div class="lbl">偏好设定</div></div><div class="val">未填写</div></div>
+    </div>
+  </div>
+
+  <div class="band-card">
+    <div class="band b-api">
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M0,40 C20,60 40,10 60,34 C78,52 92,20 100,34 L100,60 L0,60 Z" fill="#fff"/></svg>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"/></svg>API 连接</div>
+    </div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="lbl">API 提供商</div></div><span class="chip">未配置</span></div>
+      <div class="row"><div class="grow"><div class="lbl">聊天模型</div></div><div class="val">未配置</div></div>
+      <div class="row"><div class="grow"><div class="lbl">端点</div></div><div class="val">—</div></div>
+      <div class="note">模型与供应商在聊天页输入岛的「模型」面板配置；密钥只存本机。</div>
+    </div>
+  </div>
+
+  <div class="band-card">
+    <div class="band b-data">
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M0,30 L25,48 L50,22 L75,44 L100,26 L100,60 L0,60 Z" fill="#fff"/></svg>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>数据 · 导入与导出</div>
+    </div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="lbl">导出预设</div><div class="sup">presets.json · 原样数组</div></div><span class="chev">›</span></div>
+      <div class="row"><div class="grow"><div class="lbl">导出世界书</div><div class="sup">world_info.json · 仅全局书</div></div><span class="chev">›</span></div>
+      <div class="row"><div class="grow"><div class="lbl">导出角色卡</div><div class="sup">characters.json · 正文与头像引用原样携带</div></div><span class="chev">›</span></div>
+      <div class="row"><div class="grow"><div class="lbl">导入预设</div><div class="sup">整组覆盖现有预设</div></div><span class="chev">›</span></div>
+      <div class="row"><div class="grow"><div class="lbl">导入世界书</div><div class="sup">整组覆盖全局书</div></div><span class="chev">›</span></div>
+      <div class="row"><div class="grow"><div class="lbl">导入角色卡</div><div class="sup">同卡覆盖；外来卡新建</div></div><span class="chev">›</span></div>
+      <div class="row"><div class="grow"><div class="lbl">迁移报告</div><div class="sup">从旧版搬来了什么</div></div><span class="chev">›</span></div>
+    </div>
+  </div>
+
+  <div class="band-card">
+    <div class="band b-adv">
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M0,50 Q50,10 100,50 L100,60 L0,60 Z" fill="#fff"/></svg>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h0a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55h0a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v0a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>高级设置</div>
+    </div>
+    <div class="body">
+      <div class="sect">显示</div>
+      <div class="param">
+        <div class="k">字号 <b>16px</b></div>
+        <div class="slider"><div class="track"></div><div class="fill"></div><div class="dot"></div></div>
+        <div class="note">正文与 Markdown 的字号（12–20，与旧版一致）；拖动实时预览，松手保存</div>
+      </div>
+      <div class="switch-row" style="margin-top:4px">
+        <div><div class="lbl">文风过滤</div><div class="sup">删改 AI 措辞（提示词侧、显示、落库三处同源；照上游默认开）</div></div>
+        <div class="sw"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

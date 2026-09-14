@@ -1307,4 +1307,71 @@ Kotlin 的 `Regex.replace` 只认 `$n` 与 `\`，照搬会把 `<span>$&</span>` 
   （不许渲染成空表）。视觉复用 PageKit 既有组件（豁免路径：方向 A 延续 + 复用既有组件）；
   亮/暗目测留真机 B 栏。
 
+## 30 · 世界书多书架构 + SillyTavern 能力对齐（v3.1，2026-09-15）
+
+> **任务来源**：用户 2026-09-15 指令——「深度调研 SillyTavern 世界书架构与注入方式
+> （**不得破坏现有 KV 缓存优化**）」「调研上游 RP-Hub 的世界书注入」「按参考图实现功能」。
+> 调研真源 `docs/RESEARCH-worldbook-sillytavern.md`；实施计划 `docs/PLAN-worldbook-v3.1.md`。
+
+### 30.1 架构：单本 → **多本世界书**
+
+| 层 | 形态 |
+|---|---|
+| 存储 | 书 = `records(kind=worldbook, owner=<bookId>)`；条目 = `records(kind=worldbook_entry, owner=<bookId>, slot=书内序)`（**一条一行**，与消息表同款理由：高频增量写不重写整本） |
+| 启用 | `kv["worldbook.enabledBooks"]`（ST 的 global selector 等价物） |
+| 绑定 | 角色卡 payload `worldBookIds: [...]`（ST 的 character lore；**旧 `worldInfo` 键不动**） |
+| 迁移 | 旧全局桶 → 「默认世界书」（顺带加入全局启用）；角色卡内嵌 `worldInfo` → 「<角色名> 的世界书」；**只读旧数据、幂等、纯函数计划**（`WorldBookMigration.plan`） |
+| 导入 | 认三种形态：裸数组 / ST `{entries:{uid:…}}` 对象映射 / CCv3 `character_book`；**导入 = 新建一本书** |
+| 导出 | `{name, entries:[…]}`（ST 可读），书名即文件名 |
+
+### 30.2 条目字段（对齐 ST，全部给默认值 → 旧数据零破坏）
+
+新增：`secondaryKeys`（次级关键词）+ `secondaryLogic`（**AND_ANY / AND_ALL / NOT_ANY / NOT_ALL**，
+认 ST 的 `selectiveLogic` 0/1/2/3 数字形态）、`caseSensitive`（大小写敏感，正则键同步不再强制 `i`）、
+`matchWholeWords`（全词匹配）、`depthRole`（`@Depth` 三档：system/user/assistant）、
+`sticky` / `cooldown` / `delay`（定时效果）。
+写入一律用规范名并**清掉 ST 别名**（`keysecondary` / `selectiveLogic` / `role`）——别名优先的读取顺序
+会让「改了没生效」静默发生（既有纪律沿袭）。
+
+**一处有意偏离 ST**：`matchWholeWords` **默认关**。ST 默认开，但其官方文档明示「中日韩等不用空格
+分词的语言应关闭，否则匹配不到」；本应用用户以中文为主，默认开会让中文条目静默失效。UI 上写明。
+
+### 30.3 定时效果（sticky / cooldown / delay）
+
+- **状态不进消息序列**：存 `kv["worldbook.timedEffects.<branchId>"]`（分支作用域 =
+  ST「效果只作用于激活它的那条聊天」的等价物）——进消息就等于改写历史字节、破前缀缓存。
+- 纯函数推进（`TimedEffects.advance` / `check` / `pruneOnRewind`），时间线**照 ST 官方示例**逐条对齐：
+  `sticky=3, cooldown=2, delay=2` → 延迟期不可激活 → 激活 → 3 条粘性（期内**忽略概率**）→
+  粘性结束**立即进入冷却** → 冷却期满可再激活；重复触发**不刷新**时长；聊天未推进（swipe/删除）
+  时清理。状态用「书 id + 书内下标」作 key（ST 用内容哈希，改一个字即失联；我们用位置身份 + 显式 forget）。
+- **本轮未做**：分支复制时的状态继承（ST 语义）、条目编辑时的效果清除（UI 保存路径尚未接 forget）。
+
+### 30.4 注入：位置语义与缓存安全路径
+
+- 稳定块（`PromptSections`）：`system_top` / `global_note` / `before_char` / `after_char` +
+  **v3.1 新增 `example_top` / `example_bottom`**（对话示例就在角色块内，故在角色块里前后各插一段）；
+- 尾部快照（`RuntimeSnapshots`）：`at_depth` / `user_top` / `assistant_top`，
+  **v3.1 起按 role 分段标注**（`[system]` / `[user]` / `[assistant]`）——
+  参考实现（ST）把 `@Depth` 条目插进历史指定深度；我们**不插历史**（那会每轮从插入点断前缀），
+  改为在同一条快照文本内分段（用户已拍板此路径）。快照内容变才重发 → **纯追加不变**。
+- 扫描文本新增**角色名前缀**（`<名字>：<正文>`，ST `include_names` 的等价物）——
+  只用于匹配判定，不进请求，对缓存零影响。
+- 清理：删除了两处上游遗留的死代码（`applyDepthInjection` / `applyTopInjection`，
+  改道快照后无调用方）。
+
+### 30.5 门禁与证据
+
+- JVM：`WorldBookMigrationTest`（15 例：迁移计划/幂等/三形态导入/新字段往返/别名归一/导出 round-trip）
+  + `WorldBookActivatorV31Test`（18 例：四逻辑真值表 / 大小写 / 全词中英差异 / 角色名前缀 /
+  定时效果 ST 时间线 / 既有能力回归）；
+- **缓存门禁**：`PromptSectionsTest` 新增 3 例（role 标注在快照内、空 role 段不出标题、
+  条目顺序变化不改字节）+ 既有 7 条纯追加用例 + `BatchACacheAcceptanceTest` 全绿；
+- 模拟器截图与 `read_image` 审查见 WORKLOG 会话 83。
+
+### 30.6 未做（如实登记，不得当成已完成）
+
+递归激活与 max steps / 包含组与权重 / token 预算（Context%·Budget）/ 附加匹配源
+（角色描述·性格·场景·人设·创作者笔记）/ 触发器类型 / outlet 宏 / 向量化激活（🔗）/
+AN 两档位置（本应用提示词无 AN 模块）/ 定时效果的分支继承与编辑清除。
+
 

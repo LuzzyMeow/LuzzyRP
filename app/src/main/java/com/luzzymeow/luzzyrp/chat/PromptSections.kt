@@ -2,6 +2,7 @@ package com.luzzymeow.luzzyrp.chat
 
 import com.luzzymeow.luzzyrp.data.preset.PresetEntry
 import com.luzzymeow.luzzyrp.data.preset.PresetRole
+import com.luzzymeow.luzzyrp.data.world.DepthRole
 import com.luzzymeow.luzzyrp.data.world.WorldEntry
 import com.luzzymeow.luzzyrp.data.world.WorldPosition
 
@@ -38,6 +39,9 @@ object PromptSections {
     const val ORDER_WORLD_GLOBAL_NOTE = 310
     const val ORDER_USER_INFO = 400
     const val ORDER_CHARACTER = 500
+    /** v3.1：对话示例两档（作为角色块的组成部分进 system，顺序常量仅供观测/测试）。 */
+    const val ORDER_WORLD_EXAMPLE_TOP = 510
+    const val ORDER_WORLD_EXAMPLE_BOTTOM = 520
     const val ORDER_WORLD_BEFORE_CHAR = 600
     const val ORDER_WORLD_AFTER_CHAR = 610
     const val ORDER_TOOL_HINT = 700
@@ -87,7 +91,14 @@ object PromptSections {
             PromptAssembler.buildUserInfo(user)?.let {
                 add(Section("user-info", ORDER_USER_INFO, it))
             }
-            PromptAssembler.buildCharacterBlock(character)?.let {
+            // v3.1：对话示例两档世界书随角色块一起进稳定块（示例段就在角色块里）
+            val emBefore = worldSection("world-example-top", ORDER_WORLD_EXAMPLE_TOP, world[WorldPosition.ExampleTop])
+            val emAfter = worldSection("world-example-bottom", ORDER_WORLD_EXAMPLE_BOTTOM, world[WorldPosition.ExampleBottom])
+            PromptAssembler.buildCharacterBlock(
+                character,
+                worldBeforeExample = emBefore?.text.orEmpty(),
+                worldAfterExample = emAfter?.text.orEmpty(),
+            )?.let {
                 add(Section("character", ORDER_CHARACTER, it))
             }
             worldSection("world-before-char", ORDER_WORLD_BEFORE_CHAR, world[WorldPosition.BeforeChar])?.let(::add)
@@ -127,6 +138,22 @@ object PromptSections {
      *
      * 世界书里 `at_depth`/`user_top`/`assistant_top` 三种 position 被**改道**到这里
      * （计划 §1.3：它们随轮次漂移，插进历史/改写历史会每轮打断前缀缓存）。
+     *
+     * ## `@Depth` 的角色三档（v3.1，缓存安全实现）
+     *
+     * ST 的 `@Depth` 允许把条目以 system / user / assistant 角色注入。**我们不插进历史**
+     * （那会改写已进历史的字节、每轮从插入点断前缀），而是在**同一条快照文本内**按角色分段标注：
+     *
+     * ```
+     * Current runtime context. …
+     *
+     * [system] [条目名]\n内容…
+     * [user] …
+     * [assistant] …
+     * ```
+     *
+     * 快照内容变 → 本来就重发（[RuntimeSnapshots.project] 的既有语义）→ **纯追加不变**。
+     * 模型看到 role 标注即可按对应视角理解这段设定，效果等价而缓存无损。
      */
     fun snapshotSections(
         worldEntries: List<WorldEntry> = emptyList(),
@@ -141,9 +168,7 @@ object PromptSections {
                 addAll(world[WorldPosition.AssistantTop].orEmpty())
             }
             if (drifting.isNotEmpty()) {
-                val text = WorldBookActivator.render(
-                    drifting.sortedWith(compareBy({ it.comment }, { it.order }, { it.content })),
-                )
+                val text = renderDrifting(drifting)
                 if (text.isNotBlank()) {
                     add(RuntimeSnapshots.Snapshot("world-dynamic", RuntimeSnapshots.ORDER_WORLD_DYNAMIC, text))
                 }
@@ -152,5 +177,32 @@ object PromptSections {
                 add(RuntimeSnapshots.Snapshot("memory-recall", RuntimeSnapshots.ORDER_MEMORY_RECALL, recallBlock))
             }
         }
+    }
+
+    /**
+     * 漂移型条目 → 快照文本：**按角色分段**（`[system]` / `[user]` / `[assistant]`），
+     * 段内按 `compareBy(comment, order, content)` **决定化**排序（缓存稳定性优先于拖拽序）。
+     *
+     * `user_top` / `assistant_top` 的角色是语义既定的（就是 user / assistant）；
+     * `at_depth` 用条目自己的 [WorldEntry.depthRole]（ST 的 `@Depth` 三档）。
+     * 某一段为空则整段不出现（不写空标题）。
+     */
+    fun renderDrifting(entries: List<WorldEntry>): String {
+        val byRole = entries.groupBy { entry ->
+            when (entry.position) {
+                WorldPosition.UserTop -> DepthRole.User
+                WorldPosition.AssistantTop -> DepthRole.Assistant
+                else -> entry.depthRole
+            }
+        }
+        return DepthRole.entries
+            .mapNotNull { role ->
+                val group = byRole[role].orEmpty()
+                    .filter { it.content.isNotBlank() }
+                    .sortedWith(compareBy({ it.comment }, { it.order }, { it.content }))
+                if (group.isEmpty()) return@mapNotNull null
+                "[${role.id}]\n" + WorldBookActivator.render(group)
+            }
+            .joinToString("\n\n")
     }
 }

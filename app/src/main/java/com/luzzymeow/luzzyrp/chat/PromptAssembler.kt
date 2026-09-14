@@ -282,8 +282,26 @@ object PromptAssembler {
      * ⑦ 角色块（上游 `[Character]` + `Name:`/`Personality:` + `mes_example`）。
      *
      * **偏离**：`description` 也进 prompt（见类注释）；两者都空时只留 Name，块仍然成立。
+     *
+     * ## v3.1：世界书的对话示例两档（EM_top / EM_bottom）
+     *
+     * 参考实现（SillyTavern）把世界书条目按「对话示例前 / 后」注入。我们的提示词里
+     * 示例段就嵌在角色块内（`mes_example`），所以这两档在这里**在示例前后各插一段**：
+     *
+     * ```
+     * [Character] Name: … Personality: …
+     * <[EM_before] 条目…>
+     * <示例原文>
+     * <[EM_after] 条目…>
+     * ```
+     *
+     * 仍在**稳定块**内（不随轮次漂移），排序由调用方决定化 → 前缀缓存性质不变。
      */
-    fun buildCharacterBlock(character: CharacterView?): String? {
+    fun buildCharacterBlock(
+        character: CharacterView?,
+        worldBeforeExample: String = "",
+        worldAfterExample: String = "",
+    ): String? {
         if (character == null || !character.isUsable) return null
         val persona = listOf(character.description.trim(), character.personality.trim())
             .filter { it.isNotEmpty() }
@@ -293,7 +311,9 @@ object PromptAssembler {
             append("Name: ${character.name}")
             if (persona.isNotEmpty()) append("\nPersonality: $persona")
             val example = character.mesExample.trim()
+            if (worldBeforeExample.isNotBlank()) append("\n\n$worldBeforeExample")
             if (example.isNotEmpty()) append("\n\n$example")
+            if (worldAfterExample.isNotBlank()) append("\n\n$worldAfterExample")
         }
     }
 
@@ -318,56 +338,6 @@ object PromptAssembler {
      */
     fun safeTargetLimit(presetMessageCount: Int, hasPrelude: Boolean): Int =
         1 + presetMessageCount + if (hasPrelude) 1 else 0
-
-    /**
-     * `at_depth` 注入：**新开一条 user 消息**，插到从末尾倒数第 `depth` 条 user/assistant **之前**。
-     *
-     * 逐条对齐上游 `findDepthIndex`（`data-services.js:990-1012`）：反向遍历、只对 user/assistant
-     * 递减计数、`countdown < 0` 时命中、下限钳到 [safeTargetLimit]。
-     * 组内按 `order` **升序**逐条插入（上游先排序再 forEach splice）。
-     */
-    private fun applyDepthInjection(messages: MutableList<LlmMessage>, entries: List<WorldEntry>, safeLimit: Int) {
-        if (entries.isEmpty()) return
-        entries.sortedBy { it.order }.forEach { entry ->
-            if (entry.content.isBlank()) return@forEach
-            val index = findDepthIndex(messages, entry.depth, safeLimit)
-            messages.add(
-                index,
-                LlmMessage(
-                    role = LlmRole.USER,
-                    content = "[${entry.comment.ifBlank { "Entry" }}]\n${entry.content}",
-                ),
-            )
-        }
-    }
-
-    /**
-     * 深度锚点：从末尾反向找第 `depth` 条 user/assistant 的**前一位**；钳到 [safeLimit]。
-     * 找不到（历史比 depth 还短）→ 返回 [safeLimit]（上游 `Math.max(-1, limit) = limit`，同）。
-     */
-    fun findDepthIndex(messages: List<LlmMessage>, depth: Int, safeLimit: Int): Int {
-        var countdown = depth
-        for (i in messages.indices.reversed()) {
-            val role = messages[i].role
-            if (role == LlmRole.USER || role == LlmRole.ASSISTANT) countdown--
-            if (countdown < 0) return maxOf(i, safeLimit)
-        }
-        return safeLimit
-    }
-
-    /**
-     * `user_top` / `assistant_top`：**就地前插**到最后一条该 role 消息的 content 里（不是新消息）。
-     * 上游 `data-services.js:1041-1063`。该 role 一条都没有时不注入（上游同）。
-     */
-    private fun applyTopInjection(messages: MutableList<LlmMessage>, entries: List<WorldEntry>, role: LlmRole) {
-        if (entries.isEmpty()) return
-        val text = WorldBookActivator.render(entries)
-        if (text.isBlank()) return
-        val index = messages.indexOfLast { it.role == role }
-        if (index < 0) return
-        val target = messages[index]
-        messages[index] = target.copy(content = "$text\n\n${target.content}")
-    }
 
     // ------------------------------------------------------------------ 合并
 

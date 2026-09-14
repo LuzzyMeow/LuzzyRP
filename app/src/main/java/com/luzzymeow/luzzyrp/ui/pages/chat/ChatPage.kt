@@ -319,6 +319,8 @@ fun ChatPage(
                 sessions = repository,
                 presets = presetRepository ?: PresetRepository(store),
                 worldBook = worldBookRepository ?: WorldBookRepository(store, repository),
+                // v3.1 多书：与旧两桶并存（有书走书，无书回落旧桶）
+                loreBooks = com.luzzymeow.luzzyrp.data.world.LoreBookRepository(store),
             )
         }
     }
@@ -692,10 +694,18 @@ fun ChatPage(
         val history = RequestBuilder.historyOf(state)
         // 世界书扫描的「最近消息」**不含快照**：快照正文里有 `<memory_recall>` 这类结构化片段，
         // 拿它去匹配关键词会误触发条目（那是模型看的运行时事实，不是「最近说过的话」）。
+        // 同时收集**发言者名**（v3.1：ST `include_names` 的等价物，让「谁说的」可被关键词锚定）。
+        val scanNames = ArrayList<String>(state.visibleMessages().size)
         val recent = state.visibleMessages().mapNotNull { message ->
             when (message) {
-                is ChatMessage.User -> message.text
-                is ChatMessage.Ai -> message.raw
+                is ChatMessage.User -> {
+                    scanNames += promptUserName.ifBlank { "你" }
+                    message.text
+                }
+                is ChatMessage.Ai -> {
+                    scanNames += characterName
+                    message.raw
+                }
                 // 快照与压缩简报都不是「最近说过的话」：前者是运行时事实，后者是旧对话的摘要，
                 // 拿它们去匹配世界书关键词会误触发条目。
                 is ChatMessage.Snapshot -> null
@@ -710,6 +720,10 @@ fun ChatPage(
                     history = history,
                     userText = userText,
                     recentMessages = recent,
+                    // v3.1：定时效果需要「消息总条数」与「是否新轮」，扫描前缀需要发言者名
+                    chatLength = state.visibleMessages().size,
+                    freshTurn = freshTurn,
+                    speakerNames = scanNames,
                 )
             }.onFailure {
                 Log.w("LuzzyPrompt", "组装取数失败，本轮按空输入组装（不注入角色/预设/世界书）", it)

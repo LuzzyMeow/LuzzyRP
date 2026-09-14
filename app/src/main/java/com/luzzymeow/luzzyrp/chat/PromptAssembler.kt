@@ -80,6 +80,14 @@ object PromptAssembler {
         val history: List<LlmMessage> = emptyList(),
         val userText: String = "",
         /**
+         * 本轮用户输入**随带的图片附件**（C4）。
+         *
+         * 进请求的形态是 OpenAI parts（`userContentParts`）：正文在前、图片在后，
+         * OpenAI 直通、Anthropic / Gemini 的 wire 翻译。**路径形态在这里还是路径**
+         * ——解析成 data URL 在发请求前的最后一步（`resolveImageParts`），payload 里永远不存 base64。
+         */
+        val userAttachments: List<com.luzzymeow.luzzyrp.ui.pages.chat.ChatAttachment> = emptyList(),
+        /**
          * 上一次**已发出**的尾部快照文本（随会话持久化）。
          *
          * `null` = 从未发过。传错（例如每次都传 null）不会出错，只是会**每轮都重发快照** →
@@ -197,8 +205,13 @@ object PromptAssembler {
         val snapshotMessage = snapshot?.let { LlmMessage(role = LlmRole.USER, content = it) }
 
         // ── 7. 本轮用户输入 ──
-        val thisTurnUser = input.userText.takeIf { it.isNotBlank() }
-            ?.let { LlmMessage(role = LlmRole.USER, content = it) }
+        // 带图片时 content 换成 parts 数组（rawContent 通道）：正文在前、图片在后。
+        // 纯文本时与引入附件之前逐字节一致（前缀缓存不受 C4 影响）。
+        val thisTurnUser = input.userText.takeIf { it.isNotBlank() || input.userAttachments.isNotEmpty() }
+            ?.let {
+                val parts = com.luzzymeow.luzzyrp.ui.pages.chat.userContentParts(input.userText, input.userAttachments)
+                LlmMessage(role = LlmRole.USER, content = input.userText, rawContent = parts)
+            }
 
         // ── 8. 合并策略：**历史段一律不合并**；只合并本轮新构造的相邻同 role ──
         //

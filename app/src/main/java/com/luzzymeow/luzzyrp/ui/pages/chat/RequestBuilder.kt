@@ -95,12 +95,14 @@ object RequestBuilder {
         regexScripts: List<RegexScript> = emptyList(),
         promptUserName: String = "",
         styleFilterEnabled: Boolean = true,
+        userAttachments: List<ChatAttachment> = emptyList(),
     ): Plan {
         val history = historyOf(state)
         val hits = RecallEngine.search(turnsOf(history), userText)
         val effective = input.copy(
             history = history,
             userText = userText,
+            userAttachments = userAttachments,
             recallBlock = RecallEngine.renderForPrompt(hits),
             // ★ 去重判据 = 日志里最后一条快照（不是 kv；理由见类注释）
             retainedSnapshot = lastSnapshotText(state),
@@ -126,7 +128,9 @@ object RequestBuilder {
             } else {
                 buildList {
                     assembled.snapshotText?.let { add(ChatMessage.Snapshot(it)) }
-                    if (userText.isNotBlank()) add(ChatMessage.User(userText))
+                    if (userText.isNotBlank() || userAttachments.isNotEmpty()) {
+                        add(ChatMessage.User(userText, attachments = userAttachments))
+                    }
                 }
             },
         )
@@ -189,7 +193,16 @@ object RequestBuilder {
         state.forEachIndexed { index, message ->
             if (index < from) return@forEachIndexed
             val emitted = when (message) {
-                is ChatMessage.User -> listOf(LlmMessage(role = LlmRole.USER, content = message.text))
+                is ChatMessage.User -> listOf(
+                    // 带图片的历史消息以 parts 进请求（模型必须持续看得见它看过的图，
+                    // 这是「Model-visible ⟺ durably referenced」的另一面）；纯文本走旧路径，
+                    // 请求字节与引入 C4 之前逐字节一致（前缀缓存不受影响）。
+                    LlmMessage(
+                        role = LlmRole.USER,
+                        content = message.text,
+                        rawContent = userContentParts(message.text, message.attachments),
+                    ),
+                )
                 is ChatMessage.Ai -> ToolTrail.expand(index, message.raw, message.current.toolTrail)
                 is ChatMessage.Snapshot -> listOf(
                     LlmMessage(role = LlmRole.USER, content = message.text, runtimeSnapshot = true),

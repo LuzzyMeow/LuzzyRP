@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages.chat
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -253,8 +254,28 @@ fun ChatPage(
     var showWorldBook by remember { mutableStateOf(false) }
     var showPresets by remember { mutableStateOf(false) }
 
+    // 待发附件（C4）：选图那一刻就落盘成自有文件（SAF 的 Uri 是一次性的，附件是历史事实），
+    // 这里只持路径引用；发送时随消息定格，编辑输入框不影响它。
+    var pendingAttachments by remember { mutableStateOf<List<ChatAttachment>>(emptyList()) }
+
     // 操作行接线的宿主状态
     val snackbarHostState = remember { SnackbarHostState() }
+    val pickImage = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult // 用户取消：不是错误
+        scope.launch {
+            runCatching { AttachmentStore.import(context, uri) }
+                .onSuccess { attachment ->
+                    if (pendingAttachments.size >= AttachmentStore.MAX_PER_MESSAGE) {
+                        snackbarHostState.showSnackbar("一条消息最多带 ${'$'}{AttachmentStore.MAX_PER_MESSAGE} 张图")
+                    } else {
+                        pendingAttachments = pendingAttachments + attachment
+                    }
+                }
+                .onFailure { snackbarHostState.showSnackbar("图片导入失败：${'$'}{it.message}") }
+        }
+    }
     val clipboard = LocalClipboardManager.current
     var editing by remember { mutableStateOf<EditingTarget?>(null) }
     var regeneratingIndexState by remember { mutableStateOf<Int?>(null) }
@@ -657,6 +678,7 @@ fun ChatPage(
         userText: String,
         branchId: String,
         freshTurn: Boolean,
+        userAttachments: List<ChatAttachment> = emptyList(),
     ): PreparedTurn {
         val uuidForTurn = characterUuid
         // 提示词侧正则与用户名（都是 Compose 状态 → 必须先取进局部变量，理由见线程纪律②）
@@ -688,24 +710,30 @@ fun ChatPage(
                 Log.w("LuzzyPrompt", "组装取数失败，本轮按空输入组装（不注入角色/预设/世界书）", it)
             }.getOrNull()
         }
-        return PreparedTurn(
-            plan = RequestBuilder.plan(
-                state = state,
-                userText = userText,
-                input = bundle?.input ?: PromptAssembler.Input(),
-                freshTurn = freshTurn,
-                // 脚本集是**界面状态**（换角色时随角色载入），所以必须在这里取进局部变量
-                // 传给纯函数——不能在 IO 段里读（理由见本函数开头的线程纪律②）。
-                regexScripts = scriptsForTurn,
-                promptUserName = userNameForTurn,
-                // ② 文风过滤也走提示词侧（上游同处）：assistant 的历史在发给模型前会被过滤，
-                //    与本页 ③ 落库前那次过滤同源同开关
-                styleFilterEnabled = true,
-            ),
-            // null = 取数失败（引擎回落到它的默认执行器）；非 null 时**即使为空**也用注入的
-            // ——「本次没有条目激活」与「这次没取到数」是两件事，不能混。
-            worldEntries = bundle?.activatedWorldEntries,
+        val plan = RequestBuilder.plan(
+            state = state,
+            userText = userText,
+            input = bundle?.input ?: PromptAssembler.Input(),
+            freshTurn = freshTurn,
+            // 脚本集是**界面状态**（换角色时随角色载入），所以必须在这里取进局部变量
+            // 传给纯函数——不能在 IO 段里读（理由见本函数开头的线程纪律②）。
+            regexScripts = scriptsForTurn,
+            promptUserName = userNameForTurn,
+            // ② 文风过滤也走提示词侧（上游同处）：assistant 的历史在发给模型前会被过滤，
+            //    与本页 ③ 落库前那次过滤同源同开关
+            styleFilterEnabled = true,
+            userAttachments = userAttachments,
         )
+        // C4：路径 → data URL（发请求前的最后一步，IO 在本协程上）。
+        // **读不到就抛**：一条模型看过的图静默消失 = 改写历史（上一轮看得见、这一轮看不见），
+        // 如实报错让调用方转成错误卡，好过让模型凭空「失忆」。
+        val hasImages = userAttachments.isNotEmpty() ||
+            state.any { it is ChatMessage.User && it.attachments.isNotEmpty() }
+        if (!hasImages) return PreparedTurn(plan, bundle?.activatedWorldEntries)
+        val resolved = resolveImageParts(plan.messages) { location ->
+            AttachmentStore.readDataUrl(context, location)
+        }
+        return PreparedTurn(plan.copy(messages = resolved), bundle?.activatedWorldEntries)
     }
 
     /**
@@ -815,13 +843,25 @@ fun ChatPage(
             showConfig = true
             return
         }
+        // 附件在发送那一刻定格：之后编辑输入框不影响已定的附件集
+        val attachments = pendingAttachments
         input = ""
+        pendingAttachments = emptyList()
         // 记住本轮所属分支：生成期间用户切到别的分支时，结果仍落在**发起的那条分支**上
         val turnBranchId = activeBranchId
         val state = activeMessages.toList()
         followTail = true
         job = scope.launch {
-            val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = true)
+            // 附件解析（路径→data URL）失败 = 这轮发不出去：**还原输入与附件**再报错——
+            // 发送失败不该吞掉用户正在写的内容（那比失败本身更恼火）。
+            val prepared = try {
+                prepareTurn(state, userText, turnBranchId, freshTurn = true, userAttachments = attachments)
+            } catch (t: Throwable) {
+                input = userText
+                pendingAttachments = attachments
+                chatErrors.add(ChatError(System.currentTimeMillis(), t.message ?: "发送失败"))
+                return@launch
+            }
 
             // ★★ 先落快照、再落用户消息 —— **存储顺序 = 请求顺序**（A6 的核心不变式）
             //
@@ -868,7 +908,8 @@ fun ChatPage(
             return
         }
         val prefix = activeMessages.take(userIndex + 1)
-        val userText = (prefix.lastOrNull() as? ChatMessage.User)?.text ?: return
+        val previousUser = prefix.lastOrNull() as? ChatMessage.User ?: return
+        val userText = previousUser.text
         // 历史 = 这条用户消息**之前**的全部（含它前面已落盘的快照）。
         // `dropLast(1)` 是必须的：这条消息由本轮输入带上，若历史里再收一份，请求里同一句话
         // 会出现两次（既挤占上下文、也让模型以为用户说了两遍）。
@@ -877,7 +918,13 @@ fun ChatPage(
         // 用户主动发话 → 恢复跟随（新内容在尾部，他要看到自己的消息与回复）
         followTail = true
         job = scope.launch {
-            val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
+            // 重跑也必须带原消息的附件（模型上一轮看得见的图，这一轮不能消失）
+            val prepared = try {
+                prepareTurn(state, userText, turnBranchId, freshTurn = false, userAttachments = previousUser.attachments)
+            } catch (t: Throwable) {
+                chatErrors.add(ChatError(System.currentTimeMillis(), t.message ?: "重新发送失败"))
+                return@launch
+            }
             runTurn(prepared, branchId = turnBranchId, regeneratingIndex = null) { turn ->
                 val error = turn.error
                 if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
@@ -904,7 +951,8 @@ fun ChatPage(
         }
         val target = activeMessages.getOrNull(messageIndex) as? ChatMessage.Ai ?: return
         val prefix = activeMessages.take(messageIndex)
-        val userText = prefix.filterIsInstance<ChatMessage.User>().lastOrNull()?.text
+        val previousUser = prefix.filterIsInstance<ChatMessage.User>().lastOrNull()
+        val userText = previousUser?.text
         if (userText.isNullOrBlank()) {
             scope.launch { snackbarHostState.showSnackbar("这条之前没有用户消息，无法重新生成") }
             return
@@ -915,7 +963,13 @@ fun ChatPage(
         // 用户主动发话 → 恢复跟随（新内容在尾部，他要看到自己的消息与回复）
         followTail = true
         job = scope.launch {
-            val prepared = prepareTurn(state, userText, turnBranchId, freshTurn = false)
+            // 重跑也必须带原消息的附件（模型上一轮看得见的图，这一轮不能消失）
+            val prepared = try {
+                prepareTurn(state, userText, turnBranchId, freshTurn = false, userAttachments = previousUser.attachments)
+            } catch (t: Throwable) {
+                chatErrors.add(ChatError(System.currentTimeMillis(), t.message ?: "重新生成失败"))
+                return@launch
+            }
             runTurn(prepared, branchId = turnBranchId, regeneratingIndex = messageIndex) { turn ->
                 val error = turn.error
                 if (turn.body.isNotBlank() || turn.nodes.isNotEmpty()) {
@@ -1114,9 +1168,20 @@ fun ChatPage(
                         onModelChipClick = { if (config.configured) showModels = true else showConfig = true },
                         onWorldBook = { showWorldBook = true },
                         onTools = { showTools = true },
-                        // 依赖后续期的入口**保留**，点击给出如实说明（不装死、也不删组件）
-                        onAttach = { pendingFeatureHint("附件", "P5 的图片管线（选图 + 图片消息）") },
+                        // 附件（C4）：系统相册选图 → 导入为自有文件（真机 SAF 交互留真机验收）
+                        onAttach = {
+                            pickImage.launch(
+                                androidx.activity.result.PickVisualMediaRequest(
+                                    androidx.activity.result.contract.ActivityResultContracts
+                                        .PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
                         onPresets = { showPresets = true },
+                        pendingAttachments = pendingAttachments,
+                        onRemoveAttachment = { attachment ->
+                            pendingAttachments = pendingAttachments - attachment
+                        },
                     )
                 },
             ) { innerPadding ->

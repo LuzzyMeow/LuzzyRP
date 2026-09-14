@@ -5,6 +5,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -34,9 +37,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
@@ -169,10 +175,20 @@ sealed class ChatMessage {
         }
     }
 
-    data class User(val text: String) : ChatMessage() {
+    data class User(
+        val text: String,
+        /**
+         * 随这条消息**发出**的图片附件（C4）。
+         *
+         * 落库在 payload 的 `imageAttachments` 键里（键名与旧结构一致，迁移来的老行同形）；
+         * 请求里以 OpenAI parts 进 content（见 [userContentParts]）。
+         * 默认空表让全部既有构造点（演示历史 / 测试 / 迁移）零改动。
+         */
+        val attachments: List<ChatAttachment> = emptyList(),
+    ) : ChatMessage() {
         override val name: String = "你"
 
-        /** 就地改写内容（「编辑」用）。 */
+        /** 就地改写内容（「编辑」用）。附件是消息的历史事实，编辑正文不动它。 */
         fun edited(text: String): User = copy(text = text)
     }
 
@@ -472,6 +488,9 @@ fun InputIsland(
     onWorldBook: () -> Unit,
     onTools: () -> Unit,
     toolsEnabled: Boolean,
+    /** 待发附件（C4）：空表不渲染任何东西（与引入附件之前逐像素一致）。 */
+    pendingAttachments: List<ChatAttachment> = emptyList(),
+    onRemoveAttachment: (ChatAttachment) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val canSend = text.isNotBlank()
@@ -530,6 +549,12 @@ fun InputIsland(
                         inner()
                     }
                 },
+            )
+
+            // ── 待发附件条（C4）：夹在输入行与功能行之间——它属于「正在写的这条消息」 ──
+            PendingAttachmentStrip(
+                attachments = pendingAttachments,
+                onRemove = onRemoveAttachment,
             )
 
             // ── 功能行（**在输入行下方**）：可横滑的左簇 + 固定右端发送/停止 ──
@@ -662,6 +687,88 @@ private fun ActionSlot(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 78.dp),
             )
+        }
+    }
+}
+
+/**
+ * 待发附件缩略图条（C4）。
+ *
+ * ## 设计（方向 A·织机内延续，豁免三方向门）
+ *
+ * 56dp 圆角方块（10dp，与表格/卡片同角）+ `ContentScale.Crop` + 右上角 18dp 错误色移除钮——
+ * 移除是**破坏性动作**所以用错误色，而底座用 `surfaceContainerHigh`（次级表面，不与发送键抢层级）。
+ * 横向可滑（与功能行同构：多了也不换行、不挤压）。
+ *
+ * 缩略图加载复用 [AvatarLoader]（`data:` 与文件路径两种来源它都已处理，LRU 自带）。
+ */
+@Composable
+private fun PendingAttachmentStrip(
+    attachments: List<ChatAttachment>,
+    onRemove: (ChatAttachment) -> Unit,
+) {
+    if (attachments.isEmpty()) return
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp)
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        attachments.forEach { attachment ->
+            val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, attachment.location) {
+                value = com.luzzymeow.luzzyrp.ui.pages.AvatarLoader.load(attachment.location)
+            }
+            Box(Modifier.size(56.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val image = bitmap
+                    if (image != null) {
+                        Image(
+                            bitmap = image.asImageBitmap(),
+                            contentDescription = attachment.name ?: "附件图片",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        // 加载中/加载失败都给同款占位：图来了自然替换，失败时也不是空白方块
+                        Text(
+                            text = "图",
+                            fontSize = 12.sp,
+                            fontFamily = LuzzyFonts.Body,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                // 移除钮（破坏性 → 错误色）。外层 `minimumInteractiveComponentSize` 撑够 48dp 热区
+                // （热区不足是本仓库登记过的真缺陷），内层 18dp 圆才是视觉本体。
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .minimumInteractiveComponentSize()
+                        .clickable { onRemove(attachment) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(18.dp)
+                            .background(MaterialTheme.colorScheme.error, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(LuzzyIcons.Close),
+                            contentDescription = "移除附件" + (attachment.name?.let { " $it" } ?: ""),
+                            tint = MaterialTheme.colorScheme.onError,
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

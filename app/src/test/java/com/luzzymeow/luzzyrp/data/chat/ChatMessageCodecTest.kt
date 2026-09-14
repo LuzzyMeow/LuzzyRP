@@ -369,4 +369,46 @@ class ChatMessageCodecTest {
         assertEquals(null, results[0].usage)
         assertEquals("能认出的思考节点仍保留", 1, results[0].thinkNodes.size)
     }
+
+    // ---------------------------------------------------------------- C4：用户消息图片附件
+
+    @Test
+    fun `用户消息附件随 payload 落库并认回`() {
+        val attachments = listOf(
+            com.luzzymeow.luzzyrp.ui.pages.chat.ChatAttachment(
+                location = "assets/attachments/c4-1.jpg",
+                mime = "image/jpeg",
+                name = "photo.jpg",
+            ),
+            com.luzzymeow.luzzyrp.ui.pages.chat.ChatAttachment(location = "data:image/png;base64,QUJD"),
+        )
+        val original = ChatMessage.User("带图的一句话", attachments = attachments)
+        val restored = decodeMessage(row(original)) as ChatMessage.User
+
+        assertEquals("带图的一句话", restored.text)
+        assertEquals("逐字段往返", attachments, restored.attachments)
+    }
+
+    @Test
+    fun `无附件的用户消息 payload 仍为空对象（旧行为不变）`() {
+        assertEquals("{}", ChatSessionRepository.payloadOf(ChatMessage.User("普通一句话")))
+    }
+
+    @Test
+    fun `迁移老行的 imageAttachments（含 extra 字段）按宽松规则认回`() {
+        val entity = MessageEntity(
+            scopeId = "char-1",
+            sortIndex = 2,
+            id = null,
+            role = "user",
+            name = "你",
+            content = "老图",
+            reasoning = null,
+            payload = """{"isSelf":true,"imageAttachments":[{"dataUrl":"assets/attachments/old.jpg","mime":"image/jpeg"}]}""",
+        )
+        val restored = decodeMessage(entity) as ChatMessage.User
+        assertEquals("老图", restored.text)
+        assertEquals(1, restored.attachments.size)
+        assertEquals("assets/attachments/old.jpg", restored.attachments.single().location)
+    }
 }

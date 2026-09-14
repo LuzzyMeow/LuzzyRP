@@ -10,8 +10,11 @@ import com.luzzymeow.luzzyrp.data.store.CharacterEntity
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.data.store.MessageEntity
 import com.luzzymeow.luzzyrp.ui.pages.chat.AiResult
+import com.luzzymeow.luzzyrp.ui.pages.chat.ChatAttachment
 import com.luzzymeow.luzzyrp.ui.pages.chat.ChatMessage
 import com.luzzymeow.luzzyrp.ui.pages.chat.ThinkNode
+import com.luzzymeow.luzzyrp.ui.pages.chat.attachmentsToJson
+import com.luzzymeow.luzzyrp.ui.pages.chat.attachmentsOfJson
 import com.luzzymeow.luzzyrp.ui.pages.chat.text
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -400,6 +403,15 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         /** 与 [PAYLOAD_CANDIDATES_KEY] 成对：当前展示的候选下标。 */
         const val PAYLOAD_CANDIDATES_INDEX_KEY = "luzzyCandidateIndex"
 
+        /**
+         * payload 里存**用户消息图片附件**（C4）的键。
+         *
+         * 键名沿用旧结构（迁移器原样保留并写回同名键，见 `MigrationWriter` 的
+         * `payloadOf(rest, imageAttachments)`）——**不是巧合是要求**：这样「新选的图」与
+         * 「迁移来的图」在读写两端都是同一套代码，不存在第二套判据。
+         */
+        const val PAYLOAD_IMAGE_ATTACHMENTS_KEY = "imageAttachments"
+
         /** 存储行 role：快照与压缩简报各独立成一种；其余按 user/assistant。 */
         fun roleOf(message: ChatMessage): String = when (message) {
             is ChatMessage.Snapshot -> ROLE_SNAPSHOT
@@ -424,10 +436,20 @@ class ChatSessionRepository(private val store: LuzzyStore) {
             // 候选只在「真的多于一条」时落盘：单候选是绝大多数消息的常态，
             // 给它们也写一份数组只是把 payload 撑大（正文可能几 KB），没有信息增益。
             val candidates = ai?.takeIf { it.results.size > 1 }?.results.orEmpty()
-            if (message !is ChatMessage.Snapshot && trail.isEmpty() && !interrupted && candidates.isEmpty()) return "{}"
+            // 用户消息的图片附件（C4）：键名 `imageAttachments` 与旧结构逐字一致，
+            // 迁移来的老行同形——读写走同一套（`attachmentsOfJson` 对两种都认）。
+            val userAttachments = (message as? ChatMessage.User)?.attachments.orEmpty()
+            if (message !is ChatMessage.Snapshot && trail.isEmpty() && !interrupted &&
+                candidates.isEmpty() && userAttachments.isEmpty()
+            ) {
+                return "{}"
+            }
             return buildJsonObject {
                 if (message is ChatMessage.Snapshot) put(PAYLOAD_SNAPSHOT_KEY, JsonPrimitive(true))
                 if (interrupted) put(PAYLOAD_INTERRUPTED_KEY, JsonPrimitive(true))
+                if (userAttachments.isNotEmpty()) {
+                    put(PAYLOAD_IMAGE_ATTACHMENTS_KEY, attachmentsToJson(userAttachments))
+                }
                 if (trail.isNotEmpty()) {
                     put(
                         PAYLOAD_TOOL_TRAIL_KEY,
@@ -567,6 +589,15 @@ class ChatSessionRepository(private val store: LuzzyStore) {
                 ?.coerceAtLeast(0)
                 ?: 0
 
+        /**
+         * 从 payload 读**用户消息图片附件**（C4）。
+         *
+         * 老行的这个键可能是**任意旧结构**（迁移只保证 `dataUrl` 在、extra 字段原样），
+         * 所以读取走 [attachmentsOfJson] 的宽松规则：解析不出的条目丢弃、整段坏数据给空表。
+         */
+        fun imageAttachmentsOf(payload: String): List<ChatAttachment> =
+            attachmentsOfJson(payloadObject(payload)?.get(PAYLOAD_IMAGE_ATTACHMENTS_KEY))
+
         /** 候选数组里的思考节点（只认 reasoning 正文，见 `candidateJson` 的说明）。 */
         private fun brainstormOf(element: JsonElement?): List<ThinkNode> {
             val array = element as? JsonArray ?: return emptyList()
@@ -657,7 +688,11 @@ internal fun encodeMessage(
 internal fun decodeMessage(entity: MessageEntity): ChatMessage = when {
     ChatSessionRepository.isSnapshotRow(entity) -> ChatMessage.Snapshot(entity.content)
     entity.role == ChatSessionRepository.ROLE_COMPACTED -> ChatMessage.Compacted(entity.content)
-    entity.role == "user" -> ChatMessage.User(entity.content)
+    entity.role == "user" -> ChatMessage.User(
+        entity.content,
+        // C4：图片附件随行认回（老行/新行同键同名；没有这个键就是空表，行为不变）
+        attachments = ChatSessionRepository.imageAttachmentsOf(entity.payload),
+    )
     else -> {
         val inline = com.luzzymeow.luzzyrp.chat.CotParser.parse(entity.content)
         val nodes = buildList {

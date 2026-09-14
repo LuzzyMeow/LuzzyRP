@@ -5005,6 +5005,8 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ## 📍 当前工作节点（会话 80 暂停 · P6 静态工作进行中 · B 项改动未提交）
 
+> ⏭️ **本节已被「会话 81」取代**（P6 静态工作 B/C/D/E 全部完成，见文末会话 81 节）。保留作为历史追溯。
+
 > **接手三件事**（按序）：① 读本节点 + `docs/HANDOFF-p6-static.md`（剩余工作的完整执行细节）；
 > ② `git status` 核对未提交清单与本节一致；③ 跑 `./gradlew :app:testDebugUnitTest`
 > 取接手基线（**B 项改动编译已过，但 JVM 全量未跑**——接手先补跑）。
@@ -5090,3 +5092,72 @@ D1/D3 复用既有组件、不新造视觉语言。
    **以输出里的 BUILD 行为准**，别只看 exit code（本轮被误导过一次）。
 
 ---
+
+## 会话 81 · 2026-09-14 · P6 静态工作收官（B 收尾 + C WebView 退役 + D/E 静态件）
+
+### 开始
+
+用户：「完整阅读工作区，继续未完成工作内容」。接手盘点：会话 80 暂停于 P6-B
+（6 文件未提交、编译过、测试未跑）；照 `docs/HANDOFF-p6-static.md` 已批准计划推进
+**B 收尾 → C → D → E → 收尾**，未重新规划。接手基线：JVM 全量 **818 / 0**
+（补跑）；真机不在线（仅备用机 `PA921BMGL3190210G` 在线，不是目标机）；模拟器按
+坑表冷启动（删锁 → `Start-Process` 独立进程）。
+
+### 一、B 项收尾（提交 `7950d025`）
+
+- `SettingsStoreTest` 补 `styleFilterEnabledDefaultsTrueAndRoundTrips`：默认 true
+  （**清空 prefs 文件**验「键不存在」路径）/ 存取往返 / 关掉再读仍 false。两个小坑：
+  ① `SettingsStore.PREFS_NAME` 是 **private companion**，测试侧用字面量 `"luzzy_settings"`
+  并注明「改名时这里会红」；② 方法名 ASCII camelCase（坑表在案）。
+- `checkChat` 首轮 **92 条 1 红**：`ChatUiTest.世界书面板展示本机真实条目` 等待超时——
+  与坑表会话 79 **同一枚**（模拟器长跑劣化偶红）。按「不改代码迎合劣化环境」纪律：
+  `adb emu kill` → 清锁 → 冷启动 → `--rerun-tasks` 复跑 **92 / 0 全绿**，未改代码。
+- 门禁终值：JVM **818 / 0** + `checkChat` **92 / 0**（新增 1 条即本轮用例）。
+
+### 二、C 项 · launcher 切换 + WebView 路径退役（提交 `822b9ea3`，50 文件 / -34,523 行）
+
+- Manifest：launcher intent-filter 移交 `ui.ComposeActivity`（「点图标进 WebView 老界面」
+  的根因消除）；删 `.MainActivity` 声明；权限清理（`READ/WRITE_CALENDAR`、
+  `WRITE_EXTERNAL_STORAGE`——功能本体均已不存在，导入导出走 SAF）。
+- 删：`MainActivity.kt`、`web/DownloadHandler.kt`、`web/FileChooserHandler.kt`、
+  `assets/rphub/**`（38 文件 / 20.5MB）。**保留** `LuzzyBridge` / `WebViewSetup` /
+  `MigrationRunner` / `assets/ext/` 全部（迁移通道与已删路径解耦——导出页直调
+  `window.LuzzyBridge`，交接文档已核实，未再侦察）。
+- `AssetExtractor`：`ROOTS` 只留 `ext`；`ensureExtracted` → `ensureExtExtracted`
+  （返回 ext 目录）；解压触发点移到 `ComposeActivity.onCreate`（`MigrationCoordinator`
+  **之前**——全新安装也要先解压出迁移页 `files/ext/luzzy-migrate.html`）。
+- 残留引用清查（`app/src` 全量，含注释 / JSON / xml）：wire 三文件 + `WireFidelityTest`
+  注释改指 `rp-hub-reference/`（1.9.3 基线——运行时 rphub 资产已删）；`LuzzyBridge` /
+  `ComposeActivity` KDoc 更新；**保留**三类引用：测试夹具与迁移器里的 `RPHubDB` /
+  `files/rphub`（旧设备 IndexedDB 数据源的事实描述）、`luzzy-changelog.js`（生成文件，
+  随 CHANGELOG 走）、`assets/ext/` 其余 v2.x 文件（交接明确「无害，不清理」）。
+- `build.gradle.kts`：assetSignature 根目录只剩 `ext`；versionCode 14 / versionName 3.0.0。
+- 门禁：JVM 818 / 0 + `compileDebugAndroidTestKotlin` 过 + `assembleRelease` 过（R8 + lintVital）。
+
+### 三、D / E 项（提交 `e7b9fef8` / `295aa2ce`）
+
+- `docs/release-notes-v3.0.0.md` 草稿（照 v1.4.0 排版；**Release 发布与附 APK 留到真机
+  回归通过后**）。
+- CHANGELOG v3.0.0 段补 P6 条目（A/B/C/D/E；**顺带补记会话 80 只提交未记档的 A 项**——
+  CoT 流式一致性 `042f131b`）。
+- `node tools/gen-changelog.mjs` 重跑（应用内日志同步；README 已在 v3.0.0 开发态，无变化）。
+- `docs/HANDOFF-p6-device.md`：十步走查 + B 栏目视项（B1/B2/B3/B4 余/B6）+ P6 专项 +
+  发版检查单 + 真机设置还原两条命令。
+- **发版核对**：`app/build/outputs/apk/release/` 只有一个 `app-release.apk`
+  **23.70 MB**（v2.0.0 40.96 MB，约 -17MB）；`apksigner verify --print-certs` →
+  CN=LuzzyRP，SHA-256 `ed78235d…ffb1` **与上一版一致**（签名不变纪律）。
+
+### 四、收尾
+
+- JVM 3 连跑（`--rerun-tasks` ×3）：**818 / 0 × 3**（三次 exit 0，与门禁终值一致）
+- 模拟器已关闭；`.git` 内临时提交信息文件（LUZZY_COMMIT_MSG_*.txt）已清。
+- `git push origin main`（HEAD `042f131b` 起的全部提交：A / 会话 80 文档 / B / C / D / E / 本节点）。
+
+### 遗留 / 下一步
+
+- **真机验收（需用户在场）**：照 `docs/HANDOFF-p6-device.md` 逐项勾——launcher 冷启动 →
+  自动迁移 → 数据完好 → 设置页三卡 / 迁移报告目测 → SAF 导入导出走查 → 发版检查单；
+  通过后 GitHub Release v3.0.0（仅附那一个 APK）。
+- 真机设置还原两条命令（会话 77 遗留）在清单 §五。
+- 会话 80 节点提的「两条坑入 AGENTS §7」（委托属性 smart cast / PowerShell 管道失真）
+  本轮**未**做（不在已批准计划内），留给下轮文档轮顺手落。

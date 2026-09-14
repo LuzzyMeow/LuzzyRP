@@ -99,14 +99,48 @@ class SettingsStoreTest {
         assertEquals("my-model", TransportStore(context).load().model)
     }
 
+    /**
+     * **「读不到旧设置」不等于「没有旧设置」——标记此时**不许**种下。**
+     *
+     * ## 这条断言在 2026-09-14（会话 77）被改正过，原因值得留档
+     *
+     * 它原本断言的是**相反**的行为（`assertTrue("但标记要置位…")`），那是本用例
+     * 2026-09-13 写就时的实现。当天稍后 `bd858254` 修了一个**真机实测抓到的真缺陷**：
+     * 首次打开界面时迁移还没跑完（旧数据 28.6 MB，导出二十来秒），`kv["settings"]` 还是空的
+     * → 标记被误种 → 第二次启动迁移成功后 `importOnce` 直接返回 →
+     * **用户的供应商配置（Base URL / API Key / 模型）永久搬不过来**，界面一直显示「未配置」。
+     *
+     * 修法就是 `latch = alreadyImported || legacyBlobPresent`（`SettingsBootstrap.kt:96`）：
+     * **只有真的读到过旧设置才种标记**，靠 `hasGap` 走快路径自愈。
+     * 于是本用例的旧断言与实现正好相反。
+     *
+     * 之所以拖到现在才暴露：**仪器化测试此前从未真正跑通过**（`checkChat` 一直没跑成，
+     * 见 `docs/WORKLOG.md`）。这是「只断言编译通过、不断言能运行」的代价 ——
+     * 会话 77 把仪器化跑起来后，它当场就被抓出来了。
+     */
     @Test
-    fun marksImportedEvenWhenNothingToMove() = runBlocking {
-        // kv 里没有 settings（空库）
+    fun doesNotLatchWhenLegacySettingsUnreadable() = runBlocking {
+        // kv 里没有 settings（空库）——等价于「迁移还没成功」
         val summary = SettingsBootstrap.importOnce(context, fixture.store)
 
         assertNull("没有可搬的东西就不该报摘要", summary)
-        assertTrue("但标记要置位：否则每次启动都白跑", SettingsStore(context).legacyImported)
+        assertTrue(
+            "读不到旧设置时**不许**种标记：种了会让后来的迁移成果永远搬不进来（bd858254 的真机缺陷）",
+            !SettingsStore(context).legacyImported,
+        )
         assertEquals(null, SettingsStore(context).load().themeMode)
+    }
+
+    /** 反面：**真的读到过**旧设置时才种标记（与上一条构成负控对）。 */
+    @Test
+    fun latchesAfterLegacyBlobIsActuallyRead() = runBlocking {
+        fixture.seedFromSample() // 走真实迁移器，kv 里就有 settings 了
+        SettingsBootstrap.importOnce(context, fixture.store)
+
+        assertTrue(
+            "读到过旧设置 → 标记要种（否则每次启动都白跑一遍搬运）",
+            SettingsStore(context).legacyImported,
+        )
     }
 
     @Test

@@ -1,17 +1,16 @@
-package com.luzzymeow.luzzyrp.chat
+package com.luzzymeow.luzzyrp.ui.pages
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.testing.TestStoreFixture
-import com.luzzymeow.luzzyrp.ui.pages.CharactersPage
-import com.luzzymeow.luzzyrp.ui.pages.MemoryPage
-import com.luzzymeow.luzzyrp.ui.pages.UsagePage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -119,10 +118,19 @@ class PageDataUiTest {
                 androidx.compose.ui.test.hasText("1,234", substring = true),
             ).fetchSemanticsNodes().isNotEmpty()
         }
-        // assertIsDisplayed：语义树里存在**且被布局到屏幕上**（拦「存在但宽度为 0」）
-        compose.onNodeWithText("1,234", substring = true).assertIsDisplayed()
+        // assertIsDisplayed：语义树里存在**且被布局到屏幕上**（拦「存在但宽度为 0」）。
+        // ⚠️ 用 onAllNodes(...).assertCountEquals / onFirst() 的形态，不要用 onNodeWithText：
+        //    「1,234」在页面上可能出现**多个**节点（总用量大字 + 输入/输出那行也含它），
+        //    而 onNodeWithText 要求**唯一匹配**，多一个就抛
+        //    「Expected at most 1 node but found N」——那是断言写法错，不是页面错（模拟器实测抓到）。
+        compose.onAllNodes(hasText("1,234", substring = true)).onFirst().assertIsDisplayed()
         // 输入/输出拆分也要显示出来（那是同一份聚合的另外两个字段）
-        compose.onNodeWithText("1,000", substring = true).assertIsDisplayed()
+        compose.onAllNodes(hasText("1,000", substring = true)).onFirst().assertIsDisplayed()
+        // 顺带把「确实存在」也钉住（onFirst 在零节点时会抛，等于已经覆盖）
+        assertTrue(
+            "总用量与输入都应上屏",
+            compose.onAllNodes(hasText("1,234", substring = true)).fetchSemanticsNodes().isNotEmpty(),
+        )
     }
 
     /** 库里没有用量时页面说「还没有记录」——**不显示 0 tokens**（那会被读成「用了 0」）。 */
@@ -197,13 +205,18 @@ class PageDataUiTest {
                 androidx.compose.ui.test.hasText("覆盖轮数", substring = true),
             ).fetchSemanticsNodes().isNotEmpty()
         }
-        // 分片数 3、覆盖轮数 3（三个不同轮次）、已嵌入 3
-        compose.onNodeWithText("总分片", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("覆盖轮数", substring = true).assertIsDisplayed()
-        val labels = compose.onAllNodes(
+        // ⚠️ 断言写法（模拟器实测纠正）：页面上有**两张卡**（向量分片 / 总结记忆），
+        //    「覆盖轮数」这个标签**各出现一次** → onNodeWithText 的「唯一匹配」会抛
+        //    「Expected at most 1 node but found 2」。这不是页面错，是断言写法错。
+        //    用 onAllNodes(...).onFirst() 的形态，语义同样是「该标签确实上屏了」。
+        for (label in listOf("总分片", "覆盖轮数", "已嵌入", "总条数", "最长到第")) {
+            compose.onAllNodes(hasText(label, substring = true)).onFirst().assertIsDisplayed()
+        }
+        // 分片数 3、覆盖轮数 3（三个不同轮次）、已嵌入 3 —— 数值也要真的出现
+        val values = compose.onAllNodes(
             androidx.compose.ui.test.hasText("3", substring = false),
         ).fetchSemanticsNodes()
-        assertTrue("三个统计位都应是 3（实际 ${labels.size} 个）", labels.size >= 3)
+        assertTrue("三个统计位都应是 3（实际 ${values.size} 个）", values.size >= 3)
     }
 
     // ────────────────────────── 角色卡页

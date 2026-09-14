@@ -523,11 +523,25 @@ fun ChatPage(
         repeat(2) {
             val lastSize = listState.layoutInfo.visibleItemsInfo
                 .lastOrNull { it.index == lastIndex }?.size ?: 0
+            // ★ 必须在**新的一帧**里发起滚动，不能就地在当前调用栈里滚。
+            //
+            // 为什么（2026-09-14 仪器化实测抓到，`performMeasureAndLayout called during measure layout`）：
+            // 本函数的调用点之一是 `runTurn` 的流式事件收集器（ChatPage.kt:752）。
+            // 在 Compose **测试**环境里，那个收集器是由 `ApplyingContinuationInterceptor`
+            // 恢复的 —— 而它恢复续体的时机落在 `measureAndLayout` **内部**。
+            // 于是 `scrollToItem()` 内部的 `forceRemeasure()` 撞上正在进行的测量 → 抛异常。
+            // 生产环境不会撞得这么直白，但「在测量帧里改滚动位置」同样是不该做的事。
+            //
+            // `withFrameNanos {}` 把滚动推迟到下一帧的**帧回调**（此时本帧的测量已经结束），
+            // 既满足 Compose 的重入约束，也不改变贴底的最终效果（下一帧滚到位）。
+            // 帧回调本身仍可能落在「测量之后、绘制之前」——那是 Compose 允许改布局状态的窗口。
+            withFrameNanos { }
             listState.scrollToItem(lastIndex, lastSize)
             val info = listState.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull { it.index == lastIndex } ?: return
             val gap = last.offset + last.size - info.viewportEndOffset
             if (gap <= bottomSlackPx) return
+            withFrameNanos { }
             listState.scrollBy(gap.toFloat())
         }
     }

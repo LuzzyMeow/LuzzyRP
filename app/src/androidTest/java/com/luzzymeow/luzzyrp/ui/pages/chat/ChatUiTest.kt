@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.printToString
 
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -111,16 +113,58 @@ class ChatUiTest {
     }
 
 
+    /**
+     * 等一个条件成立（弹窗/菜单/面板内容都走它）。
+     *
+     * ## 为什么不能只用 `waitUntil` 自旋（会话 78 实测的坑，确定性复现）
+     *
+     * 面板内容是**异步取数**来的（`LaunchedEffect` 里读库 → setState）。本测试环境把
+     * 协程续体的恢复挂在**帧回调（measure/layout）**上，而纯 `waitUntil` 自旋**不产出帧**：
+     * 续体永不恢复 → 条件永不成立。实测自旋 8s 仍停在「读取中…」；同一份代码只要
+     * **先让帧跑起来再查**，200ms 内即绿（`世界书` / `预设` 两条面板用例交替红，根因同一个）。
+     *
+     * 所以这里是「推帧 → 查 → 让出真实时间」的轮询：每次迭代先 [waitForIdle]（产出帧、
+     * 恢复续体），未命中再让出 50ms 真实时间——库查询在后台线程上，同样需要真实时间完成。
+     * 两个条件缺一不可：只推帧不等待，后台查询还没回来；只等待不推帧，续体不恢复。
+     */
+    private fun awaitCondition(what: String, timeoutMs: Long, condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (true) {
+            compose.waitForIdle()
+            if (condition()) return
+            if (System.currentTimeMillis() >= deadline) break
+            Thread.sleep(50)
+        }
+        // 超时后再推一次帧，然后给出**带描述**的失败信息（比原 waitUntil 的裸超时更可读）
+        compose.waitForIdle()
+        if (!condition()) {
+            // 把当前语义树落到 logcat：失败时「面板到底画了什么」是唯一能自证的证据。
+            // 注意多 root（BottomSheet / Dialog 是独立窗口）时 onRoot 会因「找到 2 个 root」抛错，
+            // 所以逐个 dump，dump 自身失败也绝不能盖掉真正的断言失败。
+            runCatching {
+                val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes().size
+                android.util.Log.e("LuzzyTest", "等待超时：$what（当前 root 数=$roots）")
+                repeat(roots) { i ->
+                    val dumped = runCatching {
+                        compose.onAllNodes(isRoot())[i].printToString(maxDepth = 10)
+                    }.getOrElse { "<dump 失败：$it>" }
+                    android.util.Log.e("LuzzyTest", "ROOT[$i]:\n$dumped")
+                }
+            }
+            throw AssertionError("等待超时（${timeoutMs}ms）：$what 未出现")
+        }
+    }
+
     /** 等某个 tag 出现在语义树里（弹窗/菜单/新条目都用它，避免时序误差）。 */
     private fun waitForTag(tag: String, timeoutMs: Long = 5_000) {
-        compose.waitUntil(timeoutMs) {
+        awaitCondition("tag=$tag", timeoutMs) {
             compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
-    /** 等某段文字出现（弹窗内容）。 */
+    /** 等某段文字出现（弹窗/面板内容）。 */
     private fun waitForText(text: String, substring: Boolean = false, timeoutMs: Long = 5_000) {
-        compose.waitUntil(timeoutMs) {
+        awaitCondition("text=$text", timeoutMs) {
             compose.onAllNodes(hasText(text, substring = substring)).fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -213,8 +257,8 @@ class ChatUiTest {
         setChatContent()
         compose.onNodeWithTag("slot_世界书").performClick()
         waitForText("一条世界书", timeoutMs = 8_000)
-        compose.onNodeWithText("一条世界书").assertExists()
-        compose.onNodeWithText("全局").assertExists()
+        compose.onAllNodes(hasText("一条世界书")).onFirst().assertExists()
+        compose.onAllNodes(hasText("全局")).onFirst().assertExists()
     }
 
     // ── 用例 6b：预设面板只列**启用中**的条目 ──
@@ -224,7 +268,7 @@ class ChatUiTest {
         setChatContent()
         compose.onNodeWithTag("slot_预设").performClick()
         waitForText("一条预设", timeoutMs = 8_000)
-        compose.onNodeWithText("一条预设").assertExists()
+        compose.onAllNodes(hasText("一条预设")).onFirst().assertExists()
     }
 
     // ── 用例 7：工具开关真实可切换（文案随之变化） ──

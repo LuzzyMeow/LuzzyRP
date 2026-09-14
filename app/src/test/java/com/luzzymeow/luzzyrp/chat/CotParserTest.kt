@@ -175,4 +175,163 @@ class CotParserTest {
     private companion object {
         const val FIXTURE_PATH = "legacy/webview-db-fixture.json"
     }
+
+    // ══════════════════════════ A3：完整移植（ranges / rawCot / closingTags）
+
+    /** `ranges` 必须能**从原文里切回**思维链——这正是上游把它当受保护区用的前提。 */
+    @Test
+    fun `ranges 能在原文里精确切出思维链`() {
+        val text = "前言\n<thinking>想了半天</thinking>\n正文在此"
+        val parsed = CotParser.parse(text)
+
+        assertEquals("应恰好一块", 1, parsed.ranges.size)
+        val slice = text.substring(parsed.ranges[0].first, parsed.ranges[0].last + 1)
+        assertEquals("<thinking>想了半天</thinking>", slice)
+    }
+
+    /** 多块：正文夹在两段思维链之间，两块的 range 都要对。 */
+    @Test
+    fun `多段思维链各自成一块`() {
+        val text = "<thinking>第一段</thinking>中间正文<cot>第二段</cot>结尾"
+        val parsed = CotParser.parse(text)
+
+        assertEquals(2, parsed.ranges.size)
+        assertEquals(
+            "<thinking>第一段</thinking>",
+            text.substring(parsed.ranges[0].first, parsed.ranges[0].last + 1),
+        )
+        assertEquals(
+            "<cot>第二段</cot>",
+            text.substring(parsed.ranges[1].first, parsed.ranges[1].last + 1),
+        )
+    }
+
+    /** 嵌套时 range 必须是**外层**那一整块（内层开标签不许改块起点）。 */
+    @Test
+    fun `嵌套时 range 覆盖外层整块`() {
+        val text = "前面<thinking>外层<cot>内层</cot>尾巴</thinking>后面"
+        val parsed = CotParser.parse(text)
+
+        assertEquals(1, parsed.ranges.size)
+        val slice = text.substring(parsed.ranges[0].first, parsed.ranges[0].last + 1)
+        assertTrue("必须从外层开标签起", slice.startsWith("<thinking>"))
+        assertTrue("必须到外层闭标签止", slice.endsWith("</thinking>"))
+        assertTrue(slice.contains("内层"))
+    }
+
+    /** **未闭合**时 range 延伸到文末（上游 `end: text.length`）。 */
+    @Test
+    fun `未闭合的 range 延伸到文末`() {
+        val text = "正文\n<thinking>还没想完"
+        val parsed = CotParser.parse(text)
+
+        assertFalse(parsed.isFinished)
+        assertEquals(1, parsed.ranges.size)
+        assertEquals("起点是开标签", text.indexOf("<thinking>"), parsed.ranges[0].first)
+        assertEquals("终点是文末", text.length - 1, parsed.ranges[0].last)
+    }
+
+    /** 围栏里的标签**不进 ranges**——否则正则会把示例代码当受保护区，正文里那段就改不动了。 */
+    @Test
+    fun `代码围栏里的标签不进 ranges`() {
+        val parsed = CotParser.parse("看这段：\n```\n<thinking>示例</thinking>\n```\n正文")
+        assertTrue("围栏里的标签不算思维链", parsed.ranges.isEmpty())
+    }
+
+    @Test
+    fun `没有 CoT 时 ranges 为空`() {
+        assertTrue(CotParser.parse("就是普通正文").ranges.isEmpty())
+        assertTrue(CotParser.parse("").ranges.isEmpty())
+    }
+
+    /** `closingTags`：未闭合时给出「补上就能配平」的闭标签，逆序。 */
+    @Test
+    fun `未闭合时给出补齐用的闭标签`() {
+        assertEquals("</thinking>", CotParser.parse("<thinking>想").closingTags)
+        assertEquals("</cot></thinking>", CotParser.parse("<thinking>外层<cot>内层").closingTags)
+    }
+
+    @Test
+    fun `已闭合时没有待补的闭标签`() {
+        assertEquals("", CotParser.parse("<thinking>想完了</thinking>正文").closingTags)
+        assertEquals("", CotParser.parse("普通正文").closingTags)
+    }
+
+    /**
+     * `closingTags` 的**用途**（不是只给个字符串）：把它补到「原文 + 闭标签」之后，
+     * 再解析一次就应当**闭合**。上游正是用它做编辑态的「改正文不丢未闭合的思维链」
+     * （`app.js:5446-5447`）。
+     */
+    @Test
+    fun `补上 closingTags 之后即可闭合并得到完整思维链`() {
+        val text = "<thinking>想了半天"
+        val parsed = CotParser.parse(text)
+        val repaired = text + parsed.closingTags
+
+        val again = CotParser.parse(repaired)
+        assertTrue("补完之后应当是闭合状态", again.isFinished)
+        assertEquals("想了半天", again.cot)
+        assertEquals("", again.closingTags)
+    }
+
+    /** `rawCot`：思维链**原文**（含其中的标签），与 [Parsed.cot] 内容一致。 */
+    @Test
+    fun `rawCot 是思维链原文`() {
+        val parsed = CotParser.parse("<thinking>第一句\n第二句</thinking>正文")
+
+        assertEquals("第一句\n第二句", parsed.rawCot)
+        assertEquals(parsed.cot, parsed.rawCot)
+        assertFalse("rawCot 不该含 CoT 标记本身", parsed.rawCot.contains("<thinking>"))
+    }
+
+    /**
+     * **`ranges` 是唯一真源**：`RegexScripts` 的受保护区从这里取（A3 把原来的重复实现收编了）。
+     * 这条用例把两边的**一致性**钉住——同一段文本，`parts()` 里的保护片段必须等于 ranges。
+     */
+    @Test
+    fun `受保护区的思考块与 ranges 逐块一致`() {
+        val text = "前言\n<thinking>x</thinking>\n正文 <b>粗</b>"
+        val parsed = CotParser.parse(text)
+        val protectedParts = RegexScripts.parts(text).filter { it.protected && it.text.contains("thinking") }
+
+        assertEquals("块数必须一致", parsed.ranges.size, protectedParts.size)
+        parsed.ranges.forEachIndexed { index, range ->
+            assertEquals(
+                "第 $index 块的原文切片必须一致",
+                text.substring(range.first, range.last + 1),
+                protectedParts[index].text,
+            )
+        }
+    }
+
+    /** 委托之后 `cotRanges` 与 `parse().ranges` 必须是同一个答案（防止有人再写第二份实现）。 */
+    @Test
+    fun `cotRanges 与 ranges 同源`() {
+        for (text in listOf(
+            "<thinking>a</thinking>b",
+            "<thinking>未闭合",
+            "```\n<thinking>围栏</thinking>\n```",
+            "无标记正文",
+        )) {
+            assertEquals("同一段文本必须只有一个答案：$text", CotParser.parse(text).ranges, RegexScripts.cotRanges(text))
+        }
+    }
+
+    /**
+     * **缺陷 #4 的纯逻辑一半**：真实数据里「思维链被当正文渲染」的症状，
+     * 现在能被完整地拆成「正文（main）+ 思维链（cot/ranges）」两半。
+     */
+    @Test
+    fun `真实数据里的内联 CoT 能同时给出正文与可回填的范围`() {
+        val parsed = CotParser.parse(realCotMessage)
+
+        assertTrue("应识别出 CoT", parsed.hadCot)
+        assertTrue("真实数据是闭合的", parsed.isFinished)
+        assertTrue("ranges 非空（渲染成节点要靠它定位）", parsed.ranges.isNotEmpty())
+        assertEquals("补标签为空", "", parsed.closingTags)
+        // ranges 拼起来 + main 应当能还原原文（内容守恒，除了被 trim 掉的首尾空白）
+        val rebuilt = parsed.ranges.joinToString("") { realCotMessage.substring(it.first, it.last + 1) }
+        assertTrue("从 ranges 切回来的必须含思维链开头", rebuilt.contains("[情景意图分析]"))
+        assertFalse("正文里不许再出现思维链", parsed.main.contains("[情景意图分析]"))
+    }
 }

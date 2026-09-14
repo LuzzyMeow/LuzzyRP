@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.chat
 
+import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -116,6 +117,32 @@ object RegexScripts {
     /** 套用场景：显示（正文上屏前）/ 提示词（发给模型前）。 */
     enum class Mode { Display, Prompt }
 
+    /**
+     * **NAI 生图正则是否放行**（默认**不放行**；用户 2026-09-14 拍板）。
+     *
+     * ## 为什么跳过它（不是一个偷懒的开关）
+     *
+     * 「NAI画图正则」的替换产物是一张**生图卡片**：
+     * `<div class="generated-image-card is-generating" data-image-request="…">`（`app.js:9647-9650`）。
+     * 那张卡片的图片是**上游 JS 管线**在运行期填进去的——它发请求、拿图、塞进 DOM。
+     * 我们的卡片通道是**禁网**的 WebView（`DESIGN-compose §26.3` 的安全边界），
+     * 所以放行的结果是一张**永远不出图的空卡片**。
+     *
+     * 空卡片比原始文本更糟：用户看到的是一个「坏了」的界面元素，
+     * 而看不出「这是还没实现的功能」。跳过则正文里保留 `image###…###` 原文——
+     * 至少是一个诚实的、可解释的状态。
+     *
+     * ## 这不改变上游语义的移植
+     *
+     * 「NAI画图正则恒排最后」（`app.js:4020-4024`）、「用它内置的图片标签正则取代用户 pattern」
+     * （`app.js:4054,4068`）两条语义**照旧实现**，只是整条脚本在 [applies] 里被拦下——
+     * 将来生图管线（批 C 的 C4）做好之后，把这个常量改成 `false` 即可恢复，
+     * 不需要动任何其他代码。
+     */
+    const val IMAGE_GEN_UNSUPPORTED = true
+
+    private val imageGenUnsupported: Boolean get() = IMAGE_GEN_UNSUPPORTED
+
     /** `user` 角色消息（上游字符串口径，便于与迁移数据对齐）。 */
     private const val ROLE_SYSTEM = "system"
     private const val ROLE_USER = "user"
@@ -138,7 +165,15 @@ object RegexScripts {
     ): String {
         if (text.isEmpty()) return ""
         val roleId = roleId(role)
-        var result = USER_PLACEHOLDER.replace(text) { userName.trim() }
+        // ★ 空名**一律不替换**：留着字面 `{{user}}` 比把它删成空白好——
+        //   预设里「{{user}} 与 {{char}} 是旧识」这类模板，删成空白会读成
+        //   「 与 谢昭 是旧识」（人称与语义双错），而且用户看不出少了个占位符。
+        //
+        //   为什么这条判据必须写在这里、不能靠调用方的提前返回兜着：会话 76 加②（提示词侧
+        //   文风过滤）时，`applyToPromptMessages` 的提前返回条件多了一个分支，于是
+        //   「名字为空且过滤开着」的那条路**会**走进 [apply] —— 占位符当场被删空，
+    //   被 `RequestBuilderTest` 当场抓住。判据放在源头就不会因为调用方多一个分支而失效。
+        var result = if (userName.isBlank()) text else USER_PLACEHOLDER.replace(text) { userName.trim() }
         if (roleId == ROLE_SYSTEM) return result
         for (script in ordered(scripts)) {
             if (!applies(script, roleId, mode, depth)) continue
@@ -147,6 +182,82 @@ object RegexScripts {
             result = run(result, resolved, regex, script)
         }
         return result
+    }
+
+    /**
+     * **提示词侧**：把脚本套到整条请求上（上游 `app.js:6511-6518`）。
+     *
+     * ## depth 的口径（照抄上游，不要「顺手改成只算历史」）
+     *
+     * 上游是在**整条已装配好的 messages 数组**上做这次映射的，深度取
+     * `array.length - 1 - index` —— 也就是说末条消息 depth = 0，往前递增；
+     * **system 也在数组里**（它在 [apply] 里被 `role == system` 提前放行，只做 `{{user}}` 替换）。
+     * 所以这里同样对**全部消息**套用，而不是只对历史段：只算历史会让末条历史拿到 depth 0，
+     * 而它在真实请求里后面还跟着快照与本轮输入——`minDepth`/`maxDepth` 会因此判错档。
+     *
+     * ## 纯追加前缀受不受影响（必须说清楚，别让人以为它无条件成立）
+     *
+     * - **没勾「仅提示词」的脚本不进这条路**（上游 `userOnly` 判据，`app.js:4039`）：
+     *   默认什么都不勾 = 仅用户可见 → 提示词侧一律跳过。所以绝大多数用户的脚本
+     *   **一个字节都不改请求**；
+     * - 勾了「仅提示词」且**没设深度区间**的脚本：对每条消息逐轮套用同一份改写，
+     *   历史消息的字节逐轮不变 → 批 A 的纯追加性质继续成立（`RequestBuilderTest` 钉住）；
+     * - 勾了「仅提示词」**又设了 `minDepth`/`maxDepth`**：同一条历史消息的 depth 每轮都在增长，
+     *   于是它在**已发出的上一轮**里长什么样，与这一轮重建时长什么样**必然不同** →
+     *   前缀从那里断开。这是深度语义的固有后果，上游亦然，不是实现缺陷；
+     *   负面用例 `RequestBuilderTest` 如实钉住它，别把它当成「我们的 bug」去改。
+     *
+     * ## 关于 `{{user}}`
+     *
+     * [apply] 先做占位符替换再判角色（上游 `app.js:4018-4019`），所以用户名非空时
+     * **system / 预设 / 角色块里的 `{{user}}` 也会被替换**——这正是上游行为，也是预设模板
+     * 常见用法。用户名按**档案里的名字**取（`PromptAssembler.Input.user.name`）；
+     * **空名一律不替换**（宁可保留字面 `{{user}}`，也不要把预设里的占位符删成空白）。
+     *
+     * 注意 `{{char}}` **不在**这条链上：上游提示词侧从来不替换它（只有显示期由
+     * [com.luzzymeow.luzzyrp.chat.Placeholders] 处理，那是有意偏离，见其类注释）。
+     *
+     * ## 文风过滤也在这一层（②，上游把它放在 `processRegex` 出口）
+     *
+     * 上游的 `processRegex` 末尾是 `return role === 'assistant' ? filterBlockedStyleText(result) : result`
+     * （`app.js:4090`）——而**提示词侧走的就是 `processRegex`**（`app.js:6513`），
+     * 所以 assistant 的历史消息在发给模型**之前**也会被过滤一次。
+     * 我们照做（用户 2026-09-16 拍板「完全照上游」）：这一层对每条消息先跑脚本、再（仅 assistant）筛文风。
+     *
+     * 三处调用点的关系（**必须知道，否则会以为有一处是多余的**）：
+     * ① 显示期（`MessageBody`）② 提示词侧（本函数）③ 生成收尾落库前（`ChatPage.resultOf`）。
+     * 上游同样是三处；其中 ③ 让**库里存的正文也是过滤后的**——也就是说
+     * 新生成的 AI 正文，模型原话**不再留存**（用户已知悉并拍板）。
+     *
+     * @param messages 已装配好的完整请求消息（含 system / 预设 / 历史 / 快照 / 本轮输入）
+     * @param styleFilterEnabled 文风过滤开关（上游 `settings.styleFilterEnabled`，默认开）
+     */
+    fun applyToPromptMessages(
+        messages: List<LlmMessage>,
+        scripts: List<RegexScript>,
+        userName: String = "",
+        styleFilterEnabled: Boolean = true,
+    ): List<LlmMessage> {
+        if (messages.isEmpty()) return messages
+        // 没配脚本、也没有名字可替换、且文风过滤关着 → 整条链零成本
+        if (scripts.isEmpty() && userName.isBlank() && !styleFilterEnabled) return messages
+        return messages.mapIndexed { index, message ->
+            val text = apply(
+                text = message.content,
+                scripts = scripts,
+                role = message.role,
+                mode = Mode.Prompt,
+                depth = messages.size - 1 - index,
+                userName = userName,
+            )
+            // ② 上游同处（`processRegex` 出口）：只对 assistant 筛
+            val filtered = if (message.role == LlmRole.ASSISTANT) {
+                StyleFilter.filter(text, enabled = styleFilterEnabled).text
+            } else {
+                text
+            }
+            if (filtered == message.content) message else message.copy(content = filtered)
+        }
     }
 
     /**
@@ -170,6 +281,8 @@ object RegexScripts {
 
     private fun applies(script: RegexScript, roleId: String, mode: Mode, depth: Int): Boolean {
         if (!script.enabled) return false
+        // ★ NAI 生图管线的**显式跳过**（用户 2026-09-14 拍板；理由见 [IMAGE_GEN_UNSUPPORTED]）
+        if (imageGenUnsupported && script.name == RegexScript.IMAGE_GEN_NAME) return false
         if (roleId == ROLE_USER && RegexScript.PLACEMENT_USER !in script.placement) return false
         if (roleId == ROLE_ASSISTANT && RegexScript.PLACEMENT_ASSISTANT !in script.placement) return false
         val userOnly = script.markdownOnly || (!script.markdownOnly && !script.promptOnly)
@@ -277,34 +390,16 @@ object RegexScripts {
     /**
      * 思考块范围（`<thinking>` / `</thinking>`…）。
      *
-     * **这是 `parseCot` 的最小可用子集**：只求「哪些范围算思考块」用于保护，
-     * 不产出上游那套 `cot`/`main`/`closingTags` 拆分——**把思考块单独渲染成节点**仍是未做项
-     * （见 `DESIGN-compose` §26 的登记），本函数不假装做了那件事。
+     * **委托给 [CotParser]**（单一真源）：本函数曾经是 `parseCot` 的「最小可用子集」，
+     * 自己拿一条 `COT_TOKEN` 正则重写了一遍分块逻辑。A3 把 [CotParser] 补成了完整移植
+     * （`ranges` / `rawCot` / `closingTags` / `isFinished`），于是那份子集没有任何存在理由了——
+     * 两套实现意味着「哪段算思考块」有两个答案，而受保护区判错是**静默**的
+     * （脚本改坏了思维链，或者反过来正文被吃掉一段，都不会报错）。
      *
-     * 与上游一致的要点：重复开标签仍算思考（只有真闭合才结束）、未闭合算到文末、
-     * 代码围栏与行内代码里的标签**不算**思考标签（上游把围栏也放进同一 token 正则）。
+     * 委托之后 `RegexScriptsTest` 里那 4 条受保护区用例（思考块内不被改写 / 未闭合算到文末 /
+     * 围栏里的 thinking 不算 / 变量块受保护）继续绿，等于给 [CotParser] 补了一层交叉验证。
      */
-    internal fun cotRanges(text: String): List<IntRange> {
-        if (!text.contains('<')) return emptyList()
-        val code = CODE_RANGES.findAll(text).map { it.range }.toList()
-        val inCode = { index: Int -> code.any { index >= it.first && index <= it.last } }
-        val open = ArrayDeque<String>()
-        val ranges = mutableListOf<IntRange>()
-        var blockStart = 0
-        for (match in COT_TOKEN.findAll(text)) {
-            if (inCode(match.range.first)) continue
-            val tag = match.groupValues[2].lowercase()
-            if (match.groupValues[1].isEmpty()) {
-                if (open.isEmpty()) blockStart = match.range.first
-                if (tag !in open) open.addLast(tag)
-            } else if (open.isNotEmpty() && open.last() == tag) {
-                open.removeLast()
-                if (open.isEmpty()) ranges += blockStart..match.range.last
-            }
-        }
-        if (open.isNotEmpty()) ranges += blockStart..(text.length - 1)
-        return ranges
-    }
+    internal fun cotRanges(text: String): List<IntRange> = CotParser.parse(text).ranges
 
     // ------------------------------------------------------------------ 替换语义
 
@@ -433,12 +528,6 @@ object RegexScripts {
             "|</?[a-zA-Z][\\w:-]*(?:[^\"'<>]|\"[^\"]*\"|'[^']*')*>",
         RegexOption.IGNORE_CASE,
     )
-
-    /** 只取代码围栏与行内代码（思考块扫描要跳过它们）。 */
-    private val CODE_RANGES = Regex("```[\\s\\S]*?```|```[\\s\\S]*\\z|`[^`]+`")
-
-    /** 思考块开闭标签（`parseCot` token 列表里的 `thinking|think|cot` 部分）。 */
-    private val COT_TOKEN = Regex("""<\s*(/?)\s*(thinking|think|cot)\s*>""", RegexOption.IGNORE_CASE)
 }
 
 // ---------------------------------------------------------------------- JSON 取值

@@ -314,6 +314,16 @@ fun ChatPage(
      */
     var currentUserName by remember { mutableStateOf("你") }
     /**
+     * `{{user}}` 在**提示词侧**的替换值（喂给 `RequestBuilder`）。
+     *
+     * 与 [currentUserName] 的差别只有一个但很要紧：**这里不套「你」兜底**。
+     * 显示期拿「你」顶替是合理的（正文里第二人称更自然），但提示词侧会进 system / 预设 /
+     * 角色块——把 `{{user}}` 换成「你」会让模型分不清那是人名还是人称代词，
+     * 预设里「{{user}} 与 {{char}} 是旧识」这类模板会直接读不通。所以没配名字就传空，
+     * 占位符原样保留（与上游 `String(user.name || '').trim()` 的取值口径一致）。
+     */
+    var promptUserName by remember { mutableStateOf("") }
+    /**
      * 显示期正则脚本（全局 + 当前角色，`PromptInputSource.regexScripts`）。
      *
      * 与角色一起加载：换角色 → 脚本集也随之换（上游 `combineRegexScriptsForCharacter` 同义）。
@@ -359,6 +369,10 @@ fun ChatPage(
                 currentUserName = runCatching { promptSource.userName() }
                     .getOrDefault("")
                     .ifBlank { "你" }
+                // 提示词侧要**原名**（不套「你」兜底，理由见 promptUserName 的说明）。
+                // 这里再读一次而不是从 currentUserName 反推：反推会把「用户真名就叫『你』」
+                // 与「没配过名字」两种状态混成一个，而它们的提示词字节完全不同。
+                promptUserName = runCatching { promptSource.userName() }.getOrDefault("")
             } else {
                 val main = demoHistory()
                 branchMessages[ChatBranch.MainId] = main
@@ -621,6 +635,9 @@ fun ChatPage(
         freshTurn: Boolean,
     ): PreparedTurn {
         val uuidForTurn = characterUuid
+        // 提示词侧正则与用户名（都是 Compose 状态 → 必须先取进局部变量，理由见线程纪律②）
+        val scriptsForTurn = regexScripts
+        val userNameForTurn = promptUserName
         val history = RequestBuilder.historyOf(state)
         // 世界书扫描的「最近消息」**不含快照**：快照正文里有 `<memory_recall>` 这类结构化片段，
         // 拿它去匹配关键词会误触发条目（那是模型看的运行时事实，不是「最近说过的话」）。
@@ -653,6 +670,13 @@ fun ChatPage(
                 userText = userText,
                 input = bundle?.input ?: PromptAssembler.Input(),
                 freshTurn = freshTurn,
+                // 脚本集是**界面状态**（换角色时随角色载入），所以必须在这里取进局部变量
+                // 传给纯函数——不能在 IO 段里读（理由见本函数开头的线程纪律②）。
+                regexScripts = scriptsForTurn,
+                promptUserName = userNameForTurn,
+                // ② 文风过滤也走提示词侧（上游同处）：assistant 的历史在发给模型前会被过滤，
+                //    与本页 ③ 落库前那次过滤同源同开关
+                styleFilterEnabled = true,
             ),
             // null = 取数失败（引擎回落到它的默认执行器）；非 null 时**即使为空**也用注入的
             // ——「本次没有条目激活」与「这次没取到数」是两件事，不能混。
@@ -1622,13 +1646,33 @@ private fun traceStreamEvent(event: AgentLoop.Event) {
  * **收敛成一处**：发新消息 / 编辑后重跑 / 重新生成三条路径以前各写一遍
  * `AiResult(turn.body, turn.nodes, …)`，加一个字段就要改三处（漏一处就是静默丢数据）。
  * 批 B 新增的「工具轨迹」与「被中断」两样正是这样丢不起的字段（B3/B4）。
+ *
+ * ## ③ 文风过滤在**落库前**改写正文（用户 2026-09-16 拍板「完全照上游」）
+ *
+ * 上游在生成收尾时对 `assistantMessage.content` **就地**跑一次
+ * `filterBlockedStyleText`（`app.js:6872-6875`），于是：**库里存的、下一轮发给模型的、
+ * 界面上显示的，三处都是过滤后的文本**——这是上游的实际行为。
+ *
+ * **代价（用户已知悉并拍板）**：模型的原话在库里**不再留存**（不可逆）。
+ * 之所以还是照做：① 三处若不统一，会出现「界面上被删了、但发给模型的还在」这种
+ * 自相矛盾的状态；② 用户要的是「照上游」。
+ *
+ * **这一处的收敛价值**：三条落库路径共用本函数，所以过滤只在这里做一次——
+ * 漏掉任何一条都会得到「某条路径的正文没过滤」这种极难察觉的不一致。
+ *
+ * [AiResult] 的 `body` 由 `raw` 在构造时算出（`CotParser.mainOf`），
+ * 所以这里过滤 [AiResult.raw] 之后，`body` 自然跟着是过滤后的文本 —— 显示与提示词同源。
  */
-private fun resultOf(turn: LiveTurn): AiResult = AiResult(
-    raw = turn.body,
-    thinkNodes = turn.nodes,
-    finishReason = turn.finishReason,
-    usage = turn.usage,
-    elapsedMs = turn.elapsedMs,
-    toolTrail = turn.toolTrail,
-    interrupted = turn.interrupted,
-)
+private fun resultOf(turn: LiveTurn): AiResult {
+    // 只对 AI 正文过滤（上游 `role === 'assistant'` 的判据）；工具轨迹与思维链不参与
+    val filtered = com.luzzymeow.luzzyrp.chat.StyleFilter.filter(turn.body).text
+    return AiResult(
+        raw = filtered,
+        thinkNodes = turn.nodes,
+        finishReason = turn.finishReason,
+        usage = turn.usage,
+        elapsedMs = turn.elapsedMs,
+        toolTrail = turn.toolTrail,
+        interrupted = turn.interrupted,
+    )
+}

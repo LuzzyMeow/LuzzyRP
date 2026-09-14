@@ -2,12 +2,14 @@ package com.luzzymeow.luzzyrp.ui.pages.chat
 
 import com.luzzymeow.luzzyrp.chat.Compaction
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
+import com.luzzymeow.luzzyrp.chat.RegexScript
 import com.luzzymeow.luzzyrp.chat.RuntimeSnapshots
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import com.luzzymeow.luzzyrp.data.world.WorldEntry
 import com.luzzymeow.luzzyrp.data.world.WorldPosition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -74,6 +76,51 @@ class RequestBuilderTest {
         val next = state + plan.appends + ChatMessage.Ai(results = listOf(AiResult(raw = "回复：$userText")))
         return Turn(plan, next, plan.snapshotText ?: retained)
     }
+
+    /** 同上，但带**提示词侧正则**（A1）——用来钉住它改了什么、没改什么。 */
+    private fun turnWithScripts(
+        state: List<ChatMessage>,
+        userText: String,
+        retained: String?,
+        scripts: List<RegexScript>,
+        userName: String = "",
+    ): Turn {
+        val plan = RequestBuilder.plan(
+            state = state,
+            userText = userText,
+            input = input(retained),
+            regexScripts = scripts,
+            promptUserName = userName,
+        )
+        val next = state + plan.appends + ChatMessage.Ai(results = listOf(AiResult(raw = "回复：$userText")))
+        return Turn(plan, next, plan.snapshotText ?: retained)
+    }
+
+    /**
+     * 一条**仅提示词**脚本（`promptOnly = true`）：只有这种才会进请求。
+     *
+     * 默认什么都不勾 = 「仅用户可见」→ 提示词侧一律跳过（上游 `app.js:4039` 的 `userOnly`）。
+     * 所以这里的默认值与显示期的脚本**正好相反**，不是笔误。
+     */
+    private fun promptScript(
+        pattern: String,
+        replacement: String,
+        minDepth: Int? = null,
+        maxDepth: Int? = null,
+        enabled: Boolean = true,
+    ) = RegexScript(
+        name = "提示词侧",
+        pattern = pattern,
+        flags = "g",
+        replacement = replacement,
+        placement = setOf(1, 2),
+        scope = "global",
+        markdownOnly = false,
+        promptOnly = true,
+        minDepth = minDepth,
+        maxDepth = maxDepth,
+        enabled = enabled,
+    )
 
     /** 协议线上字节（OpenAI 形态就是我们要发出去的东西）。 */
     private fun wire(message: LlmMessage): String = message.toOpenAiJson().toString()
@@ -431,5 +478,386 @@ class RequestBuilderTest {
         )
         // 请求消息里的下标必须原样带到引擎（压缩事件据此算落库位置）
         assertEquals(history.map { it.sourceIndex }, plan.messages.filter { it.fromHistory }.map { it.sourceIndex })
+    }
+
+    // ---------------------------------------------------------------- A1：提示词侧正则
+
+    /**
+     * 「仅提示词」的脚本**进请求**，且改的是模型看到的字节——这是 A1 存在的全部理由：
+     * 上游模型看到的上下文与用户看到的不同，这正是「模型为什么不听话」的常见真因。
+     */
+    @Test
+    fun `勾了仅提示词的脚本会改请求内容`() {
+        val state = turn(emptyList(), "钟楼上有苹果树吗", null).state
+        val plain = RequestBuilder.plan(state, "那棵树是谁种的", input(null))
+        val withScript = RequestBuilder.plan(
+            state = state,
+            userText = "那棵树是谁种的",
+            input = input(null),
+            regexScripts = listOf(promptScript("苹果", "梨")),
+        )
+
+        assertTrue(
+            "提示词侧脚本必须真的改到请求字节",
+            withScript.messages.any { it.content.contains("梨") },
+        )
+        assertTrue(
+            "原来的字面（被替换掉的那个）应在该条消息里消失",
+            plain.messages.none { it.content.contains("梨") },
+        )
+        // 只改内容、不改结构：条数与角色序列必须逐条对齐
+        assertEquals(plain.messages.size, withScript.messages.size)
+        assertEquals(plain.messages.map { it.role }, withScript.messages.map { it.role })
+    }
+
+    /**
+     * **仅用户可见的脚本（默认形态）一个字节都不许改请求。**
+     *
+     * 上游 `app.js:4039` 的 `userOnly = markdownOnly || (!markdownOnly && !promptOnly)`：
+     * 两项都不勾时按「仅用户可见」处理，提示词侧跳过。这条用例是
+     * 「A1 会不会误伤普通用户」的守卫——绝大多数用户的脚本都是这个形态。
+     */
+    @Test
+    fun `没勾仅提示词的脚本不进请求（默认形态零影响）`() {
+        val state = turn(emptyList(), "钟楼上有苹果树吗", null).state
+        val plain = RequestBuilder.plan(state, "那棵树是谁种的", input(null))
+        val userOnly = RegexScript(
+            name = "显示用高亮",
+            pattern = "苹果",
+            flags = "g",
+            replacement = "<span>梨</span>",
+            placement = setOf(1, 2),
+            scope = "global",
+            markdownOnly = false,
+            promptOnly = false, // ← 两项都没勾 = 仅用户可见
+            minDepth = null,
+            maxDepth = null,
+            enabled = true,
+        )
+        val withScript = RequestBuilder.plan(
+            state = state,
+            userText = "那棵树是谁种的",
+            input = input(null),
+            regexScripts = listOf(userOnly),
+        )
+
+        assertEquals(
+            "仅用户可见的脚本不该改请求——一个字节都不行",
+            plain.messages.map { wire(it) },
+            withScript.messages.map { wire(it) },
+        )
+    }
+
+    /** 勾了「仅 Markdown（用户可见）」同理跳过（上游两条判据取或）。 */
+    @Test
+    fun `勾了仅 Markdown 的脚本也不进请求`() {
+        val state = turn(emptyList(), "钟楼上有苹果树吗", null).state
+        val plain = RequestBuilder.plan(state, "那棵树是谁种的", input(null))
+        val markdownOnly = promptScript("苹果", "梨").copy(markdownOnly = true, promptOnly = false)
+        val withScript = RequestBuilder.plan(
+            state = state,
+            userText = "那棵树是谁种的",
+            input = input(null),
+            regexScripts = listOf(markdownOnly),
+        )
+
+        assertEquals(plain.messages.map { wire(it) }, withScript.messages.map { wire(it) })
+    }
+
+    /** 显式 `enabled = false` 一律跳过（上游 `app.js:4028`）。 */
+    @Test
+    fun `停用的脚本不进请求`() {
+        val state = turn(emptyList(), "钟楼上有苹果树吗", null).state
+        val plain = RequestBuilder.plan(state, "那棵树是谁种的", input(null))
+        val disabled = RequestBuilder.plan(
+            state = state,
+            userText = "那棵树是谁种的",
+            input = input(null),
+            regexScripts = listOf(promptScript("苹果", "梨", enabled = false)),
+        )
+
+        assertEquals(plain.messages.map { wire(it) }, disabled.messages.map { wire(it) })
+    }
+
+    /**
+     * **depth 区间外跳过**，且深度口径 = `条数 - 1 - 下标`（上游 `app.js:6516`）。
+     *
+     * 这里同时钉住两件事，缺一条这个用例就证明不了「接线正确」：
+     * ① `depth >= minDepth` 的末条消息被改、更早的没被改；
+     * ② 同一条**历史**消息在第 2 轮 depth 是 2、第 3 轮 depth 是 4 —— 每轮都在增长。
+     *    这是深度语义的固有后果（见 [RegexScripts.applyToPromptMessages] 的说明），
+     *    所以断言写的是「按当前轮的实际 depth 命中」，不是「永远命中同几条」。
+     */
+    @Test
+    fun `depth 区间外的消息不被改写`() {
+        var state: List<ChatMessage> = emptyList()
+        var retained: String? = null
+        // 两轮真实历史（每轮：用户发言 + 模型回复），第三轮来断言
+        repeat(2) { index ->
+            val result = turn(state, "老话 $index", retained)
+            state = result.state
+            retained = result.retained
+        }
+        val plan = RequestBuilder.plan(
+            state = state,
+            userText = "这一轮的问题",
+            input = retained?.let { input(it) } ?: input(null),
+            regexScripts = listOf(promptScript("话", "语", minDepth = 1)),
+        )
+
+        val last = plan.messages.last()
+        assertEquals("末条必然是本轮输入", LlmRole.USER, last.role)
+        assertEquals("depth=0 < minDepth=1 → 不改", "这一轮的问题", last.content)
+        // 往前的每一条：depth 就是「它后面还有几条」。用逐条下标重算一遍，与实现同源。
+        // ⚠️ system 必须排除：它**不套脚本**（上游 `app.js:4019`），而本条夹具的角色描述里
+        // 正好含「说话很慢」的「话」字——第一版断言没排除 system，于是被自己的夹具抓到，
+        // 报的是「depth≥1 的消息没被改写」，实际是「system 本来就不该被改写」。
+        plan.messages.forEachIndexed { index, message ->
+            if (message.role == LlmRole.SYSTEM) return@forEachIndexed
+            val depth = plan.messages.size - 1 - index
+            if (depth >= 1 && message.content.contains("话")) {
+                assertTrue(
+                    "depth=$depth 已在区间内，应被改写（实际=${message.content}）",
+                    message.content.contains("语"),
+                )
+            }
+        }
+        // 至少有一条真的被改了，否则上面那个 forEach 是空转
+        assertTrue("区间内应至少有一条被实际改写", plan.messages.any { it.content.contains("语") })
+        // 反向：minDepth 大于任何消息的 depth → 整条请求一个字节都不变
+        val untouched = RequestBuilder.plan(
+            state = state,
+            userText = "这一轮的问题",
+            input = retained?.let { input(it) } ?: input(null),
+            regexScripts = listOf(promptScript("话", "语", minDepth = 999)),
+        )
+        assertTrue(
+            "minDepth 超出所有消息的 depth → 不该改任何一条",
+            untouched.messages.none { it.content.contains("语") },
+        )
+    }
+
+    /** 角色口径：`system` 不套脚本（上游 `app.js:4019`）；user/assistant 各自按 `placement` 判。 */
+    @Test
+    fun `system 消息不会被提示词脚本改写`() {
+        val plan = RequestBuilder.plan(
+            state = emptyList(),
+            userText = "苹果",
+            input = input(null),
+            regexScripts = listOf(promptScript("谢昭", "某某")),
+        )
+        val system = plan.messages.first { it.role == LlmRole.SYSTEM }
+        assertTrue("system 里应含角色名（前置条件自证）", system.content.contains("谢昭"))
+        assertTrue("system 不套脚本，角色名必须原样", !system.content.contains("某某"))
+        assertTrue("但同一条脚本对 user 消息生效", plan.messages.any { it.content.contains("某某") })
+    }
+
+    /**
+     * `{{user}}` 在**提示词侧**也替换（上游 `app.js:4018`，`apply` 里占位符先于一切判据）。
+     * 这条同时钉住「传给提示词侧的是档案原名、不是显示期的『你』兜底」。
+     */
+    @Test
+    fun `提示词侧的 user 占位符按档案名替换`() {
+        val plan = RequestBuilder.plan(
+            state = emptyList(),
+            userText = "{{user}}在吗",
+            input = input(null),
+            promptUserName = "鹿溪",
+        )
+        assertTrue(plan.messages.any { it.content == "鹿溪在吗" })
+
+        // 空名字 → 占位符原样保留（宁可留着，也不要替换成空白）
+        val noName = RequestBuilder.plan(
+            state = emptyList(),
+            userText = "{{user}}在吗",
+            input = input(null),
+            promptUserName = "",
+        )
+        assertTrue(noName.messages.last().content == "{{user}}在吗")
+    }
+
+    /** 没配脚本、也没名字 → 连 map 都不做，逐字节等于原序列（零成本的守卫）。 */
+    @Test
+    fun `没有脚本时请求逐字节不变`() {
+        val state = turn(emptyList(), "第一句", null).state
+        val plain = RequestBuilder.plan(state, "第二句", input(null))
+        val explicit = RequestBuilder.plan(
+            state = state,
+            userText = "第二句",
+            input = input(null),
+            regexScripts = emptyList(),
+            promptUserName = "",
+        )
+        assertEquals(plain.messages.map { wire(it) }, explicit.messages.map { wire(it) })
+    }
+
+    // ---------------------------------------------------------------- A1 × 批 A 的不变量
+
+    /**
+     * **提示词侧脚本不得破坏纯追加**（PLAN §7.1 的指标在 A1 之后仍要成立）。
+     *
+     * 用「无深度区间的仅提示词脚本」——脚本是确定性的，于是同一条历史消息每一轮都套用
+     * **同一份改写**，前缀必须逐字节保持。这正是接线正确性的最强证据：
+     * 若哪天有人把脚本套到了「已发出的上一轮字节」之外的地方（例如改写快照或重排消息），
+     * 这条立刻红。
+     */
+    @Test
+    fun `有提示词脚本时连续五轮仍是纯追加`() {
+        val scripts = listOf(promptScript("苹果", "梨"), promptScript("钟楼", "塔楼"))
+        var state: List<ChatMessage> = emptyList()
+        var retained: String? = null
+        val requests = mutableListOf<List<LlmMessage>>()
+
+        listOf("钟楼上的红苹果树", "苹果树在哪", "嬷嬷是谁", "她为什么生气", "后来呢").forEach { text ->
+            val result = turnWithScripts(state, text, retained, scripts)
+            requests += result.plan.messages
+            state = result.state
+            retained = result.retained
+        }
+
+        // 前提自证：脚本确实改到了请求（否则这条退化成「没有脚本」的情形，测不到东西）
+        assertTrue("脚本应已改写请求内容", requests.any { list -> list.any { it.content.contains("梨") } })
+        for (i in 0 until requests.size - 1) {
+            assertPureAppend(requests[i], requests[i + 1], "第 ${i + 1}→${i + 2} 轮（有提示词脚本）")
+        }
+    }
+
+    /**
+     * **反过来把代价钉住**：带深度区间的提示词脚本会让前缀在**同一位置**逐轮漂移。
+     *
+     * 这不是实现缺陷，是深度语义的固有后果（上游亦然）：一条老消息的 depth 每轮都在增长，
+     * 于是「它这一轮该不该被改写」与上一轮可能不同 → 上一轮发出去的字节无法成为这一轮的前缀。
+     *
+     * 为什么要把一条负面结论写成绿灯用例：**它是可预知的**。写成断言之后，
+     * 将来真机复核缓存命中率若掉下来，第一现场就在这里——省掉一轮「是不是我们接线错了」的排查。
+     */
+    @Test
+    fun `带深度区间的提示词脚本会让前缀在同一位置漂移（已知代价，真机复核命中率）`() {
+        // minDepth=2：历史越老越可能落在区间外，于是它在不同轮次里被改写 / 不被改写
+        val scripts = listOf(promptScript("苹果", "梨", minDepth = 2))
+        var state: List<ChatMessage> = emptyList()
+        var retained: String? = null
+        val requests = mutableListOf<List<LlmMessage>>()
+
+        listOf("钟楼上的红苹果树", "苹果树在哪", "嬷嬷是谁", "后来呢").forEach { text ->
+            val result = turnWithScripts(state, text, retained, scripts)
+            requests += result.plan.messages
+            state = result.state
+            retained = result.retained
+        }
+
+        val drifted = requests.zipWithNext().count { (previous, next) -> !isPureAppend(previous, next) }
+        println("[A1·深度区间] 4 轮里有 $drifted 轮的前缀发生漂移（上游同此语义，真机复核命中率）")
+        assertTrue(
+            "深度区间的脚本会逐轮改变老消息的改写结果 → 前缀必然漂移（若有朝一日为 0，说明判据变了，请重读本用例）",
+            drifted > 0,
+        )
+    }
+
+    /** 纯追加判据的可复用版本（[assertPureAppend] 的布尔形态）。 */
+    private fun isPureAppend(previous: List<LlmMessage>, next: List<LlmMessage>): Boolean {
+        if (next.size < previous.size) return false
+        return previous.indices.all { wire(previous[it]) == wire(next[it]) }
+    }
+
+    // ---------------------------------------------------------------- ② 提示词侧文风过滤
+
+    /**
+     * **assistant 的历史在发给模型前会被过滤**（②，上游 `processRegex` 出口 `app.js:4090`）。
+     *
+     * 为什么这条属于「照上游」而不是我们的发明：上游的提示词侧走的就是 `processRegex`，
+     * 而它的出口对 `role === 'assistant'` 调 `filterBlockedStyleText`。
+     * 于是模型看到的自己的历史**也是过滤后的**。
+     */
+    @Test
+    fun `提示词侧的 assistant 历史会被文风过滤`() {
+        val state = listOf(
+            ChatMessage.User("问第一句"),
+            ChatMessage.Ai(results = listOf(AiResult(raw = "他极其平静地说，然后走开了。"))),
+        )
+        val plan = RequestBuilder.plan(state, "第二句", input(null))
+
+        val assistant = plan.messages.single { it.role == LlmRole.ASSISTANT && it.content.contains("走开了") }
+        assertFalse("命中短语不该进请求", assistant.content.contains("极其"))
+        assertTrue("其余正文必须留着", assistant.content.contains("走开了"))
+    }
+
+    /** **user 的历史一个字都不许动**（上游只对 assistant 筛）。 */
+    @Test
+    fun `提示词侧的 user 历史不被文风过滤`() {
+        val state = listOf(ChatMessage.User("他极其平静地说了这句话"))
+        val plan = RequestBuilder.plan(state, "第二句", input(null))
+
+        assertTrue(
+            "用户自己的话不该被筛",
+            plan.messages.any { it.role == LlmRole.USER && it.content.contains("极其") },
+        )
+    }
+
+    /** system 也不筛（它不是 assistant；上游同）。 */
+    @Test
+    fun `提示词侧的 system 不被文风过滤`() {
+        val plan = RequestBuilder.plan(
+            state = emptyList(),
+            userText = "问",
+            input = input(null),
+        )
+        val system = plan.messages.first { it.role == LlmRole.SYSTEM }
+        // 角色描述里含「说话很慢」，这里用一个必然含黑名单词的预设来验证
+        val planWithHit = RequestBuilder.plan(
+            state = emptyList(),
+            userText = "问",
+            input = PromptAssembler.Input(
+                character = character,
+                presets = listOf(
+                    com.luzzymeow.luzzyrp.data.preset.PresetEntry(name = "语气", content = "语气极其克制。"),
+                ),
+            ),
+        )
+        val sys = planWithHit.messages.first { it.role == LlmRole.SYSTEM }
+        assertTrue("system 不是 assistant → 不筛（上游同）", sys.content.contains("极其"))
+        assertTrue("前提自证：system 确实装配出来了", system.content.isNotEmpty())
+    }
+
+    /**
+     * **过滤开关是活的**：关掉之后同一条历史逐字节不变。
+     * 这条与上上条构成负控对（否则「永远返回同一结果」的实现也能过）。
+     */
+    @Test
+    fun `关掉文风过滤后提示词侧逐字节不变`() {
+        val state = listOf(
+            ChatMessage.User("问第一句"),
+            ChatMessage.Ai(results = listOf(AiResult(raw = "他极其平静地说，然后走开了。"))),
+        )
+        val on = RequestBuilder.plan(state, "第二句", input(null), styleFilterEnabled = true)
+        val off = RequestBuilder.plan(state, "第二句", input(null), styleFilterEnabled = false)
+
+        assertTrue("开着时该短语被删", on.messages.none { it.content.contains("极其") })
+        assertTrue("关着时该短语必须在", off.messages.any { it.content.contains("极其") })
+        assertTrue(
+            "两条请求必须真的不同（否则说明开关没接上）",
+            on.messages.map { wire(it) } != off.messages.map { wire(it) },
+        )
+    }
+
+    /**
+     * **过滤不破坏纯追加**：过滤是确定性的（同一条历史每轮得到同一份改写），
+     * 所以批 A 的前缀性质必须继续成立。
+     */
+    @Test
+    fun `有文风过滤时连续五轮仍是纯追加`() {
+        var state: List<ChatMessage> = emptyList()
+        var retained: String? = null
+        val requests = mutableListOf<List<LlmMessage>>()
+
+        listOf("钟楼上的红苹果树", "苹果树在哪", "嬷嬷是谁", "她为什么生气", "后来呢").forEach { text ->
+            val result = turn(state, text, retained)
+            requests += result.plan.messages
+            state = result.state
+            retained = result.retained
+        }
+        for (i in 0 until requests.size - 1) {
+            assertPureAppend(requests[i], requests[i + 1], "第 ${i + 1}→${i + 2} 轮（有文风过滤）")
+        }
     }
 }

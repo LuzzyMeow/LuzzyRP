@@ -34,6 +34,32 @@ object CotParser {
         val hadCot: Boolean,
         /** CoT 已闭合（流式结束或本来就有闭合标签）。 */
         val isFinished: Boolean,
+        /**
+         * 思维链在**原文**里的范围（`start..end`，闭区间；上游是 `{start, end}` 半开）。
+         *
+         * 上游 `parseCot` 把 `ranges` 当作**受保护区**用（`core-utils.js:302`）：正则脚本、
+         * 文风过滤都不许改思维链。我们这边受保护区由 [RegexScripts.parts] 消费 ——
+         * 那正是本字段存在的唯一理由：**受保护区只能有一份实现**，
+         * 否则「脚本改不改得到 CoT」会出现两个答案。
+         */
+        val ranges: List<IntRange> = emptyList(),
+        /**
+         * 思维链**原始**文本（未做转义；上游 `rawCot`）。
+         *
+         * 与 [cot] 的差别：上游把 [cot] 里的 `<` 转义成 `&lt;`（`core-utils.js:58-59`）
+         * 以便直接塞进 `v-html`。我们渲染走 Compose 文本，转义没有意义，
+         * 所以 [cot] 与 [rawCot] 在此**内容相同**——保留两个名字是为了让调用点
+         * 一眼看出自己用的是哪一份语义（回传给模型 / 落盘时该用 rawCot）。
+         */
+        val rawCot: String = cot,
+        /**
+         * 未闭合时补上就能配平的闭标签（上游 `closingTags`）。
+         *
+         * 上游用途是**编辑态**：用户编辑消息正文时，把「原始 CoT 范围 + 这些闭标签」
+         * 原样装回内容里，于是「改正文」不会把没闭合的思维链弄丢（`app.js:5446-5447`）。
+         * 我们的编辑走 [rewrap]，这里照样提供——它同时是「这条消息的 CoT 还没写完」的判据。
+         */
+        val closingTags: String = "",
     ) {
         companion object {
             val EMPTY = Parsed("", "", false, false)
@@ -91,7 +117,9 @@ object CotParser {
         val openTags = ArrayDeque<String>()
         val cot = StringBuilder()
         val main = StringBuilder()
+        val ranges = mutableListOf<IntRange>()
         var cursor = 0
+        var blockStart = 0
         var hadCot = false
 
         fun append(part: CharSequence) {
@@ -110,11 +138,15 @@ object CotParser {
                 val tag = cotTag.lowercase()
                 if (!closing) {
                     hadCot = true
-                    if (openTags.isEmpty()) cot.append("") // 起块；不写入标记本身
+                    // 起块：记下开标签在原文里的位置（只有**栈空时**才是新块的开始，
+                    // 嵌套的内层开标签不改 blockStart——否则 ranges 会缩成内层那一小段）
+                    if (openTags.isEmpty()) blockStart = match.range.first
                     if (!openTags.contains(tag)) openTags.addLast(tag)
                     if (cot.isNotEmpty()) cot.append("\n")
                 } else if (openTags.lastOrNull() == tag) {
                     openTags.removeLast()
+                    // 真闭合且栈空 → 这一块在原文里的范围到此为止
+                    if (openTags.isEmpty()) ranges += blockStart..(match.range.last)
                 }
             }
             cursor = match.range.last + 1
@@ -122,11 +154,20 @@ object CotParser {
         // 尾部残片（可能是半截标签）先剔除，下一段到达后会重新解析整串
         append(TRAILING_PARTIAL_TAG.replace(text.substring(cursor), ""))
 
+        // 未闭合 → 范围延伸到文末（上游 `core-utils.js:56` 的 `end: text.length`；
+        // 我们这里取「最后一个下标」以保持 Kotlin 闭区间的自洽）
+        if (openTags.isNotEmpty()) ranges += blockStart..(text.length - 1)
+
+        val raws = cot.toString().trim()
         return Parsed(
             main = main.toString().trim(),
-            cot = cot.toString().trim(),
+            cot = raws,
             hadCot = hadCot,
             isFinished = hadCot && openTags.isEmpty(),
+            ranges = ranges,
+            rawCot = raws,
+            // 栈里剩下的开标签，逆序补上就是能配平的闭标签（上游逐字相同）
+            closingTags = openTags.reversed().joinToString("") { "</$it>" },
         )
     }
 

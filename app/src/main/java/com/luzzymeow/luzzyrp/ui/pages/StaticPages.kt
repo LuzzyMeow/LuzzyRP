@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,14 +24,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +45,11 @@ import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.R
 import com.luzzymeow.luzzyrp.chat.CacheObserver
+import com.luzzymeow.luzzyrp.chat.PageDataSource
+import com.luzzymeow.luzzyrp.chat.UsageAggregate
+import com.luzzymeow.luzzyrp.chat.UsageFormat
+import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
+import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
 import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
@@ -79,8 +91,26 @@ private fun HeaderAction(iconRes: Int, desc: String, tint: Color = MaterialTheme
 
 // ───────────────────────── 角色卡页 ─────────────────────────
 
+/**
+ * 角色卡管理页（批 C C1/C2：真列表 + 真头像）。
+ *
+ * [pageData] 是**测试接缝**（与 `SessionsPage`/`ChatPage` 同一约定）：不注入时自建指向
+ * 设备真库的实例——不注入的话仪器化测试读到的就是「这台机器恰好装了什么」，
+ * 那是隐藏耦合，本机绿换机红。
+ */
 @Composable
-fun CharactersPage(onOpenDrawer: () -> Unit) {
+fun CharactersPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
+    val context = LocalContext.current
+    val source = remember(pageData) {
+        pageData ?: PageDataSource(LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)))
+    }
+    // null = 还没读完（首帧不显示「0 张卡」——那会让人以为数据丢了）
+    var rows by remember { mutableStateOf<List<PageDataSource.CharacterRow>?>(null) }
+    LaunchedEffect(source) {
+        val active = source.activeCharacter()
+        rows = source.characters(active)
+    }
+
     PageScaffold("角色卡管理", LuzzyIcons.Assistants, onOpenDrawer, actions = {
         HeaderAction(LuzzyIcons.Search, "检索")
         HeaderAction(LuzzyIcons.Plus, "添加角色卡")
@@ -93,30 +123,55 @@ fun CharactersPage(onOpenDrawer: () -> Unit) {
         ) {
             item {
                 Text(
-                    text = "2 张角色卡 · 网格视图",
+                    text = rows?.let { "${it.size} 张角色卡" } ?: "正在读取…",
                     fontSize = 12.sp,
                     fontFamily = LuzzyFonts.Body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
                 )
             }
-            item { CharacterCard("Vanio", "教堂后的小恶魔 · 偷苹果惯犯", inUse = true) }
-            item { CharacterCard("Luna", "灯塔守夜人 · 雾季值班", inUse = false) }
-            item {
-                Text(
-                    text = "「前往角色卡工坊导入更多角色」",
-                    fontSize = 12.sp,
-                    fontFamily = LuzzyFonts.Body,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 6.dp, start = 4.dp),
-                )
+            when {
+                rows == null -> Unit // 首帧：只有上面那行「正在读取…」
+                rows!!.isEmpty() -> item {
+                    SettingCard {
+                        Text(
+                            text = "库里还没有角色卡。导入角色卡后会在这里列出，并带上真实头像。",
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontFamily = LuzzyFonts.Body,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+
+                else -> items(rows!!, key = { it.uuid }) { row ->
+                    CharacterCard(
+                        name = row.name,
+                        desc = if (row.isActive) "当前角色" else "未启用",
+                        inUse = row.isActive,
+                        avatarPath = row.avatarPath,
+                    )
+                }
             }
         }
     }
 }
 
+/**
+ * 角色卡行（批 C C2）：**有真头像就显示真头像**，否则回落既有占位立绘。
+ *
+ * 为什么保留占位立绘而不是画一块纯色：它在暗色主题下提供了「卡面」这一层的视觉结构，
+ * 而真头像（旧数据里多是 `data:` 内联图）通常是小方图，直接铺满会糊。
+ * 于是这里把真头像裁圆放在左下角作为**身份标识**，占位立绘继续承担卡面。
+ */
 @Composable
-private fun CharacterCard(name: String, desc: String, inUse: Boolean) {
+private fun CharacterCard(
+    name: String,
+    desc: String,
+    inUse: Boolean,
+    avatarPath: String? = null,
+) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -143,6 +198,8 @@ private fun CharacterCard(name: String, desc: String, inUse: Boolean) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                // 真头像：解码失败或没有时这个组件自己回落成首字 monogram（见 AvatarImage）
+                AvatarImage(name = name, avatarPath = avatarPath, size = 26.dp)
                 Text(
                     text = name,
                     fontFamily = LuzzyFonts.Lora,
@@ -157,13 +214,6 @@ private fun CharacterCard(name: String, desc: String, inUse: Boolean) {
                 fontSize = 11.5.sp,
                 fontFamily = LuzzyFonts.Body,
                 color = Color.White.copy(alpha = 0.8f),
-            )
-            Text(
-                text = "世界书 1 · 正则 2",
-                fontSize = 11.sp,
-                fontFamily = LuzzyFonts.Body,
-                color = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.padding(top = 2.dp),
             )
         }
         Row(
@@ -200,8 +250,31 @@ private fun CharacterCard(name: String, desc: String, inUse: Boolean) {
 
 // ───────────────────────── 记忆页 ─────────────────────────
 
+/**
+ * 记忆系统页（批 C C1：真统计）。
+ *
+ * 页面上原来那三个数字（总分片 24 / 覆盖轮数 18 / 召回阈值 0.45）是**假数据**；
+ * 现在前两个来自真库（[PageDataSource.memory]），第三个是**设置**不是库数据。
+ *
+ * **本轮不做**（如实登记）：清空按钮的真执行（那是写操作，需要真机验证；
+ * 无真机时「点了会怎样」无法判定）；召回阈值的设置绑定（属设置页的活）。
+ */
 @Composable
-fun MemoryPage(onOpenDrawer: () -> Unit) {
+fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
+    val context = LocalContext.current
+    val source = remember(pageData) {
+        pageData ?: PageDataSource(LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)))
+    }
+    var stats by remember { mutableStateOf<PageDataSource.MemoryPair?>(null) }
+    LaunchedEffect(source) {
+        // ⚠️ 作用域必须是「角色 × **当前分支**」：用户的活跃会话常常不在主线上，
+        //    只按角色取会读到主线的记忆 → 数字静默不对（见 PageDataSource.memory 的说明）
+        val uuid = source.activeCharacter()
+        stats = source.memory(uuid, uuid?.let { source.activeBranch(it) })
+    }
+    val vector = stats?.vector
+    val classic = stats?.classic
+
     PageScaffold("记忆系统", LuzzyIcons.Memory, onOpenDrawer, actions = {
         HeaderAction(LuzzyIcons.Trash, "清空当前模式记忆", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
         Spacer(Modifier.width(8.dp))
@@ -213,82 +286,74 @@ fun MemoryPage(onOpenDrawer: () -> Unit) {
         ) {
             item {
                 SettingCard {
-                    SettingRow("记忆引擎", "已开启 · 向量模式", trailing = { LuzzySwitch(true) })
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box(
-                            Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "向量分片",
+                            fontSize = 13.sp,
+                            fontFamily = LuzzyFonts.Body,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
                         ) {
-                            Text(
-                                text = "向量模式",
-                                fontSize = 12.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                        }
-                        Box(
-                            Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .padding(horizontal = 14.dp, vertical = 6.dp),
-                        ) {
-                            Text(
-                                text = "总结模式",
-                                fontSize = 12.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                SettingCard {
-                    Row(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    ) {
-                        StatMini("总分片", "24")
-                        StatMini("覆盖轮数", "18")
-                        StatMini("召回阈值", "0.45")
-                    }
-                }
-            }
-            item { SectionTitle("检索结果 · 2") }
-            item {
-                SettingCard(Modifier.padding(bottom = 8.dp)) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            BadgeChip("第 17 轮", MaterialTheme.colorScheme.primary)
-                            BadgeChip("相关度 91%", MaterialTheme.colorScheme.tertiary)
+                            // 未读完时显示「—」而不是 0：0 会被读成「一条记忆都没有」
+                            StatMini("总分片", vector?.shards?.toString() ?: "—")
+                            StatMini("覆盖轮数", vector?.coveredTurns?.toString() ?: "—")
+                            StatMini("已嵌入", vector?.embeddedShards?.toString() ?: "—")
                         }
                         Text(
-                            text = "Vanio 把苹果藏进兜里，冲你勾了勾手指；钟楼顶上的红苹果树是只有恶魔找得到的秘密。",
-                            fontSize = 12.5.sp, lineHeight = 19.sp,
+                            text = vector?.let {
+                                "合计 ${UsageFormat.grouped(it.totalChars)} 字 · 平均 ${it.averageChars} 字/片" +
+                                    if (it.embeddingDims > 0) " · 维度 ${it.embeddingDims}" else ""
+                            } ?: "正在读取…",
+                            fontSize = 11.sp,
                             fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.outline,
                         )
                     }
                 }
             }
             item {
                 SettingCard {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            BadgeChip("第 12 轮", MaterialTheme.colorScheme.primary)
-                            BadgeChip("相关度 87%", MaterialTheme.colorScheme.tertiary)
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "总结记忆",
+                            fontSize = 13.sp,
+                            fontFamily = LuzzyFonts.Body,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        ) {
+                            StatMini("总条数", classic?.shards?.toString() ?: "—")
+                            StatMini("覆盖轮数", classic?.coveredTurns?.toString() ?: "—")
+                            StatMini("最长到第", classic?.maxTurn?.toString() ?: "—")
                         }
                         Text(
-                            text = "灯塔守夜人 Luna 把备用灯借给雾中迷航的你；航道浮标从灯塔脚下一直排到远方。",
-                            fontSize = 12.5.sp, lineHeight = 19.sp,
+                            text = classic?.let {
+                                "合计 ${UsageFormat.grouped(it.totalChars)} 字 · 平均 ${it.averageChars} 字/条"
+                            } ?: "正在读取…",
+                            fontSize = 11.sp,
+                            fontFamily = LuzzyFonts.Body,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                }
+            }
+            if (stats != null && vector?.isEmpty == true && classic?.isEmpty == true) {
+                item {
+                    SettingCard {
+                        Text(
+                            text = "当前角色还没有记忆。对话推进到一定轮数后，记忆会在这里按分片统计出来。",
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
                             fontFamily = LuzzyFonts.Body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
                         )
                     }
                 }
@@ -296,7 +361,6 @@ fun MemoryPage(onOpenDrawer: () -> Unit) {
         }
     }
 }
-
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.StatMini(label: String, value: String) {
     Column {
@@ -318,11 +382,26 @@ private fun androidx.compose.foundation.layout.RowScope.StatMini(label: String, 
 
 // ───────────────────────── 用量页 ─────────────────────────
 
+/**
+ * 用量统计页（批 C C1：总用量与趋势接真库 + A8 的前缀缓存段）。
+ *
+ * 两段数据来源不同、**不要混为一谈**（页面标题已分别标注）：
+ * - 「总用量 / 按天趋势」= 库里 `token_usage_history` 的**历史累计**（跨进程、跨角色）；
+ * - 「前缀缓存 · 本次运行」= `CacheObserver` 的**进程内**观测（批 A 的验收指标）。
+ *
+ * [pageData] 是测试接缝（同 `CharactersPage`）。
+ */
 @Composable
-fun UsagePage(onOpenDrawer: () -> Unit) {
+fun UsagePage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
     // ★ A8：本页的「前缀缓存」段是**真数据**——直接订阅观测层（A7）。
     //   它只统计不干预，所以这一页读它就等于读真实发生过的请求，不是又一处占位。
     val cache by CacheObserver.summary.collectAsState()
+    val context = LocalContext.current
+    val source = remember(pageData) {
+        pageData ?: PageDataSource(LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)))
+    }
+    var usage by remember { mutableStateOf<UsageAggregate.Summary?>(null) }
+    LaunchedEffect(source) { usage = source.usage() }
 
     PageScaffold("用量统计", LuzzyIcons.ChartBar, onOpenDrawer, actions = {
         HeaderAction(LuzzyIcons.Trash, "清空记录", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
@@ -366,39 +445,50 @@ fun UsagePage(onOpenDrawer: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = "1,284,506 tokens",
+                            // 真数据：迁移进来的 `token_usage_history` 聚合（批 C C1）
+                            text = usage?.let { "${UsageFormat.grouped(it.totalTokens)} tokens" } ?: "—",
                             fontSize = 24.sp,
                             fontFamily = LuzzyFonts.Lora,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        // 静态趋势占位折线（P1 示意；C1 接真库时改 Canvas 折线）
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp)
-                                .height(96.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                        ) {
-                            Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                                repeat(3) {
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .height(1.dp)
-                                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                                    )
-                                }
-                            }
-                        }
                         Text(
-                            text = "粒度 日 / 周 / 月 · 供应商筛选（静态占位，C1 接真库）",
+                            text = usage?.let {
+                                "输入 ${UsageFormat.grouped(it.inputTokens)} · 输出 ${UsageFormat.grouped(it.outputTokens)}" +
+                                    " · ${it.measuredRequests} 次计入统计 / 共 ${it.requests} 次请求"
+                            } ?: "正在读取…",
                             fontSize = 11.sp,
                             fontFamily = LuzzyFonts.Body,
                             color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(top = 6.dp),
+                            modifier = Modifier.padding(top = 4.dp),
                         )
+                        // 按天趋势（真数据）。空数据时给一行说明，不画空坐标系——
+                        // 空轴看起来像「有数据但都是 0」，那是另一种误导。
+                        val snapshot = usage
+                        if (snapshot != null && snapshot.byDay.isNotEmpty()) {
+                            DayTrend(snapshot.byDay)
+                        } else if (snapshot != null) {
+                            Text(
+                                text = "还没有可统计的用量记录。发几条消息后这里会按天累计。",
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
+                        }
+                        if (snapshot != null && snapshot.byProvider.isNotEmpty()) {
+                            Text(
+                                text = "供应商：" + snapshot.byProvider.joinToString(" · ") {
+                                    "${it.key} ${UsageFormat.grouped(it.totalTokens)}"
+                                },
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -431,6 +521,65 @@ fun UsagePage(onOpenDrawer: () -> Unit) {
 
 /** 请求日志展示的条数上限（观测层本身最多留 [CacheObserver.MAX_TURNS] 条）。 */
 private const val CacheLogRows = 10
+
+/**
+ * 按天用量趋势（批 C C1 的真折线）。
+ *
+ * 画法刻意最简：一条折线 + 基线，无坐标轴、无网格、无图例——页面上已经有「总计」与
+ * 「日期范围」两行文字承载读数，图形只负责**形状**（趋势是涨还是平）。
+ * 单点数据画成一个小圆点而不是一条退化的线。
+ */
+@Composable
+private fun DayTrend(days: List<UsageAggregate.DayBucket>) {
+    val lineColor = MaterialTheme.colorScheme.primary
+    val baseline = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    Text(
+        text = "${days.first().day} → ${days.last().day} · ${days.size} 天",
+        fontSize = 11.sp,
+        fontFamily = LuzzyFonts.Body,
+        color = MaterialTheme.colorScheme.outline,
+        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+    )
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(10.dp),
+    ) {
+        val max = days.maxOf { it.totalTokens }.coerceAtLeast(1)
+        val stepX = if (days.size > 1) size.width / (days.size - 1) else 0f
+        val yOf = { value: Int -> size.height - (value.toFloat() / max) * size.height }
+
+        drawLine(
+            color = baseline,
+            start = Offset(0f, size.height),
+            end = Offset(size.width, size.height),
+            strokeWidth = 1f,
+        )
+
+        if (days.size == 1) {
+            drawCircle(color = lineColor, radius = 4f, center = Offset(size.width / 2f, yOf(days[0].totalTokens)))
+        } else {
+            for (i in 0 until days.size - 1) {
+                drawLine(
+                    color = lineColor,
+                    start = Offset(stepX * i, yOf(days[i].totalTokens)),
+                    end = Offset(stepX * (i + 1), yOf(days[i + 1].totalTokens)),
+                    strokeWidth = 2.5f,
+                )
+            }
+        }
+    }
+    Text(
+        text = "峰值 " + UsageFormat.grouped(days.maxOf { it.totalTokens }) + " tokens/天",
+        fontSize = 11.sp,
+        fontFamily = LuzzyFonts.Body,
+        color = MaterialTheme.colorScheme.outline,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+}
 
 /**
  * 前缀缓存汇总卡（A8）。

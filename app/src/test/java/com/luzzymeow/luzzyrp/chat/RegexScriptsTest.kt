@@ -253,14 +253,50 @@ class RegexScriptsTest {
         assertEquals("x 2", display("x y", script("([", "1"), script("y", "2")))
     }
 
+    /**
+     * **NAI 生图正则被显式跳过**（用户 2026-09-14 拍板，理由见 [RegexScripts.IMAGE_GEN_UNSUPPORTED]）。
+     *
+     * 这条用例**取代**了原先那条「NAI 用内置图片标签匹配式」——不是语义变了，
+     * 而是整条脚本在判定阶段就被拦下了（原先那条断言的是「放行之后」的行为，
+     * 现在放行被关掉了，所以它不再可达）。
+     *
+     * 跳过的效果：正文里保留 `image###…###` **原文**，而不是渲染一张永远不出图的空卡片。
+     */
     @Test
-    fun `NAI画图正则用内置的图片标签匹配式`() {
+    fun `NAI画图正则被显式跳过（不放行生图管线）`() {
+        val text = "image###1girl, solo###"
+        assertEquals(
+            "替换必须不发生",
+            text,
+            display(text, script("这条 pattern 会被忽略", "[图]", name = RegexScript.IMAGE_GEN_NAME)),
+        )
+        // 跳过只针对这一条：同一次调用里的其它脚本照常生效
+        assertEquals(
+            "[图]image###1girl, solo###",
+            display(
+                text,
+                script("这条 pattern 会被忽略", "[图]", name = RegexScript.IMAGE_GEN_NAME),
+                script("^", "[图]"),
+            ),
+        )
+    }
+
+    /** 跳过是**按名字**判的（上游对这条脚本的识别就是名字，`app.js:4021`）。 */
+    @Test
+    fun `名字不同的脚本不受生图跳过影响`() {
         assertEquals(
             "[图]",
-            display(
-                "image###1girl, solo###",
-                script("这条 pattern 会被忽略", "[图]", name = RegexScript.IMAGE_GEN_NAME),
-            ),
+            display("x", script("x", "[图]", name = "NAI画图正则2")),
+        )
+    }
+
+    /** 跳过的常量本身（将来生图管线做好后翻它即可恢复；这条用例是那个开关的守卫）。 */
+    @Test
+    fun `生图跳过开关当前为开`() {
+        assertTrue(
+            "若这里变红：说明有人放行了生图正则。放行前请先读 RegexScripts.IMAGE_GEN_UNSUPPORTED 的说明——" +
+                "卡片图片靠上游 JS 管线填、我们的卡片网络被禁，放行会得到一张永远不出图的空卡片",
+            RegexScripts.IMAGE_GEN_UNSUPPORTED,
         )
     }
 

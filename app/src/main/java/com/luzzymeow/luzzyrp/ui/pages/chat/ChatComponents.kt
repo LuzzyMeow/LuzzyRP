@@ -317,11 +317,14 @@ fun UserBubble(
     scripts: List<com.luzzymeow.luzzyrp.chat.RegexScript> = emptyList(),
     userName: String = "",
 ) {
+    // 变量块剥除与显示期正则同链（见 `MessageBody.displayText` 的顺序说明）：
+    // 模型偶尔会把变量块甩进用户消息的尾巴上（续写/拼接场景），一样要剥。
+    val stripped = com.luzzymeow.luzzyrp.chat.UiTemplateUpdates.strip(text)
     val shown = if (scripts.isEmpty() && userName.isEmpty()) {
-        text
+        stripped
     } else {
         com.luzzymeow.luzzyrp.chat.RegexScripts.apply(
-            text = text,
+            text = stripped,
             scripts = scripts,
             role = com.luzzymeow.luzzyrp.chat.llm.LlmRole.USER,
             mode = com.luzzymeow.luzzyrp.chat.RegexScripts.Mode.Display,

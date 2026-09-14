@@ -4,6 +4,8 @@ import com.luzzymeow.luzzyrp.chat.ChatRequest
 import com.luzzymeow.luzzyrp.chat.Compaction
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.RecallEngine
+import com.luzzymeow.luzzyrp.chat.RegexScript
+import com.luzzymeow.luzzyrp.chat.RegexScripts
 import com.luzzymeow.luzzyrp.chat.ToolTrail
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
@@ -76,12 +78,23 @@ object RequestBuilder {
      * @param freshTurn `true` = 新的一轮（可以发新快照并落盘）；
      *        `false` = 重放既有轮次（「重新生成」「编辑后重跑」）——
      *        只能用日志里已有的快照，一条新的都不发（新快照没有位置可落，见类注释）
+     * @param regexScripts 生效的正则脚本（全局 + 当前角色）。**只有勾了「仅提示词」的条目
+     *        会改请求字节**；默认什么都不勾 = 仅用户可见，提示词侧一律跳过（见 [RegexScripts]）
+     * @param promptUserName `{{user}}` 在提示词侧的替换值。**传档案里的原名，不要传显示期的
+     *        「你」兜底**：这个名字会进 system/预设/角色块，编一个第二人称代词去顶替人名只会
+     *        让模型把人称搞混；没配过名字就传空 → 占位符原样保留
+     * @param styleFilterEnabled 文风过滤开关（默认开，与上游一致）。它**同时**作用在
+     *        提示词侧（此处）与显示期（`MessageBody`）——上游把这一调用放在 `processRegex`
+     *        出口，于是两条路径都经过它（`app.js:4090`）
      */
     fun plan(
         state: List<ChatMessage>,
         userText: String,
         input: PromptAssembler.Input,
         freshTurn: Boolean = true,
+        regexScripts: List<RegexScript> = emptyList(),
+        promptUserName: String = "",
+        styleFilterEnabled: Boolean = true,
     ): Plan {
         val history = historyOf(state)
         val hits = RecallEngine.search(turnsOf(history), userText)
@@ -94,10 +107,19 @@ object RequestBuilder {
             emitSnapshot = freshTurn,
         )
         val assembled = PromptAssembler.assembleDetailed(effective)
+        // 提示词侧正则（上游 `app.js:6511-6518`）：对**整条已装配好的消息序列**套用，
+        // depth = 条数 - 1 - 下标。位置在最后——它改变的是发给模型的字节，不是落盘的字节。
+        // 同一处还有文风过滤（②，上游 `processRegex` 出口 `app.js:4090`，只对 assistant）。
+        val messages = RegexScripts.applyToPromptMessages(
+            messages = assembled.messages,
+            scripts = regexScripts,
+            userName = promptUserName,
+            styleFilterEnabled = styleFilterEnabled,
+        )
         return Plan(
             history = history,
             snapshotText = assembled.snapshotText,
-            messages = assembled.messages,
+            messages = messages,
             recallHits = hits,
             appends = if (!freshTurn) {
                 emptyList()

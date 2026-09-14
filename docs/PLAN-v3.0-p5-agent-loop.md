@@ -1,4 +1,4 @@
-# PLAN-v3.0-p5-agent-loop · KV 缓存最大化 × 完整 Agent Loop × 上游功能对账
+﻿# PLAN-v3.0-p5-agent-loop · KV 缓存最大化 × 完整 Agent Loop × 上游功能对账
 
 > **立档**：2026-09-13（会话 73）。用户拍板：「按 DSH 重做注入策略」+「实现完整的 Agent Loop」+
 > 「KV 缓存最大优化与性能最大优化」+「实现上游功能」。
@@ -296,6 +296,10 @@ HTML 直通上游走 sandbox iframe，Compose 侧需单独立项。
 `ANDROID_SERIAL=emulator-5554 ./gradlew checkChat` 全绿（单测 + 仪器化）。
 **每批独立提交、独立跑门禁**。
 
+**会话 76 的无真机口径（用户指示）**：判据全部落在 `./gradlew :app:testDebugUnitTest` 上
+（本轮 **751 条 / 0 失败 ×3**），另加 `:app:compileDebugAndroidTestKotlin` 必须通过；
+仪器化**运行**与一切真机判据见 `HANDOFF-p5-static.md` B 栏。
+
 ---
 
 ## 8 · 文档反向修正清单（D4 输入）
@@ -491,9 +495,34 @@ adb -s df97f3c4 logcat -c && adb -s df97f3c4 logcat -s LuzzyCache
       且只在「本次尝试没有任何内容上屏」时重发）—— 会话 75 完成
 - [x] B7 不变量守卫：工具续跑也必须纯追加（新老各一条逐字节用例）
 
+### 批 B 补（会话 76 · 无真机轮 · 正文渲染链的其余几段）
+
+- [x] **A1 提示词侧正则接线**：`RegexScripts.applyToPromptMessages` + `RequestBuilder.plan(regexScripts, promptUserName)`；
+      `RequestBuilderTest` +7 例（含纯追加不变量重跑 + 深度区间漂移的已知代价用例）
+- [x] **A2 `<ui_template_updates>` 剥除 + 解析**：`chat/UiTemplateUpdates.kt`（28 例）+ 接进渲染链
+      （**先剥块再跑正则**）；**面板渲染未做**（要真机）
+- [x] **A3 `parseCot` 完整移植**：`CotParser` 补 `ranges`/`rawCot`/`closingTags`；
+      **收编** `RegexScripts.cotRanges` 重复实现（受保护区单一真源）；+13 例
+- [x] **A4 文风过滤**：`chat/StyleFilter.kt`（22 例，期望值由上游正则真跑取得）；
+      **用户拍板「做，默认开，照上游」**；只删不高亮
+- [x] **A5 批 C 取数层与纯逻辑**：见下方批 C 的 C1/C2
+- [x] **A6 仪器化用例**：`PageDataUiTest`（7 例）+ `MessageBodyUiTest`（9 例），
+      `:app:compileDebugAndroidTestKotlin` 通过；**运行留真机**（无模拟器纪律）
+- [x] **A7 真机回归清单**：`docs/HANDOFF-p5-static.md` B 栏已扩成可勾选清单（含步骤/预期/判据）
+- [x] **NAI 生图正则显式跳过**（用户拍板）：`RegexScripts.IMAGE_GEN_UNSUPPORTED`
+
 ### 批 C
-- [ ] C1 五个假数据页接真库 　[ ] C2 真实角色图 　[ ] C3 多候选持久化
-- [ ] C4 附件真功能 　[ ] C5 表格列宽 　[ ] C6 撤工作区 　[ ] C7 reduced-motion
+- [x] **C1 取数层与纯逻辑（会话 76 部分完成）**：`chat/PageAggregates.kt`（用量聚合 + 记忆统计，
+      纯函数，22 例含真实迁移夹具）+ `chat/PageDataSource.kt`（取数，读失败降级为空）；
+      角色卡页（真列表 + 真头像）、记忆页（真统计）、用量页（总用量 + 按天折线 + 供应商行）已接真库。
+      **页面视觉与「用户看得见」判据未验收**（无真机；见 `HANDOFF-p5-static.md` B2）。
+      **五个假数据页**里「关于页」原本就是真数据（版本走 `BuildConfig`），「设置页」绑定未接（见下）。
+- [x] C2 真实角色图（`ui/pages/AvatarImage.kt`：`data:`/文件路径两种来源 + `inSampleSize` 采样 +
+      LRU + **SVG 解码失败→首字 monogram 的真实降级路径**，夹具里 2/3 头像是 SVG 所以这条路必须存在）
+- [ ] **设置页绑定**（原属 C1）：用户档案已能取（`PageDataSource.userProfile()`，喂 A2 用户信息块），
+      但**页面上的开关与输入仍未接线**——那要真机验证写路径。**如实登记为未做**。
+- [ ] C3 多候选持久化 　[ ] C4 附件真功能（含 **NAI 生图管线**，见 `RegexScripts.IMAGE_GEN_UNSUPPORTED`）
+- [ ] C5 表格列宽 　[ ] C6 撤工作区 　[ ] C7 reduced-motion
 
 ### 批 D
 - [ ] D1 字号 　[ ] D2 导入导出 　[ ] D3 迁移报告页 　[ ] D4 文档反向修正 + 设计真源

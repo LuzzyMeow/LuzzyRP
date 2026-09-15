@@ -52,6 +52,18 @@ object AvatarLoader {
     /** 解码目标尺寸（像素上限）：比实际显示尺寸大一点以适配高 DPI，但远小于原图。 */
     private const val MAX_PIXELS = 192
 
+    /**
+     * **卡面**的解码上限（角色卡页把头像铺满整张卡，`192` 会糊）。
+     *
+     * 512 对常见的 1080p 屏 2 列网格（每列约 500dp → 约 1000px）仍然偏小，但那已经是
+     * 「够看清五官」与「别把内存吃掉」之间的取舍点：再往上单张位图就到 4MB 量级，
+     * 一屏 6 张就是 24MB。
+     */
+    private const val COVER_PIXELS = 512
+
+    /** 卡面用的解码上限（供角色卡页传给 [AvatarLoader.load]）。 */
+    const val CoverPixels = COVER_PIXELS
+
     /** 有界 LRU（按 key 缓存**已解码**的位图；键含目标尺寸）。 */
     private val cache = object : LruCache<String, Bitmap>(CACHE_ENTRIES) {
         override fun sizeOf(key: String, value: Bitmap): Int = 1
@@ -63,27 +75,31 @@ object AvatarLoader {
      * 解码一个头像。
      *
      * @param source 三种形态：`data:` URI / 绝对文件路径 / 其它（一律失败返回 null）
+     * @param maxPixels 解码尺寸上限（见 [MAX_PIXELS] 与 [COVER_PIXELS]）
      * @return 解码成功给位图；**任何失败都返回 null**（调用方据此走 monogram 降级）——
      *         这里绝不抛异常：一张坏图不该让整个列表崩掉
      */
-    suspend fun load(source: String?): Bitmap? {
+    suspend fun load(source: String?, maxPixels: Int = MAX_PIXELS): Bitmap? {
         val key = source?.takeIf { it.isNotBlank() } ?: return null
-        cache.get(key)?.let { return it }
-        val decoded = withContext(Dispatchers.IO) { decode(key) }
-        if (decoded != null) cache.put(key, decoded)
+        // 缓存键**含目标尺寸**：卡面（大）与列表小头像（小）各自一份，
+        // 不共用会被大图挤爆缓存（32 张 512px 位图 ≈ 32MB）
+        val cacheKey = "$maxPixels|$key"
+        cache.get(cacheKey)?.let { return it }
+        val decoded = withContext(Dispatchers.IO) { decode(key, maxPixels) }
+        if (decoded != null) cache.put(cacheKey, decoded)
         return decoded
     }
 
-    private fun decode(source: String): Bitmap? = runCatching {
+    private fun decode(source: String, maxPixels: Int): Bitmap? = runCatching {
         when {
-            source.startsWith("data:") -> decodeDataUri(source)
+            source.startsWith("data:") -> decodeDataUri(source, maxPixels)
             // 迁移把内联图抽成文件后，avatar 字段就是文件路径（`assets/avatars/…`）
-            else -> decodeFile(source)
+            else -> decodeFile(source, maxPixels)
         }
     }.getOrNull()
 
     /** `data:image/…;base64,<payload>` → 位图。**SVG 会解码失败并返回 null**（预期行为）。 */
-    private fun decodeDataUri(source: String): Bitmap? {
+    private fun decodeDataUri(source: String, maxPixels: Int): Bitmap? {
         val comma = source.indexOf(',')
         if (comma < 0) return null
         val meta = source.substring(0, comma)
@@ -92,13 +108,13 @@ object AvatarLoader {
         if (!meta.contains("base64", ignoreCase = true)) return null
         val bytes = runCatching { android.util.Base64.decode(payload, android.util.Base64.DEFAULT) }.getOrNull()
             ?: return null
-        return decodeBytes(bytes)
+        return decodeBytes(bytes, maxPixels)
     }
 
-    private fun decodeFile(path: String): Bitmap? {
+    private fun decodeFile(path: String, maxPixels: Int): Bitmap? {
         val file = File(path.ifBlank { return null })
         if (!file.isFile) return null
-        return decodeBytes(file.readBytes())
+        return decodeBytes(file.readBytes(), maxPixels)
     }
 
     /**
@@ -107,7 +123,7 @@ object AvatarLoader {
      * 一趟解码原图再缩放在小图上「看起来也能用」，但一张 2000×2000 的卡面图
      * 会白白占几十 MB 内存——列表里几张就是 OOM 的种子。
      */
-    private fun decodeBytes(bytes: ByteArray): Bitmap? {
+    private fun decodeBytes(bytes: ByteArray, maxPixels: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -115,7 +131,7 @@ object AvatarLoader {
         var sample = 1
         var width = bounds.outWidth
         var height = bounds.outHeight
-        while (width / 2 >= MAX_PIXELS && height / 2 >= MAX_PIXELS) {
+        while (width / 2 >= maxPixels && height / 2 >= maxPixels) {
             width /= 2
             height /= 2
             sample *= 2

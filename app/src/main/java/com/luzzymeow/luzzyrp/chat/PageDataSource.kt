@@ -119,6 +119,58 @@ class PageDataSource(private val store: LuzzyStore) {
             .sortedWith(compareByDescending<CharacterRow> { it.isActive }.thenBy { it.name })
     }.getOrElse { emptyList() }
 
+    // ───────────────────────── 角色卡页（v3.2 重建） ─────────────────────────
+
+    /**
+     * 角色卡片的完整投影（含世界书/正则条数、收藏、描述）。
+     *
+     * 与 [characters] 的分工：那个是给**别处**（记忆页的作用域下拉）用的轻量行；
+     * 这里是角色卡页自己的行——它要显示卡面与徽标，读的是 payload 里的派生字段。
+     */
+    suspend fun characterCards(): List<CharacterCards.Row> = runCatching {
+        val active = activeCharacter()
+        CharacterCards.sorted(
+            store.characters().map { row ->
+                CharacterCards.parse(
+                    uuid = row.uuid,
+                    name = row.name,
+                    avatarPath = row.avatarPath,
+                    payload = row.payload,
+                    isActive = row.uuid == active,
+                    createdAt = row.createdAt,
+                )
+            },
+        )
+    }.getOrElse { emptyList() }
+
+    /**
+     * 删除一张角色卡（级联清它的全部会话数据，见 `LuzzyStore.deleteCharacter`）。
+     *
+     * 若删的是当前角色，**顺手清掉 active 标记**：否则下一次进聊天页会去读一个不存在的角色，
+     * 表现为「聊天页空着但也没报错」。
+     */
+    suspend fun deleteCharacter(uuid: String): Boolean = runCatching {
+        val wasActive = activeCharacter() == uuid
+        store.deleteCharacter(uuid)
+        if (wasActive) store.remove(LuzzyStore.KEY_ACTIVE_CHARACTER)
+        true
+    }.getOrDefault(false)
+
+    /** 收藏 / 取消收藏（写 payload 的 `favoriteAt`，其余键逐字保留）。 */
+    suspend fun setCharacterFavorite(uuid: String, favorite: Boolean): Boolean = runCatching {
+        val row = store.character(uuid) ?: return@runCatching false
+        val payload = CharacterCards.withFavorite(row.payload, favorite, System.currentTimeMillis())
+        store.upsertCharacter(row.copy(payload = payload))
+        true
+    }.getOrDefault(false)
+
+    /** 切换当前角色（聊天页与记忆页都认 `kv[active.characterUuid]`）。 */
+    suspend fun setActiveCharacter(uuid: String): Boolean = runCatching {
+        store.putString(LuzzyStore.KEY_ACTIVE_CHARACTER, uuid)
+        true
+    }.getOrDefault(false)
+
+
     /** 当前角色 uuid（`kv[active.characterUuid]`；null = 空库演示态）。 */
     suspend fun activeCharacter(): String? = runCatching {
         store.string(LuzzyStore.KEY_ACTIVE_CHARACTER)?.takeIf { it.isNotBlank() }

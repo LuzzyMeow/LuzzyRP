@@ -412,6 +412,24 @@
     粒度切换真的换桶（24 → 7 → 4）、清空先验确认框拦住再验真清库；
   - **视觉留证**：新增 `testing/Capture.kt`（MediaStore 落 `/sdcard/Download/luzzy-captures/`，
     记忆页与用量页共用）与 `UsageVisualCaptureTest`，截图 4 张逐张 `read_image` 审查。
+- **角色卡页重建（v3.2，2026-09-15）**：同一条用户指令的第三页。旧版真源 = 上游
+  `rp-hub-reference/index.html` 的管理视图与 `ui-components.js` 的 `CharacterCard`，
+  设计落档 `DESIGN-compose.md` §34：
+  - **修掉三处硬伤**：① 每张卡都用**同一张固定立绘** `vanio_card` 当卡面、真头像缩成 26dp 小圆
+    （十张卡长得一模一样）→ 卡面 = **这张卡自己的头像**（铺满 + 自下而上黑渐变），无图或解码失败
+    回落首字 monogram；② 卡右上「导出 / 删除」是**不带点击的图标** → 真按钮（收藏 / 导出 / 删除）；
+    ③ 卡片**点了没反应** → 点卡 = 切当前角色并回到对话页；
+  - **新增 `chat/CharacterCards.kt`**：payload 派生（世界书 / 正则计数、收藏、描述）+ 搜索匹配 +
+    排序 + 收藏写回，9 条 JVM 单测；
+  - **`LuzzyStore.deleteCharacter` 级联删除**（角色 + 全部作用域的消息与两种记忆 + 分支，一个事务）——
+    只删角色行会留下永远读不到的孤儿行，且不报错；
+  - **`TransferStore.exportCharacter`** 单卡导出（与全量导出同格式、同 uuid，导回来是覆盖而非复制）；
+  - **`AvatarLoader` 解码分档**（卡面 512px / 列表小头像 192px）且**缓存键含目标尺寸**；
+  - **新增 4 枚图标**（Heroicons v1：view-grid / view-boards / star / check，MIT，同既有来源纪律）；
+  - **新增仪器化用例 5 条**：卡面用真图 + 计数徽标来自 payload、搜索按名称或描述真过滤、
+    收藏真写进 payload、点卡真切当前角色、删除走确认框并**级联**清掉会话 / 分支 / 记忆；
+  - **截图审查抓出并修**：无头像那张卡的白字对比度不够（monogram 底是浅色）→ 降级路径加 34% 黑纱；
+  - **如实登记未做**：角色卡编辑器、叠卡翻牌动画——**不放点了没反应的按钮**。
 
 **修复**
 - **上游式「整键优先」会丢掉整张角色卡**（迁移器实现时发现并修）：上游 `dbGetWithLegacy` 的

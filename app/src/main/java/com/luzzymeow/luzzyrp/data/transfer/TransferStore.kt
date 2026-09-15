@@ -31,6 +31,17 @@ class TransferStore(private val store: LuzzyStore) {
 
     suspend fun exportCharacters(): String = TransferFormat.exportCharacters(store.characters())
 
+    /**
+     * 导出**一张**角色卡（角色卡页卡片上的「导出」）。
+     *
+     * 与 [exportCharacters] 共用同一格式（数组 + 注入 `uuid`），只是数组里只有一张：
+     * 导入侧本来就接受单元素数组，所以导出单卡再导回来是**同 uuid 覆盖**，不会复制出第二张。
+     * 卡不存在时返回 null（界面据此提示「这张卡已经不在了」，不写一个空文件）。
+     */
+    suspend fun exportCharacter(uuid: String): String? = store.character(uuid)?.let { row ->
+        TransferFormat.exportCharacters(listOf(row))
+    }
+
     // ---------------- 导入 ----------------
 
     /** 导入 = 整组覆盖。返回导入条数。 */

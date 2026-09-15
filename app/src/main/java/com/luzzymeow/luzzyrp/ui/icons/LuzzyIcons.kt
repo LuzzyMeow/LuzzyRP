@@ -54,4 +54,12 @@ object LuzzyIcons {
     val Branch = R.drawable.ic_lz_branch
     /** 模型（Heroicons v1 `chip` = 芯片；模型选择入口语义图标）。 */
     val Chip = R.drawable.ic_lz_chip
+    /** 网格布局（Heroicons v1 `view-grid`；角色卡页的布局切换，2026-09-15）。 */
+    val Grid = R.drawable.ic_lz_grid
+    /** 叠卡布局（Heroicons v1 `view-boards`；角色卡页单列大卡）。 */
+    val Cards = R.drawable.ic_lz_cards
+    /** 收藏（Heroicons v1 `star`；实心/空心由 tint 表达状态）。 */
+    val Star = R.drawable.ic_lz_star
+    /** 勾选（Heroicons v1 `check`；批量选择态）。 */
+    val Check = R.drawable.ic_lz_check
 }

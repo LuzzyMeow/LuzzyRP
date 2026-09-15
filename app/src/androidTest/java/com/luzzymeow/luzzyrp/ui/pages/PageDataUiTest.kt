@@ -15,6 +15,7 @@ import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.testing.Await
 import com.luzzymeow.luzzyrp.testing.TestStoreFixture
+import com.luzzymeow.luzzyrp.ui.pages.characters.CharactersPage
 import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
 import com.luzzymeow.luzzyrp.ui.pages.usage.UsagePage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme

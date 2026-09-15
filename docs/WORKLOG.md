@@ -5450,3 +5450,50 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
    卡片点击行为 + 搜索；
 2. 会话总览 / 剧情分支 / 预设 / 世界书 逐页对照旧版 IA 复核（重点找「画出来但没接线的控件」）；
 3. 全页亮暗 + 大字号复查，然后统一提交（当前 8 个本地 commit 未推，等真机验收）。
+
+---
+
+## 会话 86 · 2026-09-15 · 角色卡页重建（用户：其他页面像简化版 · 第三条）
+
+### 一、旧版真源（都在本仓库）
+
+- `rp-hub-reference/index.html` 1022-1200 行：管理视图 = 页头（批量删除 / 添加）+ **检索框**
+  （「检索角色卡名称或描述…」）+ **布局切换**（网格 ↔ 叠卡 `useCharacterDeck`）+ 批量选择态
+  （取消 / 确认删除 + 计数徽标）+ 空态（「未找到匹配的角色卡」）；
+- `rp-hub-reference/assets/js/ui-components.js` 2448-2620 行：`CharacterCard` = 2:3 卡、
+  **卡面就是角色头像**、底部黑渐变、左上「当前使用」绿徽标、右上四个动作
+  （编辑 / 导出 / 收藏 / 删除）、左下名字 +「N 世界书」「N 正则」徽标、批量态中央选择圆。
+
+### 二、修掉的三处硬伤
+
+| 症状 | 修法 |
+|---|---|
+| 每张卡都用**同一张固定立绘** `vanio_card`，真头像缩成 26dp 小圆（十张卡长得一样） | 卡面 = 这张卡自己的头像（铺满 + 黑渐变）；无图/解码失败回落首字 monogram |
+| 卡右上「导出 / 删除」是**不带点击的图标** | 真按钮：收藏 / 导出（SAF）/ 删除（确认框） |
+| 卡片**点了没反应** | 点卡 = 切当前角色（写 kv）并回到对话页 |
+
+### 三、新增代码
+
+- `chat/CharacterCards.kt`：payload 派生（worldInfo / regexScripts 计数、favoriteAt、description）+
+  搜索匹配 + 排序 + 收藏写回 → **9 条 JVM 单测**；
+- `LuzzyStore.deleteCharacter`：**级联**（角色 + 全部作用域的消息与两种记忆 + 分支，一个事务）；
+  不删 records 全局数据与附件表（理由写在注释里）；
+- `PageDataSource`：characterCards / deleteCharacter（顺带清 active）/ setCharacterFavorite / setActiveCharacter；
+- `TransferStore.exportCharacter(uuid)`：单卡导出（同格式同 uuid，导回来是覆盖）；
+- `AvatarLoader` 解码分档：卡面 512px / 小头像 192px，**缓存键含尺寸**（否则大图挤爆缓存）；
+- 4 枚图标（Heroicons v1：view-grid / view-boards / star / check）；
+- `ui/pages/characters/CharactersPage.kt` 整页重写；旧页与固定立绘从 StaticPages 删除。
+
+### 四、门禁与证据
+
+- JVM 新增 9 条全绿；`checkChat` 全量 **106 条仪器化 / 0 失败**（3m01s）；
+- 新增仪器化 5 条真交互：卡面真图 + 计数徽标来自 payload、搜索按名称**或描述**真过滤、
+  收藏真写进 payload、点卡真切当前角色、删除走确认框并**级联**清库（四条都回读数据库判定）；
+- 截图 3 张（网格 / 叠卡 / 批量态）逐张 `read_image`；审查抓出「无头像那张白字对比度不够」
+  （monogram 底是浅色）→ 降级路径加 34% 黑纱，重跑确认。
+
+### 五、下一步（goal 继续）
+
+1. **逐页扫「画出来但没接线」**：会话总览 / 剧情分支 / 预设 / 世界书 / 记忆页的次级控件；
+2. 全页亮暗 + 大字号复查；
+3. 本地 commit 未推（等真机验收），push 与 Release 按 §3.4 走。

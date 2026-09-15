@@ -37,6 +37,34 @@ class LuzzyStore(private val db: LuzzyDatabase) {
 
     suspend fun characterCount(): Int = db.characters().count()
 
+    /**
+     * 删掉一个角色**及其全部会话数据**（角色卡页的删除，v3.2）。
+     *
+     * 级联范围（少一样就会留下永远读不到的孤儿行）：
+     * 1. **主线 + 全部分支**的消息与两种记忆（作用域 = 角色 × 分支）；
+     * 2. 分支表与分支元信息；
+     * 3. 角色行本身。
+     *
+     * **不删**：`records` 里的全局数据（预设 / 世界书 / 用量的空 owner 那份）、附件表
+     * （头像文件留给清理任务——在这里删行会让「同一头像被多张卡引用」的判定失去依据）。
+     * 整体一个事务：中途失败不留半套数据。
+     */
+    suspend fun deleteCharacter(uuid: String) = db.withTransaction {
+        val mainScope = ScopeId(uuid)
+        val branchIds = db.branches().of(uuid).map { it.branchId }
+        val scopes = buildList {
+            add(mainScope)
+            branchIds.filter { it != mainScope.branchId }.forEach { add(ScopeId(uuid, it)) }
+        }
+        scopes.forEach { scope ->
+            db.messages().deleteScope(scope.suffix())
+            db.memories().deleteGroup(scope.suffix(), MEMORY_VECTOR)
+            db.memories().deleteGroup(scope.suffix(), MEMORY_CLASSIC)
+        }
+        db.branches().deleteOf(uuid)
+        db.characters().delete(uuid)
+    }
+
     // ---------------------------------------------------------------- 分支
 
     suspend fun branches(characterUuid: String): List<BranchEntity> = db.branches().of(characterUuid)

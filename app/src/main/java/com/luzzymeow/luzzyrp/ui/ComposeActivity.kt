@@ -28,10 +28,10 @@ import com.luzzymeow.luzzyrp.data.transfer.TransferStore
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyNavShell
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyRoute
 import com.luzzymeow.luzzyrp.ui.pages.AboutPage
-import com.luzzymeow.luzzyrp.ui.pages.CharactersPage
 import com.luzzymeow.luzzyrp.ui.pages.SessionsPage
 import com.luzzymeow.luzzyrp.ui.pages.SettingsPage
 import com.luzzymeow.luzzyrp.ui.pages.chat.ChatPage
+import com.luzzymeow.luzzyrp.ui.pages.characters.CharactersPage
 import com.luzzymeow.luzzyrp.ui.pages.chat.MeshGradientBackground
 import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
 import com.luzzymeow.luzzyrp.ui.pages.preset.PresetsPage
@@ -204,7 +204,21 @@ class ComposeActivity : ComponentActivity() {
                             // 于是「点一行 = 回到那一段」不需要跨页传状态
                             onOpenSession = { _, _ -> route = LuzzyRoute.Chat },
                         )
-                        LuzzyRoute.Characters -> CharactersPage(onOpenDrawer)
+                        LuzzyRoute.Characters -> CharactersPage(
+                            onOpenDrawer = onOpenDrawer,
+                            // 导入复用设置页那条 SAF 通道（同一个 launcher、同一份导入实现）
+                            onImportCharacter = { transferActions.importCharacters() },
+                            // 单卡导出：写文件由宿主完成，页面只报 uuid
+                            onExportCharacter = { uuid ->
+                                pendingExport = {
+                                    transfer.exportCharacter(uuid)
+                                        ?: error("这张角色卡已经不在了")
+                                }
+                                exportLauncher.launch("character-$uuid.json")
+                            },
+                            // 点卡片 = 用这张卡开聊（active 已在页面里写好）
+                            onOpenChat = { route = LuzzyRoute.Chat },
+                        )
                         LuzzyRoute.WorldInfo -> com.luzzymeow.luzzyrp.ui.pages.world.LoreBookPage(onOpenDrawer)
                         LuzzyRoute.Presets -> PresetsPage(onOpenDrawer)
                         LuzzyRoute.Memory -> MemoryPage(onOpenDrawer)

@@ -97,16 +97,8 @@ fun SessionsPage(
         title = "会话",
         iconRes = LuzzyIcons.Conversation,
         onOpenDrawer = onOpenDrawer,
-        trailing = {
-            rows?.let {
-                Text(
-                    text = "${it.size} 条 · ${it.map { r -> r.characterUuid }.distinct().size} 张卡",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-            }
-        },
+        // 页头右侧此前放的是统计文本，已移到内容区首行（那里才真的可见，见下方说明）
+        trailing = {},
     ) { padding ->
         val data = rows
         if (data == null) {
@@ -127,6 +119,19 @@ fun SessionsPage(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("sessions_list"),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
+            // 抬头行（v3.2 修正）：原先它挂在页头的 `actions` 槽里，**上不了屏**——
+            // `TopAppBar` 的 actions 槽宽度是给图标按钮的，一段 12sp 文本塞进去会被 title 挤没，
+            // 而且不报错（语义树里 0 个节点，实测 probe 到的就是这个）。放进内容区首行后
+            // 「N 条 · M 张卡」真的可见，也与其它页把统计行放在列表上方一致。
+            item(key = "sessions-summary") {
+                Text(
+                    text = "${data.size} 条 · ${data.map { r -> r.characterUuid }.distinct().size} 张卡",
+                    fontFamily = LuzzyFonts.Body,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(start = 18.dp, top = 4.dp, bottom = 6.dp),
+                )
+            }
             // 分组：相邻同角色归一组（overview 已按角色排好序，这里只需按序切段）
             data.groupAdjacentBy { it.characterUuid }.forEach { (characterUuid, group) ->
                 stickyHeader(key = "head-$characterUuid") {

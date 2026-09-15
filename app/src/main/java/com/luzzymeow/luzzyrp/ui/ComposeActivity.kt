@@ -220,7 +220,12 @@ class ComposeActivity : ComponentActivity() {
                             onOpenChat = { route = LuzzyRoute.Chat },
                         )
                         LuzzyRoute.WorldInfo -> com.luzzymeow.luzzyrp.ui.pages.world.LoreBookPage(onOpenDrawer)
-                        LuzzyRoute.Presets -> PresetsPage(onOpenDrawer)
+                        LuzzyRoute.Presets -> PresetsPage(
+                            onOpenDrawer,
+                            // 预设页的导入/导出（v3.2 补）：复用设置页那条 SAF 通道
+                            onImport = { transferActions.importPresets() },
+                            onExport = { transferActions.exportPresets() },
+                        )
                         LuzzyRoute.Memory -> MemoryPage(onOpenDrawer)
                         LuzzyRoute.Usage -> UsagePage(onOpenDrawer)
                         LuzzyRoute.Settings -> SettingsPage(

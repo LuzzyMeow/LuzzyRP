@@ -87,6 +87,14 @@ fun PresetsPage(
     onOpenDrawer: () -> Unit,
     /** 测试接缝（与 [com.luzzymeow.luzzyrp.ui.pages.world.WorldInfoPage] 同一约定）。 */
     repository: PresetRepository? = null,
+    /**
+     * 导入/导出回调（宿主走 SAF，与设置页的数据卡同一通道；v3.2 补）。
+     *
+     * 缺省空实现 = 不显示这两个入口（本页的仪器化测试与静态预览因此不受影响）——
+     * **宁可不显示，也不放点了没反应的按钮**（本轮修的正是那类东西）。
+     */
+    onImport: (() -> Unit)? = null,
+    onExport: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -117,6 +125,27 @@ fun PresetsPage(
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             PageHeader("预设", LuzzyIcons.Sliders, onOpenDrawer, actions = {
+                // 导入 / 导出（v3.2 补）：旧版预设页页头就有这两个入口，而数据层
+                // （`TransferStore.exportPresets` / `importPresets`）也早已就绪——
+                // 缺的只是「页面上有没有人把它接出来」。回调缺省时不渲染（不放死按钮）。
+                onImport?.let { run ->
+                    IconButton(onClick = run) {
+                        Icon(
+                            painter = painterResource(LuzzyIcons.Download),
+                            contentDescription = "导入预设",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                onExport?.let { run ->
+                    IconButton(onClick = run) {
+                        Icon(
+                            painter = painterResource(LuzzyIcons.ExternalLink),
+                            contentDescription = "导出预设",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 IconButton(onClick = { editing = PresetEditorRequest(ref = null, initial = PresetEntry()) }) {
                     Icon(
                         painter = painterResource(LuzzyIcons.Plus),

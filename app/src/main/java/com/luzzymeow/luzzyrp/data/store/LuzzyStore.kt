@@ -116,18 +116,24 @@ class LuzzyStore(private val db: LuzzyDatabase) {
     suspend fun moveMessage(scopeId: String, from: Int, to: Int) =
         db.messages().moveMessage(scopeId, from, to)
 
-    /** 全部有消息的作用域（跨角色平铺会话总览要用）。 */
+    /**
+     * 全部有消息的作用域。
+     *
+     * **保留、不接界面**（v3.2 收口时如实登记）：生产路径上会话总览走的是更省的
+     * [scopeStats]（一次聚合出条数 + 两条预览，见 `ChatSessionRepository.overview`），
+     * 不经过它；当前唯一调用方是 `LuzzyStoreTest.listsAllConversationScopes`。
+     *
+     * 留着的理由：它是「消息表里到底有哪些作用域」的**唯一枚举入口**，排障（数据在不在、
+     * 作用域有没有写歪）要用它，重新推一遍这个映射又要踩一次分隔符解析的坑。
+     * 它**不该接界面**——那是一张给开发看的表，不是用户要的页面。
+     *
+     * 同时删掉了 [lastMessagePreview] / `lastUserMessagePreview` 两个单条预览方法：
+     * 它们与 [scopeStats] 是同一件事的两种做法，而生产只走后者。
+     */
     suspend fun conversationScopes(): List<ScopeId> = db.messages().scopes().mapNotNull { raw ->
         val at = raw.indexOf("__branch__")
         if (at < 0) ScopeId(raw) else ScopeId(raw.substring(0, at), raw.substring(at + "__branch__".length))
     }
-
-    /** 某作用域最后一条正文（总览预览的回落来源；不搬全量历史）。 */
-    suspend fun lastMessagePreview(scope: ScopeId): String? = db.messages().lastContent(scope.suffix())
-
-    /** 某作用域最后一条**用户**发言（总览预览的首选来源）。 */
-    suspend fun lastUserMessagePreview(scope: ScopeId): String? =
-        db.messages().lastUserContent(scope.suffix())
 
     /**
      * 追加一条消息。

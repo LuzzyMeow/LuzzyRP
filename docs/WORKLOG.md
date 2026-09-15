@@ -5544,3 +5544,73 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - 模拟器 `emulator-5554` 在跑（跑热的会 `System has crashed`，冷启动即可恢复，已反复验证）；
 - 全量门禁最近一次：**118 条仪器化 / 0 失败**（10m13s）；
 - 工作树干净（上面三处缺口**未动代码**）。
+
+---
+
+## 会话 88 · 2026-09-16 · 功能可达性收口（goal ① 收线）
+
+### 一、本轮交付
+
+| # | 内容 | 落点 |
+|---|---|---|
+| 1 | **A · 世界书条目排序不可达** → 条目行收编共用件 `EntryCard`，菜单加「上移/下移」（越界显式禁用） | `LoreBookPages.kt` |
+| 2 | **B · 世界书绑定角色不可达** → 书列表「⋯」加「绑定角色」弹层 + 新增反向查询 `boundCharacters()` / `bindableCharacters()` | `LoreBookPages.kt` / `LoreBookRepository.kt` |
+| 3 | **C · 剧情分支不能手动新建** → AI 消息操作行加「从这里分支」（照上游 `index.html:668` 同位同义） | `ChatPage.kt` / `ChatThinking.kt` |
+| 4 | **顺带查实的真缺陷**：世界书 `before_char`/`after_char` **重复注入**（system + prelude 各一份）→ 删 prelude 那份 | `PromptAssembler.kt` |
+| 5 | **死代码处置**：删 `WorldEntryEditor.kt`(514 行)、`presetCount`/`worldInfoCount`、`lastMessagePreview`/`lastUserMessagePreview`、`activeEntries`/`bookNameOf` | 5 个文件 |
+| 6 | **修掉两处 Compose 文案里的 Markdown 星号**（`**叠加**` / `**中文建议保持关闭**` 会显示成光秃秃星号） | `LoreBookPages.kt` |
+| 7 | **仪器化 +10 条**（`ReachabilityUiTest` 8 + fork 2）；**JVM +6 条**（注入次数 4 + key 身份 2） | 测试 |
+
+### 二、为什么 A/B/C 是「够不着」而不是「假件」
+
+前几轮修的是「画出来但没接线」与「有文本但看不见」，本轮这一类是第三型：
+**功能实现了、界面也在、点哪都正常，只是没有任何入口能改到它**——所以不报错、不崩溃，
+能躺两个版本（`WorldInfoPage` 被删后 `moveEntry` / `setBoundTo` 就成了孤儿）。
+扫描口径：`data/` 层每个公开方法 → 找主源码调用点 → 零调用的逐个判定「接上 or 删掉」。
+
+### 三、查证出来的（不是想出来的）两条
+
+1. **C 的入口形态**：上游 `createStoryBranch` 的 UI 入口**只有一处** = AI 消息操作行
+   （`rp-hub index.html:668`）。分支列表里没有「新建」——因为分叉点只有消息才答得上
+   「从第几楼分」。所以没往 `BranchListSheet` 里塞按钮，照参考实现做在消息行上。
+2. **`before_char` 重复注入**：写探针实测「system 里 2 次 / 整请求 4 次」才确认。
+   **判据从 `contains` 改成数次数**是关键——`contains` 在修复前后都成立，
+   正是这种断言让它活了下来。已留 `WorldEntryInjectionCountTest`（4 条，含负控）。
+
+### 四、门禁与环境噪声（重点留痕）
+
+- **终值：仪器化 128 条 / 0 失败**（冷启动，4m20s）+ JVM 全量绿。
+- 首两轮全量跑出现 `sendingAppendsARowToStorage` / `世界书面板展示本机真实条目` **偶红**。
+  做了三步判定，**没有直接改代码**：
+  ① **HEAD 对照**——干净 HEAD 全量 **118/118 绿**（3m15s）→ 说明不是「本来就坏」；
+  ② **逐类隔离**——两个红类合跑 **17/17 绿**、单跑也绿 → 说明不是逻辑错；
+  ③ **找代价来源**——同次运行里 `FontScaleUiTest.sliderShowsPxForDefaultScale`
+     （与本轮改动**毫无关系**的用例）耗时 **144s**，全量总耗时 **485s**；
+  ④ **冷启动复跑**——**128/128 绿、总耗时 249s**（降回一半）。
+  结论：**模拟器长跑劣化**（仓库坑表已登记同型：会话 79/84 的偶红都是它）。
+  按既有纪律**不迎合劣化环境**：代码未因此改动一行。
+- 期间模拟器崩过两次（`System has crashed`），均按坑表流程冷启动恢复。
+
+### 五、纪律与合规
+
+- **硬性规定 9（设计 SKILL）**：本会话用户点名要求先读三项 Android/Compose 技能才可继续，
+  已完整阅读并留档 `docs/design/boards-v7/direction-approved-v3.2-reachability.md`：
+  ① `android/skills` 的 `jetpack-compose/` 三子技能（theming/styles、adaptive、migration）；
+  ② `aldefy/compose-skill` 的 `compose-expert`（含路由表指向的 `accessibility.md`、
+  `atomic-design.md`、`lists-scrolling.md`）；③ `hamen/material-3-skill` 的 `material-3`。
+- **技能落到实处**（不是读完就算）：
+  - `lists-scrolling.md` 的「永远不要用下标作 key」→ 本页条目**恰恰用下标**，
+    遂查证「有没有别的稳定唯一身份可用」：条目**没有 id**，且 `duplicateEntry` 产出
+    **逐字节相同的副本** → 按内容/order 作 key 会**直接抛重复 key 异常**。
+    这是**有依据的例外**，已把理由写进代码注释 + 留 `WorldEntryKeyIdentityTest` 2 条钉住事实；
+  - 同文「文案里的排版记号要按目标渲染器写」→ 抓出并修掉 2 处 `**` 星号（见交付 6）；
+  - `material-3-skill` 的 anti-pattern「硬编码颜色/形状」与本仓库 `PageKit` 既有约定一致，
+    新弹层复用 `AlertDialog` + `ToggleRow` + 语义色，**零新色相、零魔数**。
+- **本仓库纪律**：上游文件未触碰（无新 patch 需要登记）；工作区收尾见下。
+
+### 六、遗留（交给后续 goal 轮次）
+
+- goal ② 形态对齐：**世界书两级导航**（现在是编辑页同屏）、**剧情分支页逐项复看**；
+- goal ③ 视觉纪律：**各页暗色复查**未逐页走完；
+- 历史遗留（不动）：记忆自动分片/总结、世界书递归激活/包含组/token 预算等（§30.6 已登记）；
+- 真机验收与 push/Release 仍按 §3.4 等用户走（本地 commit 继续累积）。

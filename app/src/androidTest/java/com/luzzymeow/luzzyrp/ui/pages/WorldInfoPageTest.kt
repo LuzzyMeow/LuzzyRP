@@ -99,6 +99,17 @@ class WorldInfoPageTest {
         Await.text(compose, "红苹果树", 8_000, substring = true)
     }
 
+    /**
+     * 打开某条条目的「⋯」菜单。
+     *
+     * 条目行现在是共用件 `EntryCard`：行内的编辑/复制/删除三个图标按钮已收进菜单
+     * （「⋯」的读屏标签 = 「〈条目名〉的更多操作」）。
+     */
+    private fun openEntryMenu(entryName: String) {
+        compose.onAllNodes(hasContentDescription("$entryName 的更多操作")).onFirst().performClick()
+        compose.waitForIdle()
+    }
+
     @Test
     fun 书里的条目出现在条目列表() {
         setContent()
@@ -128,14 +139,21 @@ class WorldInfoPageTest {
      *
      * 此前条目行的垃圾桶是**一点即删**（不可逆、无撤销），而同一页的书级删除与旧版条目删除
      * 都有确认——这不是风格差异，是操作安全性差异：世界书条目常是手打长文本。
+     *
+     * ## v3.2 收口后入口变了：删除进了「⋯」菜单
+     *
+     * 条目行从「自造的三图标行」收编回共用件 `EntryCard`（与预设页同形，也正是排序按钮的落点）。
+     * 于是**选择器必须跟着改**：不再有行内的「删除」图标按钮，改为
+     * 「〈条目名〉的更多操作」→ 菜单里的「删除」。判据本身（先确认、取消不删、确认才删）一条没动。
      */
     @Test
     fun 删除要确认且取消后仍在() {
         setContent()
         openBook()
 
-        // 条目行的删除按钮（contentDescription = 「删除」；行内还有「编辑」「复制」）
-        compose.onAllNodes(hasContentDescription("删除")).onFirst().performClick()
+        openEntryMenu("红苹果树")
+        Await.text(compose, "删除", 8_000)
+        compose.onAllNodes(hasText("删除", substring = false)).onFirst().performClick()
         Await.text(compose, "此操作不可恢复", 8_000, substring = true)
         assertEquals(
             "确认之前不许动数据",
@@ -159,9 +177,11 @@ class WorldInfoPageTest {
         setContent()
         openBook()
 
-        compose.onAllNodes(hasContentDescription("删除")).onFirst().performClick()
+        openEntryMenu("红苹果树")
+        Await.text(compose, "删除", 8_000)
+        compose.onAllNodes(hasText("删除", substring = false)).onFirst().performClick()
         Await.text(compose, "此操作不可恢复", 8_000, substring = true)
-        // 对话框里的确认按钮（与行内按钮同文案「删除」，取最后一个 = 弹层里那个）
+        // 对话框里的确认按钮（与菜单项同文案「删除」，取最后一个 = 弹层里那个）
         val deletes = compose.onAllNodes(hasText("删除", substring = false)).fetchSemanticsNodes()
         compose.onAllNodes(hasText("删除", substring = false))[deletes.size - 1].performClick()
         Await.db(compose, 8_000) {

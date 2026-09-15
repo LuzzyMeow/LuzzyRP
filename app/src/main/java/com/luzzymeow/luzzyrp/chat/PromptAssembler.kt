@@ -168,10 +168,25 @@ object PromptAssembler {
         }
 
         // ── 3. 角色前置 user 消息 ──
+        //
+        // ★ v3.2 修的一处**重复注入**：此前这里也拼了 BeforeChar / AfterChar 两档世界书
+        //   （`renderIfNotEmpty(world[...])`），而 `PromptSections.stableSections` 里
+        //   **同样**有 `world-before-char` / `world-after-char` 两个 section——
+        //   于是这两档条目被**逐字发了两遍**：一遍在 system，一遍在这条 prelude 里。
+        //
+        //   探针实测（`ProbeBeforeCharTest`，修前）：system 里出现 2 次、整个请求里 4 次
+        //   （`[角色前]` 与 `[角色后]` 各两遍）。危害不只是浪费 token：
+        //   ① 同一段设定在上下文里出现两次，模型可能当成强调或重复设定；
+        //   ② prelude 是 USER 消息，等于把设定**冒充成用户说的话**；
+        //   ③ 稳定块与 prelude 都要保持逐字不变才能守住前缀缓存，两个副本各自变形
+        //      会让「哪里变了」难以定位。
+        //
+        //   裁定：按 `DESIGN-compose §24.3` 的既定口径——`system_top` / `global_note` /
+        //   `before_char` / `after_char` **照上游语义进 system 稳定块**，所以保留
+        //   `stableSections` 那一份（它同时承载 SystemTop/GlobalNote/Example 等档），
+        //   删掉 prelude 这一份。prelude 从此只负责**角色块**。
         val prelude = buildList {
-            renderIfNotEmpty(world[WorldPosition.BeforeChar])?.let(::add)
             buildCharacterBlock(input.character)?.let(::add)
-            renderIfNotEmpty(world[WorldPosition.AfterChar])?.let(::add)
         }.joinToString("\n\n")
         val preludeMessage = prelude.takeIf { it.isNotBlank() }
             ?.let { LlmMessage(role = LlmRole.USER, content = it) }

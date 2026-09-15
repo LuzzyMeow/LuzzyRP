@@ -971,6 +971,59 @@ fun ChatPage(
         }
     }
 
+    /**
+     * **从这里分支**（上游 `index.html:668` → `createStoryBranch(index)` 的同语义移植）。
+     *
+     * ## 为什么入口在消息操作行而不是分支列表
+     *
+     * 参考实现（rp-hub `app.js:7788`）里 `createStoryBranch` 的 UI 入口**只有一处**：
+     * AI 消息操作行的「从这里分支」按钮——因为「分叉点」只有消息才有意义，
+     * 分支列表里的「新建」反而要先回答「从第几楼分」这个它答不上的问题。
+     * 本版照此实现（用户 2026-09-16 拍板），分支列表的「进入/重命名/删除」保持不变。
+     *
+     * ## 语义
+     *
+     * - 只有 **AI 消息**可分叉（上游同判据 `forkMessage?.role !== 'assistant'` 直接拒；
+     *   本应用因此不在用户消息上挂这个按钮）；
+     * - 新分支 = 父分支**截止到这条消息**（含）的副本，之后各自独立延续；
+     * - `forkFloor` 记的是**复制了几条**（上游 `floorCount` 同口径）——
+     *   分支列表里那行「自主线第 N 楼分出」读的就是它；
+     * - 建完**切到新分支**（上游 `activeStoryBranchId.value = branchId`）：用户按「从这里分支」
+     *   就是想在这条线上继续写，留在原分支等于要再点一次「进入」。
+     */
+    fun createBranchFrom(messageIndex: Int) {
+        val target = activeMessages.getOrNull(messageIndex) ?: return
+        if (target !is ChatMessage.Ai) {
+            scope.launch { snackbarHostState.showSnackbar("只有 AI 回复可以分叉") }
+            return
+        }
+        val parentId = activeBranchId
+        val copied = activeMessages.take(messageIndex + 1)
+        val branchId = "branch-${System.currentTimeMillis()}-${(1000..9999).random()}"
+        // 序号口径与上游一致：非主线分支数 + 1（重名可见但不致命，用户可重命名）
+        val ordinal = tree.branches.count { !it.isMain } + 1
+        val nextTree = tree.addChild(
+            parentId = parentId,
+            id = branchId,
+            name = "分支 $ordinal",
+            forkFloor = copied.count { it !is ChatMessage.Snapshot && it !is ChatMessage.Compacted },
+            createdAt = System.currentTimeMillis(),
+        )
+        if (nextTree === tree) return // id 撞车等异常：不写库、不动界面
+        tree = nextTree.switchTo(branchId)
+        branchMessages[branchId] = copied
+        persist { repo, uuid ->
+            repo.createBranch(
+                characterUuid = uuid,
+                branch = tree.branches.first { it.id == branchId },
+                copiedMessages = copied,
+                makeActive = true,
+            )
+        }
+        followTail = true
+        scope.launch { snackbarHostState.showSnackbar("已从这里创建分支") }
+    }
+
     /** 重新生成：[messageIndex] 处必须是 AI 消息——**真实再跑一次请求**并把结果作为新候选追加。 */
     fun regenerate(messageIndex: Int) {
         if (live != null) return
@@ -1276,6 +1329,7 @@ fun ChatPage(
                                     },
                                     onCopy = { copyMessage(m.body) },
                                     onRegenerate = { regenerate(i) },
+                                    onFork = { createBranchFrom(i) },
                                     onEdit = {
                                         // 编辑初值给**正文**（思维链是那次生成的历史，不该在编辑框里让用户改）
                                         editing = EditingTarget(activeBranchId, i, isAi = true, initial = m.body)
@@ -1303,8 +1357,10 @@ fun ChatPage(
                                 MessageActionRow(
                                     alignEnd = true,
                                     onCopy = { copyMessage(m.text) },
-                                    // 用户消息没有「重新生成」（重生成是模型输出的动作）
+                                    // 用户消息没有「重新生成」（重生成是模型输出的动作），
+                                    // 也没有「从这里分支」（上游同判据：只有 assistant 消息可分叉）
                                     onRegenerate = null,
+                                    onFork = null,
                                     onEdit = {
                                         editing = EditingTarget(activeBranchId, i, isAi = false, initial = m.text)
                                     },

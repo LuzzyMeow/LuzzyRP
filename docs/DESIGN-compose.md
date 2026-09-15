@@ -1652,3 +1652,80 @@ monogram 底最初用主题 role `primaryContainer`：**亮色主题是浅粉 �
 
 
 
+
+---
+
+## 36 · 功能可达性收口（v3.2 第三条线，2026-09-16）
+
+> 计划与范围：goal「所有页面对齐 rp-hub / 上一版 LuzzyRP」① 功能可达性。
+> 方法：**扫一遍「仓储层有方法、界面上没有调用方」的清单**，逐个接上或明确删除。
+> 这一条线的价值在于它抓的是**第三类缺陷**——不是「假件」（画出来没接线）、
+> 也不是「看不见」（有文本但被挤成 0 宽），而是**够不着**：功能实现了、界面也在、
+> 点哪都正常，只是**没有任何入口能改到它**，因此不报错、不崩溃，能躺很久。
+
+### 36.1 修掉的三处断链
+
+| # | 能力 | 断链事实 | 落点 |
+|---|---|---|---|
+| A | 世界书**条目排序** | `LoreBookRepository.moveEntry` 零调用方；条目行只有编辑/复制/删除三个图标按钮，而**预设页同位置有「上移/下移」** | 条目行收编共用件 `EntryCard`，菜单加「上移/下移」（越界项显式 `enabled = false`） |
+| B | 世界书**绑定角色** | `setBoundTo` / `boundTo` 零界面调用；而聊天页世界书面板早已会显示「+ 某角色 绑定」、条目编辑器也备好了 `canBindCharacter` ——**展示层与数据层都齐了，只差一个能按的按钮** | 书列表的「⋯」菜单加「绑定角色」→ 弹层逐角色开关；新增 `bindableCharacters()` / `boundCharacters()`（反向查询） |
+| C | 剧情分支**手动新建** | `ChatSessionRepository.createBranch` 零调用方；分支只能由「编辑后重跑」间接产生 | 照参考实现：AI 消息操作行加「从这里分支」（`rp-hub index.html:668` → `createStoryBranch(index)` 同语义同位置） |
+
+**C 的形态是查证出来的，不是想出来的**：`createStoryBranch` 在上游的 UI 入口**只有一处**——
+AI 消息操作行。分支列表里的「新建」反而要先回答「从第几楼分」这个它答不上的问题
+（分叉点只有消息才有意义）。所以没在 `BranchListSheet` 里加按钮。
+
+### 36.2 顺带查实并修掉的一处**真缺陷**：世界书 `before_char` / `after_char` 重复注入
+
+扫达线时顺路核对注入链，发现这两档条目**被逐字发了两遍**：一遍在 system 稳定块
+（`PromptSections.stableSections` 的 `world-before-char` / `world-after-char`），
+一遍在角色前置 user 消息（`assembleDetailed` 的 prelude）。
+
+- **探针实测（修前）**：system 里出现 2 次、整个请求里 4 次；
+- **危害不只是 token**：① 同一段设定出现两次，模型可能当成强调或重复设定；
+  ② prelude 是 **USER 消息**，等于把设定**冒充成用户说的话**；
+  ③ 两个副本各自变形会让前缀缓存的「哪里变了」难以定位；
+- **裁定依据**：`DESIGN-compose §24.3` 早已写定这四档（`system_top` / `global_note` /
+  `before_char` / `after_char`）**照上游语义进 system 稳定块** → 保留 `stableSections` 那一份，
+  删掉 prelude 这一份（prelude 从此只负责角色块）。
+- **判据为什么是「次数」而不是「包含」**：`contains` 在修复前后**都成立**——
+  正是这种断言让缺陷活了下来。守卫 `WorldEntryInjectionCountTest` 数的是次数，
+  并做过**负控**（还原缺陷 → 2 条用例红）。
+
+### 36.3 明确删除的死代码（不是「没人用」这么简单）
+
+| 删除项 | 为什么留着比删掉更危险 |
+|---|---|
+| `WorldEntryEditor.kt`（514 行） | 它**曾经**挂在已删除的 `WorldInfoPage` 上，页面退役后成了孤儿：活页 `LoreBookPages` 有自己的 `WorldEntryEdit`。它覆盖的字段是活页的**子集**，反而多出 `depth` 一个**写了没人读**的字段（`WorldEntry.depth` 只被序列化，全工程无消费者）——留着会让人以为那个字段有意义 |
+| `TransferStore.presetCount()` / `worldInfoCount()` | 两个计数**另有真源且口径已分叉**：设置页走 `PageDataSource.conversationTotals()`，世界书页走 `LoreBookRepository.all()` 的**多书**模型，而这里数的还是**旧两桶**。即使接上也会**数错** |
+| `LuzzyStore.lastMessagePreview()` / `lastUserMessagePreview()` | 与批量的 `scopeStats()` 是同一件事的两种做法，生产只走后者 |
+| `LoreBook.activeEntries()` / `bookNameOf()` | 前者是 `activePairs().map { it.second }` 的薄封装且无人用（生产直接用带 key 的 `activePairs`）；后者注释自称「观测/调试用」，实际零调用 |
+
+### 36.4 保留但**不接界面**的（如实登记，逐条写明理由）
+
+| 保留项 | 为什么不接 |
+|---|---|
+| `LuzzyStore.conversationScopes()` | 它是「消息表里到底有哪些作用域」的**唯一枚举入口**，排障要用；而它**不该接界面**——那是一张给开发看的表，不是用户要的页面 |
+| `DatabaseProvider.forTest` / `resetForTest`、`MigrationCoordinator.resetForTest` | 测试专用；生产接入它们是错的 |
+| `LegacyMigrator` / `LegacyExportFormat` 的私有辅助函数 | 迁移器内部步骤，由 `migrate()` 串联；单独暴露入口会让「迁移只跑一次」的幂等前提失守 |
+| `LuzzyDao.lastContent` / `lastUserContent` | SQL 查询原语，由 `scopeStats` 消费（`LuzzyStore` 上的同名薄封装已按上表删除） |
+
+### 36.5 门禁与证据
+
+- **仪器化 128 条 / 0 失败**（`ANDROID_SERIAL=emulator-5554 ./gradlew checkChat`，冷启动 4m20s）；
+  本轮新增 10 条：`ReachabilityUiTest` 8 条（A/B 各含「入口可达 + 真写入库 + 回读确认」两段）
+  + `ChatPersistenceTest` 2 条（C：分叉真落盘、用户消息不给分叉按钮）；
+  JVM 侧新增 `WorldEntryInjectionCountTest` 4 条 + `WorldEntryKeyIdentityTest` 2 条。
+- **负控（两条，防假绿）**：① 还原 `before_char` 重复注入 → `WorldEntryInjectionCountTest` 红 2 条；
+  ② 拿掉 `createBranchFrom` 的落盘调用 → 分叉用例红（判据能区分「切了界面」与「真写进库」）。
+- **环境噪声的判定留痕**：首两轮全量跑出现过 `sendingAppendsARowToStorage` /
+  `世界书面板展示本机真实条目` 偶红。做了**HEAD 对照**（干净 HEAD 全量 118/118 绿）与
+  逐类隔离（两类合跑 17/17 绿），最终定位为**模拟器长跑劣化**（同次运行里
+  `FontScaleUiTest` 一条无关用例耗时 144s、全量 485s）——冷启动后**全量 128/128 绿、
+  总耗时降到 249s**。按仓库既有纪律：**不改代码去迎合劣化环境**。
+
+### 36.6 未做（如实登记）
+
+- **世界书两级导航**（书列表 → 条目列表）：现在是「点书进编辑页，书名 + 条目 + 搜索同屏」，
+  与旧版的两级有层级差异（§35.3 已登记为改进项，本轮未做）；
+- **剧情分支页逐项复看**与**全页暗色复查**：goal ② ③ 的剩余项，不属本条线。

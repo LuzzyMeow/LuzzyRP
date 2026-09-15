@@ -107,16 +107,6 @@ data class LoreBookSet(
     fun byId(id: String): LoreBook? = books.firstOrNull { it.id == id }
 
     /**
-     * **本轮可用于激活的条目**（保持书的物理顺序 → 同一书内按 slot 决定化）。
-     *
-     * ST 的「注入策略」在本模型里简化为：**先绑定的书，后全局启用的书**，
-     * 书间不重排（各自内部顺序原样）。理由：我们的 `snapshotSections` / `worldSection`
-     * 都有各自的决定化排序，书间顺序只影响「哪本的条目先被放进列表」，
-     * 而分组渲染本身会再排序 → 书间顺序对最终字节无影响（缓存安全）。
-     */
-    fun activeEntries(): List<WorldEntry> = activePairs().map { it.second }
-
-    /**
      * 同上，但**带上定时效果 key**（`<bookId>#<书内下标>`）。
      *
      * key 用「书 id + 下标」而不是内容哈希：ST 用内容哈希，改一个字效果就失联；
@@ -129,8 +119,4 @@ data class LoreBookSet(
             book.entries.mapIndexed { index, entry -> TimedEffects.keyOf(book.id, index) to entry }
         }
     }
-
-    /** 每本书的 `comment` → 书名的反查（观测/调试用）。 */
-    fun bookNameOf(entry: WorldEntry): String? =
-        books.firstOrNull { book -> book.entries.any { it === entry } }?.name
 }

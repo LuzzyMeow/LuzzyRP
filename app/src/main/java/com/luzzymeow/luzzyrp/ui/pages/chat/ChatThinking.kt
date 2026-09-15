@@ -436,6 +436,10 @@ fun ThinkingCard(
  * 复制走系统剪贴板、编辑开就地编辑弹窗、重新生成真实再跑一次请求并累积候选、
  * 更多菜单提供「复制 Markdown 源码 / 删除此消息 / 删除此消息及之后」。
  * [onRegenerate] 为 null 表示该消息不可重新生成（如用户消息），此时该项不出现。
+ *
+ * [onFork] 为 null 表示该消息不可分叉。**只有 AI 消息传非 null**——上游
+ * `index.html:668` 的「从这里分支」按钮同样只挂在 assistant 消息上
+ * （`createStoryBranch` 内还会再判一次 `role !== 'assistant'` 直接拒）。
  */
 @Composable
 fun MessageActionRow(
@@ -444,6 +448,7 @@ fun MessageActionRow(
     onBranchChange: (Int) -> Unit = {},
     onCopy: () -> Unit = {},
     onRegenerate: (() -> Unit)? = null,
+    onFork: (() -> Unit)? = null,
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
     onDeleteAfter: () -> Unit = {},
@@ -464,6 +469,7 @@ fun MessageActionRow(
         listOf(
             Triple(LuzzyIcons.Copy, "复制", onCopy),
             Triple(LuzzyIcons.Refresh, "重新生成", onRegenerate),
+            Triple(LuzzyIcons.Branch, "从这里分支", onFork),
             Triple(LuzzyIcons.Edit, "编辑", onEdit),
             Triple(LuzzyIcons.DotsHorizontal, "更多", { menuOpen = true }),
         ).forEachIndexed { actionIndex, (res, desc, action) ->
@@ -473,7 +479,15 @@ fun MessageActionRow(
                     Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .testTag(arrayOf("msg_action_copy", "msg_action_regen", "msg_action_edit", "msg_action_more")[actionIndex])
+                        .testTag(
+                            arrayOf(
+                                "msg_action_copy",
+                                "msg_action_regen",
+                                "msg_action_fork",
+                                "msg_action_edit",
+                                "msg_action_more",
+                            )[actionIndex],
+                        )
                         .clickable(onClick = action),
                     contentAlignment = Alignment.Center,
                 ) {

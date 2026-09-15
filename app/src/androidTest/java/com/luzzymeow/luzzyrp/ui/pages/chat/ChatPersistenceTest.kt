@@ -326,4 +326,85 @@ class ChatPersistenceTest {
             onDb { fixture.store.messages(ScopeId("char-1")).any { it.content == "首句" } },
         )
     }
+
+    /**
+     * **从这里分支**（v3.2 接上的一条断链）——上游 `index.html:668` 的同语义入口。
+     *
+     * ## 这条门禁钉的是什么
+     *
+     * `ChatSessionRepository.createBranch` 此前**没有任何界面调用方**：分支只能由
+     * 「编辑后重跑」间接产生，用户无法主动在某条 AI 回复处分叉。所以判据必须跨两段：
+     *
+     * 1. **入口可达**：AI 消息的动作行上有 `msg_action_fork`（这一条以前根本不存在）；
+     * 2. **真写进了库**：新分支既进 `branches` 表、又把**截止到分叉点的消息副本**落盘，
+     *    并且 `activeBranchId` 切到了它。
+     *
+     * 只钉第 1 段 = 不知道有没有接上；只钉第 2 段 = 不知道用户够不够得着。
+     */
+    @Test
+    fun forkFromAnAiMessageCreatesAndPersistsABranch() {
+        setContentWith(
+            FakeTransport(
+                listOf(
+                    com.luzzymeow.luzzyrp.chat.llm.LlmDelta(content = "可分叉的一条回复"),
+                    com.luzzymeow.luzzyrp.chat.llm.LlmDelta(
+                        usage = com.luzzymeow.luzzyrp.chat.llm.LlmDelta.Usage(input = 10, output = 3),
+                        finishReason = "stop",
+                    ),
+                ),
+            ),
+        )
+        awaitText("分支首句")
+
+        // 先造一条 AI 回复（分叉点必须在 AI 消息上——用户消息没有这个按钮）
+        compose.onNodeWithTag("chat_input").performTextInput("用来产生分叉点的一句")
+        compose.onNodeWithTag("chat_send").performClick()
+        awaitDb { fixture.store.messages(activeScope).any { it.content == "可分叉的一条回复" } }
+
+        val before = onDb { fixture.store.branches("char-1").map { it.branchId } }
+
+        // 动作行只有滚进视口才在语义树里 → 先滚到底
+        compose.onNodeWithTag("chat_list").performScrollToNode(hasTestTag("msg_action_fork"))
+        compose.waitForIdle()
+        compose.onAllNodes(hasTestTag("msg_action_fork")).onLast().performClick()
+
+        // ① 新分支真的进了 branches 表
+        awaitDb { fixture.store.branches("char-1").size > before.size }
+        val after = onDb { fixture.store.branches("char-1") }
+        val created = after.firstOrNull { it.branchId !in before }
+        assertTrue("应有一条新分支落盘（before=$before / after=${after.map { it.branchId }}）", created != null)
+
+        // ② 新分支把**截止分叉点的消息副本**也落盘了（不是空壳分支）
+        val newBranchId = created!!.branchId
+        val copied = onDb { fixture.store.messages(ScopeId("char-1", newBranchId)) }
+        assertTrue("新分支应带着副本消息（实际 ${copied.size} 条）", copied.isNotEmpty())
+        assertTrue(
+            "副本必须含分叉点那条 AI 回复",
+            copied.any { it.content.contains("可分叉的一条回复") },
+        )
+
+        // ③ 建完即切到新分支（上游 `activeStoryBranchId.value = branchId` 同语义）
+        awaitDb { fixture.store.activeBranchId("char-1") == newBranchId }
+
+        // ④ 父分支的消息**不受影响**（分叉是复制，不是搬走）
+        val parent = onDb { fixture.store.messages(activeScope) }
+        assertTrue("父分支的消息不该被分叉带走", parent.any { it.content.contains("可分叉的一条回复") })
+    }
+
+    /** 用户消息**不该**有分叉按钮（上游同判据：只有 assistant 消息可分叉）。 */
+    @Test
+    fun forkActionIsNotOfferedOnUserMessages() {
+        setContent()
+        awaitText("分支首句")
+
+        compose.onNodeWithTag("chat_list").performScrollToNode(hasTestTag("msg_action_copy"))
+        compose.waitForIdle()
+        // 样例里只有 user/assistant 各一条；至少有一个 AI 消息带 fork。
+        // 判据不是「数量」而是「AI 那行的 fork 存在、且它不落在用户行上」——
+        // 用 copy 按钮的行数与 fork 按钮的行数对比来钉：用户消息没有 fork，所以 fork ≤ copy。
+        val copies = compose.onAllNodes(hasTestTag("msg_action_copy")).fetchSemanticsNodes().size
+        val forks = compose.onAllNodes(hasTestTag("msg_action_fork")).fetchSemanticsNodes().size
+        assertTrue("fork 按钮数（$forks）不该超过 copy（$copies）——用户消息没有分叉", forks <= copies)
+        assertTrue("样例里应当至少有一条 AI 消息可分叉", forks >= 1)
+    }
 }

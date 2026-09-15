@@ -79,6 +79,31 @@ class LoreBookRepository(private val store: LuzzyStore) {
     }
 
     /**
+     * 可绑定的角色（绑定选择器用：uuid + 名字，按名字排序）。
+     *
+     * 只取界面要显示的两样，不把角色卡 payload（可能几百 KB、含内联头像）搬给界面。
+     */
+    suspend fun bindableCharacters(): List<BindableCharacter> =
+        store.characters()
+            .map { BindableCharacter(it.uuid, it.name.ifBlank { "未命名角色" }) }
+            .sortedBy { it.name }
+
+    /**
+     * **反向查询**：哪些角色绑定了这本书。
+     *
+     * 为什么需要它：[boundTo] 是「角色 → 书」，而书列表页问的是「这本书 → 哪些角色」。
+     * 绑定关系**只有一处真源**（角色卡 payload 的 `worldBookIds`），所以这里是**读**而不是
+     * 另存一份索引——两份索引迟早会漂移，而漂移的表现是「界面显示已绑定、实际不生效」。
+     */
+    suspend fun boundCharacters(bookId: String): List<String> =
+        store.characters()
+            .filter { row ->
+                val payload = runCatching { parse(row.payload) }.getOrNull() as? JsonObject
+                payload != null && bookId in parseIds(payload["worldBookIds"])
+            }
+            .map { it.uuid }
+
+    /**
      * 组装**当前生效的集合**（列表页显示启用态 / 激活层取条目）。
      *
      * @param characterUuid 当前角色（null = 空库演示态 → 只有全局启用的书）
@@ -319,3 +344,6 @@ class LoreBookRepository(private val store: LuzzyStore) {
         private fun idsToJson(ids: List<String>): JsonArray = JsonArray(ids.map { JsonPrimitive(it) })
     }
 }
+
+/** 绑定选择器里的一行（只带界面要用的两样，见 [LoreBookRepository.bindableCharacters]）。 */
+data class BindableCharacter(val uuid: String, val name: String)

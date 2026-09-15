@@ -77,13 +77,13 @@ class TransferStore(private val store: LuzzyStore) {
         return created to replaced
     }
 
-    /** 预设导出（供 UI 取数时的类型提示，避免 UI 直接碰 JsonElement）。 */
-    suspend fun presetCount(): Int = store.records(LuzzyStore.RECORD_PRESETS).size
-
-    suspend fun worldInfoCount(): Int {
-        val global = store.records(LuzzyStore.RECORD_GLOBAL_WORLDINFO)
-        return global.ifEmpty { store.records(LuzzyStore.RECORD_WORLDINFO) }.size
-    }
-
+    /**
+     * 各类资产条数（v3.2 收口：`presetCount` / `worldInfoCount` 两个**无调用方**的方法已删）。
+     *
+     * 删的理由不是「没人用」这么简单：这两个计数**另有一份真源**且口径已经分叉——
+     * 设置页的抬头行走 `PageDataSource.conversationTotals()`，世界书页走 `LoreBookRepository.all()`
+     * 的**多书**模型，而这里数的还是旧两桶（`RECORD_GLOBAL_WORLDINFO` / `RECORD_WORLDINFO`）。
+     * 也就是说它们即使被接上，多书架构下也会**数错**。留着比删掉更危险（下一个人会以为能用）。
+     */
     suspend fun characterCount(): Int = store.characters().size
 }

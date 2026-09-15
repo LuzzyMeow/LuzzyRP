@@ -4,12 +4,14 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -232,6 +234,86 @@ class CharactersPageTest {
         }
     }
 
+    /**
+     * **编辑器保存要把名字写进两个地方**（payload + 列）。
+     *
+     * 列给列表页/总览页读（它们不解析 payload），payload 给提示词组装读。
+     * 只写一处会出现「卡片上换了名字、聊天里还是旧名字」——两个真源各说各话，且不报错。
+     */
+    @Test
+    fun 编辑器保存同时写payload与名字列() {
+        seedCharacter("c1", "谢昭", description = "冷淡的剑客")
+        render()
+        Await.text(compose, "谢昭", 8_000, substring = true)
+
+        compose.onNodeWithContentDescription("编辑 谢昭").performClick()
+        Await.text(compose, "角色名称（必填）", 8_000, substring = true)
+
+        // 描述 tab：写一段话（**先清空再输入**——performTextInput 是追加，不清会拼出
+        // 「新描述 + 旧描述」这种看着像 bug 的值，实测踩过一次）
+        compose.onAllNodes(hasText("描述", substring = false)).onFirst().performClick()
+        compose.onNodeWithTag("character_description").performTextClearance()
+        compose.onNodeWithTag("character_description").performTextInput("钟楼下的剑客，护短")
+        // 基础 tab：改名字
+        compose.onAllNodes(hasText("基础", substring = false)).onFirst().performClick()
+        compose.onNodeWithTag("character_name").performTextClearance()
+        compose.onNodeWithTag("character_name").performTextInput("谢昭·改")
+        compose.onAllNodes(hasText("保存角色", substring = false)).onFirst().performClick()
+
+        Await.db(compose, 8_000) {
+            val row = store().character("c1") ?: return@db false
+            row.name == "谢昭·改" && row.payload.contains("钟楼下的剑客，护短")
+        }
+        val row = runBlocking { store().character("c1")!! }
+        assertEquals("名字列要跟着改", "谢昭·改", row.name)
+        assertEquals(
+            "payload 的 name 也要跟着改",
+            "谢昭·改",
+            CharacterCards.draftOf(row.payload, "").name,
+        )
+        assertEquals(
+            "描述落进 payload 的 description",
+            "钟楼下的剑客，护短",
+            CharacterCards.draftOf(row.payload, "").description,
+        )
+    }
+
+    /** 名称为空时保存按钮禁用（不存下一张看不到名字的卡）。 */
+    @Test
+    fun 编辑器在名称为空时不放行保存() {
+        seedCharacter("c1", "谢昭")
+        render()
+        Await.text(compose, "谢昭", 8_000, substring = true)
+        compose.onNodeWithContentDescription("编辑 谢昭").performClick()
+        Await.text(compose, "角色名称（必填）", 8_000, substring = true)
+
+        compose.onNodeWithTag("character_name").performTextClearance()
+        compose.waitForIdle()
+        compose.onAllNodes(hasText("保存角色", substring = false)).onFirst().assertIsNotEnabled()
+    }
+
+    /** 新建角色：建出空白卡并直接进编辑器（旧版同一流程）。 */
+    @Test
+    fun 新建角色建出空白卡并直接进编辑器() {
+        render()
+        Await.text(compose, "库里还没有角色卡", 8_000, substring = true)
+        compose.onNodeWithContentDescription("新建角色").performClick()
+        // 分两段等：**先等库里有卡**（这一步是产品行为），再等编辑器内容就绪。
+        // 合成一段等界面在整类跑（模拟器负载高）时会偶发超时——「偶发红」的判据要改确定性，
+        // 而不是把超时调大了事：拆开之后失败原因也能一眼区分（没建出来 vs 界面没起来）。
+        Await.db(compose, 15_000) { store().characters().isNotEmpty() }
+        // 诊断：把编辑器窗口的语义树打进 logcat（多 root 时 onRoot() 会抛，必须逐 root）
+        runCatching { Await.dumpAllRoots(compose, "新建角色后编辑器内容") }
+        Await.text(compose, "角色名称", 15_000, substring = true)
+
+        // 写名字后保存 → 库里出现一张有名字的卡
+        compose.onNodeWithTag("character_name").performTextInput("新来的那位")
+        compose.onAllNodes(hasText("保存角色", substring = false)).onFirst().performClick()
+        Await.db(compose, 8_000) {
+            store().characters().any { it.name == "新来的那位" }
+        }
+    }
+
     // ────────────────────────── 视觉留证
 
     @Test
@@ -264,8 +346,7 @@ class CharactersPageTest {
      * 得在暗色主题下真的看一眼（§31 那次就是「白字压在浅色带上」被截图抓出来的）。
      */
     @Test
-    fun 暗色下的角色卡留证() {
-        seedCharacter("c1", "钟楼下的小恶魔", writeAvatar("d1", 0xFF6E3B2E.toInt(), "鹿"), worldInfo = 3, regex = 2)
+    fun 暗色下的角色卡留证() {        seedCharacter("c1", "钟楼下的小恶魔", writeAvatar("d1", 0xFF6E3B2E.toInt(), "鹿"), worldInfo = 3, regex = 2)
         seedCharacter("c2", "无头像的那位", null, worldInfo = 0, regex = 0)
         runBlocking { store().putString(LuzzyStore.KEY_ACTIVE_CHARACTER, "c1") }
         compose.setContent {
@@ -275,5 +356,42 @@ class CharactersPageTest {
         }
         Await.text(compose, "钟楼下的小恶魔", 8_000, substring = true)
         Capture.shot(context, compose, "77-characters-dark-grid", stamp)
+    }
+
+    /**
+     * **编辑器的四段留证**——只留**内容断言**，不留视觉图。
+     *
+     * 原因（实测两次）：`AlertDialog` / `Dialog` 是独立窗口，本夹具的 `captureToImage()` 拿不到它
+     * ——`isRoot()` 报 2 个 root 时，root1 拍出来是**主窗口的一块裁剪**而不是弹层
+     * （记忆页的编辑/清空弹层也是同一现象，已登记）。所以这里改为断言语义树里确实有
+     * 标题、四段 tab、名称框与保存按钮，视觉形态复用共用组件
+     * （`EditorHeader` / `SegmentChips` / `OutlinedTextField` / `PrimaryButton`，
+     * 那几个组件在世界书与预设编辑器里已经逐张看过）。
+     */
+    @Test
+    fun 编辑器四段留证() {
+        seedCharacter("c1", "钟楼下的小恶魔", writeAvatar("e1", 0xFF6E3B2E.toInt(), "鹿"), worldInfo = 3, regex = 2)
+        render()
+        Await.text(compose, "钟楼下的小恶魔", 8_000, substring = true)
+        compose.onNodeWithContentDescription("编辑 钟楼下的小恶魔").performClick()
+        Await.text(compose, "角色名称（必填）", 8_000, substring = true)
+
+        // 标题 + 四段 tab + 名称框都在
+        compose.onAllNodes(hasText("编辑角色", substring = true)).onFirst().assertIsDisplayed()
+        for (tab in listOf("基础", "描述", "人设", "开场白")) {
+            compose.onAllNodes(hasText(tab, substring = false)).onFirst().assertIsDisplayed()
+        }
+        compose.onNodeWithTag("character_name").assertIsDisplayed()
+
+        // 四段都能切，且各自的输入框都在
+        compose.onAllNodes(hasText("描述", substring = false)).onFirst().performClick()
+        Await.text(compose, "简短描述", 8_000, substring = true)
+        compose.onNodeWithTag("character_description").assertIsDisplayed()
+        compose.onAllNodes(hasText("人设", substring = false)).onFirst().performClick()
+        Await.text(compose, "具体人设", 8_000, substring = true)
+        compose.onNodeWithTag("character_personality").assertIsDisplayed()
+        compose.onAllNodes(hasText("开场白", substring = false)).onFirst().performClick()
+        Await.text(compose, "开场白", 8_000, substring = true)
+        compose.onNodeWithTag("character_first_mes").assertIsDisplayed()
     }
 }

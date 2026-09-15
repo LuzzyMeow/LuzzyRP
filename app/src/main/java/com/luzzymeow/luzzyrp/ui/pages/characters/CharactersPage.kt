@@ -111,6 +111,7 @@ fun CharactersPage(
     var batchMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(emptySet<String>()) }
     var deleting by remember { mutableStateOf<CharacterCards.Row?>(null) }
+    var editing by remember { mutableStateOf<EditorRequest?>(null) }
     var confirmBatch by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
 
@@ -145,8 +146,33 @@ fun CharactersPage(
         } else {
             IconButton(onClick = onImportCharacter) {
                 Icon(
-                    painter = painterResource(LuzzyIcons.Plus),
+                    painter = painterResource(LuzzyIcons.Download),
                     contentDescription = "导入角色卡",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            IconButton(
+                onClick = {
+                    // 「新建角色」= 建一张空白卡并直接进编辑器（旧版同流程：新建后就在编辑器里）。
+                    // 取数同样在主树里做完再开窗。
+                    scope.launch {
+                        val uuid = source.createCharacter()
+                        if (uuid == null) {
+                            message = "新建失败：写库出错"
+                        } else {
+                            refresh++
+                            editing = EditorRequest(
+                                uuid = uuid,
+                                draft = source.characterDraft(uuid),
+                                avatarPath = source.characterAvatarPath(uuid),
+                            )
+                        }
+                    }
+                },
+            ) {
+                Icon(
+                    painter = painterResource(LuzzyIcons.Plus),
+                    contentDescription = "新建角色",
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -242,6 +268,17 @@ fun CharactersPage(
                             },
                             onExport = { onExportCharacter(card.uuid) },
                             onDelete = { deleting = card },
+                            onEdit = {
+                                scope.launch {
+                                    // **取数在主树里做完再开窗**：草稿与头像一次读齐，
+                                    // 对话框拿到的是已经就绪的值（细节见 CharacterEditorDialog 的注释）
+                                    editing = EditorRequest(
+                                        uuid = card.uuid,
+                                        draft = source.characterDraft(card.uuid),
+                                        avatarPath = source.characterAvatarPath(card.uuid),
+                                    )
+                                }
+                            },
                         )
                     }
                 }
@@ -258,8 +295,22 @@ fun CharactersPage(
         }
     }
 
-    deleting?.let { card ->
-        AlertDialog(
+    editing?.let { request ->
+        CharacterEditorDialog(
+            uuid = request.uuid,
+            source = source,
+            initialDraft = request.draft,
+            initialAvatarPath = request.avatarPath,
+            onClose = { editing = null },
+            onSaved = { name ->
+                editing = null
+                message = "已保存「$name」"
+                refresh++
+            },
+        )
+    }
+
+    deleting?.let { card ->        AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("删除「${card.name}」？", fontFamily = LuzzyFonts.Body) },
             text = {
@@ -328,6 +379,7 @@ private fun CharacterCard(
     selected: Boolean,
     onOpen: () -> Unit,
     onToggleSelect: () -> Unit,
+    onEdit: () -> Unit,
     onFavorite: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
@@ -389,6 +441,12 @@ private fun CharacterCard(
                 Modifier.align(Alignment.TopEnd).padding(6.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                CardAction(
+                    iconRes = LuzzyIcons.Edit,
+                    desc = "编辑 ${card.name}",
+                    tint = Color.White,
+                    onClick = onEdit,
+                )
                 CardAction(
                     iconRes = LuzzyIcons.Star,
                     desc = if (card.favorite) "取消收藏 ${card.name}" else "收藏 ${card.name}",
@@ -492,3 +550,16 @@ private fun CardAction(iconRes: Int, desc: String, tint: Color, onClick: () -> U
         )
     }
 }
+
+/**
+ * 打开编辑器的请求：**uuid + 已读好的草稿与头像**。
+ *
+ * 为什么不是只传 uuid、让对话框自己读：那版实测「值读回来了但界面不刷新」
+ * （日志打出 `草稿载入 … → ok`，界面却停在「正在读取角色卡…」——`Dialog` 的内容跑在
+ * 独立窗口的 composition 里，时序与主树不同）。取数留在主树 → 开窗即渲染，行为可预测。
+ */
+private data class EditorRequest(
+    val uuid: String,
+    val draft: CharacterCards.Draft?,
+    val avatarPath: String?,
+)

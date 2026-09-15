@@ -109,6 +109,67 @@ object CharacterCards {
         return JsonObject(updated).toString()
     }
 
+    /**
+     * **角色卡的可编辑字段**（旧版 `CharacterEditorModal` 的四个 tab，v3.2 补）。
+     *
+     * 键名逐字对齐旧版：`name` / `description` / `personality` / `first_mes`。
+     * 这四段是 `PromptAssembler` 组装角色块时真正会读的字段——也就是说编辑器里改的东西
+     * **会真的进提示词**，不是只改了个显示名。
+     */
+    data class Draft(
+        val name: String = "",
+        val description: String = "",
+        val personality: String = "",
+        val firstMes: String = "",
+    ) {
+        /** 名称是唯一必填项：空名字的卡在列表里只能显示「未命名角色」，等于没保存。 */
+        val isValid: Boolean get() = name.isNotBlank()
+    }
+
+    /** 从 payload 读出草稿（缺字段给空串；payload 坏掉时用列上的名字兜底）。 */
+    fun draftOf(payload: String, fallbackName: String): Draft {
+        val obj = runCatching { json.parseToJsonElement(payload) as? JsonObject }.getOrNull() ?: return Draft(name = fallbackName)
+        return Draft(
+            name = obj.text("name").ifBlank { fallbackName },
+            description = obj.text("description"),
+            personality = obj.text("personality"),
+            firstMes = obj.text("first_mes"),
+        )
+    }
+
+    /**
+     * 把草稿写回 payload：**只动这四个键**，其余（`worldInfo` / `regexScripts` /
+     * `favoriteAt` / V2 卡的 `data` 外壳…）逐字保留。
+     *
+     * 这条纪律与 [withFavorite] 同源：payload 是旧结构的原样载体，任何一次「顺便归一化」
+     * 都会让下次做数据对账时分不清「用户改的」和「应用改的」。
+     */
+    fun withDraft(payload: String, draft: Draft): String {
+        val obj = runCatching { json.parseToJsonElement(payload) as? JsonObject }.getOrNull()
+            ?: return JsonObject(
+                mapOf(
+                    "name" to JsonPrimitive(draft.name),
+                    "description" to JsonPrimitive(draft.description),
+                    "personality" to JsonPrimitive(draft.personality),
+                    "first_mes" to JsonPrimitive(draft.firstMes),
+                ),
+            ).toString()
+        val updated = obj.toMutableMap().apply {
+            this["name"] = JsonPrimitive(draft.name)
+            this["description"] = JsonPrimitive(draft.description)
+            this["personality"] = JsonPrimitive(draft.personality)
+            this["first_mes"] = JsonPrimitive(draft.firstMes)
+        }
+        return JsonObject(updated).toString()
+    }
+
+    /** 写进 payload 的头像引用（迁移后是文件路径；新建/换图时由存储层给出）。 */
+    fun withAvatarPath(payload: String, path: String): String {
+        val obj = runCatching { json.parseToJsonElement(payload) as? JsonObject }.getOrNull() ?: return payload
+        return JsonObject(obj.toMutableMap().apply { this["avatar"] = JsonPrimitive(path) }).toString()
+    }
+
+
     private fun JsonObject.text(key: String): String = this[key].let { element ->
         if (element == null || element is JsonNull || element !is JsonPrimitive || !element.isString) "" else element.content
     }

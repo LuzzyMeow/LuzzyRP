@@ -5,6 +5,7 @@ import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import com.luzzymeow.luzzyrp.data.legacy.MigrationReport
 import com.luzzymeow.luzzyrp.data.legacy.ScopeId
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -169,6 +170,83 @@ class PageDataSource(private val store: LuzzyStore) {
         store.putString(LuzzyStore.KEY_ACTIVE_CHARACTER, uuid)
         true
     }.getOrDefault(false)
+
+    // ───────────────────────── 角色卡编辑器（v3.2 补） ─────────────────────────
+
+    /** 读一张卡的草稿（编辑器四个 tab 的初始值）。 */
+    suspend fun characterDraft(uuid: String): CharacterCards.Draft? = runCatching {
+        val row = store.character(uuid) ?: return@runCatching null
+        CharacterCards.draftOf(row.payload, row.name)
+    }.getOrNull()
+
+    /** 一张卡的头像路径（编辑器预览用；列上的值就是真源）。 */
+    suspend fun characterAvatarPath(uuid: String): String? = runCatching {
+        store.character(uuid)?.avatarPath
+    }.getOrNull()
+
+    /**
+     * 保存草稿。
+     *
+     * **payload 与 `name` 列一起写**：列是列表页/总览页读的（它们不解析 payload），
+     * payload 是提示词组装读的。只写一处会出现「卡片上换了名字，聊天里还是旧名字」——
+     * 两个真源各说各话，而且不报错。
+     */
+    suspend fun saveCharacterDraft(uuid: String, draft: CharacterCards.Draft): Boolean = runCatching {
+        if (!draft.isValid) return@runCatching false
+        val row = store.character(uuid) ?: return@runCatching false
+        store.upsertCharacter(
+            row.copy(name = draft.name, payload = CharacterCards.withDraft(row.payload, draft)),
+        )
+        true
+    }.getOrDefault(false)
+
+    /**
+     * 换头像：把选中的图**拷进应用私有目录**再记为相对路径。
+     *
+     * 为什么不直接存 `content://` URI：SAF 的授权是**临时**的（重启后失效），
+     * 存 URI 会得到「今天能看、明天变白块」的卡。落盘与迁移器/附件同一目录约定
+     * （`filesDir` 相对路径），备份与清理才有一处可依。
+     */
+    suspend fun setCharacterAvatar(
+        context: android.content.Context,
+        uuid: String,
+        source: android.net.Uri,
+    ): Boolean = runCatching {
+        val row = store.character(uuid) ?: return@runCatching false
+        val relative = withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val dir = java.io.File(context.filesDir, "assets/avatars").apply { mkdirs() }
+            val target = java.io.File(dir, "$uuid.png")
+            context.contentResolver.openInputStream(source)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            } ?: error("读不到选中的图片")
+            "assets/avatars/$uuid.png"
+        }
+        store.upsertCharacter(
+            row.copy(avatarPath = relative, payload = CharacterCards.withAvatarPath(row.payload, relative)),
+        )
+        true
+    }.getOrDefault(false)
+
+    /**
+     * 新建一张空白卡并返回 uuid（旧版「新建角色」的等价物）。
+     *
+     * 建出来就是**可直接编辑**的：名字留空、payload 只有四个可编辑键。
+     * 名字为空时列表显示「未命名角色」——用户能看见它、能进去改名，不会变成一张看不见的幽灵卡。
+     */
+    suspend fun createCharacter(): String? = runCatching {
+        val uuid = java.util.UUID.randomUUID().toString()
+        store.upsertCharacter(
+            com.luzzymeow.luzzyrp.data.store.CharacterEntity(
+                uuid = uuid,
+                name = "",
+                avatarPath = null,
+                createdAt = System.currentTimeMillis(),
+                payload = CharacterCards.withDraft("", CharacterCards.Draft()),
+            ),
+        )
+        uuid
+    }.getOrNull()
+
 
 
     /** 当前角色 uuid（`kv[active.characterUuid]`；null = 空库演示态）。 */

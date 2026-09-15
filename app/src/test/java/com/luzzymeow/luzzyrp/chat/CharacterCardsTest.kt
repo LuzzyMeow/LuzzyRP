@@ -112,4 +112,71 @@ class CharacterCardsTest {
         assertEquals("未", blank.monogram.let { if (it.isBlank()) "未" else it })
         assertEquals("角", CharacterCards.Row("u", "", null, "", 0, 0, false, false, 1L).monogram)
     }
+
+    // ────────────────────────── 编辑器草稿（v3.2 补）
+
+    @Test
+    fun `草稿读出四个可编辑字段`() {
+        val raw = """{"name":"谢昭","description":"冷淡的剑客","personality":"寡言，护短",
+            "first_mes":"「……你挡路了。」","worldInfo":[{"k":1}],"favoriteAt":123}"""
+        val draft = CharacterCards.draftOf(raw, "列上的名字")
+        assertEquals("谢昭", draft.name)
+        assertEquals("冷淡的剑客", draft.description)
+        assertEquals("寡言，护短", draft.personality)
+        assertEquals("「……你挡路了。」", draft.firstMes)
+        assertTrue(draft.isValid)
+    }
+
+    @Test
+    fun `payload 缺 name 时用列上的名字兜底`() {
+        val draft = CharacterCards.draftOf("""{"description":"只有描述"}""", "列上的名字")
+        assertEquals("列上的名字", draft.name)
+    }
+
+    @Test
+    fun `写回只动四个键，世界书与收藏逐字保留`() {
+        val raw = """{"name":"旧名","description":"旧描述","personality":"旧人设","first_mes":"旧开场",
+            "worldInfo":[{"keys":["苹果"]}],"regexScripts":[{"name":"r1"}],"favoriteAt":999,
+            "creator_notes":"别人的注释","data":{"name":"V2 外壳"}}"""
+        val updated = CharacterCards.withDraft(
+            raw,
+            CharacterCards.Draft(name = "新名", description = "新描述", personality = "新人设", firstMes = "新开场"),
+        )
+        // 四个目标键变了
+        val parsed = CharacterCards.draftOf(updated, "")
+        assertEquals("新名", parsed.name)
+        assertEquals("新描述", parsed.description)
+        assertEquals("新人设", parsed.personality)
+        assertEquals("新开场", parsed.firstMes)
+        // 其余键**逐字保留**（worldInfo / regexScripts / favoriteAt / creator_notes / data 外壳）
+        assertTrue(updated.contains(""""creator_notes":"别人的注释""""))
+        assertTrue(updated.contains(""""favoriteAt":999"""))
+        assertTrue(updated.contains(""""data":{"name":"V2 外壳"}"""))
+        assertEquals(1, CharacterCards.parse("u", "n", null, updated, false, 1L).worldInfoCount)
+        assertEquals(1, CharacterCards.parse("u", "n", null, updated, false, 1L).regexCount)
+        assertTrue(CharacterCards.parse("u", "n", null, updated, false, 1L).favorite)
+    }
+
+    @Test
+    fun `空名字的草稿判定为无效（保存按钮据此禁用）`() {
+        assertFalse(CharacterCards.Draft(name = " ").isValid)
+        assertFalse(CharacterCards.Draft().isValid)
+        assertTrue(CharacterCards.Draft(name = "甲").isValid)
+    }
+
+    @Test
+    fun `坏 payload 上写草稿会得到一份只有四个键的新卡（而不是原样返回）`() {
+        // 与 withFavorite 不同：编辑器保存时用户**确实改了内容**，
+        // 原样返回会让「保存成功」变成一句假话
+        val updated = CharacterCards.withDraft("{坏", CharacterCards.Draft(name = "新卡"))
+        assertEquals("新卡", CharacterCards.draftOf(updated, "").name)
+    }
+
+    @Test
+    fun `写头像路径只动 avatar 键`() {
+        val raw = """{"name":"甲","avatar":"data:image/png;base64,xxx","worldInfo":[{"k":1}]}"""
+        val updated = CharacterCards.withAvatarPath(raw, "assets/avatars/u1.png")
+        assertTrue(updated.contains(""""avatar":"assets/avatars/u1.png""""))
+        assertEquals(1, CharacterCards.parse("u", "n", null, updated, false, 1L).worldInfoCount)
+    }
 }

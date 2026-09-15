@@ -29,12 +29,12 @@ import com.luzzymeow.luzzyrp.ui.nav.LuzzyNavShell
 import com.luzzymeow.luzzyrp.ui.nav.LuzzyRoute
 import com.luzzymeow.luzzyrp.ui.pages.AboutPage
 import com.luzzymeow.luzzyrp.ui.pages.CharactersPage
-import com.luzzymeow.luzzyrp.ui.pages.MemoryPage
 import com.luzzymeow.luzzyrp.ui.pages.SessionsPage
 import com.luzzymeow.luzzyrp.ui.pages.SettingsPage
 import com.luzzymeow.luzzyrp.ui.pages.UsagePage
 import com.luzzymeow.luzzyrp.ui.pages.chat.ChatPage
 import com.luzzymeow.luzzyrp.ui.pages.chat.MeshGradientBackground
+import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
 import com.luzzymeow.luzzyrp.ui.pages.preset.PresetsPage
 import com.luzzymeow.luzzyrp.ui.pages.world.WorldInfoPage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts

@@ -4,13 +4,18 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import com.luzzymeow.luzzyrp.testing.Await
 import com.luzzymeow.luzzyrp.testing.TestStoreFixture
+import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -145,46 +150,11 @@ class PageDataUiTest {
     // ────────────────────────── 记忆页
 
     @Test
-    fun 记忆页显示库里的真实分片数() {
+    fun 记忆页显示库里的真实分片数与条目() {
         seedVectorMemory(turn = 1, text = "第一段记忆")
         seedVectorMemory(turn = 2, text = "第二段记忆")
         seedVectorMemory(turn = 3, text = "第三段记忆")
-        // 当前角色 + **活跃分支**都要种：记忆的作用域是「角色 × 分支」，
-        // 只种角色会去读主线，读到的是空的（这正是会话 76 修掉的那个静默错数）
-        runBlocking {
-            store().putString(LuzzyStore.KEY_ACTIVE_CHARACTER, CHARACTER)
-            store().upsertCharacter(
-                com.luzzymeow.luzzyrp.data.store.CharacterEntity(
-                    uuid = CHARACTER,
-                    name = "测试角色",
-                    avatarPath = null,
-                    createdAt = System.currentTimeMillis(),
-                    payload = "{}",
-                ),
-            )
-            store().replaceBranches(
-                characterUuid = CHARACTER,
-                branches = listOf(
-                    com.luzzymeow.luzzyrp.data.store.BranchEntity(
-                        characterUuid = CHARACTER,
-                        branchId = BRANCH,
-                        name = "分支",
-                        parentId = null,
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis(),
-                        forkFloor = 0,
-                        messageCount = 0,
-                        wordCount = 0,
-                        isMain = false,
-                    ),
-                ),
-                activeBranchId = BRANCH,
-            )
-        }
-
-        // 前提自证：活跃分支确实不是主线（否则这条用例证明不了「按分支取」）
-        assertEquals(BRANCH, runBlocking { store().activeBranchId(CHARACTER) })
-        assertTrue("分支不能是主线，不然测不到该测的东西", BRANCH != "main")
+        seedMemoryScope()
 
         compose.setContent {
             LuzzyTheme(darkTheme = false) {
@@ -192,19 +162,131 @@ class PageDataUiTest {
             }
         }
 
-        com.luzzymeow.luzzyrp.testing.Await.text(compose, "覆盖轮数", 5_000, substring = true)
-        // ⚠️ 断言写法（模拟器实测纠正）：页面上有**两张卡**（向量分片 / 总结记忆），
-        //    「覆盖轮数」这个标签**各出现一次** → onNodeWithText 的「唯一匹配」会抛
-        //    「Expected at most 1 node but found 2」。这不是页面错，是断言写法错。
-        //    用 onAllNodes(...).onFirst() 的形态，语义同样是「该标签确实上屏了」。
-        for (label in listOf("总分片", "覆盖轮数", "已嵌入", "总条数", "最长到第")) {
-            compose.onAllNodes(hasText(label, substring = true)).onFirst().assertIsDisplayed()
+        // 作用域卡报的是**真条数**（不是常量）：3 条分片、0 条总结
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "分片 3", 5_000, substring = true)
+        compose.onAllNodes(hasText("分片 3", substring = true)).onFirst().assertIsDisplayed()
+        compose.onAllNodes(hasText("总结 0", substring = true)).onFirst().assertIsDisplayed()
+        // 引擎卡是**真设置**（默认 2 条 / 8%），页面上得能看见当前值
+        compose.onAllNodes(hasText("召回 2 条", substring = true)).onFirst().assertIsDisplayed()
+        // 内容列表逐条上屏：轮次标签 + 正文。
+        // **必须先滚动**：LazyColumn 不会组合首屏之外的行，`Await.text` 只看语义树，
+        // 直接断言会「等一个永远不会被组合出来的节点」而超时（本轮三条用例一起踩到）。
+        compose.onNodeWithTag("memory_list").performScrollToNode(hasText("清空此作用域记忆", substring = true))
+        compose.waitForIdle()
+        Await.text(compose, "第 1 轮", 5_000, substring = true)
+        compose.onAllNodes(hasText("第 1 轮", substring = true)).onFirst().assertIsDisplayed()
+        compose.onAllNodes(hasText("第一段记忆", substring = true)).onFirst().assertIsDisplayed()
+    }
+
+    /**
+     * **停用一条真的落库**（不是只改界面的假开关）。
+     *
+     * 判据刻意读**库**而不是读界面：假开关的界面也会跟着变（本地 state 翻转），
+     * 只有回读数据库才能区分「开关真的接上了」与「开关自己在那儿动」。
+     */
+    @Test
+    fun 记忆页停用一条会真的写回库() {
+        seedVectorMemory(turn = 1, text = "第一段记忆")
+        seedMemoryScope()
+
+        compose.setContent {
+            LuzzyTheme(darkTheme = false) {
+                MemoryPage(onOpenDrawer = {}, pageData = PageDataSource(store()))
+            }
         }
-        // 分片数 3、覆盖轮数 3（三个不同轮次）、已嵌入 3 —— 数值也要真的出现
-        val values = compose.onAllNodes(
-            androidx.compose.ui.test.hasText("3", substring = false),
-        ).fetchSemanticsNodes()
-        assertTrue("三个统计位都应是 3（实际 ${values.size} 个）", values.size >= 3)
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "分片 1", 5_000, substring = true)
+        compose.onNodeWithTag("memory_list").performScrollToNode(hasText("第一段记忆", substring = true))
+        compose.waitForIdle()
+
+        // 开关的读屏标签就是它的身份（LuzzySwitch 的 label 参数）——按标签点，不猜坐标
+        compose.onNodeWithContentDescription("启用 第 1 轮").performClick()
+
+        com.luzzymeow.luzzyrp.testing.Await.db(compose, 5_000) {
+            val items = PageDataSource(store()).memoryItems(CHARACTER, BRANCH, LuzzyStore.MEMORY_VECTOR)
+            items.size == 1 && !items.first().enabled
+        }
+        val after = runBlocking {
+            PageDataSource(store()).memoryItems(CHARACTER, BRANCH, LuzzyStore.MEMORY_VECTOR)
+        }
+        assertEquals(1, after.size)
+        assertTrue("正文与其它字段不该被开关动到", after.first().text == "第一段记忆")
+    }
+
+    /**
+     * **清空要过确认框，且确认之后真的清库**。
+     *
+     * 两段断言缺一不可：只断言确认框 = 不知道有没有真删；只断言库空了 = 不知道有没有拦住
+     * 误触（这是破坏性操作，确认框是设计的一部分）。
+     */
+    @Test
+    fun 记忆页清空走确认框并真的清库() {
+        seedVectorMemory(turn = 1, text = "第一段记忆")
+        seedVectorMemory(turn = 2, text = "第二段记忆")
+        seedMemoryScope()
+
+        compose.setContent {
+            LuzzyTheme(darkTheme = false) {
+                MemoryPage(onOpenDrawer = {}, pageData = PageDataSource(store()))
+            }
+        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "分片 2", 5_000, substring = true)
+        compose.onNodeWithTag("memory_list").performScrollToNode(hasText("清空此作用域记忆", substring = true))
+        compose.waitForIdle()
+
+        // 第一段：点入口 → 只弹确认框，库里必须还是 2 条
+        compose.onAllNodes(hasText("清空此作用域记忆", substring = true)).onFirst().performClick()
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "此操作不可恢复", 5_000, substring = true)
+        assertEquals(
+            "确认之前不许动数据",
+            2,
+            runBlocking { PageDataSource(store()).memoryItems(CHARACTER, BRANCH, LuzzyStore.MEMORY_VECTOR) }.size,
+        )
+
+        // 第二段：确认 → 库里清零
+        compose.onAllNodes(hasText("清空", substring = false)).onFirst().performClick()
+        com.luzzymeow.luzzyrp.testing.Await.db(compose, 5_000) {
+            PageDataSource(store()).memoryItems(CHARACTER, BRANCH, LuzzyStore.MEMORY_VECTOR).isEmpty()
+        }
+    }
+
+    /**
+     * 种「当前角色 + 活跃分支」。
+     *
+     * 必须两者都种：记忆的作用域是「角色 × 分支」，只种角色会去读主线，读到的是空的
+     * （这正是会话 76 修掉的那个静默错数）。
+     */
+    private fun seedMemoryScope() = runBlocking {
+        store().putString(LuzzyStore.KEY_ACTIVE_CHARACTER, CHARACTER)
+        store().upsertCharacter(
+            com.luzzymeow.luzzyrp.data.store.CharacterEntity(
+                uuid = CHARACTER,
+                name = "测试角色",
+                avatarPath = null,
+                createdAt = System.currentTimeMillis(),
+                payload = "{}",
+            ),
+        )
+        store().replaceBranches(
+            characterUuid = CHARACTER,
+            branches = listOf(
+                com.luzzymeow.luzzyrp.data.store.BranchEntity(
+                    characterUuid = CHARACTER,
+                    branchId = BRANCH,
+                    name = "分支",
+                    parentId = null,
+                    createdAt = System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis(),
+                    forkFloor = 0,
+                    messageCount = 0,
+                    wordCount = 0,
+                    isMain = false,
+                ),
+            ),
+            activeBranchId = BRANCH,
+        )
+        // 前提自证：活跃分支确实不是主线（否则这些用例证明不了「按分支取」）
+        assertEquals(BRANCH, store().activeBranchId(CHARACTER))
+        assertTrue("分支不能是主线，不然测不到该测的东西", BRANCH != "main")
     }
 
     // ────────────────────────── 角色卡页

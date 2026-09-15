@@ -1,5 +1,8 @@
 package com.luzzymeow.luzzyrp.chat
 
+import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
+import com.luzzymeow.luzzyrp.chat.llm.LlmRole
+
 /**
  * 会话记忆检索（真实本地实现）。
  *
@@ -57,6 +60,27 @@ object RecallEngine {
         val lo = hits.minOf { it.score }
         val hi = hits.maxOf { it.score }
         return "%.2f~%.2f".format(lo, hi)
+    }
+
+    /**
+     * 召回用的「轮次」序列（`轮号 to 正文`）。
+     *
+     * **快照不算一轮**：它是运行时上下文，不是用户发言。若把它算进去，
+     * 后面每一轮的「第 N 轮」标注都会虚高（用户看到的是错的轮号）。
+     *
+     * 2026-09-15 从 `RequestBuilder` 下沉到这里：记忆页的「检索测试」要在**同一口径**上跑，
+     * 而 `RequestBuilder` 住在界面包里——数据层反向依赖界面包正是本仓库明令禁止的方向
+     * （`RequestBuilder` 的类注释里记着同一条取舍）。轮次切分是纯逻辑，属于本包。
+     */
+    fun turnsOf(history: List<LlmMessage>): List<Pair<Int, String>> {
+        var turnNo = 0
+        return history
+            .filter { !it.runtimeSnapshot }
+            .filter { it.role == LlmRole.USER || it.role == LlmRole.ASSISTANT }
+            .map { message ->
+                if (message.role == LlmRole.USER) turnNo++
+                turnNo to message.content
+            }
     }
 
     fun percent(score: Double): String = "${(score * 100).toInt()}%"

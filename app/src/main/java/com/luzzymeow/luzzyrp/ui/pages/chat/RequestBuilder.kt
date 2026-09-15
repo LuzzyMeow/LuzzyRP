@@ -4,6 +4,7 @@ import com.luzzymeow.luzzyrp.chat.ChatRequest
 import com.luzzymeow.luzzyrp.chat.Compaction
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.RecallEngine
+import com.luzzymeow.luzzyrp.chat.RecallOptions
 import com.luzzymeow.luzzyrp.chat.RegexScript
 import com.luzzymeow.luzzyrp.chat.RegexScripts
 import com.luzzymeow.luzzyrp.chat.ToolTrail
@@ -96,9 +97,11 @@ object RequestBuilder {
         promptUserName: String = "",
         styleFilterEnabled: Boolean = true,
         userAttachments: List<ChatAttachment> = emptyList(),
-    ): Plan {
+        recall: RecallOptions = RecallOptions(),    ): Plan {
         val history = historyOf(state)
-        val hits = RecallEngine.search(turnsOf(history), userText)
+        // 召回参数来自记忆页的「记忆引擎」设置（kv[memorySettings].recall）——默认值只为
+        // 「还没读过设置」的调用点（单测 / 重放）保留，界面路径一律显式传入。
+        val hits = recall.search(turnsOf(history), userText)
         val effective = input.copy(
             history = history,
             userText = userText,
@@ -224,15 +227,10 @@ object RequestBuilder {
      *
      * **快照不算一轮**：它是运行时上下文，不是用户发言。若把它算进去，
      * 后面每一轮的「第 N 轮」标注都会虚高（用户看到的是错的轮号）。
+     *
+     * 实现已下沉到 [RecallEngine.turnsOf]（2026-09-15）：记忆页的「检索测试」要在同一口径上跑，
+     * 而本类住在界面包里——让数据层 import 这里就是反向依赖。此处保留同签名转调，
+     * 既有调用点与测试不受影响。
      */
-    fun turnsOf(history: List<LlmMessage>): List<Pair<Int, String>> {
-        var turnNo = 0
-        return history
-            .filter { !it.runtimeSnapshot }
-            .filter { it.role == LlmRole.USER || it.role == LlmRole.ASSISTANT }
-            .map { message ->
-                if (message.role == LlmRole.USER) turnNo++
-                turnNo to message.content
-            }
-    }
+    fun turnsOf(history: List<LlmMessage>): List<Pair<Int, String>> = RecallEngine.turnsOf(history)
 }

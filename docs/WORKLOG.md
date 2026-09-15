@@ -5338,3 +5338,59 @@ awesome-design-md `README.md`（250）。设计真源 `DESIGN-compose.md` §2 �
 - `RequestBuilder` 的「请求 = 状态纯函数 + 落盘顺序 = 请求顺序」与**稳定块/易变块七位置分工**（§24.3）；
 - `CacheObserver` 口径与 `BatchACacheAcceptanceTest`（连续五轮纯追加、字节级断言）——世界书注入的
   任何新文本**必须落在稳定块或按轮变化的正确位置**，禁止把每轮都变的内容塞进前缀稳定区。
+
+---
+
+## 会话 84 · 2026-09-15 · 页面完整性排查（用户：「其他页面是不是也没对齐 rp-hub／上版，记忆系统、用量统计这些像简化版」）
+
+> **用户指令**：全面修复，路线自定，**不要澄清提问**；「先完成现阶段欠缺的工作内容，然后完整调研工作路径再继续工作」。
+> **本轮范围**：① 收尾在途工作（设置页重设计 + P6 验收尾巴已提交）；② 调研「上一版 LuzzyRP 各页真实结构」；
+> ③ 按调研重建**记忆系统页**。用量/角色卡等页留后续轮次（goal 保持 active）。
+
+### 一、调研：旧版页面结构从哪里挖（本仓库的「真源」路径）
+
+WebView 前端源码已从工作树删除，但**两条路都通**（子代理两次失败后自己走的）：
+1. `tools/patches/entities/012-035-index-html.patch`（patch 017/025 的源码 diff，**逐行可读**）；
+2. `git log -- <旧路径>` + `git show <rev>:<path>`。
+本轮据此拿到旧版「记忆内容管理器」的完整模板（选择器 / 汇总条 / 向量分片段 / 总结记忆段 /
+编辑弹窗 / 清空按钮）与 `pagination-controls`、`memoryManagerShardModelLabel` 等语义。
+**注意**：`docs/DESIGN-compose.md` §13.1 的 IA 表是 2026-09-12 的静态稿规划，**不等于**旧版实现，
+两者冲突时以 patch/git 里的旧版实现为准。
+
+### 二、记忆系统页重建（本轮主体）
+
+- 新增纯逻辑层：`chat/MemoryBrowser.kt`（整组读改写：投影 / 启停 / 改文本 / 删除 / 身份规则）
+  与 `chat/RecallOptions.kt`（读 / 写 / 归一化 / 关掉开关时真的不检索）。
+- 新增页面：`ui/pages/memory/MemoryPages.kt`（作用域卡 / 引擎卡 / 检索测试卡 / 内容段 / 编辑与确认弹层）。
+- 接线：`RequestBuilder.plan(recall = ...)` ← `PromptInputSource.recallOptions()` ← 聊天页进入时读取；
+  `turnsOf` 从界面包下沉到 `chat.RecallEngine`（数据层不得反向依赖界面包）。
+- 组件复用：`PageScaffold` / `StatMini` 从 `StaticPages.kt` 私有副本提到 `ui.pages.common.PageKit`（一处定义）；
+  旧 `MemoryPage`（两卡 + 空态）整段删除，路由 import 改到新包。
+
+### 三、截图审查（本轮抓到 1 个真缺陷）
+
+- 用仪器化用例渲染**有数据**的页面并截图（模拟器库是空的，有数据的状态压根到不了；
+  直接往 `/data/data` 塞 SQLite 会被 Room 的 schema 校验挡下）。
+- **落点踩了两个坑（都写进测试注释）**：`Android/media/<pkg>` 随卸载被删（AGP 跑完会卸载测试包）→
+  截图在事后不存在；`Android/data/<pkg>` 对 `adb shell` 受限（`ls` 报「不存在」）。
+  最终用 **MediaStore → `/sdcard/Download/luzzy-captures/`**：活过卸载 + adb 直接可读。
+  另：文件名每次带时间戳（MediaStore 的 `files._data` 有 UNIQUE 约束，同名重插必炸）。
+- **缺陷**：模型元信息夹在徽标与开关之间被挤成两行（`text-embeddin / g-3-small · 1536 维`）→
+  改为独占一行 + 单行省略号，重跑截图确认已修。
+- **如实登记**：弹层（编辑 / 清空确认）**只有内容断言、没有视觉留证**——本夹具里
+  `captureToImage()` 拿不到独立窗口（多 root 时两个都拍出主页面，或只截到裁剪块）。
+
+### 四、门禁
+
+- JVM：全量绿（新增 `RecallOptionsTest` 9 条 + `MemoryBrowserTest` 12 条）。
+- 仪器化 `checkChat`：**96 条 / 0 失败**（4m07s），含新增三条真交互用例：
+  停用回读数据库、清空先验确认框再验清库、页面显示真条数与真条目。
+- 三条新用例第一版全红，根因同一个：**LazyColumn 不组合首屏之外的行** →
+  必须先 `performScrollToNode` 再断言（已写入注释，避免下次重踩）。
+
+### 五、下一步（goal 继续）
+
+1. 用量统计页：撤掉假 tab（点了没反应）、接真筛选 + 多模型/多粒度趋势（旧版 patch 025/037 形态）；
+2. 角色卡页：真头像卡面（当前**每张卡都用同一张固定立绘**）+ 导出/删除假按钮改真按钮 + 卡片点击行为；
+3. 会话总览 / 剧情分支 / 预设 / 世界书 逐页对照旧版 IA 复核；
+4. 全页亮暗 + 大字号复查，逐页 `read_image` 审查后统一提交。

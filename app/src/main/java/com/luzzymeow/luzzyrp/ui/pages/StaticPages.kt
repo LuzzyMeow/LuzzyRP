@@ -69,9 +69,11 @@ import com.luzzymeow.luzzyrp.ui.pages.common.BandCard
 import com.luzzymeow.luzzyrp.ui.pages.common.EmptyState
 import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
 import com.luzzymeow.luzzyrp.ui.pages.common.PageHeader
+import com.luzzymeow.luzzyrp.ui.pages.common.PageScaffold
 import com.luzzymeow.luzzyrp.ui.pages.common.SectionTitle
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingRow
+import com.luzzymeow.luzzyrp.ui.pages.common.StatMini
 import com.luzzymeow.luzzyrp.ui.pages.common.ThinDivider
 import com.luzzymeow.luzzyrp.ui.pages.common.bandTone
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
@@ -83,21 +85,10 @@ import kotlin.math.roundToInt
 /**
  * P1 静态稿 ×7（DESIGN-compose §13.1；上游各页 IA 翻译，假数据）。
  * 统一骨架：Scaffold(PageHeader) + LazyColumn 卡片流；底色 surface 实底。
+ *
+ * 骨架本体已提到 `ui.pages.common.PageScaffold`（2026-09-15）：记忆页重建需要同一副骨架，
+ * 每个页面各写一份必然出现「改一处忘一处」。本文件的私有副本已删除。
  */
-
-@Composable
-private fun PageScaffold(
-    title: String,
-    iconRes: Int,
-    onOpenDrawer: () -> Unit,
-    actions: @Composable () -> Unit = {},
-    content: @Composable (PaddingValues) -> Unit,
-) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
-        topBar = { PageHeader(title, iconRes, onOpenDrawer, actions) },
-    ) { padding -> content(padding) }
-}
 
 /** 页头右侧动作钮（图标占位）。 */
 @Composable
@@ -262,138 +253,6 @@ private fun CharacterCard(
 // 2026-09-13（W4）**已迁出**：真页面在 `ui/pages/preset/PresetsPage.kt`（真数据 + 编辑器）。
 // 静态稿删除，不留两处定义。
 
-
-// ───────────────────────── 记忆页 ─────────────────────────
-
-/**
- * 记忆系统页（批 C C1：真统计）。
- *
- * 页面上原来那三个数字（总分片 24 / 覆盖轮数 18 / 召回阈值 0.45）是**假数据**；
- * 现在前两个来自真库（[PageDataSource.memory]），第三个是**设置**不是库数据。
- *
- * **本轮不做**（如实登记）：清空按钮的真执行（那是写操作，需要真机验证；
- * 无真机时「点了会怎样」无法判定）；召回阈值的设置绑定（属设置页的活）。
- */
-@Composable
-fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
-    val context = LocalContext.current
-    val source = remember(pageData) {
-        pageData ?: PageDataSource(LuzzyStore(DatabaseProvider.luzzy(context.applicationContext)))
-    }
-    var stats by remember { mutableStateOf<PageDataSource.MemoryPair?>(null) }
-    LaunchedEffect(source) {
-        // ⚠️ 作用域必须是「角色 × **当前分支**」：用户的活跃会话常常不在主线上，
-        //    只按角色取会读到主线的记忆 → 数字静默不对（见 PageDataSource.memory 的说明）
-        val uuid = source.activeCharacter()
-        stats = source.memory(uuid, uuid?.let { source.activeBranch(it) })
-    }
-    val vector = stats?.vector
-    val classic = stats?.classic
-
-    PageScaffold("记忆系统", LuzzyIcons.Memory, onOpenDrawer, actions = {
-        HeaderAction(LuzzyIcons.Trash, "清空当前模式记忆", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
-        Spacer(Modifier.width(8.dp))
-    }) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item {
-                SettingCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "向量分片",
-                            fontSize = 13.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                        ) {
-                            // 未读完时显示「—」而不是 0：0 会被读成「一条记忆都没有」
-                            StatMini("总分片", vector?.shards?.toString() ?: "—")
-                            StatMini("覆盖轮数", vector?.coveredTurns?.toString() ?: "—")
-                            StatMini("已嵌入", vector?.embeddedShards?.toString() ?: "—")
-                        }
-                        Text(
-                            text = vector?.let {
-                                "合计 ${UsageFormat.grouped(it.totalChars)} 字 · 平均 ${it.averageChars} 字/片" +
-                                    if (it.embeddingDims > 0) " · 维度 ${it.embeddingDims}" else ""
-                            } ?: "正在读取…",
-                            fontSize = 11.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                }
-            }
-            item {
-                SettingCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "总结记忆",
-                            fontSize = 13.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                        ) {
-                            StatMini("总条数", classic?.shards?.toString() ?: "—")
-                            StatMini("覆盖轮数", classic?.coveredTurns?.toString() ?: "—")
-                            StatMini("最长到第", classic?.maxTurn?.toString() ?: "—")
-                        }
-                        Text(
-                            text = classic?.let {
-                                "合计 ${UsageFormat.grouped(it.totalChars)} 字 · 平均 ${it.averageChars} 字/条"
-                            } ?: "正在读取…",
-                            fontSize = 11.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                }
-            }
-            if (stats != null && vector?.isEmpty == true && classic?.isEmpty == true) {
-                item {
-                    SettingCard {
-                        Text(
-                            text = "当前角色还没有记忆。对话推进到一定轮数后，记忆会在这里按分片统计出来。",
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-@Composable
-private fun androidx.compose.foundation.layout.RowScope.StatMini(label: String, value: String) {
-    Column {
-        Text(
-            text = value,
-            fontSize = 20.sp,
-            fontFamily = LuzzyFonts.Lora,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontFamily = LuzzyFonts.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
 
 // ───────────────────────── 用量页 ─────────────────────────
 

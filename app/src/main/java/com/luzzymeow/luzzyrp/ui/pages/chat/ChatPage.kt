@@ -358,6 +358,13 @@ fun ChatPage(
      * 空列表 = 没配过，渲染链上零成本（不会白白扫一遍正文）。
      */
     var regexScripts by remember { mutableStateOf(emptyList<com.luzzymeow.luzzyrp.chat.RegexScript>()) }
+    /**
+     * 记忆召回设置（记忆页「记忆引擎」卡改的就是它）。
+     *
+     * 与角色/正则一起在进入本页时读一次：页面切换会重建本组件，
+     * 所以在记忆页改完设置回到聊天页，读到的就是新值（不需要跨页事件总线）。
+     */
+    var recallOptions by remember { mutableStateOf(com.luzzymeow.luzzyrp.chat.RecallOptions()) }
     var characterName by remember { mutableStateOf(VanioCard.Name) }
     var characterStatus by remember { mutableStateOf("${VanioCard.Subtitle} · 在线") }
     var tree by remember { mutableStateOf(BranchTree.single()) }
@@ -401,7 +408,8 @@ fun ChatPage(
                 // 这里再读一次而不是从 currentUserName 反推：反推会把「用户真名就叫『你』」
                 // 与「没配过名字」两种状态混成一个，而它们的提示词字节完全不同。
                 promptUserName = runCatching { promptSource.userName() }.getOrDefault("")
-            } else {
+                recallOptions = runCatching { promptSource.recallOptions() }
+                    .getOrDefault(com.luzzymeow.luzzyrp.chat.RecallOptions())            } else {
                 val main = demoHistory()
                 branchMessages[ChatBranch.MainId] = main
                 tree = tree.addChild(
@@ -742,6 +750,8 @@ fun ChatPage(
             //    与本页 ③ 落库前那次过滤同源同开关
             styleFilterEnabled = styleFilterEnabled,
             userAttachments = userAttachments,
+            // 召回参数（记忆页「记忆引擎」）——不传给纯函数就只能吃默认值，界面上改不动
+            recall = recallOptions,
         )
         // C4：路径 → data URL（发请求前的最后一步，IO 在本协程上）。
         // **读不到就抛**：一条模型看过的图静默消失 = 改写历史（上一轮看得见、这一轮看不见），

@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -47,6 +49,26 @@ import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 /**
  * 页面通用组件（DESIGN-compose §13.3；命名对齐上游 settings-page-header 语义）。
  */
+
+/**
+ * 非沉浸页的统一骨架：`Scaffold`（surface 实底 + [PageHeader] 顶栏）+ 内容槽。
+ *
+ * 2026-09-15 从 `StaticPages.kt` 的私有副本提上来：记忆页重建需要同一副骨架，
+ * 而「每个页面各写一遍」必然出现两处定义、改一处忘一处（本仓库已有过一次同类教训）。
+ */
+@Composable
+fun PageScaffold(
+    title: String,
+    iconRes: Int,
+    onOpenDrawer: () -> Unit,
+    actions: @Composable () -> Unit = {},
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
+        topBar = { PageHeader(title, iconRes, onOpenDrawer, actions) },
+    ) { padding -> content(padding) }
+}
 
 /** 页头（M3 TopAppBar 透明底）：汉堡（开抽屉）+ 页图标 + 标题 + 右侧动作槽。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -353,8 +375,33 @@ fun EntryCard(
     }
 }
 
-/** 空态（居中图标 + 主副文；上游空态语义）。 */
+/**
+ * 大号统计数字 + 小标签（用量页/记忆页的统计行）。
+ *
+ * 2026-09-15 从 `StaticPages.kt` 的私有扩展提到这里：记忆页重建后不再需要它，
+ * 但用量页仍在用——**留一份**比在两处各写一份强（旧副本是 `RowScope` 扩展，
+ * 去掉接收者后调用点一字不改）。
+ */
 @Composable
+fun StatMini(label: String, value: String) {
+    Column {
+        Text(
+            text = value,
+            fontSize = 20.sp,
+            fontFamily = LuzzyFonts.Lora,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontFamily = LuzzyFonts.Body,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 空态（居中图标 + 主副文；上游空态语义）。 */@Composable
 fun EmptyState(iconRes: Int, title: String, supporting: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxWidth().padding(vertical = 48.dp),

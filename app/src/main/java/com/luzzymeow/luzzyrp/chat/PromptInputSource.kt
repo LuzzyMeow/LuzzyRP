@@ -1,4 +1,4 @@
-﻿package com.luzzymeow.luzzyrp.chat
+package com.luzzymeow.luzzyrp.chat
 
 import com.luzzymeow.luzzyrp.data.chat.ChatSessionRepository
 import com.luzzymeow.luzzyrp.data.preset.PresetRepository
@@ -237,6 +237,16 @@ class PromptInputSource(
 
     /** `{{user}}` 的替换值（显示期正则与正文渲染都要用）。 */
     suspend fun userName(): String = userInfo().name
+
+    /**
+     * 记忆召回设置（记忆页「记忆引擎」卡的落点；真源 `kv[memorySettings].recall`）。
+     *
+     * 读失败一律回落默认值——这一项**不能抛**：它挂在发送路径上，
+     * 一个坏掉的设置对象不该让整轮对话发不出去（那是「设置页写坏 → 聊天全挂」的经典死法）。
+     */
+    suspend fun recallOptions(): RecallOptions = runCatching {
+        RecallOptions.from(store.json(LuzzyStore.KEY_MEMORY_SETTINGS) as? JsonObject)
+    }.getOrDefault(RecallOptions())
 
     companion object {
         /**

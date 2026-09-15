@@ -1,8 +1,11 @@
 package com.luzzymeow.luzzyrp.chat
 
+import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
+import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import com.luzzymeow.luzzyrp.data.legacy.MigrationReport
 import com.luzzymeow.luzzyrp.data.legacy.ScopeId
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -98,6 +101,168 @@ class PageDataSource(private val store: LuzzyStore) {
         store.string(LuzzyStore.KEY_ACTIVE_CHARACTER)?.takeIf { it.isNotBlank() }
     }.getOrNull()
 
+    // ───────────────────────── 记忆内容（v3.2 记忆页重建） ─────────────────────────
+
+    /**
+     * 某作用域下某一形态的**全部可操作条目**（按轮次排序，纯投影）。
+     *
+     * 与 [memory]（只给统计）的分工：统计卡要的是数字，管理器要的是**每一条**。
+     * 两个入口读的是同一份数据，口径不会分叉（都走 [MemoryBrowser] / [MemoryStats]）。
+     */
+    suspend fun memoryItems(
+        characterUuid: String?,
+        branchId: String?,
+        kind: String,
+    ): List<MemoryBrowser.Item> {
+        val scope = scopeOf(characterUuid, branchId) ?: return emptyList()
+        return runCatching {
+            MemoryBrowser.items(store.memories(scope, kind), kind)
+        }.getOrElse { emptyList() }
+    }
+
+    /** 启停一条（写 payload + 列两处，见 [MemoryBrowser.setEnabled]）。 */
+    suspend fun setMemoryEnabled(
+        characterUuid: String?,
+        branchId: String?,
+        kind: String,
+        id: String,
+        enabled: Boolean,
+    ): Boolean = mutateMemories(characterUuid, branchId, kind) {
+        MemoryBrowser.setEnabled(it, kind, id, enabled)
+    }
+
+    /** 改写一条的正文。 */
+    suspend fun setMemoryText(
+        characterUuid: String?,
+        branchId: String?,
+        kind: String,
+        id: String,
+        text: String,
+    ): Boolean = mutateMemories(characterUuid, branchId, kind) {
+        MemoryBrowser.setText(it, kind, id, text)
+    }
+
+    /** 删掉一条。 */
+    suspend fun deleteMemory(
+        characterUuid: String?,
+        branchId: String?,
+        kind: String,
+        id: String,
+    ): Boolean = mutateMemories(characterUuid, branchId, kind) {
+        MemoryBrowser.remove(it, kind, id)
+    }
+
+    /**
+     * 清空某作用域的记忆（**两种形态一起**，与旧版「清空此角色记忆」同义）。
+     *
+     * 返回清掉的条数（页面提示要报数；返回 0 说明本来就没有——不谎报「已清空 N 条」）。
+     */
+    suspend fun clearMemories(characterUuid: String?, branchId: String?): Int {
+        val scope = scopeOf(characterUuid, branchId) ?: return 0
+        return runCatching {
+            val vector = store.memories(scope, LuzzyStore.MEMORY_VECTOR).size
+            val classic = store.memories(scope, LuzzyStore.MEMORY_CLASSIC).size
+            store.replaceMemories(scope, LuzzyStore.MEMORY_VECTOR, emptyList())
+            store.replaceMemories(scope, LuzzyStore.MEMORY_CLASSIC, emptyList())
+            vector + classic
+        }.getOrDefault(0)
+    }
+
+    /**
+     * 记忆管理器的两个下拉（角色 + 该角色的分支）。
+     *
+     * 只列**真的存在**的分支：旧数据里某些角色只有主线，此时下拉不显示分支项
+     * （旧版同义——分支选项多于一个才渲染分支选择器）。
+     */
+    suspend fun memoryScopes(): List<MemoryScopeOption> = runCatching {
+        val active = activeCharacter()
+        store.characters().map { character ->
+            val branches = runCatching { store.branches(character.uuid) }.getOrDefault(emptyList())
+            MemoryScopeOption(
+                uuid = character.uuid,
+                name = character.name.ifBlank { "未命名角色" },
+                isActive = character.uuid == active,
+                branches = branches.map {
+                    BranchOption(id = it.branchId, name = it.name.ifBlank { "分支" }, isMain = it.isMain)
+                },
+                activeBranchId = runCatching { store.activeBranchId(character.uuid) }.getOrNull() ?: MAIN_BRANCH,
+            )
+        }
+            // 稳定排序：当前角色最前，其余按名字（与 characters() 同一纪律：列表不许自己换序）
+            .sortedWith(compareByDescending<MemoryScopeOption> { it.isActive }.thenBy { it.name })
+    }.getOrElse { emptyList() }
+
+    /** 召回设置（记忆页「记忆引擎」卡）。 */
+    suspend fun recallOptions(): RecallOptions = runCatching {
+        RecallOptions.from(store.json(LuzzyStore.KEY_MEMORY_SETTINGS) as? JsonObject)
+    }.getOrDefault(RecallOptions())
+
+    /**
+     * 写回召回设置。
+     *
+     * **只替换 `recall` 子对象**（[RecallOptions.mergeInto]）：`memorySettings` 里还有迁移进来的
+     * `emptyTurns` 等字段，整对象覆盖会把它们抹掉。
+     */
+    suspend fun saveRecallOptions(options: RecallOptions): Boolean = runCatching {
+        val current = store.json(LuzzyStore.KEY_MEMORY_SETTINGS) as? JsonObject
+        store.putJson(LuzzyStore.KEY_MEMORY_SETTINGS, RecallOptions.mergeInto(current, options))
+        true
+    }.getOrDefault(false)
+
+    /**
+     * 检索测试：拿**真实会话历史**跑一次召回，返回命中（记忆页「检索」按钮）。
+     *
+     * 与发送路径**同源**：都走 `RecallEngine.turnsOf`（快照不算一轮）+ 同一个 [RecallOptions]。
+     * 页面上的「相关度」因此与思考节点里那行数字是同一套算法，不是另做一份演示。
+     */
+    suspend fun recallPreview(
+        characterUuid: String?,
+        branchId: String?,
+        query: String,
+        options: RecallOptions,
+    ): List<RecallEngine.Hit> {
+        val scope = scopeOf(characterUuid, branchId) ?: return emptyList()
+        if (query.isBlank()) return emptyList()
+        return runCatching {
+            val history = store.messages(scope).mapNotNull { row ->
+                when (row.role) {
+                    "user" -> LlmMessage(LlmRole.USER, row.content)
+                    "assistant" -> LlmMessage(LlmRole.ASSISTANT, row.content)
+                    // 快照行（role = 'snapshot'）不是对话：混进来会让轮号虚高、片段是噪声
+                    else -> null
+                }
+            }
+            options.search(RecallEngine.turnsOf(history), query)
+        }.getOrElse { emptyList() }
+    }
+
+    /** 当前作用域的用户轮数（检索卡的抬头行；0 = 还没有可检索的历史）。 */
+    suspend fun turnCount(characterUuid: String?, branchId: String?): Int {
+        val scope = scopeOf(characterUuid, branchId) ?: return 0
+        return runCatching { store.messages(scope).count { it.role == "user" } }.getOrDefault(0)
+    }
+
+    /** 「按 id 改写某一形态的整组」——读 → 改 → 写整组（纯函数在 [MemoryBrowser]）。 */
+    private suspend fun mutateMemories(
+        characterUuid: String?,
+        branchId: String?,
+        kind: String,
+        transform: (List<JsonElement>) -> List<JsonElement>,
+    ): Boolean {
+        val scope = scopeOf(characterUuid, branchId) ?: return false
+        return runCatching {
+            store.replaceMemories(scope, kind, transform(store.memories(scope, kind)))
+            true
+        }.getOrDefault(false)
+    }
+
+    /** 作用域（uuid + 分支）；uuid 缺失返回 null（页面此时显示「还没有角色」）。 */
+    private fun scopeOf(characterUuid: String?, branchId: String?): ScopeId? {
+        val uuid = characterUuid?.takeIf { it.isNotBlank() } ?: return null
+        return ScopeId(uuid, branchId?.takeIf { it.isNotBlank() } ?: MAIN_BRANCH)
+    }
+
+
     /**
      * 某角色当前所在的**活跃分支**（`branch_meta.activeBranchId`；取不到回落主线）。
      *
@@ -144,6 +309,23 @@ class PageDataSource(private val store: LuzzyStore) {
     /** 会话总量。 */
     data class Totals(val characters: Int, val branches: Int, val messages: Int)
 }
+
+/**
+ * 记忆管理器的作用域候选（一个角色 + 它的分支清单）。
+ *
+ * [activeBranchId] 是该角色**当前活跃**的分支（`branch_meta`），记忆页切换角色时用它做默认值——
+ * 否则切过去会落在主线上，而用户的会话往往不在主线（会话 76 踩过的静默错数）。
+ */
+data class MemoryScopeOption(
+    val uuid: String,
+    val name: String,
+    val isActive: Boolean,
+    val branches: List<BranchOption>,
+    val activeBranchId: String,
+)
+
+/** 一个分支（记忆管理器的作用域下拉项）。 */
+data class BranchOption(val id: String, val name: String, val isMain: Boolean)
 
 /** 取字符串字段；缺 / null / 非字符串都给空串。 */
 private fun JsonObject.text(key: String): String =

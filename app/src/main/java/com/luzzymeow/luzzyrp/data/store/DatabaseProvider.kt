@@ -41,7 +41,16 @@ object DatabaseProvider {
         Room.databaseBuilder(context.applicationContext, LuzzyDatabase::class.java, name)
             .build()
 
-    /** 测试用：重置单例（避免用例之间互相影响）。 */
+    /**
+     * 测试用：重置单例（避免用例之间互相影响）。
+     *
+     * **保留、当前无调用方**（v3.2 可达性收口时如实登记）：现在的测试都走
+     * [forTest] 开**指定名字的独立库**，不碰 [luzzy] 的单例，所以这条目前没人调。
+     *
+     * 留着是因为它是这个单例**唯一的复位缝**：`instance` 是 `@Volatile` 私有字段，
+     * 将来若有测试要覆盖「首启建库」这条路径（必须先让单例回到 null），没有它就只能改产品代码。
+     * 它**不该接界面**——生产进程里重置单例等于制造两个数据库视图，正是本类注释要防的事。
+     */
     fun resetForTest() {
         synchronized(this) { instance = null }
     }

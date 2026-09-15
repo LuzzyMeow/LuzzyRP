@@ -1701,14 +1701,30 @@ AI 消息操作行。分支列表里的「新建」反而要先回答「从第�
 | `LuzzyStore.lastMessagePreview()` / `lastUserMessagePreview()` | 与批量的 `scopeStats()` 是同一件事的两种做法，生产只走后者 |
 | `LoreBook.activeEntries()` / `bookNameOf()` | 前者是 `activePairs().map { it.second }` 的薄封装且无人用（生产直接用带 key 的 `activePairs`）；后者注释自称「观测/调试用」，实际零调用 |
 
-### 36.4 保留但**不接界面**的（如实登记，逐条写明理由）
+### 36.4 保留但**不接界面**的（重扫后的**完整**清单，逐条写明理由）
 
-| 保留项 | 为什么不接 |
+重扫口径：`data/` 层每个公开方法 → 在**全部** Kotlin 源码（`main` + 测试）里找调用点
+（同时匹配 `receiver.name(` 与同文件内裸 `name(`，排除定义行、注释、SQL 别名）。
+结果：**零调用方的只有 3 条**，逐条处置如下：
+
+| 项 | 为什么不接界面 |
 |---|---|
-| `LuzzyStore.conversationScopes()` | 它是「消息表里到底有哪些作用域」的**唯一枚举入口**，排障要用；而它**不该接界面**——那是一张给开发看的表，不是用户要的页面 |
-| `DatabaseProvider.forTest` / `resetForTest`、`MigrationCoordinator.resetForTest` | 测试专用；生产接入它们是错的 |
-| `LegacyMigrator` / `LegacyExportFormat` 的私有辅助函数 | 迁移器内部步骤，由 `migrate()` 串联；单独暴露入口会让「迁移只跑一次」的幂等前提失守 |
-| `LuzzyDao.lastContent` / `lastUserContent` | SQL 查询原语，由 `scopeStats` 消费（`LuzzyStore` 上的同名薄封装已按上表删除） |
+| `LegacyExportFormat.scoped()` | 迁移器实际走 `forEachScoped`（一次遍历拿全部作用域更省），这条按名取值的访问器暂无人用。留着是因为它是 `get`/`value`/`all`/`forEachScoped` 这组访问器的**对称成员**，且排障「某作用域的键到底搬没搬过来」时按名查最直接。**迁移器内部读取，不是用户能力** |
+| `DatabaseProvider.resetForTest()` | 单例唯一的**复位缝**（`instance` 是 private `@Volatile`）。现有测试都走 `forTest` 开独立库、不碰单例故暂无人用；但将来要覆盖「首启建库」路径就必须先让它回 null。**不该接界面**——生产进程里重置单例正是本类注释要防的「两个数据库视图」 |
+| `MigrationCoordinator.resetForTest()` | 同上：迁移状态机的测试复位缝 |
+
+另有几处**看起来像孤儿、实则被消费**的（重扫时逐个查证，避免误删）：
+`LuzzyDao.lastContent`/`lastUserContent`（由 `scopeStats` 的 SQL 消费，各有 3 处真实调用点）、
+`WorldBookOps.groupByEffectiveScope`、`LuzzyStore.conversationScopes`、
+`MigrationInbox.readExport`、`SettingsBootstrap.resetImportedFlag`、`MigratedData.counts`
+——均**至少有一个测试或生产调用方**，且都不属用户能力。
+
+> **两条教训写在这里**（否则下次还会误判）：
+> ① **不能用「正则找不到 `.name(`」当结论**——同文件内的裸 `name(`、被 `ctx.` 之类限定的调用、
+> 以及 `AS name` 这种 SQL 别名都会漏/误判；本轮的清单是把口径收紧到「排除定义行/注释/别名」
+> 之后才落到 3 条的（第一版粗扫报 34 条，绝大多数是假阳性）。
+> ② **「没人调用」不等于「该删」**——判据是**它有没有可能被需要**：测试复位缝、迁移器对称访问器
+> 都该留；而 `presetCount`/`worldInfoCount` 那种**口径已分叉**的才必须删（留着会误导下一个人）。
 
 ### 36.5 门禁与证据
 

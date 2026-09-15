@@ -92,6 +92,18 @@ class LegacyIndex private constructor(
     /** 同一逻辑键的所有来源，**新库在前**（顺序确定 → 合并结果可复现）。 */
     fun all(logicalKey: String): List<Entry> = entries[logicalKey].orEmpty()
 
+    /**
+     * 单个**带作用域**键的取值（`get` 的作用域版）。
+     *
+     * **保留但不接界面 / 当前无调用方**（v3.2 可达性收口时如实登记）：
+     * 迁移器实际走的是 [forEachScoped]（一次遍历拿全部作用域，比逐键查更省），
+     * 所以这条按名取值的访问器暂时没人用。
+     *
+     * 留着的理由：它是这一小组访问器的**对称成员**
+     * （[get] / [value] / [all] / [forEachScoped] 各自都有「具名」与「按作用域」两种口径），
+     * 删掉单独的 `scoped` 会让那组对称缺口，而排障「某个作用域的那条键到底有没有搬过来」时，
+     * 按名查正是最直接的问法。它**不需要界面入口**——这是迁移器的内部读取，不是用户能力。
+     */
     fun scoped(namespace: String, scope: ScopeId): Entry? = get(LegacyKeys.scopedLogical(namespace, scope))
 
     /** 遍历带作用域的键，交出 (namespace, scopeId, entry)。非法作用域按 null 交出，由调用方计入跳过。 */

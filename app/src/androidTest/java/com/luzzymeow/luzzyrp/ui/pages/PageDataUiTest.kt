@@ -16,6 +16,7 @@ import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.testing.Await
 import com.luzzymeow.luzzyrp.testing.TestStoreFixture
 import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
+import com.luzzymeow.luzzyrp.ui.pages.usage.UsagePage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -87,6 +88,18 @@ class PageDataUiTest {
         store().replaceRecords(LuzzyStore.RECORD_USAGE, "", existing + record)
     }
 
+    /** 同 [seedUsage]，但可指定记录类型（用量页的类型筛选据此分档）。 */
+    private fun seedUsageType(input: Int, output: Int, type: String) = runBlocking {
+        val existing = store().records(LuzzyStore.RECORD_USAGE)
+        val record = json.parseToJsonElement(
+            """{"type":"$type","model":"deepseek-chat","provider":"deepseek","protocol":"openai",
+               "inputTokens":$input,"outputTokens":$output,"totalTokens":${input + output},
+               "cacheReadTokens":0,"durationMs":1000,"finishReason":"stop","reported":true,
+               "timestamp":${System.currentTimeMillis()}}""",
+        )
+        store().replaceRecords(LuzzyStore.RECORD_USAGE, "", existing + record)
+    }
+
     /** 往库里写一条记忆（向量形态，作用域 = 角色 × **分支**）。 */
     private fun seedVectorMemory(turn: Int, text: String) = runBlocking {
         val scope = com.luzzymeow.luzzyrp.data.legacy.ScopeId(CHARACTER, BRANCH)
@@ -145,6 +158,78 @@ class PageDataUiTest {
 
         com.luzzymeow.luzzyrp.testing.Await.text(compose, "还没有可统计的用量记录", 5_000, substring = true)
         compose.onNodeWithText("还没有可统计的用量记录", substring = true).assertIsDisplayed()
+    }
+
+    // ────────────────────────── 用量页（v3.2 重建后的真交互）
+
+    /**
+     * **类型筛选真的改数字**（此前那四个方格是画出来的，点了没有任何反应）。
+     *
+     * 判据用「切的瞬间某个数字**消失**」：只断言「出现了新数字」会假绿——
+     * 底部「按模型汇总」里也可能有这个数。切换到只看记忆系统后，
+     * 主对话那条的用量必须**从页面上消失**。
+     */
+    @Test
+    fun 用量页的类型筛选真的改数字() {
+        seedUsage(input = 1_000, output = 234, cached = 0)
+        seedUsageType(input = 500, output = 0, type = "summary")
+        compose.setContent {
+            LuzzyTheme(darkTheme = false) {
+                UsagePage(onOpenDrawer = {}, pageData = PageDataSource(store()))
+            }
+        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "1,734 tokens", 5_000, substring = true)
+        compose.onAllNodes(hasText("1,734 tokens", substring = true)).onFirst().assertIsDisplayed()
+
+        compose.onAllNodes(hasText("记忆系统", substring = false)).onFirst().performClick()
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "500 tokens", 5_000, substring = true)
+        assertEquals(
+            "切到记忆系统之后主对话那 1,734 不该还在页面上",
+            0,
+            compose.onAllNodes(hasText("1,734 tokens", substring = true)).fetchSemanticsNodes().size,
+        )
+    }
+
+    /** **粒度切换真的换桶**（此前只有一条写死的按天线）。 */
+    @Test
+    fun 用量页的粒度切换真的换桶() {
+        seedUsage(input = 100, output = 0, cached = 0)
+        compose.setContent {
+            LuzzyTheme(darkTheme = false) {
+                UsagePage(onOpenDrawer = {}, pageData = PageDataSource(store()))
+            }
+        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "24 格", 5_000, substring = true)
+        compose.onAllNodes(hasText("周", substring = false)).onFirst().performClick()
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "7 格", 5_000, substring = true)
+        compose.onAllNodes(hasText("月", substring = false)).onFirst().performClick()
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "4 格", 5_000, substring = true)
+    }
+
+    /** **清空走确认框，且确认之后真的清库**（此前页头那个垃圾桶是无点击的装饰图标）。 */
+    @Test
+    fun 用量页清空走确认框并真的清库() {
+        seedUsage(input = 10, output = 20, cached = 0)
+        seedUsage(input = 30, output = 40, cached = 0)
+        compose.setContent {
+            LuzzyTheme(darkTheme = false) {
+                UsagePage(onOpenDrawer = {}, pageData = PageDataSource(store()))
+            }
+        }
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "100 tokens", 5_000, substring = true)
+
+        compose.onNodeWithContentDescription("清空用量记录").performClick()
+        com.luzzymeow.luzzyrp.testing.Await.text(compose, "此操作不可恢复", 5_000, substring = true)
+        assertEquals(
+            "确认之前不许动数据",
+            2,
+            runBlocking { store().records(LuzzyStore.RECORD_USAGE).size },
+        )
+
+        compose.onAllNodes(hasText("清空", substring = false)).onFirst().performClick()
+        com.luzzymeow.luzzyrp.testing.Await.db(compose, 5_000) {
+            store().records(LuzzyStore.RECORD_USAGE).isEmpty()
+        }
     }
 
     // ────────────────────────── 记忆页

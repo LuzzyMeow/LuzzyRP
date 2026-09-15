@@ -36,6 +36,29 @@ class PageDataSource(private val store: LuzzyStore) {
     }.getOrElse { UsageAggregate.summarize(emptyList()) }
 
     /**
+     * 用量**原始记录**（趋势图与筛选要逐条看时间戳/供应商/模型，聚合后的分桶不够用）。
+     *
+     * 与 [usage] 读同一份数据、同一层解析（都走 [UsageAggregate.Record.from]），
+     * 所以「总计说 9 次、图表说 8 次」这类口径分叉不会发生。
+     */
+    suspend fun usageRecords(): List<UsageAggregate.Record> = runCatching {
+        store.records(LuzzyStore.RECORD_USAGE).mapNotNull { UsageAggregate.Record.from(it) }
+    }.getOrElse { emptyList() }
+
+    /**
+     * 清空用量记录（**破坏性操作**，调用方必须先过确认框）。
+     *
+     * 返回清掉的条数：返回 0 说明本来就没有——不谎报「已清空 N 条」。
+     * 只动 `token_usage_history` 这一种记录，**不碰**会话/记忆/世界书。
+     */
+    suspend fun clearUsage(): Int = runCatching {
+        val count = store.records(LuzzyStore.RECORD_USAGE).size
+        store.replaceRecords(LuzzyStore.RECORD_USAGE, "", emptyList())
+        count
+    }.getOrDefault(0)
+
+
+    /**
      * 迁移报告（D3）：迁移成功后写的计数 + 时间；**没迁移过 → null**（界面显式呈现
      * 「未迁移」，不许当空表渲染）。读失败也按未迁移降级（与全层「读失败给空结果」同口径）。
      */

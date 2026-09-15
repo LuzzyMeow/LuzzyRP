@@ -1,9 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -16,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.testing.Await
+import com.luzzymeow.luzzyrp.testing.Capture
 import com.luzzymeow.luzzyrp.testing.TestStoreFixture
 import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
@@ -26,7 +24,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 
 /**
  * **记忆页的视觉留证**（仪器化截图，供人工 `read_image` 审查）。
@@ -73,8 +70,7 @@ class MemoryVisualCaptureTest {
      * `UNIQUE constraint failed: files._data`（实测踩到，整条用例红）。
      * 换名之后索引不再冲突；落盘后由人工按 `-` 之后的名字比对。
      */
-    private val stamp: String = java.text.SimpleDateFormat("HHmmss", java.util.Locale.US)
-        .format(java.util.Date())
+    private val stamp = Capture.newStamp()
 
     @Before
     fun setUp() {
@@ -175,33 +171,11 @@ class MemoryVisualCaptureTest {
      * 且它对 `adb shell` 是受限路径（`ls` 直接报「不存在」，实测踩到）。
      * `Download/` 既**活过卸载**，又**adb 直接可读**，是唯一同时满足这两条的落点。
      */
+    /** 截图落到 `/sdcard/Download/luzzy-captures/`（落点踩过的三个坑见 [Capture] 的说明）。 */
     private fun capture(name: String, rootIndex: Int = 0) {
-        val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes().size
-        // 弹层是**独立窗口**（第二个 root）。这里**把每个 root 都存一份**而不是猜哪一个：
-        // 实测同一段代码在两次运行里 roots 分别是 2 和 1（弹层窗口是否被计入语义树与时机有关），
-        // 猜错的表现是「截到弹层背后那一页」——看起来像弹层没出来，实则拍错了窗口。
-        // 存全量后由人工挑，判据不依赖任何时序假设。
-        val indices = if (rootIndex < 0) (0 until roots).toList() else listOf(rootIndex)
-        indices.forEach { index ->
-            val safe = index.coerceIn(0, (roots - 1).coerceAtLeast(0))
-            val bitmap = compose.onAllNodes(isRoot())[safe].captureToImage().asAndroidBitmap()
-            val fileName = if (roots > 1 && rootIndex < 0) "$stamp-$name.root$safe.png" else "$stamp-$name.png"
-            val resolver = context.contentResolver
-            val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(android.provider.MediaStore.Downloads.MIME_TYPE, "image/png")
-                put(android.provider.MediaStore.Downloads.RELATIVE_PATH, "Download/luzzy-captures")
-            }
-            val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            if (uri == null) {
-                android.util.Log.e("LuzzyCapture", "MediaStore 插入失败：$fileName")
-                return@forEach
-            }
-            resolver.openOutputStream(uri)?.use { out ->
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-            }
-            android.util.Log.i("LuzzyCapture", "已写入 Download/luzzy-captures/$fileName（root=$safe/$roots）")
-        }
+        // 弹层场景（rootIndex < 0）把每个 root 都存一份：它是否被计入 isRoot() 与时机有关，
+        // 猜错会「截到弹层背后那一页」——看起来像弹层没出来，实则拍错了窗口
+        Capture.shot(context, compose, name, stamp, allRoots = rootIndex < 0)
     }
 
     @Test

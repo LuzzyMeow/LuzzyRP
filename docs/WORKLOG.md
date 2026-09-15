@@ -5394,3 +5394,59 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 2. 角色卡页：真头像卡面（当前**每张卡都用同一张固定立绘**）+ 导出/删除假按钮改真按钮 + 卡片点击行为；
 3. 会话总览 / 剧情分支 / 预设 / 世界书 逐页对照旧版 IA 复核；
 4. 全页亮暗 + 大字号复查，逐页 `read_image` 审查后统一提交。
+
+---
+
+## 会话 85 · 2026-09-15 · 用量统计页重建（用户：其他页面像简化版 · 第二条）
+
+> 同一条用户指令（「全面修复其他页面」）的第二页。路线与记忆页一致：
+> **先挖旧版真源 → 抽纯逻辑层 + 单测 → 重写页面 → 真交互用例 → 截图审查 → 落档提交。**
+
+### 一、旧版真源（都在本仓库里，逐行可读）
+
+- `tools/patches/entities/012-035-ui-components-js.patch` 143-270 行：`token-usage-view` 的 props
+  （chartData/chartRange/chartProvider/chartModelOptions/chartSelectedModels）与 SVG 绘图
+  （plot `left:44 right:316 top:12 bottom:118`、网格线、折线、圆点、x 轴标签）；
+- `tools/patches/entities/012-036-app-js.patch` 672-831 行：`buildUsageChartBuckets`（三粒度分桶规则）、
+  `usageChartProviderOptions` / `usageChartModelOptions` / `usageChartData`（系列键 `provider::model`、
+  降序取前 8 + 「其他模型（N）」合并、palette 8 色）、`toggleUsageChartModel`、`isUsageChartCategory`
+  （summary/embedding→记忆系统、ui_template→变量分析、其余→主对话）。
+
+### 二、修掉的三处假件
+
+| 症状 | 修法 |
+|---|---|
+| 顶部四个类型筛选是**画出来的方块**：高亮恒在第一项、点了没有任何反应 | 换成 `SegmentChips` 真过滤（统计 / 图表 / 模型汇总一起变） |
+| 折线只有一条按天线，无粒度无供应商无模型无坐标轴 | 三粒度 + 供应商单选 + 模型多选（带色点，空集=全选）+ 网格与刻度 |
+| 页头红垃圾桶是**无点击的装饰图标** | 真按钮 → 确认框（写清条数与影响面）→ 真清库 |
+
+### 三、新增代码
+
+- `chat/UsageChart.kt`：分桶 / 系列 / 筛选选项 / 用量口径，**17 条 JVM 单测**；
+- `chat/UsageInfo.kt`：`UsageFormat.compact`（刻度用 `1.2k` / `1.2M`）；
+- `PageDataSource`：`usageRecords()`（逐条原始记录）与 `clearUsage()`（返回清掉的条数）；
+- `ui/pages/usage/UsagePages.kt`：整页重写（含从 StaticPages 迁出的前缀缓存两件组件）；
+  旧 `UsagePage` / `DayTrend` / `CacheSummaryCard` / `CacheTurnRow` 从 StaticPages 删除；
+- `testing/Capture.kt`：截图留证的**统一落点**（记忆页与用量页共用，落点三坑写在注释里）。
+
+### 四、两处**有意偏离**旧版（都写进注释与 DESIGN §33）
+
+1. **用量口径 = 输入 + 输出**（旧版含缓存读）：`cacheReadTokens` 是 `inputTokens` 的子集，
+   再加一次是重复计数（表现为「开缓存后用量凭空涨一截」）。好处：**图表各系列之和 == 总用量大字**。
+2. **横轴按格心定位**（旧版按点均分整宽）：第一版照旧版做，**截图抓到标签行的中间几个全叠在一起**
+   （`9/1▮`）→ 改格心制后点 / 网格线 / 标签共用同一套坐标。
+
+### 五、门禁与证据
+
+- JVM：新增 17 条全绿；`checkChat` 全量 **100 条**（仪器化）——首次运行 1 条红：
+  `ChatUiTest.世界书面板展示本机真实条目`（文档登记的「模拟器长跑降级」型抖动）→
+  **冷启动后单独重跑该类 9 条全绿**，确认是环境而非代码（不改代码去迎合）。
+- 截图：`70-73-usage-*`（顶部 / 趋势图 / 周粒度 / 模型汇总）逐张 `read_image` 审查；
+  审查过程抓到并修掉 X 轴标签重叠缺陷。
+
+### 六、下一步（goal 继续）
+
+1. **角色卡页**：真头像卡面（当前每张卡都用同一张固定立绘 `vanio_card`）+ 导出/删除假按钮 +
+   卡片点击行为 + 搜索；
+2. 会话总览 / 剧情分支 / 预设 / 世界书 逐页对照旧版 IA 复核（重点找「画出来但没接线的控件」）；
+3. 全页亮暗 + 大字号复查，然后统一提交（当前 8 个本地 commit 未推，等真机验收）。

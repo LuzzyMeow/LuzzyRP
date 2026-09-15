@@ -78,4 +78,19 @@ object UsageFormat {
 
     /** 千分位（数字可读性：1234 → 1,234）。 */
     fun grouped(value: Int): String = "%,d".format(value)
+
+    /**
+     * 紧凑数字（图表刻度 / 峰值标签）：`1234 → 1.2k`、`1200000 → 1.2M`。
+     *
+     * 刻度位只有几十 dp，写全量会把图挤没（旧版 SVG 的刻度也是简写）。
+     * 四舍五入到一位小数，**不显示 `.0`**（`1.0k` 看着像精度声明，实际没有）。
+     */
+    fun compact(value: Int): String {
+        val text = when {
+            value >= 1_000_000 -> "%.1fM".format(value / 1_000_000.0)
+            value >= 1_000 -> "%.1fk".format(value / 1_000.0)
+            else -> return value.toString()
+        }
+        return text.replace(".0M", "M").replace(".0k", "k")
+    }
 }

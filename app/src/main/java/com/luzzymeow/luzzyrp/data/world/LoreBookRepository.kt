@@ -28,6 +28,22 @@ import kotlinx.serialization.json.JsonPrimitive
  */
 class LoreBookRepository(private val store: LuzzyStore) {
 
+    // ---------------------------------------------------------------- 全局扫描设置
+
+    /**
+     * 全局扫描设置（扫描深度 / 最大扫描深度）。
+     *
+     * **为什么在这里而不是 `WorldBookRepository`**（v3.2 修正一处断链）：
+     * 世界书路由用的是**本类**（v3.1 多书架构），而设置方法原先只在另一个仓库里——
+     * 于是页面拿不到它，两个滑杆**在界面上完全不可达**（功能写好了、没人接出来）。
+     * 现在真源在本类；`WorldBookRepository` 的同名方法转调这里，避免两处各读一次键。
+     */
+    suspend fun settings(): WorldInfoSettings =
+        WorldInfoSettings.from(store.json(LuzzyStore.KEY_WORLDINFO_SETTINGS))
+
+    suspend fun saveSettings(settings: WorldInfoSettings) =
+        store.putJson(LuzzyStore.KEY_WORLDINFO_SETTINGS, settings.toJson())
+
     // ---------------------------------------------------------------- 读
 
     /** 全部书（按 updatedAt 倒序 = 最近编辑在前；未编辑过回落 id 序）。 */

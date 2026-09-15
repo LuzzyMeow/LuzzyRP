@@ -36,7 +36,6 @@ import com.luzzymeow.luzzyrp.ui.pages.chat.MeshGradientBackground
 import com.luzzymeow.luzzyrp.ui.pages.memory.MemoryPage
 import com.luzzymeow.luzzyrp.ui.pages.preset.PresetsPage
 import com.luzzymeow.luzzyrp.ui.pages.usage.UsagePage
-import com.luzzymeow.luzzyrp.ui.pages.world.WorldInfoPage
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyTheme
 import com.luzzymeow.luzzyrp.util.AssetExtractor

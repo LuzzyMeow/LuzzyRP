@@ -1,11 +1,13 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.luzzymeow.luzzyrp.chat.PageDataSource
@@ -160,11 +162,40 @@ class OtherPagesVisualCaptureTest {
             }
         }
         Await.text(compose, "钟楼设定集", 8_000, substring = true)
+        // **扫描深度必须可达**（v3.2 修的断链：两个滑杆原先挂在不走路由的旧页上）
+        Await.text(compose, "扫描深度", 8_000, substring = true)
         Capture.shot(context, compose, "81-worldbook-light", stamp)
         // 进到条目列表
         compose.onAllNodes(hasText("钟楼设定集", substring = true)).onFirst().performClick()
         compose.waitForIdle()
         runCatching { Capture.shot(context, compose, "82-worldbook-entries", stamp) }
+    }
+
+    /**
+     * **扫描深度真的能改、且真的落库**。
+     *
+     * 这条守的是「功能不可达」那类缺陷：滑杆写好了，但挂在没进路由的旧页上——
+     * 界面上完全改不到，而且**不报错**（点哪都没有反应，用户只会以为「这版就这样」）。
+     *
+     * 用**语义动作 SetProgress** 而不是 `swipeRight()`：拖动依赖起点落在滑杆身上，
+     * 而滑杆的可点区域随版面变动——那是概率性判据。语义动作是确定性的。
+     */
+    @Test
+    fun 世界书扫描深度可改并落库() {
+        val repo = LoreBookRepository(fixture.store)
+        compose.setContent {
+            LuzzyTheme(darkTheme = false) {
+                LoreBookPage(onOpenDrawer = {}, repository = repo)
+            }
+        }
+        Await.text(compose, "扫描深度", 8_000, substring = true)
+        compose.onAllNodes(hasText("扫描深度", substring = true)).onFirst().assertIsDisplayed()
+
+        compose.onNodeWithTag("world_scan_depth").performSemanticsAction(
+            androidx.compose.ui.semantics.SemanticsActions.SetProgress,
+        ) { set -> set(7f) }
+
+        Await.db(compose, 10_000) { repo.settings().scanDepth == 7 }
     }
 
     @Test

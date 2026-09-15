@@ -59,13 +59,19 @@ class WorldBookRepository(
     private fun row(ref: EntryRef, element: JsonElement) =
         WorldRow(ref = ref, entry = WorldEntry.from(element), group = WorldBookOps.effectiveScope(element))
 
-    /** 全局设置（扫描深度 / 最大扫描深度）。 */
-    suspend fun settings(): WorldInfoSettings = WorldInfoSettings.from(store.json(LuzzyStore.KEY_WORLDINFO_SETTINGS))
+    /**
+     * 全局设置（扫描深度 / 最大扫描深度）。
+     *
+     * **转调 `LoreBookRepository`**（v3.2）：真源已提到多书仓库（世界书路由用的是它）。
+     * 这里保留同签名转调，既有调用点与测试不受影响——但**读键只有一处**，
+     * 不会出现「两个仓库各读一次、写法慢慢漂移」的分叉。
+     */
+    suspend fun settings(): WorldInfoSettings = LoreBookRepository(store).settings()
 
     // ---------------------------------------------------------------- 写
 
     suspend fun saveSettings(settings: WorldInfoSettings) =
-        store.putJson(LuzzyStore.KEY_WORLDINFO_SETTINGS, settings.toJson())
+        LoreBookRepository(store).saveSettings(settings)
 
     /** 新增（`ref = null`）或保存一条；改归属即**跨桶移动**（目标末尾）。 */
     suspend fun upsert(ref: EntryRef?, entry: WorldEntry) = mutate { WorldBookOps.upsert(it, ref, entry) }

@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +47,7 @@ import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.data.world.DepthRole
 import com.luzzymeow.luzzyrp.data.world.LoreBook
 import com.luzzymeow.luzzyrp.data.world.LoreBookRepository
+import com.luzzymeow.luzzyrp.data.world.WorldInfoSettings
 import com.luzzymeow.luzzyrp.data.world.SecondaryLogic
 import com.luzzymeow.luzzyrp.data.world.WorldEntry
 import com.luzzymeow.luzzyrp.data.world.WorldPosition
@@ -63,6 +65,7 @@ import com.luzzymeow.luzzyrp.ui.pages.common.SectionTitle
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.ToggleRow
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,6 +139,14 @@ private fun LoreBookList(
     val scope = rememberCoroutineScope()
     var books by remember { mutableStateOf<List<LoreBook>?>(null) }
     var enabledIds by remember { mutableStateOf<List<String>>(emptyList()) }
+    /**
+     * 全局扫描设置（扫描深度 / 最大扫描深度）。
+     *
+     * **v3.2 修的一处断链**：这两个滑杆原先只挂在 `WorldInfoPage` 上，而路由走的是本页
+     * （v3.1 多书架构）——也就是**功能写好了但界面上完全不可达**（改不了扫描深度）。
+     * 迁到这里之后，「世界书」入口里的第一个卡片就是它。
+     */
+    var settings by remember { mutableStateOf(WorldInfoSettings()) }
     var query by remember { mutableStateOf("") }
     var showCreate by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<LoreBook?>(null) }
@@ -144,6 +155,7 @@ private fun LoreBookList(
     LaunchedEffect(reloadKey) {
         books = withContext(Dispatchers.IO) { repo.all() }
         enabledIds = withContext(Dispatchers.IO) { repo.enabledGlobally() }
+        settings = withContext(Dispatchers.IO) { repo.settings() }
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -212,7 +224,19 @@ private fun LoreBookList(
                     // weight(1f) 而不是 fillMaxSize()：后者会吃掉全部空间，把底部「新建」按钮
                     // 挤出屏幕（本页第一版真机截图抓到的缺陷）。
                     modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    item {
+                        // 空书时也要能改扫描深度（这条曾经完全不可达，见 settings 的说明）
+                        WorldSettingsCard(
+                            settings = settings,
+                            onCommit = { next ->
+                                settings = next
+                                scope.launch { withContext(Dispatchers.IO) { repo.saveSettings(next) } }
+                            },
+                        )
+                    }
                     item {
                         EmptyState(
                             iconRes = LuzzyIcons.BookOpen,
@@ -226,6 +250,15 @@ private fun LoreBookList(
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    item {
+                        WorldSettingsCard(
+                            settings = settings,
+                            onCommit = { next ->
+                                settings = next
+                                scope.launch { withContext(Dispatchers.IO) { repo.saveSettings(next) } }
+                            },
+                        )
+                    }
                     items(visible.orEmpty(), key = { it.id }) { book ->
                         LoreBookRow(
                             book = book,
@@ -526,6 +559,7 @@ private fun EntryRow(
     onDelete: () -> Unit,
     onToggle: (Boolean) -> Unit,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
     SettingCard {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
@@ -552,10 +586,39 @@ private fun EntryRow(
             IconButton(onClick = onDuplicate) {
                 Icon(painterResource(LuzzyIcons.Copy), "复制", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = { confirmDelete = true }) {
                 Icon(painterResource(LuzzyIcons.Trash), "删除", tint = MaterialTheme.colorScheme.error)
             }
             LuzzySwitch(checked = entry.enabled, onCheckedChange = onToggle, label = "启用 ${entry.displayName}")
+        }
+
+        /**
+         * **删除必须过确认框**（v3.2 补的一处破坏性操作缺口）。
+         *
+         * 此前条目行的垃圾桶是**一点即删**——不可逆、且没有撤销；而同一页的书级删除、
+         * 以及旧版（`WorldInfoPage`）的条目删除都有确认框。这不是风格差异，是操作安全性差异：
+         * 世界书条目往往是手打的长文本，误触一次就没了。
+         */
+        if (confirmDelete) {
+            AlertDialog(
+                onDismissRequest = { confirmDelete = false },
+                title = { Text("删除「${entry.displayName}」？", fontFamily = LuzzyFonts.Body) },
+                text = {
+                    Text(
+                        text = "这条条目会从本书里移除（${entry.triggerSummary}）。\n\n此操作不可恢复。",
+                        fontFamily = LuzzyFonts.Body,
+                        fontSize = 13.sp,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                        Text("删除", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDelete = false }) { Text("取消", fontFamily = LuzzyFonts.Body) }
+                },
+            )
         }
     }
 }
@@ -984,4 +1047,94 @@ private fun positionLabel(entry: WorldEntry): String = when (entry.position) {
     WorldPosition.UserTop -> "用户消息上方"
     WorldPosition.AssistantTop -> "AI 消息上方"
     else -> entry.position.label
+}
+
+// ───────────────────────────────── 全局扫描设置（v3.2 从 WorldInfoPage 迁入）
+
+/**
+ * 世界书激活设置（扫描深度 / 最大扫描深度）。
+ *
+ * 两个值经 `LoreBookRepository.settings()` 读写，并由 `WorldBookActivator` 在组装请求时真的使用
+ * ——也就是说这里的滑杆**不是装饰**：扫描深度决定关键词只看最近多少条消息。
+ *
+ * 迁入理由见 [LoreBookList] 里 `settings` 的说明：原先只挂在已不在路由里的旧页上。
+ */
+@Composable
+private fun WorldSettingsCard(settings: WorldInfoSettings, onCommit: (WorldInfoSettings) -> Unit) {
+    var scan by remember(settings.scanDepth) { mutableFloatStateOf(settings.scanDepth.toFloat()) }
+    var max by remember(settings.maxDepth) { mutableFloatStateOf(settings.maxDepth.toFloat()) }
+
+    SettingCard(Modifier.padding(bottom = 6.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            SettingSlider(
+                label = "扫描深度",
+                hint = "关键词匹配只看最近 N 条消息",
+                value = scan,
+                valueRange = 0f..WorldInfoSettings.MAX_SCAN_DEPTH.toFloat(),
+                steps = WorldInfoSettings.MAX_SCAN_DEPTH - 1,
+                valueText = scan.roundToInt().toString(),
+                onChange = { scan = it },
+                onFinished = { onCommit(settings.copy(scanDepth = scan.roundToInt())) },
+                testTag = "world_scan_depth",
+            )
+            SettingSlider(
+                label = "最大扫描深度",
+                hint = "上限（条目自带的扫描深度会被它夹住）",
+                value = max,
+                valueRange = 0f..WorldInfoSettings.MAX_MAX_DEPTH.toFloat(),
+                steps = WorldInfoSettings.MAX_MAX_DEPTH - 1,
+                valueText = if (max.roundToInt() == 0) "不限制" else max.roundToInt().toString(),
+                onChange = { max = it },
+                onFinished = { onCommit(settings.copy(maxDepth = max.roundToInt())) },
+                testTag = "world_max_depth",
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingSlider(
+    label: String,
+    hint: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    valueText: String,
+    onChange: (Float) -> Unit,
+    onFinished: () -> Unit,
+    testTag: String,
+) {
+    Column(Modifier.padding(bottom = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                fontSize = 14.sp,
+                fontFamily = LuzzyFonts.Body,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = valueText,
+                fontSize = 14.sp,
+                fontFamily = LuzzyFonts.Body,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Text(
+            text = hint,
+            fontSize = 12.sp,
+            fontFamily = LuzzyFonts.Body,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = valueRange,
+            steps = steps.coerceAtLeast(0),
+            onValueChangeFinished = onFinished,
+            modifier = Modifier.fillMaxWidth().testTag(testTag),
+        )
+    }
 }

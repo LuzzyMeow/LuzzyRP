@@ -1728,8 +1728,8 @@ AI 消息操作行。分支列表里的「新建」反而要先回答「从第�
 
 ### 36.5 门禁与证据
 
-- **仪器化 128 条 / 0 失败**（`ANDROID_SERIAL=emulator-5554 ./gradlew checkChat`，冷启动 4m20s）；
-  本轮新增 10 条：`ReachabilityUiTest` 8 条（A/B 各含「入口可达 + 真写入库 + 回读确认」两段）
+- **仪器化 135 条 / 0 失败**（`ANDROID_SERIAL=emulator-5554 ./gradlew checkChat`，冷启动 4m19s）；
+  本轮新增 17 条：`ReachabilityUiTest` 9 条（A/B 各含「入口可达 + 真写入库 + 回读确认」两段，+1 条可见性）+ `ReachabilityVisualCaptureTest` 6 条（亮暗两主题的视觉留证）
   + `ChatPersistenceTest` 2 条（C：分叉真落盘、用户消息不给分叉按钮）；
   JVM 侧新增 `WorldEntryInjectionCountTest` 4 条 + `WorldEntryKeyIdentityTest` 2 条。
 - **负控（两条，防假绿）**：① 还原 `before_char` 重复注入 → `WorldEntryInjectionCountTest` 红 2 条；

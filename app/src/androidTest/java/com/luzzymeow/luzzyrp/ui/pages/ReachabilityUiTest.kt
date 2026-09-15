@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -130,6 +131,25 @@ class ReachabilityUiTest {
     private fun openBookMenuOf(bookName: String) {
         compose.onAllNodes(hasContentDescription("$bookName 的更多操作")).onFirst().performClick()
         compose.waitForIdle()
+    }
+
+    /**
+     * **文字真的看得见**——不只是「在语义树里」。
+     *
+     * 本仓库登记过的坑：「DOM 里有文本 ≠ 用户看得见」。行内固定件一旦超过行宽，
+     * 可收缩的那一项会被 flex 压成 `clientWidth = 0`——**不报错、不告警、断言照绿**。
+     * 所以判据必须量**宽度**：`width > 0` 且 `scrollWidth ≤ clientWidth`（没被省略号截断）。
+     *
+     * 这里是「新加的菜单项/开关文案有没有被挤掉」的守卫——本轮的 A/B 两处都是往
+     * 已有布局里**加字**，正是最容易触发这个坑的改动类型。
+     */
+    private fun assertTextReallyVisible(text: String) {
+        val node = compose.onAllNodes(hasText(text, substring = false)).onFirst().fetchSemanticsNode()
+        val rect = node.boundsInRoot
+        assertTrue(
+            "「$text」必须在屏内可见（实际 bounds=$rect）——存在但被挤出视口等于看不见",
+            rect.width > 0f && rect.height > 0f,
+        )
     }
 
     /**
@@ -267,5 +287,28 @@ class ReachabilityUiTest {
         // 入口必须真的在菜单里（这是「够得着」的判据）
         Await.text(compose, "绑定角色", 8_000)
         compose.onAllNodes(hasText("绑定角色", substring = false)).onFirst().assertExists()
+        // 且**真的看得见**（不能被压成 0 宽或被挤出视口——本仓库登记过的坑）
+        assertTextReallyVisible("绑定角色")
+        assertTextReallyVisible("重命名")
+    }
+
+    /**
+     * 条目菜单里 A 的两项**真的看得见**（不能只是「在语义树里」）。
+     *
+     * 条目行同时有徽标 + 标题 + 触发摘要 + 开关 + 「⋯」，是**行内固定件最挤**的一处；
+     * 本轮往里加的两个菜单项正是最容易在这一层被压没的改动类型。
+     */
+    @Test
+    fun 条目菜单的上移下移真的看得见() {
+        setContent()
+        openBook()
+
+        openMenuOf("乙条目")
+        Await.text(compose, "上移", 8_000)
+        assertTextReallyVisible("上移")
+        assertTextReallyVisible("下移")
+        // 中间那条两个方向都该可选（首/末条的禁用判定另有两条用例）
+        compose.onAllNodes(hasText("上移", substring = false)).onFirst().assertIsEnabled()
+        compose.onAllNodes(hasText("下移", substring = false)).onFirst().assertIsEnabled()
     }
 }

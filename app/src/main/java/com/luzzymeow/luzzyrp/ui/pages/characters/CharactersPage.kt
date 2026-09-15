@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.chat.CharacterCards
@@ -419,7 +420,13 @@ private fun CharacterCard(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
-                maxLines = 1,
+                // **两行**而不是一行：150% 系统字号下中文名一行放不下，
+                // `maxLines = 1` 会把名字**静默截断**（截图实测：「钟楼下的小恶魔」→「钟楼下的小恶」）。
+                // 卡片高度由 2:3 比例固定，名字多占一行只会往上挤一点，不会把卡撑破；
+                // 真要有超长名字，两行 + 省略号也比悄悄吃字强。
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 20.sp,
             )
             if (!batchMode) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

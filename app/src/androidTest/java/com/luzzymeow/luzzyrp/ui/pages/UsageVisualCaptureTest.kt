@@ -115,4 +115,18 @@ class UsageVisualCaptureTest {
         compose.waitForIdle()
         Capture.shot(context, compose, "73-usage-light-models", stamp)
     }
+
+    /** **暗色留证**：折线是分类数据色，暗色下必须仍然可辨（背景变了，线不能糊成一团）。 */
+    @Test
+    fun 暗色下的用量页留证() {
+        compose.setContent {
+            LuzzyTheme(darkTheme = true) {
+                UsagePage(onOpenDrawer = {}, pageData = PageDataSource(fixture.store))
+            }
+        }
+        Await.text(compose, "24 格", 8_000, substring = true)
+        compose.onNodeWithTag("usage_list").performScrollToNode(hasText("用量趋势", substring = true))
+        compose.waitForIdle()
+        Capture.shot(context, compose, "78-usage-dark-chart", stamp)
+    }
 }

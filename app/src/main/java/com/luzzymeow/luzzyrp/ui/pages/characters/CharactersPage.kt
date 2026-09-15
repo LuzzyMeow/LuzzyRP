@@ -450,21 +450,22 @@ private fun CharacterCover(card: CharacterCards.Row) {
         // 降级：首字 monogram。**这条路径必须真的走得到**——夹具里 2/3 的头像是 SVG
         // （BitmapFactory 解不了），所以它不是「理论上存在的兜底」。
         //
-        // 底色上再压一层黑纱：卡面上的名字是**白字**，而 monogram 底色是浅色（primaryContainer）。
-        // 没有这层纱时「无头像的那位」会被压在浅粉底上，白字几乎看不清
-        // （截图审查实测到：三张卡里唯独这一张对比度不够）。
+        // 底色用**固定的深暖中性色**而不是主题 role，理由有二：
+        // 1. 卡面名字与动作图标都是**白字**，底色必须恒为深色——用 `primaryContainer` 时
+        //    亮色主题是浅粉（白字看不见）、暗色主题是深棕（与真图卡糊成一片），两头都不对；
+        // 2. 深色底 + 浅色首字在亮/暗两套主题下**表现一致**，不需要按主题再分支。
+        // （第一版在浅底上补了一层 34% 黑纱，暗色下反而更脏——截图实测后改成这个方案。）
         Box(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer),
+            Modifier.fillMaxSize().background(Color(0xFF2E2724)),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = card.monogram,
                 fontFamily = LuzzyFonts.Lora,
                 fontSize = 44.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = Color.White.copy(alpha = 0.72f),
             )
         }
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
     }
 }
 

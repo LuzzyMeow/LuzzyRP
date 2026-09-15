@@ -90,17 +90,6 @@ import kotlin.math.roundToInt
  * 每个页面各写一份必然出现「改一处忘一处」。本文件的私有副本已删除。
  */
 
-/** 页头右侧动作钮（图标占位）。 */
-@Composable
-private fun HeaderAction(iconRes: Int, desc: String, tint: Color = MaterialTheme.colorScheme.primary) {
-    Icon(
-        painter = painterResource(iconRes),
-        contentDescription = desc,
-        tint = tint,
-        modifier = Modifier.size(20.dp).padding(1.dp),
-    )
-}
-
 // ───────────────────────── 世界书页 ─────────────────────────
 //
 // 2026-09-13（W2）**已迁出**：真页面在 `ui/pages/world/WorldInfoPage.kt`（真数据 + 编辑器）。

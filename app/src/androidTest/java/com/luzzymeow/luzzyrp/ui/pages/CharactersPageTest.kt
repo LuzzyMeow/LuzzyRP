@@ -256,4 +256,24 @@ class CharactersPageTest {
         compose.waitForIdle()
         Capture.shot(context, compose, "76-characters-light-batch", stamp)
     }
+
+    /**
+     * **暗色留证**（卡片上是白字，暗色下必须仍然可读）。
+     *
+     * 卡面自带黑渐变，所以名字读得清不是自动成立的——它是设计的一部分，
+     * 得在暗色主题下真的看一眼（§31 那次就是「白字压在浅色带上」被截图抓出来的）。
+     */
+    @Test
+    fun 暗色下的角色卡留证() {
+        seedCharacter("c1", "钟楼下的小恶魔", writeAvatar("d1", 0xFF6E3B2E.toInt(), "鹿"), worldInfo = 3, regex = 2)
+        seedCharacter("c2", "无头像的那位", null, worldInfo = 0, regex = 0)
+        runBlocking { store().putString(LuzzyStore.KEY_ACTIVE_CHARACTER, "c1") }
+        compose.setContent {
+            LuzzyTheme(darkTheme = true) {
+                CharactersPage(onOpenDrawer = {}, pageData = PageDataSource(store()), onOpenChat = {})
+            }
+        }
+        Await.text(compose, "钟楼下的小恶魔", 8_000, substring = true)
+        Capture.shot(context, compose, "77-characters-dark-grid", stamp)
+    }
 }

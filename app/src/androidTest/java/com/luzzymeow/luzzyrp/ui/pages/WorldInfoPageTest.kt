@@ -2,6 +2,8 @@ package com.luzzymeow.luzzyrp.ui.pages
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
@@ -243,5 +245,66 @@ class WorldInfoPageTest {
         Await.text(compose, "扫描深度", 8_000, substring = true)
         compose.onAllNodes(hasText("扫描深度", substring = true)).onFirst().assertIsDisplayed()
         compose.onAllNodes(hasText("最大扫描深度", substring = true)).onFirst().assertIsDisplayed()
+    }
+
+    // ─────────────────── 两级导航（v3.2 形态修正）
+
+    /**
+     * 点一本书落到的是**条目列表**，不是「待提交的表单」。
+     *
+     * ## 判据为什么是这几条
+     *
+     * 修正前的形态是：页头写「编辑世界书」、正文第一行是**书名输入框**、右上角一个「保存」
+     * （它还兼任「返回」，语义含混）。用户每次点进来看到的是一个待提交的表单，
+     * 而他要的多半只是「看看这本书里有什么条目」。
+     *
+     * 所以这里钉三件事：① 页头标题 = **书名**；② 有「条目 · N」段落；
+     * ③ **没有**那个常驻的书名输入框（`lore_book_name` 已不存在——它是旧表单的指纹）。
+     */
+    @Test
+    fun 点书进的是条目列表而不是编辑表单() {
+        setContent()
+        openBook()
+
+        // ① 页头标题是书名本身（不是「编辑世界书」）
+        compose.onAllNodes(hasText("钟楼设定集", substring = true)).onFirst().assertIsDisplayed()
+        // ② 条目段落与计数（计数是真数据：种子给了 2 条）
+        compose.onAllNodes(hasText("条目 · 2", substring = true)).onFirst().assertIsDisplayed()
+        // ③ 旧表单的指纹必须消失：常驻书名输入框不在语义树里
+        assertEquals(
+            "两级导航修正后不该再有常驻的书名输入框（那是旧「编辑表单」的形态）",
+            0,
+            compose.onAllNodes(hasTestTag("lore_book_name")).fetchSemanticsNodes().size,
+        )
+    }
+
+    /**
+     * 重命名改成**显式动作**，且真的写库。
+     *
+     * 旧形态下改名是「改输入框 + 点保存」；新形态是页头「⋯」→「重命名」→ 弹层。
+     * 判据必须落到**回读数据库**：只断言「弹层出现」不知道有没有真改名。
+     */
+    @Test
+    fun 页头重命名真的写回库() {
+        setContent()
+        openBook()
+
+        compose.onAllNodes(hasContentDescription("更多操作")).onFirst().performClick()
+        compose.waitForIdle()
+        Await.text(compose, "重命名", 8_000)
+        compose.onAllNodes(hasText("重命名", substring = false)).onFirst().performClick()
+
+        Await.text(compose, "名字", 8_000, substring = true)
+        // ★ 必须**限定到弹层里那个**文本框：本页还有一个「搜索条目」输入框，
+        //   而 `hasSetTextAction()` 会把两个都匹配上——`onFirst()` 取到的是搜索框，
+        //   于是改名没发生、确认按钮拿到的仍是原名（实测踩到：Await.db 超时）。
+        //   判据：弹层里那个框**当前值是书名**（搜索框是空的），据此锁定。
+        compose.onAllNodes(hasSetTextAction() and hasText("钟楼设定集")).onFirst()
+            .performTextReplacement("钟楼设定集（改）")
+        compose.onAllNodes(hasText("确定", substring = false)).onFirst().performClick()
+
+        Await.db(compose, 8_000) {
+            repo().byId(bookId)?.name == "钟楼设定集（改）"
+        }
     }
 }

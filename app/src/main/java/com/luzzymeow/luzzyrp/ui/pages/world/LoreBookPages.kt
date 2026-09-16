@@ -563,6 +563,24 @@ private fun LoreBookRow(
 
 // ───────────────────────────────── 编辑世界书
 
+/**
+ * **书的详情页 = 条目列表**（v3.2 形态修正：两级导航）。
+ *
+ * ## 修正了什么（旧版对照）
+ *
+ * 点一本书原本落在一个「**编辑表单**」上：页头写「编辑世界书」、正文第一行是书名输入框、
+ * 右上角一个「保存」——用户每次进来看到的是一个**待提交的表单**，
+ * 而他要的多半只是「看看这本书里有什么条目」。
+ *
+ * 旧版（WebView 谱系）是**两级**：书列表 → 点书 → **条目列表**；改名是显式动作，不是常驻表单。
+ * 本轮照此修正：
+ * - 页头标题 = **书名**，右上角「⋯」菜单放「重命名」（复用既有文本输入弹层）；
+ * - 书名**不再常驻输入框**，于是「没有未保存的编辑」这件事实在版面上就成立了
+ *   （原来那个「保存」按钮还兼任「返回」，语义含混）；
+ * - 正文主体 = 条目段（搜索 + 列表 + 添加），与旧版同层级。
+ *
+ * 功能一条没减：增删改查、上移下移、启停、复制全在条目行上（见 [EntryRow]）。
+ */
 @Composable
 private fun LoreBookEdit(
     repo: LoreBookRepository,
@@ -574,36 +592,37 @@ private fun LoreBookEdit(
 ) {
     val scope = rememberCoroutineScope()
     var book by remember { mutableStateOf<LoreBook?>(null) }
-    var name by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
+    var renaming by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(bookId, reloadKey) {
-        val loaded = withContext(Dispatchers.IO) { repo.byId(bookId) }
-        book = loaded
-        if (loaded != null && name.isBlank()) name = loaded.name
+        book = withContext(Dispatchers.IO) { repo.byId(bookId) }
     }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.surface) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
             EditorHeader(
-                title = "编辑世界书",
+                // 标题是**书名**而不是「编辑世界书」：这一页是「这本书的内容」，不是表单
+                title = book?.name ?: "世界书",
                 onClose = onBack,
                 trailing = {
-                    TextButton(onClick = {
-                        scope.launch {
-                            withContext(Dispatchers.IO) { repo.rename(bookId, name.ifBlank { LoreBook.DEFAULT_NAME }) }
-                            onChanged()
-                            onBack()
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(
+                                painter = painterResource(LuzzyIcons.DotsHorizontal),
+                                contentDescription = "更多操作",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                    }) { Text("保存", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.Medium) }
+                        androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("重命名", fontFamily = LuzzyFonts.Body) },
+                                onClick = { menuOpen = false; renaming = true },
+                            )
+                        }
+                    }
                 },
-            )
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { FieldLabel("名字", "必填") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("lore_book_name"),
             )
             val entries = book?.entries.orEmpty()
             val visible = entries.withIndex().filter { (_, e) ->
@@ -617,7 +636,7 @@ private fun LoreBookEdit(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SectionTitle("条目", Modifier.weight(1f))
+                SectionTitle("条目 · ${entries.size}", Modifier.weight(1f))
                 TextButton(onClick = { onEditEntry(null) }) { Text("添加", fontFamily = LuzzyFonts.Body) }
             }
             OutlinedTextField(
@@ -704,6 +723,25 @@ private fun LoreBookEdit(
                 }
             }
         }
+    }
+
+    // 重命名（v3.2：从常驻输入框改为显式动作；「没有未保存的编辑」因此在版面上成立）
+    if (renaming) {
+        TextInputDialog(
+            title = "重命名世界书",
+            initial = book?.name.orEmpty(),
+            hint = "名字（必填）",
+            onDismiss = { renaming = false },
+            onConfirm = { newName ->
+                renaming = false
+                if (newName.isBlank()) return@TextInputDialog
+                scope.launch {
+                    withContext(Dispatchers.IO) { repo.rename(bookId, newName) }
+                    book = withContext(Dispatchers.IO) { repo.byId(bookId) }
+                    onChanged()
+                }
+            },
+        )
     }
 }
 

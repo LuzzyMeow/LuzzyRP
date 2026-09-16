@@ -216,6 +216,27 @@ class DarkModeVisualCaptureTest {
         Capture.shot(context, compose, "95-worldbook-entries-dark", stamp)
     }
 
+    /**
+     * 两级导航修正后的**书详情页**（标题 = 书名 + 「条目 · N」段）。
+     *
+     * 与 [世界书页暗色留证] 的 `95-*` 截的是同一页，但这一张专门留**页头形态**：
+     * 修正前那里写「编辑世界书」并挂着一个书名输入框与「保存」，
+     * 修正后是「书名 + ⋯ 菜单（重命名）」——形态差异要看图才确认得了。
+     */
+    @Test
+    fun 书详情页两级导航暗色留证() {
+        compose.setContent {
+            LuzzyTheme(darkTheme = true) {
+                LoreBookPage(onOpenDrawer = {}, repository = LoreBookRepository(fixture.store))
+            }
+        }
+        Await.text(compose, "钟楼设定集", 8_000, substring = true)
+        compose.onAllNodes(hasText("钟楼设定集", substring = true)).onFirst().performClick()
+        Await.text(compose, "条目 · 2", 8_000, substring = true)
+        assertLaidOut("条目 · 2")
+        Capture.shot(context, compose, "99-worldbook-detail-dark", stamp)
+    }
+
     // ─────────────────────────────── 96 · 会话总览
 
     @Test

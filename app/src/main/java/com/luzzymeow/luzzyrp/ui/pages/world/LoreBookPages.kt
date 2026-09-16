@@ -71,6 +71,7 @@ import com.luzzymeow.luzzyrp.ui.pages.common.PrimaryButton
 import com.luzzymeow.luzzyrp.ui.pages.common.SectionTitle
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.ToggleRow
+import com.luzzymeow.luzzyrp.ui.pages.common.loomCanvas
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -601,7 +602,13 @@ private fun LoreBookEdit(
     }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.surface) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .loomCanvas(MaterialTheme.colorScheme.tertiary)
+                .padding(padding)
+                .imePadding(),
+        ) {
             EditorHeader(
                 // 标题是**书名**而不是「编辑世界书」：这一页是「这本书的内容」，不是表单
                 title = book?.name ?: "世界书",
@@ -865,7 +872,13 @@ private fun WorldEntryEdit(
     val update: (WorldEntry) -> Unit = { draft = it }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.surface) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .loomCanvas(MaterialTheme.colorScheme.tertiary)
+                .padding(padding)
+                .imePadding(),
+        ) {
             EditorHeader(
                 title = "编辑条目",
                 onClose = onBack,

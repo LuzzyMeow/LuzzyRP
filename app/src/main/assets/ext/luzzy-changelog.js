@@ -38,6 +38,20 @@
 - 各页加载态从空白改为骨架行；空态统一圆环图标形态；列表项 stagger 入场；
   按压缩放反馈覆盖全部可点行/卡；编辑器统一 Loom 表头与 48dp 主按钮。
 
+**修复**
+- **edge-to-edge insets 全面补齐（用户验收抓出，9 页全中）**：
+  - \`LoomScaffold\` 头部补 \`systemBars.only(Top + Horizontal)\` 避让——此前非聊天页
+    顶栏被状态栏压住（聊天页因用 M3 \`TopAppBar\` 而幸免）；
+  - 全屏 \`Dialog\`（角色编辑器 / 正文编辑器）关掉 \`decorFitsSystemWindows\`、自己消费
+    insets——此前顶部透出被 dim 的下层（一条深灰带），现画布铺满状态栏后；
+  - \`LoomEmpty\` 补水平内边距 + 居中——此前长引导文案在窄屏两侧溢出被裁。
+- **世界书二级页 / 条目编辑页 / 全屏编辑器补织纹画布**：此前是纯色板，
+  与一级页的织机语言断裂（抽出 \`Modifier.loomCanvas(accent)\` 统一）。
+- 会话组头空名 fallback：空名角色此前渲染成「没字的圆 + 没有名字的组头」，
+  现回落到「未命名角色 / ？」。
+- 验收纪律补一条：insets 只信真窗口 \`screencap\`（\`captureToImage\` 不含系统栏，
+  测不出这类缺陷——本轮 9 页全中而仪器化留证全绿，即此漏洞）。
+
 **注意事项**
 - 旧 \`AGENTS.md\`（49KB）删除，重写为轻量版（含强制 SKILL 阅读条款）；
   \`HARD_REQUIREMENTS.md\` 一并删除（条目已收敛进新指南）。

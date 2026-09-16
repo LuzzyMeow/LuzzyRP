@@ -31,6 +31,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -103,6 +108,53 @@ import kotlinx.coroutines.delay
 // ───────────────────────── 骨架 ─────────────────────────
 
 /**
+ * **Loom 画布**：accent wash 渐变 + 织纹点阵（12dp 间距，`drawWithCache` 外的轻量实现）。
+ *
+ * 页面级统一用它——顶页（[LoomScaffold]）、二级页（`EditorHeader` 系）、全屏编辑器。
+ * 少了它页面就退化成一块纯色板，与一级页的织机语言断裂（模拟器实测：世界书二级页
+ * 曾是一块白板）。
+ */
+@Composable
+fun Modifier.loomCanvas(accent: Color): Modifier {
+    val brush = loomCanvasBrush(accent)
+    val weave = Loom.current.weave
+    return this.drawBehind {
+        drawRect(brush)
+        val pitch = WeaveSpec.Pitch.toPx()
+        val radius = WeaveSpec.Dot.toPx()
+        if (radius > 0f && pitch > 0f) {
+            var y = 0f
+            var row = 0
+            while (y < size.height) {
+                var x = if (row % 2 == 0) 0f else pitch / 2f
+                while (x < size.width) {
+                    drawCircle(weave, radius = radius, center = Offset(x, y))
+                    x += pitch
+                }
+                y += pitch
+                row++
+            }
+        }
+    }
+}
+
+/**
+ * **宿主下发的系统栏内边距**（Dp；缺省 0 = 测试环境/无系统栏）。
+ *
+ * ## 为什么不让页面自己读 `WindowInsets.systemBars`
+ *
+ * 页面内直接 `windowInsetsPadding(WindowInsets.systemBars…)` 会让**每个页面**订阅窗口
+ * insets；在仪器化环境里这会与 BottomSheet 的独立窗口叠加，把「面板取数的 LaunchedEffect」
+ * 卷进额外重组（实测：ChatUiTest 的两条面板用例稳定红在「读取中…」）。
+ * 真实宿主（`ComposeActivity`）只读一次、算成 Dp 下发，页面只做 padding——
+ * 订阅集中在宿主，页面保持纯函数式，测试里自然为 0（那本来就没有系统栏）。
+ *
+ * 宿主侧见 `ComposeActivity`（`WindowInsets.systemBars` → 这两个 local）。
+ */
+val LocalLoomTopInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
+val LocalLoomBottomInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
+
+/**
  * Loom 页面骨架：织纹画布 + 可折叠大标题头。
  *
  * - 画布：`loomCanvasBrush(accent)` + 织纹点阵（WeaveSpec）。
@@ -133,13 +185,24 @@ fun LoomScaffold(
     val reduce = rememberReduceMotion()
     val headerEnterMs = scaledDuration(LoomMotion.StandardMs, reduce)
     val headerExitMs = scaledDuration(LoomMotion.QuickMs, reduce)
+    /**
+     * 头部 insets：`enableEdgeToEdge()` 下窗口延伸到系统栏之后，**topBar 必须自己避让**
+     * （Scaffold 只在没有 topBar 时把 insets.top 给内容；有 topBar 时 innerPadding.top
+     * 就是 topBar 高度，不含状态栏）。
+     *
+     * 值由**宿主**读一次下发（[LocalLoomTopInset]）——页面不直接订阅窗口 insets，
+     * 理由见该 local 的 KDoc。
+     */
+    val topInset = LocalLoomTopInset.current
     androidx.compose.material3.Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
         snackbarHost = { snackbarHost() },
         topBar = {
             Surface(color = Color.Transparent) {
-                Column {
+                Column(
+                    Modifier.padding(top = topInset),
+                ) {
                     // 大标题区（accent wash 已在画布，头部透明）
                     androidx.compose.animation.AnimatedContent(
                         targetState = collapsed,
@@ -189,30 +252,7 @@ fun LoomScaffold(
             }
         },
     ) { padding ->
-        val canvasBrush = loomCanvasBrush(accent)
-        Box(
-            Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    drawRect(canvasBrush)
-                    // 织纹点阵
-                    val pitch = WeaveSpec.Pitch.toPx()
-                    val r = WeaveSpec.Dot.toPx()
-                    if (r > 0f && pitch > 0f) {
-                        var y = 0f
-                        var row = 0
-                        while (y < size.height) {
-                            var x = if (row % 2 == 0) 0f else pitch / 2
-                            while (x < size.width) {
-                                drawCircle(loom.weave, radius = r, center = Offset(x, y))
-                                x += pitch
-                            }
-                            y += pitch
-                            row++
-                        }
-                    }
-                },
-        ) {
+        Box(Modifier.fillMaxSize().loomCanvas(accent)) {
             content(padding)
         }
     }
@@ -676,7 +716,12 @@ fun LoomField(
 
 // ───────────────────────── 反馈 ─────────────────────────
 
-/** 空态（Canvas 织纹意象 + 主副文 + 可选 CTA）。 */
+/**
+ * 空态（Canvas 织纹意象 + 主副文）。
+ *
+ * [supporting] 常常是一整句引导文案（含全角括号与英文缩写）——**必须有水平内边距并居中**：
+ * 少了它长文案会在窄屏两侧溢出被裁（模拟器实测：「点右上角「＋」导入角色卡…」左右都出屏）。
+ */
 @Composable
 fun LoomEmpty(
     iconRes: Int,
@@ -687,7 +732,9 @@ fun LoomEmpty(
     val loom = Loom.current
     val scheme = MaterialTheme.colorScheme
     Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = 56.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -712,13 +759,16 @@ fun LoomEmpty(
             fontFamily = LuzzyFonts.Body,
             fontWeight = FontWeight.Medium,
             color = scheme.onSurface,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         Text(
             text = supporting,
             fontSize = 12.sp,
+            lineHeight = 18.sp,
             fontFamily = LuzzyFonts.Body,
             color = scheme.outline,
             fontStyle = FontStyle.Normal,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }

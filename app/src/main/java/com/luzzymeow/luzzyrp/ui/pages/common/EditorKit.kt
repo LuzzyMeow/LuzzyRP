@@ -8,12 +8,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -254,23 +260,33 @@ fun LongTextEditorDialog(
     var text by rememberSaveable(initial) { mutableStateOf(initial) }
     Dialog(
         onDismissRequest = onCancel,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // 全屏编辑器要**连状态栏一起铺满**：默认 `decorFitsSystemWindows = true` 时
+            // 窗口不覆盖状态栏区域，那里会透出被 dim 的下层 → 顶部一条深灰带，
+            // 与主页面的织纹画布断裂（模拟器实测）。关掉 fit 后自己用 insets 避让。
+            decorFitsSystemWindows = false,
+        ),
     ) {
         Column(
             Modifier
                 .fillMaxSize()
-                .background(Loom.current.canvas)
+                .loomCanvas(MaterialTheme.colorScheme.primary)
                 .imePadding(),
         ) {
-            EditorHeader(
-                title = title,
-                onClose = onCancel,
-                trailing = {
-                    TextButton(onClick = { onDone(text) }) {
-                        Text("完成", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.Medium)
-                    }
-                },
-            )
+            // 头部避让状态栏——用宿主下发的 Dp（见 LocalLoomTopInset 的 KDoc：
+            // 页面/弹窗自己订阅窗口 insets 会把仪器化测试的面板取数卷进额外重组）
+            Column(Modifier.padding(top = LocalLoomTopInset.current)) {
+                EditorHeader(
+                    title = title,
+                    onClose = onCancel,
+                    trailing = {
+                        TextButton(onClick = { onDone(text) }) {
+                            Text("完成", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.Medium)
+                        }
+                    },
+                )
+            }
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -286,7 +302,9 @@ fun LongTextEditorDialog(
                 fontSize = 12.sp,
                 fontFamily = LuzzyFonts.Body,
                 color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier
+                    .padding(bottom = LocalLoomBottomInset.current)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }
     }

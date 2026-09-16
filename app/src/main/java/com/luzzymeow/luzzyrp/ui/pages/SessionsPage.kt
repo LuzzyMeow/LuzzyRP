@@ -180,6 +180,9 @@ fun SessionsPage(
 @Composable
 private fun GroupHeader(name: String, count: Int, avatarPath: String?) {
     val scheme = MaterialTheme.colorScheme
+    // 空名 fallback：`createCharacter` 建的空卡列名是空串——直接渲染会得到
+    // 「空白圆 + 没有名字的组头」（模拟器实测），这里补上可见的占位名。
+    val display = name.trim().ifBlank { "未命名角色" }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -187,9 +190,9 @@ private fun GroupHeader(name: String, count: Int, avatarPath: String?) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        CharacterAvatar(name = name, avatarPath = avatarPath, size = 26.dp)
+        CharacterAvatar(name = display, avatarPath = avatarPath, size = 26.dp)
         Text(
-            text = name,
+            text = display,
             fontFamily = LuzzyFonts.Lora,
             fontSize = 14.sp,
             color = scheme.onSurface,
@@ -302,7 +305,8 @@ private fun CharacterAvatar(name: String, avatarPath: String?, size: androidx.co
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = name.take(1),
+            // 空名不可能只有 `take(1)`：空串会渲染出一个「没字的圆」（实测），给个可见占位
+            text = name.trim().take(1).ifBlank { "？" },
             fontFamily = LuzzyFonts.Lora,
             fontSize = (size.value * 0.5f).sp,
             color = MaterialTheme.colorScheme.onSecondaryContainer,

@@ -114,6 +114,16 @@ class ChatUiTest {
         // 此时立刻点击功能行 → 面板的进入动画/状态建立在半成品树上，其取数 `LaunchedEffect`
         // 会不启动（面板停在「读取中…」）——会话 78 用四组对照探针实证：
         // **加了这一步的四组全绿，不加的那一版在整套跑里会红**（且失败在两条面板用例间飘移）。
+        //
+        // v3.1 追加一层（edge-to-edge insets 落地后暴露）：系统 insets 在**首帧之后**才交上来，
+        // 页面因此多重组一轮——只等一次 idle 会正好落在两轮之间，点击依旧落在半成品树上
+        // （实测：预设面板稳定停在「读取中…」）。判据升级为「功能行真的在树上 + 再空转一拍」，
+        // 用推帧轮询（`Await.until`）而不是裸 `waitForIdle`，断言本身没有放宽。
+        compose.mainClock.advanceTimeBy(100)
+        compose.waitForIdle()
+        awaitCondition("输入岛功能行就绪", 5_000) {
+            compose.onAllNodes(hasTestTag("slot_预设")).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.mainClock.advanceTimeBy(100)
         compose.waitForIdle()
     }

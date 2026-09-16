@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -182,12 +183,23 @@ class ComposeActivity : ComponentActivity() {
                 )
             }
             LuzzyTheme(darkTheme = currentDark, fontScale = fontScale) {
-                LuzzyNavShell(
-                    route = route,
-                    onNavigate = { route = it },
-                    darkMode = currentDark,
-                    onToggleDarkMode = toggleDark,
-                ) { r, onOpenDrawer ->
+                // edge-to-edge：窗口延伸到系统栏之后，页面骨架需要知道该让出多少。
+                // **只在这里读一次**（页面自己订阅窗口 insets 会把仪器化测试的面板取数卷进
+                // 额外重组，实测 ChatUiTest 两条面板用例稳定红），算成 Dp 经 local 下发。
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val bars = androidx.compose.foundation.layout.WindowInsets.systemBars
+                val topInsetDp = with(density) { bars.getTop(this).toDp() }
+                val bottomInsetDp = with(density) { bars.getBottom(this).toDp() }
+                androidx.compose.runtime.CompositionLocalProvider(
+                    com.luzzymeow.luzzyrp.ui.pages.common.LocalLoomTopInset provides topInsetDp,
+                    com.luzzymeow.luzzyrp.ui.pages.common.LocalLoomBottomInset provides bottomInsetDp,
+                ) {
+                    LuzzyNavShell(
+                        route = route,
+                        onNavigate = { route = it },
+                        darkMode = currentDark,
+                        onToggleDarkMode = toggleDark,
+                    ) { r, onOpenDrawer ->
                     when (r) {
                         LuzzyRoute.Chat -> ChatPage(
                             darkMode = currentDark,
@@ -237,6 +249,7 @@ class ComposeActivity : ComponentActivity() {
                             data = settingsData,
                         )
                         LuzzyRoute.About -> AboutPage(onOpenDrawer)
+                    }
                     }
                 }
             }

@@ -57,5 +57,10 @@
 
 1. 仪器化留证：`LoomGalleryVisualCaptureTest`（组件画廊，亮暗）+ 各页 VisualCapture（亮暗+状态）→ `/sdcard/Download/luzzy-captures` → 逐张识图。
 2. 对比度门禁：`ThemeContrastTest`（正文 ≥4.5:1、图形 ≥3:1，色值取自生产推导）。
-3. 行为门禁：`checkChat`（146 条仪器化用例）全绿；testTag 与用户可见文案在任何重皮中不变。
+3. 行为门禁：`checkChat`（152 条仪器化用例）全绿；testTag 与用户可见文案在任何重皮中不变。
 4. 触控目标 ≥48dp；文本层级随 fontScale；动效尊重「移除动画」。
+5. **insets 必须用真窗口截图验收（screencap，不是 `captureToImage`）**：
+   - `captureToImage` 只截 Compose root，**不含系统状态栏/导航栏**，因此 insets 类缺陷在留证图里完全看不见——本项目实测踩过：9 个页面顶栏被状态栏压住、空态长文案两侧溢出，而仪器化留证全绿。
+   - 规矩：`adb shell screencap -p` + `adb pull`，**逐页**看图；重点看「顶栏是否在状态栏下方」「底部主按钮是否在导航栏上方」「长文案是否出屏」。
+   - 全屏 `Dialog` 同样要查：默认 `decorFitsSystemWindows = true` 时窗口不覆盖状态栏，那里会透出被 dim 的下层（一条深灰带）；全屏编辑器须显式关掉 fit 并自行消费 insets。
+   - 仪器化测试环境（`createComposeRule` 的空 Activity）**没有系统栏**，任何 insets 断言在那里都是空转——不要用「写个测试断言 insets」替代真窗口走查。

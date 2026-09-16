@@ -8,12 +8,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -53,6 +59,9 @@ import com.luzzymeow.luzzyrp.ui.pages.common.FieldLabel
 import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
 import com.luzzymeow.luzzyrp.ui.pages.common.PrimaryButton
 import com.luzzymeow.luzzyrp.ui.pages.common.SegmentChips
+import com.luzzymeow.luzzyrp.ui.pages.common.LocalLoomBottomInset
+import com.luzzymeow.luzzyrp.ui.pages.common.LocalLoomTopInset
+import com.luzzymeow.luzzyrp.ui.pages.common.loomCanvas
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlinx.coroutines.launch
 
@@ -120,40 +129,49 @@ fun CharacterEditorDialog(
 
     Dialog(
         onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // 与 LongTextEditorDialog 同口径：全屏编辑器连状态栏一起铺满，
+            // 否则顶部会透出被 dim 的下层（一条深灰带），画布断裂。
+            decorFitsSystemWindows = false,
+        ),
     ) {
-        val loom = com.luzzymeow.luzzyrp.ui.theme.Loom.current
         Column(
             Modifier
                 .fillMaxSize()
-                .background(loom.canvas)
+                .loomCanvas(MaterialTheme.colorScheme.secondary)
                 .imePadding(),
         ) {
-            EditorHeader(
-                title = "编辑角色",
-                onClose = onClose,
-                trailing = {
-                    TextButton(
-                        onClick = {
-                            val current = draft ?: return@TextButton
-                            saving = true
-                            scope.launch {
-                                val ok = source.saveCharacterDraft(uuid, current)
-                                saving = false
-                                if (ok) onSaved(current.name) else onClose()
-                            }
-                        },
-                        enabled = draft?.isValid == true && !saving,
-                    ) {
-                        Text(
-                            text = if (saving) "保存中…" else "保存角色",
-                            fontFamily = LuzzyFonts.Body,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                    }
-                },
-            )
+            Column(
+                // 宿主下发的状态栏高度（见 LocalLoomTopInset 的 KDoc）
+                Modifier.padding(top = LocalLoomTopInset.current),
+            ) {
+                EditorHeader(
+                    title = "编辑角色",
+                    onClose = onClose,
+                    trailing = {
+                        TextButton(
+                            onClick = {
+                                val current = draft ?: return@TextButton
+                                saving = true
+                                scope.launch {
+                                    val ok = source.saveCharacterDraft(uuid, current)
+                                    saving = false
+                                    if (ok) onSaved(current.name) else onClose()
+                                }
+                            },
+                            enabled = draft?.isValid == true && !saving,
+                        ) {
+                            Text(
+                                text = if (saving) "保存中…" else "保存角色",
+                                fontFamily = LuzzyFonts.Body,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
+                    },
+                )
+            }
 
             SegmentChips(
                 labels = listOf("基础", "描述", "人设", "开场白"),
@@ -253,7 +271,10 @@ fun CharacterEditorDialog(
             }
 
             Row(
-                Modifier.fillMaxWidth().padding(16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = LocalLoomBottomInset.current)
+                    .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 TextButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("取消") }

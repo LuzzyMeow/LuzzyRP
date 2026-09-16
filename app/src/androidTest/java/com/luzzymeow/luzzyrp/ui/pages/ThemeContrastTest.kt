@@ -1,7 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
 import androidx.compose.ui.graphics.Color
-import com.luzzymeow.luzzyrp.ui.theme.LuzzySemantic
 import com.luzzymeow.luzzyrp.ui.theme.luzzyColorScheme
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -88,14 +87,16 @@ class ThemeContrastTest {
     }
 
     @Test
-    fun `语义色对亮暗 surface 均不低于图形级`() {
+    fun `语义色对亮暗surface均不低于正文级`() {
         listOf(false, true).forEach { dark ->
-            val s = luzzyColorScheme(dark = dark)
+            val s = if (dark) com.luzzymeow.luzzyrp.ui.theme.LuzzySemantic.Dark
+            else com.luzzymeow.luzzyrp.ui.theme.LuzzySemantic.Light
+            val scheme = luzzyColorScheme(dark = dark)
             val tag = if (dark) "暗" else "亮"
             // 语义色主要用作徽标文字（10-12sp 小字），按 4.5 断言（徽标自带文字，是语义的唯一载体之一）
-            assertBody("$tag Success/surface", LuzzySemantic.Success, s.surface)
-            assertBody("$tag Warning/surface", LuzzySemantic.Warning, s.surface)
-            assertBody("$tag Error/surface", LuzzySemantic.Error, s.surface)
+            assertBody("$tag Success/surface", s.Success, scheme.surface)
+            assertBody("$tag Warning/surface", s.Warning, scheme.surface)
+            assertBody("$tag Error/surface", s.Error, scheme.surface)
         }
     }
 }

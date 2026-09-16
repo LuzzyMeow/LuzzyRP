@@ -425,7 +425,7 @@ private fun CharacterCard(
 
             if (card.isActive && !batchMode) {
                 Box(Modifier.align(Alignment.TopStart).padding(10.dp)) {
-                    LoomBadge("当前使用", LuzzySemantic.Success)
+                    LoomBadge("当前使用", Loom.current.success)
                 }
             }
 

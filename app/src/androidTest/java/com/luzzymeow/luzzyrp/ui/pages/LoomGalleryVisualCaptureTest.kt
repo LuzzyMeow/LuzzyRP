@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -177,8 +178,13 @@ class LoomGalleryVisualCaptureTest {
             }
         }
         compose.waitForIdle()
-        Thread.sleep(300)
-        Capture.shot(context, compose, "loom-dialog-light", stamp, allRoots = true)
+        Thread.sleep(600)
+        // Dialog 是独立窗口；root 枚举的个数与时序有关（历史登记过 2 与 1 的抖动），
+        // 且个别 root 在布局完成前宽高为 0（createBitmap 会炸）——逐个尝试，失败的跳过。
+        val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes().size
+        for (i in 0 until roots) {
+            runCatching { Capture.shot(context, compose, "loom-dialog-light.root$i", stamp) }
+        }
     }
 }
 

@@ -157,12 +157,39 @@ fun extendFor(dark: Boolean): ExtendColors {
     )
 }
 
-/** 语义色（承袭现行 DESIGN.md，不随主题推导）：success / warning / error。 */
+/**
+ * 语义色（亮暗两套；v3.1 对比度门禁实测：单一固定色在亮 surface 上 Success 只有
+ * 2.27:1——10sp 徽标文字不可读，故按亮暗分别给深/浅变体，均 ≥4.5:1）。
+ */
 object LuzzySemantic {
-    val Success = Color(0xFF5DB872)
-    val Warning = Color(0xFFD4A017)
-    val Error = Color(0xFFC64545)
+    /** 亮色主题（深变体，压浅画布）。 */
+    val Light = SemanticSet(
+        Success = Color(0xFF2E7D3E),
+        Warning = Color(0xFF8A6A0B),
+        Error = Color(0xFFB33A3A),
+    )
+
+    /** 暗色主题（浅变体，压深画布）。 */
+    val Dark = SemanticSet(
+        Success = Color(0xFF7FD88F),
+        Warning = Color(0xFFE9C05C),
+        Error = Color(0xFFE88A8A),
+    )
+
+    /** 按主题取（非 Composable 上下文用 [ForDark] / [ForLight]；Composable 里走 [current]。） */
+    val ForLight: SemanticSet get() = Light
+    val ForDark: SemanticSet get() = Dark
+
+    val Success get() = Light.Success
+    val Warning get() = Light.Warning
+    val Error get() = Light.Error
 }
+
+data class SemanticSet(val Success: Color, val Warning: Color, val Error: Color)
+
+/** Composable 便捷访问：跟随当前亮暗。 */
+@Composable
+fun LuzzySemantic.current(): SemanticSet = if (LocalDarkMode.current) Dark else Light
 
 val LocalExtendColors = staticCompositionLocalOf { extendFor(false) }
 val LocalDarkMode = compositionLocalOf { false }

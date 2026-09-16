@@ -481,6 +481,7 @@ fun PresetEditorSheet(
             },
             onDismiss = { confirmDiscard = false },
             danger = true,
+            cancelLabel = "继续编辑",
         )
     }
 }

@@ -88,10 +88,10 @@ object Loom {
         @Composable get() = LocalLoom.current
 }
 
-/** 由 M3 role 推导织层色（亮暗各一套；不引入任何新色相）。 */
+/** 由 M3 role 推导织层色（亮暗各一套；语义色取对应变体——见 LuzzySemantic 注释）。 */
 fun loomColors(dark: Boolean): LoomColors {
     val scheme = luzzyColorScheme(dark = dark)
-    val s = LuzzySemantic
+    val semantic = if (dark) LuzzySemantic.Dark else LuzzySemantic.Light
     return LoomColors(
         canvas = scheme.surface,
         card = scheme.surfaceContainerLow,
@@ -100,9 +100,9 @@ fun loomColors(dark: Boolean): LoomColors {
         topHighlight = Color.White.copy(alpha = if (dark) 0.03f else 0.05f),
         hairline = scheme.outlineVariant.copy(alpha = 0.4f),
         weave = scheme.onSurface.copy(alpha = if (dark) 0.025f else 0.035f),
-        success = s.Success,
-        warning = s.Warning,
-        danger = s.Error,
+        success = semantic.Success,
+        warning = semantic.Warning,
+        danger = semantic.Error,
     )
 }
 

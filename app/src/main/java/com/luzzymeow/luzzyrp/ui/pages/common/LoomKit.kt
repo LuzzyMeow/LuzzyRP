@@ -773,6 +773,8 @@ fun LoomConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     danger: Boolean = true,
+    /** dismiss 钮文案（默认「取消」；「放弃改动 → 继续编辑」这类语义可改写）。 */
+    cancelLabel: String = "取消",
     testTagConfirm: String? = null,
     testTagCancel: String? = null,
 ) {
@@ -803,7 +805,7 @@ fun LoomConfirmDialog(
             TextButton(
                 onClick = onDismiss,
                 modifier = if (testTagCancel != null) Modifier.testTag(testTagCancel) else Modifier,
-            ) { Text("取消", color = scheme.onSurfaceVariant, fontFamily = LuzzyFonts.Body) }
+            ) { Text(cancelLabel, color = scheme.onSurfaceVariant, fontFamily = LuzzyFonts.Body) }
         },
     )
 }

@@ -9,6 +9,42 @@
 > 格式：\`### vX.Y.Z — 标题\` + 「新增 / 优化 / 修复 / 注意事项」分类要点 + 构建结果与 versionCode。
 > **v1.0.0 起：每条记录注明上游基线版本（RP-Hub）。** 旧 v0.x 记录保留于下方历史区。
 
+### v3.1.0 — Loom v4 全页 UI 重构（上游基线 RP-Hub 1.9.3 · 基线定格）
+
+> 设计语言升级「**织机 Loom v4**」；设计真源迁移至 \`docs/DESIGN-ui-v4.md\`
+> （根 \`DESIGN.md\` 与 \`docs/DESIGN-compose.md\` 降级为历史）。
+> 聊天页保持既有方向不变，仅做组件级适配；其余 8 页全部换新。
+
+**新增**
+- **Loom v4 设计系统**：
+  - 织层令牌（\`ui/theme/LoomTokens.kt\`）：canvas / card / raised / overlay 四阶 tonal 层 +
+    发丝线 / 织纹点阵 / 顶缘高光，全部由 M3 role 派生（**零硬编码色相**）；
+  - 动效令牌（\`ui/theme/LoomMotion.kt\`）：press 90 / quick 140 / standard 200 / expressive 320 /
+    push 240 / stagger 40ms×6 / spring(0.75) 交互；页面级 420ms 交叉淡化保留实测值；
+    全部经「减弱动效」折算（系统移除动画 → 归零跳终态）；
+  - 组件库（\`ui/pages/common/LoomKit.kt\`）：LoomScaffold（织纹画布 + 大标题头）/ LoomHero 织带卡 /
+    LoomCard（三层 + 左缘 rail）/ LoomBadge / LoomChip / LoomSwitch（spring）/ LoomSliderRow /
+    LoomField / LoomEmpty / LoomSkeletonRow（shimmer）/ LoomConfirmDialog / LoomOverflowMenu；
+    旧 \`PageKit\` / \`EditorKit\` / \`BandCard\` API 保留为兼容壳，内部全部指向 Loom 实现。
+- **导航壳重设计**：抽屉 = 品牌头（Lora 字标 + 版本）+ 分组条目（选中态珊瑚药丸 spring 变色）
+  + 底部主题切换；对外签名不变。
+- **逐页迁移**：会话（卡行 + 粘性组头 + 加载骨架）/ 角色（封面卡 + 批量栏）/ 世界书 /
+  预设（底表 + 危险确认）/ 记忆（骨架加载 + 危险区实底）/ 用量（渐变面积折线图 + 绘制入场）/
+  设置（hero 卡四张）/ 关于（品牌区 + 证照卡）。
+- **验收门禁**：\`LoomGalleryVisualCaptureTest\`（组件画廊亮暗）、\`ThemeContrastTest\`
+  （正文 ≥4.5:1 / 图形 ≥3:1 确定性对比度断言）。
+
+**优化**
+- 各页加载态从空白改为骨架行；空态统一圆环图标形态；列表项 stagger 入场；
+  按压缩放反馈覆盖全部可点行/卡；编辑器统一 Loom 表头与 48dp 主按钮。
+
+**注意事项**
+- 旧 \`AGENTS.md\`（49KB）删除，重写为轻量版（含强制 SKILL 阅读条款）；
+  \`HARD_REQUIREMENTS.md\` 一并删除（条目已收敛进新指南）。
+- \`docs/\` 清理：删除 12 份过期 HANDOFF/PLAN/release-notes、约 360 份 v1.x~v3.0 历史
+  验证截图与旧方向板（git 历史可回溯）；\`docs/skills/\`（必读技能存档）与品牌图标源图保留。
+- versionCode 14 → 15。
+
 ### v3.0.0 — 全面转 Jetpack Compose（开发中）（上游基线 RP-Hub 1.9.3 · 基线定格）
 
 > **状态：开发中（2026-09-12 起）。** 主计划 \`docs/PLAN-v3.0-compose.md\`（P0-P6 分期）。

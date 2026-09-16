@@ -8,7 +8,7 @@
 
 ## 0. 项目一句话
 
-LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebView + JSBridge，可扩展原生页面）** + **独立扩展层（JS/CSS）**。**遵循上游开源协议、长期同步上游更新，但本项目有自己的功能路线**——会按需修改前端或后端 / 原生侧代码（同步纪律见 §4，改动登记见 §4.2）。
+**LuzzyRP = 原生 Kotlin 壳（Jetpack Compose UI，v3.0 起）**；上游 RP-Hub（Vue 3 Web 前端）的资产已于 P6 从工作树删除。**遵循上游开源协议、长期同步上游更新，但本项目有自己的功能路线**——会按需修改前端或后端 / 原生侧代码（上游改动登记纪律见 §4）。
 
 > 与上游的关系是「同协议二创，不是镜像」：同步是手段（上游修复/新能力并入），
 > 做出 LuzzyRP 自己的功能才是目的；同步时以「二创改动可重放」为硬约束，而非「逐字节跟随上游」。
@@ -35,31 +35,22 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 
 | 路径 | 作用 | 维护者注意 |
 |------|------|-----------|
-| `app/src/main/java/com/luzzymeow/luzzyrp/MainActivity.kt` | 单 Activity，WebView 宿主 | 加载 `filesDir/rphub/index.html`（**不是** android_asset，localStorage 依赖可写路径） |
-| `app/src/main/java/com/luzzymeow/luzzyrp/web/WebViewSetup.kt` | WebView 配置 | JS 开关 / DOM storage / 缓存策略 / 混合内容 |
-| `app/src/main/java/com/luzzymeow/luzzyrp/web/LuzzyBridge.kt` | JSBridge 原生实现 | 所有 `@JavascriptInterface` 方法集中于此；新增桥接方法必须同步 `assets/ext/luzzy-bridge.js` 封装 |
-| `app/src/main/java/com/luzzymeow/luzzyrp/web/FileChooserHandler.kt` | 文件选择（角色卡导入） | `onShowFileChooser` + SAF |
-| `app/src/main/java/com/luzzymeow/luzzyrp/web/DownloadHandler.kt` | 文件导出 | `DownloadListener` + SAF 保存 |
+| `app/src/main/java/com/luzzymeow/luzzyrp/MainActivity.kt` | ~~单 Activity，WebView 宿主~~（**已删除**，P6 launcher 切 `ui.ComposeActivity`） | 若需恢复 WebView 路径请走 git 历史 |
+| `app/src/main/java/com/luzzymeow/luzzyrp/ui/ComposeActivity.kt` | **launcher**（Compose UI 宿主） | v3.0 起唯一的用户入口 |
+| `app/src/main/java/com/luzzymeow/luzzyrp/web/LuzzyBridge.kt` | JSBridge（**迁移通道专用**，运行时 UI 已不走 WebView） | 保留以支撑导出页对 `window.LuzzyBridge` 的调用 |
+| `app/src/main/java/com/luzzymeow/luzzyrp/web/WebViewSetup.kt` · `FileChooserHandler.kt` · `DownloadHandler.kt` | WebView 侧配置与文件选择 | 同上，属迁移通道遗留 |
+
 | `app/src/main/java/com/luzzymeow/luzzyrp/util/AssetExtractor.kt` | assets 解压到 filesDir | 首次启动幂等执行；版本升级时按版本号增量更新 |
 | `app/src/main/res/` | 图标资源 | mipmap 全套 + `drawable-nodpi/luzzy_logo.png`。**2026-09-04 用户以 AI 生图新 LOGO 全面替换**（纯 1:1 满幅不透明，源图 `docs/design/brand-logo-v2-source.png`；adaptive=全图前景 68% 居中 + 同色纯背景 #EDD7BD；原透明贴纸方案与「禁止重新生成」约束由本次替换终止）——**后续更换图标一律按 §3.5 SOP 执行** |
 | `app/build.gradle.kts` | 壳构建配置 | 签名（固定 luzzy 签名，见 §3.4）/ **单 APK 产出（ABI 拆分已关闭，2026-09-08 用户指示；2026-09-09 重申为长期纪律）** / versionCode 管理 |
 
-### 1.3 上游文件（app/src/main/assets/rphub/）
+> **v3.0 形态**：WebView 路径（`MainActivity` / `assets/rphub/**` / 旧 launcher）已于 P6 整体退役；
+> 现行 UI 为 Jetpack Compose（`ui/` 包），数据层与迁移器沿用。
 
-| 路径 | 作用 | 维护者注意 |
-|------|------|-----------|
-| `index.html` | 主界面与脚本加载入口 | **仅允许登记 patch 修改**（见 §4.2） |
-| `assets/js/app.js`（512KB） | 主业务入口 | **禁止裸改**；上游同步时整体覆盖 |
-| `assets/js/ui-components.js`（198KB） | 选择器/侧边栏/弹窗组件 | 同上 |
-| `assets/js/data-services.js` | 存储/记忆/上下文/分支 | 同上 |
-| `assets/js/runtime-services.js` | API 请求/消息渲染 | 同上 |
-| `assets/js/core-utils.js` | 通用工具/角色卡处理 | 同上 |
-| `assets/js/built-in-content.js` | 默认预设/模式提示词/画师串/更新公告 | **NSFW 预设在此文件，禁止任何 patch 触碰**（硬性规定 1） |
-| `assets/js/api-utils.js` / `presence.js` / `update-check.js` | 辅助脚本 | 同步时整体覆盖 |
-| `assets/css/styles.css` | 全局样式 | 仅允许登记 patch 修改 |
-| `vendor/` | 离线化 CDN 依赖 | 上游可能升级依赖版本，同步时检查 |
-| `assets/fonts/`（二创新增，上游同步排除项） | 本地字体（Lora + Alibaba PuHuiTi 3 + AlibabaSans） | @font-face 在 `rphub/assets/css/local-fonts.css`；禁止运行时依赖字体 CDN（硬性规定 4） |
-| `character/` / `novel/` | 子页面 | 同步时整体覆盖 |
+### 1.3 上游文件（~~app/src/main/assets/rphub/~~）
+
+> **已于 P6 整体删除**（launcher 切 Compose，2026-09-13）。上游文件地图与 patch 登记见
+> `tools/patches/README.md` 与 `rp-hub-reference/`；`nsfw_rules` 不可触碰约束永久有效（§4）。
 
 ### 1.4 扩展层（app/src/main/assets/ext/）
 
@@ -78,7 +69,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | `tools/sync-upstream.ps1` | 上游同步脚本 | fetch → 覆盖 → patch 重放 → 报告 |
 | `tools/apply-patches.ps1` | patch 重放脚本 | **两段重放，顺序关键**：① 实体段（`patches/entities/`，前像 = 上游纯净基线，须先落盘）→ ② 字符串块段（001-011，实体已覆盖同名改动多为 SKIP）；前像判定用实体头 `index pre` 的 LF 归一 blob id（见 §7 坑表） |
 | `tools/verify-markers.ps1` | 标记校验门（硬性规定 10） | 同步/重放后必跑；按 README 登记逐项校验标记与敏感文件指纹，全绿才算同步完成 |
-| `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4.2）；`entities/` 存实体 diff |
+| `tools/patches/` | 登记 patch 文件 | 新 patch 必须编号登记（见 §4）；`entities/` 存实体 diff |
 | `tools/gen-changelog.mjs` | 关于页 CHANGELOG 生成脚本 | 更新 CHANGELOG.md 后运行 `node tools/gen-changelog.mjs`（发布流程 §3.4 步骤 3 前执行）；**同时自动同步 README Status 徽章与「当前版本」行**（README 版本说明已收敛至 CHANGELOG，逐版表格移除） |
 | `tools/page-handoff-test.cjs` | **页面交接（转场）回归门禁**（2026-09-11 立） | 桌面 Chromium 同引擎族 + 手机视口：连切 10 次页断言「可见页面数 == 1 / 无残留交接类 / 恒可见 chrome 不被误隐藏」，并采样时间线断言**各要素同时结束**（≤2 帧）与时长落在 200ms 令牌 ±60ms。用法：先起 `chrome --headless=new --remote-debugging-port=9347`，再 `node tools/page-handoff-test.cjs`（退出码 0=全过）。**改 `ext/luzzy-ext.js` 的交接控制器或 `luzzy-theme.css` 的`.lsp-view-*` 规则后必跑** |
 | `tools/stream-render-test.cjs` | **流式增量渲染回归门禁**（2026-09-11 立，patch 042 的守卫） | 桌面 Chromium 里加载真实前端 + 注入合成历史，逐 tick 比对「增量渲染的 DOM」与「应用全量渲染的 DOM」是否**逐节点等价**（含围栏内空行 / 松散列表 / 引用跨空行等硬形态），并断言前缀确实推进、后段成本 ≤ 基线 0.75×。**自带负控 A8**：把「提交前等价证明」拿掉的朴素增量必须被判红（实测 118 tick 中 46 tick 不等价）。用法同 page-handoff-test（`node tools/stream-render-test.cjs`，退出码 0=全过）。**改 `ext/luzzy-stream.js`、流式分支模板或 `renderMarkdown` 语义后必跑** |
@@ -109,7 +100,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 | 7 | 工作区整洁 | 清理冗余，docs 分类归档 |
 | 8 | 发布流程 | 编译 → 推送 → Release（仅稳定版附 APK）；**只出一个 APK，且每次发布必须保持同一应用签名** |
 | 9 | **设计 SKILL 强制条款** | 凡涉及 UI 设计 / 前端设计 / 主题 / 视觉 / 动效 / 交互 / 转场 / 页面设计等内容，**必须先完整阅读并应用以下 4 项设计 SKILL 才可继续讨论、计划、工作**（见 §2.1） |
-| 10 | **改动标记与同步适配** | 上游文件内二创改动必须带 `[LuzzyRP patch NNN]` 标记注释；重放通道唯一（apply-patches.ps1）；同步后 verify-markers.ps1 全绿才算完成（见 §4.2/§4.3） |
+| 10 | **改动标记与同步适配** | 上游文件内二创改动必须带 `[LuzzyRP patch NNN]` 标记注释；重放通道唯一（apply-patches.ps1）；同步后 verify-markers.ps1 全绿才算完成（见 §4） |
 
 ### 2.1 设计 SKILL 强制条款（硬性规定 9 的展开）
 
@@ -155,7 +146,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
    ├─ 前端逻辑 → assets/ext/luzzy-ext.js（或新独立文件）
    ├─ 样式覆盖 → assets/ext/luzzy-theme.css
    ├─ 原生能力 → app/.../web/LuzzyBridge.kt + luzzy-bridge.js 封装
-   └─ 需要动上游文件 → 先评估：能否用扩展层实现？不能才走 patch（§4.2）
+   └─ 需要动上游文件 → 先评估：能否用扩展层实现？不能才走 patch（§4）
 2. 实现 + 自测（真机或模拟器）
 3. 更新 CHANGELOG（新增/优化分类）
 4. 更新 WORKLOG
@@ -166,7 +157,7 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 ### 3.3 修复缺陷
 
 1. 定位缺陷归属：上游 bug（同步上游修复 / 登记 patch）还是壳/扩展层 bug（直接修）；
-2. 上游 bug 且上游已修复 → 走同步流程（§4.1）；
+2. 上游 bug 且上游已修复 → 走同步流程（§4）；
 3. 上游 bug 且上游未修复 → 评估：登记 patch 临时修复（同步时可能冲突，需登记）或接受；
 4. 壳/扩展层 bug → 直接修，补 CHANGELOG「修复」分类。
 
@@ -247,123 +238,30 @@ LuzzyRP = **RP-Hub（上游，Vue 3 Web 前端）** + **原生 Kotlin 壳（WebV
 
 ---
 
-## 4. 上游同步 SOP
+## 4. 上游同步 SOP（**已退役**）
 
-> **⚠️ 本章已于 2026-09-12 起退役（用户拍板，v3.0 立项后续）**：上游 RP-Hub 同步**不再执行**，
-> 上游基线定格 **1.9.3**（commit `4aef0bb`）。`tools/sync-upstream.ps1` / `apply-patches.ps1` /
-> `verify-markers.ps1`、`tools/patches/` 与 `rp-hub-reference/` **保留不删**（历史追溯与回滚依据），
-> 但任何新任务**不再发起**同步流程；`built-in-content.js` 内 `nsfw_rules` 的不可触碰约束
-> （硬性规定 1）**永久有效**，与同步与否无关。本章以下内容仅作历史操作档案保留。
+> **⚠️ 已于 2026-09-12 退役（用户拍板）**：上游 RP-Hub 同步**不再执行**，基线定格
+> **1.9.3**（commit `4aef0bb`）。任何新任务**不再发起**同步流程。本节正文（同步流程 /
+> patch 001-052 表 / 冲突处理）已于 2026-09-16 删除，不再指导任何工作。
 
-### 4.1 同步流程（tools/sync-upstream.ps1 半自动化）
+**保留不删、需要时再翻的**（历史追溯与回滚依据）：
 
-```
-1. git fetch upstream
-2. git diff upstream/main --stat          # 看改动范围
-3. 读上游 built-in-content.js 底部更新公告  # 了解新功能
-4. 覆盖上游文件（index.html + assets/，排除 vendor/ 与 fonts/）
-5. 重放 patches（tools/apply-patches.ps1，001-011 字符串段 + 实体段）；
-6. 运行 tools/verify-markers.ps1 校验标记完整性（硬性规定 10，全绿才算同步完成）；
-7. 检查 vendor/ 依赖版本（上游可能换 CDN 版本）
-8. 实测：数据兼容（localStorage 结构）+ 核心功能回归
-9. 更新 upstream-fingerprints.txt
-10. 更新 CHANGELOG（同步记录 + 上游版本号）
-11. 重新构建 APK
-```
+| 内容 | 位置 |
+|---|---|
+| 每个 patch 的目的 / 硬性规定对应项 / 预期冲突点（001-052 **权威登记**） | `tools/patches/README.md` |
+| 实体段前像 blob id 与当前基线 commit | 同上「末节」 |
+| 三脚本 `sync-upstream.ps1` / `apply-patches.ps1` / `verify-markers.ps1` | `tools/` |
+| 上游参考克隆 | `rp-hub-reference/` |
 
-### 4.2 Patch 纪律（硬性规定 2 的展开）
+**仍然有效的两条**（与同步是否退役无关）：
 
-**允许 patch 的点位**（当前登记 001-052，详见 `tools/patches/README.md`；
-**本表 042-046 行待补**——那 5 枚已登记在 `tools/patches/README.md`，此处仅补 047/048/050/051/052）：
+1. **硬性规定 1**：`built-in-content.js` 内 `nsfw_rules` 永远不可触碰；
+2. **上游改动登记纪律**：二创改动必须落在 `tools/patches/`，禁止裸改上游文件。
+   v3.0 起 `assets/rphub/**` 已整体删除，**本约束当前无适用对象**。
 
-| patch | 点位 | 内容 |
-|-------|------|------|
-| 001 | index.html `<title>` | RP Hub → LuzzyRP |
-| 002 | index.html `rphub-update-api` meta | 移除（禁用上游更新检查） |
-| 003 | index.html 入口 logo | 品牌化（LUZZY/RP） |
-| 004 | index.html CDN script/link | 本地 vendor/ 引用 |
-| 005 | index.html 尾部 | 挂载扩展层 3 文件（014 另行挂载 luzzy-changelog.js） |
-| 006 | index.html head 字体 | Google Fonts Lora → 本地 local-fonts.css |
-| 007 | character/novel 子页面 | CDN 本地化 |
-| 008 | index.html tailwind.config | 色板 → `rgb(var(--tw-*) / <alpha-value>)`（主题底座；v3=gray/primary，v4=+blue/indigo 收编） |
-| 009 | core-utils.js fontFamilies | 内置改「经典」系命名 + 新增 luzzy 默认 |
-| 010 | app.js 默认值/白名单 | 默认 fontFamily 'luzzy' + normalize 白名单 |
-| 011 | index.html + app.js | 设置页主题卡（主题/模式/字体）+ theme 字段 + watch + 老用户迁移 |
-| 012 | app.js + ui-components.js + index.html | 多模型商混用：`providerId::bareId` 引用体系 / 供应商管理器 / 跨商合并模型列表 / 请求点与记忆分桶接入 / `[商名]` 徽标 |
-| 013 | ui-components.js + index.html + app.js | v1.1.0 外观面板（模态弹层+侧栏按钮）——**模态部分已被 014 取代**，登记保留追溯 |
-| 014 | ui-components.js + index.html + app.js | 外观独立页（全应用唯一入口）+ 关于页（应用内 CHANGELOG）+ 侧栏底部簇重排（外观→关于→设置置底） |
-| 015 | app.js + runtime-services.js + ui-components.js + index.html | 供应商三协议（OpenAI/Anthropic/Gemini 适配）+ 编辑器二级弹窗（模型增删改/热检测预设/引用重映射）+ max_tokens 注入 + 自定义生图（luzzy-image:// 分流） |
-| 016 | data-services.js | 向量召回块 `_preventContextMerge: true`（防合并吞掉查看器「角色记忆（向量召回）」标注，v1.2.1） |
-| 017 | app.js + index.html | 记忆内容管理器（角色/分支选择器跨角色查看分片与总结；编辑=强制重嵌成功才落盘/启停/删除/清空；v1.2.1） |
-| 018 | index.html head + ext/luzzy-ext.js | 开屏主题防闪蓝（head 内联脚本按 localStorage 快照写 data-theme/data-mode + luzzy-theme.css 由尾部 link 移入 head 首帧注入；快照由 luzzy-ext.js MutationObserver 维护；v1.2.1） |
-| 019 | ui-components.js + index.html + ext/luzzy-theme.css | 侧栏品牌字样 LuzzyRP + 底部簇外观→设置→关于（关于置底）+ 外观页主题预览交互化（色板随 data-theme 取色 --luzzy-prev-*，luzzy 下点击卡片直接切亮/暗模式；v1.2.1） |
-| 020 | app.js | 向量分桶检索失败 toast 外化（注入检索/手动检索两处 catch，30s 全局节流，showToast 降级兜底；v1.2.2） |
-| 021 | index.html + app.js | 设置页清理：残留外观入口移除 + 存储自动统计（v1.2.3） |
-| 022 | index.html + app.js | 聊天页全屏按钮与全部全屏逻辑下线（v1.2.3） |
-| 023 | core-utils.js + novel/index.html | STA1N 图标修复（上游图床 404 → 官方 CDN favicon；**v1.3.0 patch 029 随内置精简退位**，校验项已由 029 接管） |
-| 024 | ui-components.js + index.html + app.js | 关于页工具化：版本分类下拉 + 关键词搜索 + 置顶 FAB（v1.2.3） |
-| 025 | runtime-services.js + ui-components.js + app.js + index.html | 用量趋势折线图（三粒度/多模型分类色/供应商筛选）+ recordApiUsage 补存 provider/protocol（v1.2.3） |
-| 026 | app.js + data-services.js | 向量检索死区修复：手动检索摘除保留窗 + 死供应商显式报错 + 裸引用回退跟随激活商（v1.2.3） |
-| 027 | index.html + ext/luzzy-theme.css + ext/luzzy-splash.js | 自创开屏「开卷」（v3 门扉交互：淡入→进度条→沉溺按钮→眩晕泡泡放大转场；上游 entry-transition 退役，003 并入退役；v1.2.3） |
-| 028 | index.html + app.js | 主题单轨化：经典主题与切换移除，恒定暖幕手记，老用户强制迁移（v1.2.3） |
-| 029 | core-utils.js + app.js + index.html + novel/index.html | 内置供应商精简仅留 DeepSeek（editable + apiProviderOverrides 持久化 + override 合并注册表 + 编辑器内置分支 id 锁定 + URL 直编）+ 默认商切 deepseek + 老用户迁移 migrateRemovedBuiltinProviders（STA1N/OpenRouter/SiliconFlow 无损转用户商；v1.3.0，D3 拍板） |
-| 030 | index.html + app.js + ext/luzzy-ext.js | 关于页「基于 RP-Hub」固定文案（upstreamVersionLabel 整链移除，防同步遗忘基线串；v1.3.0） |
-| 031 | app.js | 记忆召回思考节点：创建时盖戳（extractMemoryRecallStamp 识别 016 召回块）+ getTimelineSteps 首位渲染（零模板改动；v1.3.0） |
-| 032 | runtime-services.js + index.html | 流式渲染降载：间隔 60→120ms（三协议）+ 流式期渲染 LRU 旁路（v1.3.0） |
-| 033 | index.html | 输入区过渡定向化（transition-all→bottom 定向/输入岛去过渡/按钮定向属性，FAB v4 配方根除热区漂移；v1.3.0） |
-| 034 | ext/luzzy-theme.css | 性能治理（扩展层直改）：D1 高频面退实底（气泡/typing/输入岛/侧栏 blur 归零）+ will-change 合成层瘦身 + 开屏 lspDiveZoom 去 filter:blur（v1.3.0，DESIGN.md 已同步） |
-| 035 | index.html + app.js | 供应商图标（相册选取 + 1:1 裁剪拖拽 + 128×128 dataURL 持久化，选择器/管理卡圆角显示）+ 管理卡两行式布局（防名称截断）+ 模型数徽标 + 内置商编辑冲突误报修复（override 合并致身份对比失真）+ 模型来源提示（/models 拉取缓存语义澄清；v1.3.0） |
-| 036 | app.js | 记忆内容管理器实时联动：面板展开且作用域为当前会话时 watch memories/classicMemories 变化即时同步列表（修复补录成功后管理器不更新的存量缺陷，017 打开时快照无联动；v1.3.0） |
-| 037 | ui-components.js + runtime-services.js + index.html + app.js | 用量页时间范围筛选整链下线（右上角「更多」下拉 全部/24小时/7天/30天 与折线图「日/周/月」粒度冲突；保留折线图粒度 + 类型筛选；v1.4.0） |
-| 038 | ui-components.js | 版本更新公告品牌化：弹窗标题「网站公告」→「LuzzyRP」+ 底部同步来源注释「同步更新上游节点…」（v1.4.0） |
-| 039 | app.js + ext/luzzy-theme.css | 关于页 CHANGELOG 关键词检索高亮：命中内容关键词包 `<mark>`（文本节点级遍历/跳过 script-style/大小写不敏感/正则转义）+ `--luzzy-mark` token（DESIGN.md highlight #F5D9A8；v1.4.0） |
-| 040 | index.html + app.js | 供应商编辑器「模型列表」改**卡片列表 + 二级弹窗编辑**（用户 2026-09-10 指定）：卡片只承载识别信息（显示名/模型 ID/类型徽标/上下文/最大输出/输入模态）+ 编辑·删除按钮；新增模型编辑弹窗（复用上游 `modal-shell`，`z-[70]` 叠于供应商编辑器 `z-[60]`）；编辑在**草稿副本**上进行、`confirmModelEditor` 才原位写回 → **编辑完单个模型即保持**，取消不影响原条目；`addProviderEditorModel` 改为开弹窗，删除时同步收殓弹窗/递减索引。配色沿用本屏既有 accent（teal/violet/amber），零新增色相（v1.5.0）。另含：模型级自定义请求体改多行输入框（提示文字完整换行）、「+ 加键值」按钮扁平化（去边框白底） |
-| 041 | app.js + ui-components.js + index.html | **识图架构重构 + 删除视频支持**（用户 2026-09-10 指定）：① 聊天模型原生支持图片时图片按 `image_url` part 直发、**不调用识图模型**（`buildNativeImageContent`，只带最近一条带图 user 消息）；② 不支持时先走识图模型（内置提示词）再以 **user 身份**注入「用户上传了一张图，图片内容为：…」（保留 `<user_image_context>` 与安全注记）；③ 输入模态只留 text/image（模型编辑器按钮、归一白名单、`ui-components` 标签映射同步清理）。另：**复原 1.9.3 合并吞掉的 `const requestTools` 声明**（该行丢失导致 `sendMessage`→`generateResponse` 必抛 ReferenceError、聊天全挂且界面永停「生成中」；属上游原状复原，非二创、无标记）（v1.5.0） |
-| 047 | index.html + app.js | **KV / prompt 前缀缓存：请求形态改「纯追加」**（2026-09-11）：① **A1 停用**「把检索提醒追加到最新 user 消息」——同一句提醒已由 system 里的 `<active_tools>` 携带（同一 `getActiveToolLatestUserReminder()`，且该追加只在「有启用工具」时生效 = system 含提醒的充要条件 → 纯冗余），且它使那条消息逐轮变形；② **A2** 把 `<next_response>` 从最新 user 消息尾巴**移到 system 最后一块**（抽出纯函数 `buildNextResponsePromptText()`，内容只由设置决定、与当轮输入无关，由 `systemPromptParts` 注入一次），尾部逐轮追加停用；③ `index.html` 挂载观测层 `ext/luzzy-prefix-guard.js`（包装 `window.fetch` 比对相邻两轮公共前缀 + 采集 `cached_tokens`；只读旁路、失败静默降级，必须早于任何生成请求）。实测公共前缀由 **0.9101** 变为纯追加形态。门禁 `tools/prefix-cache-test.cjs` |
-| 048 | api-utils.js | **Anthropic 显式缓存断点**（2026-09-11）：Anthropic Messages **无** OpenAI 式自动前缀缓存，须显式声明 `cache_control:{type:'ephemeral'}`。新增 `withAnthropicCacheBreakpoint()` 打两个断点：① **system 块末尾**（`system:[{type:'text',text:system,cache_control:{type:'ephemeral'}}]`，单块 ~8KB 是最大稳定前缀）；② **最后一条消息的最后一个文本块**（`[...slice(0,-1), withAnthropicCacheBreakpoint(last)]`，下一轮正好以它为前缀命中，配合 047 收益最大）。只用官方块数组形态、**不改动任何既有文本内容**；拿不到合适文本块时原样返回（静默降级） |
-| 050 | index.html + app.js | **v2.0 B 方案（薄切）· 传输层可卸载到原生 Kotlin**（2026-09-11）：卸载的只是「HTTP + SSE 解帧 + 三协议线格式 + 工具增量拼装 + 取消/超时」，**上下文装配与渲染仍在 JS**（零双真源的前提）。① `index.html` **按依赖顺序**挂载 `ext/luzzy-chat-native.js`（把 `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 包成 `Luzzy.chatNative`）→ `ext/luzzy-chat-offload.js`（适配成与上游 `requestChatCompletion` 同形的可卸载通道）；② `app.js` 的 `requestTrackedChatCompletion` 内新增 `performRequest(opts)` 卸载分支（`window.Luzzy.chatOffload` 存在且 `canHandle(opts)` 为真则走原生）。**降级逐级回落**：扩展层未加载 / 桥不可用 / 协议不支持 / 非流式 / 原生首帧即失败 → 一律回落原 JS 路径（**原路径保留不删不改**） |
-| 051 | app.js + api-utils.js + core-utils.js | **潜伏缺陷修复**（2026-09-11 静态审查发现，Anthropic 协议此前**从未跑通**）：**C1** `responseResult.toolCalls` 无保护解引用——上游 1.9.2 起生成收尾**无条件**读 `responseResult.toolCalls.length`（两处），而 **Anthropic / Gemini 适配器从不返回该键** → 每次收尾必抛 TypeError。双侧修：`api-utils.js` 的 `withUsageMetrics` 出口**补齐返回契约**（`if (!Array.isArray(result.toolCalls)) result.toolCalls = [];`）+ `app.js` 两个调用点加**可选链**。**C4** `extractApiErrorMessage` **无条件**读 `payload.message` / `payload.detail`，而 Anthropic 的 `message_start` 帧按规范**带顶层 `message` 对象** → 每个响应的**第一帧**就被判成 `"API Error: 200 {…}"` 抛出（`parseAnthropicSseChunk` 内立即中断）。修：`core-utils.js` 新增 `ANTHROPIC_STREAM_EVENT_TYPES` 集合（`type:"error"` 故意不在其中）命中即提前放行，真正的错误事件仍照常上抛——**仅新增一个提前返回，不改其它分支行为** |
-| 052 | api-utils.js + runtime-services.js + app.js | **结束原因可见化**（2026-09-11）：三协议里此前**只有 OpenAI 路径捕获 `finish_reason`**——Anthropic（`message_delta.stop_reason`）与 Gemini（`candidates[0].finishReason`）**从未读取**，且该字段**从不落盘**、应用内**完全不可见** → 「回复被截断」永远无法定性（`length`/`max_tokens` = 撞输出上限，我们的锅；`stop`/`end_turn` = 模型自己收的，与参数无关）。① `api-utils.js` 两适配器补齐捕获并把 `finishReason` 一路带进 `onUsage` 的 metrics（Gemini 的 `MAX_TOKENS` **归一为 `length`**），`withUsageMetrics` 出口统一带上该字段；② `runtime-services.js` 的 `recordApiUsage` **落盘**该字段（空串兜底，老记录兼容）；③ `app.js` 新增 `lastFinishReason` ref 并在 `finish_reason` 为 `length`/`max_tokens` 时用既有 `showToast` 明确提示用户「因达到输出上限被截断 + 请检查模型的最大输出设置」。**`index.html` 未触碰**（0 处 052 标记） |
-
-**新增 patch 的规则**：
-
-1. 先评估能否用扩展层实现——**能就不用 patch**；
-2. 必须动上游文件时，用 `git diff` 生成最小 patch，编号登记到 `tools/patches/`；
-3. patch 文件头部写注释：目的 / 对应硬性规定 / 预期冲突点；
-4. **标记强制（硬性规定 10）**：patch 触及区域必须携带 `[LuzzyRP patch NNN]` 标记注释（JS `//`、HTML `<!-- -->`、CSS `/* */`），并同步实现为 apply-patches.ps1 重放能力——001-011 走字符串块，012 起必须生成/更新 `patches/entities/` 实体 diff（以 rp-hub-reference 对应基线为源）；
-5. 同步时 patch 重放失败 → 手工合并 → 更新文件与重放块/实体 → 复跑 verify-markers.ps1 全绿 → WORKLOG 登记；
-6. **NSFW 相关点位（built-in-content.js 内 nsfw_rules）永远不在 patch 范围内**。
-
-**实体生成规程（v1.5.0 修正版 · 会话 26 定稿，勿再以二创工作树为对）**：
-
-> 根因：旧规程把「二创工作树」当作 diff 的一端，换基线后前像必然失配——1.9.3 同步时
-> `012-035-index-html` / `012-036-app-js` 两枚 FAIL 即此因（详见 `docs/PLAN-v1.5.0-assistant.md`
-> §18.4.1/§18.6）。正确做法是**以「上游纯净基线 + 三方合并结果」为对**：
-
-```
-① 落盘上游纯净基线：git -C rp-hub-reference show <baseline>:<file>  → LF 归一
-② 落盘合并后工作树：app/src/main/assets/rphub/<file>                → LF 归一
-③ 生成：git diff --no-index --ignore-cr-at-eol base.bin work.bin
-   → 头路径改写为 a/<relpath> … b/<relpath>（去掉临时文件名）
-④ 双验证（仓库外干净目录；git apply 一律在仓库根执行，勿在嵌套目录）：
-   a. 逆向：纯净基线 → 逐枚 git apply --ignore-whitespace
-      --directory=app/src/main/assets/rphub → 与工作树 LF 归一逐字节比对（须空 diff）
-   b. 端到端：纯净基线全量 → apply-patches.ps1 实跑 → 9 枚全 [OK] 且结果与工作树一致
-⑤ 前像 blob id 必须等于「上游纯净基线」的 LF 归一 blob id
-```
-
-详细登记（各实体前像 blob id / 当前基线 commit）见 `tools/patches/README.md` 末节。
-
-### 4.3 冲突处理
-
-| 情况 | 处理 |
-|------|------|
-| patch 重放失败 | 手工合并该 patch，更新文件，WORKLOG 登记 |
-| 实体重放失败（上游已发新版） | 手工合并该文件全部二创改动 → 以新版基线重新生成 entities 实体 → verify-markers.ps1 全绿 → WORKLOG 登记 |
-| 上游新增文件 | 纳入（先审计外链/推广） |
-| 上游删除文件 | 确认无扩展层引用后删除 |
-| 上游改 localStorage 数据结构 | 实测老数据兼容；不兼容则扩展层写迁移脚本 |
-| 上游更新公告/推广链接 | 按需登记清理 patch（R5 风险） |
+> **门禁现状**：`verify-markers.ps1` 现存 142 条 FAIL（全部 `文件不存在`）——校验对象
+> `assets/rphub/**` 已随 P6 退役删除，属历史遗留；与 CHANGELOG 相关的
+> `R3-changelog-sync` 一条**仍为绿**。取证见 `docs/WORKLOG.md` 会话 88 §六。
 
 ---
 
@@ -442,7 +340,9 @@ Luzzy.copyToClipboard = function (text) {
 - 对话全流程（配置 API Key → 发送 → 渲染 → 分支）；
 - 数据持久化（杀进程重启数据保留）。
 
-### 6.2 同步上游后必测（硬性规定 6）
+### 6.2 上游同步后必测（~~硬性规定 6~~ **同步已退役**）
+
+> 本节随上游同步一并退役（§4），保留仅为历史。若将来恢复同步，按此清单回归。
 
 - 数据兼容：老 localStorage 数据可读；
 - 核心功能：对话 / 角色卡导入导出 / 世界书 / 正则 / 记忆 / 生图；
@@ -473,7 +373,7 @@ Luzzy.copyToClipboard = function (text) {
 | 删除上游 LICENSE | 二创署名义务，禁止删除/改写 |
 | **换签名 = 老用户装不上**（2026-09-09 立为纪律） | 同包名升级要求签名一致；换密钥库 / `keystore.properties` 缺失回退 debug 签名，都会让老用户 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`（只能卸载重装、数据清空）。发布前必跑 `apksigner verify --print-certs`（§3.4 步骤 5） |
 | **多包产出**（2026-09-09 立为纪律） | ABI 拆分已关闭且禁止恢复；release 只出一个 `app-release.apk`。误开 `splits.abi` 会产出三件套，导致「发哪个包」混乱与 Release 资产冗余 |
-| **混用 debug / release 包**（2026-09-10 口径变更） | 两包名不同、数据不互通（§9）。**现行纪律：真机只用 release 签名包**（与分发件同物），debug 包不再安装——见 §6.1「真机体验包纪律」。切勿再构建/安装 debug 包作日常使用：会生成第二个空数据 LuzzyRP 造成数据分裂 |
+| **混用 debug / release 包**（2026-09-10 口径变更） | 两包名不同、数据不互通。**现行纪律：真机只用 release 签名包**（与分发件同物），debug 包不再安装——见 §6.1「真机体验包纪律」。切勿再构建/安装 debug 包作日常使用：会生成第二个空数据 LuzzyRP 造成数据分裂 |
 | **PowerShell 里照抄 Git Bash 的 `MSYS_NO_PATHCONV=1 <cmd>`**（会话 48 实证） | 该前缀是 Git Bash 语法，PowerShell 会把它当命令名报 `CommandNotFoundException`；PowerShell 本就无路径转换问题，直接写 `adb shell ...` 即可 |
 | **小样本掉帧对比不可信**（会话 48 实证） | 真机帧率受热/后台影响极大：同一变体三轮测出 14 / 5 / 10 掉帧。**必须成对交替测量（A/B/A/B 紧邻交替）**才算数——曾因此差点把 `contain:paint` 的噪声（14→5）当成 −64% 收益采纳，配对复测反向（无 17 / 有 26） |
 | **模拟器卡到 250ms/帧时，先查 AVD 的 `hw.ramSize`，别先怀疑应用**（会话 71 实证） | AVD `LuzzyRP_Test` 原配 **1536M** RAM，在 1080×2400/420dpi 下长期换页，表现是「滚动巨卡」——**连系统设置页也是 200ms 中位帧 / 72% 掉帧**（拿系统应用当基线即可判定不是应用的问题）。提到 **4096M** 后同一输入下：系统设置 17ms/2.2%、聊天页 17ms/2.6%，**整套仪器化测试耗时也从 2m40s~3m28s 降到 54s**，之前几次「偶发红」也随之消失。教训两条：① **卡顿先做「系统应用基线对照」**再决定查谁；② 仪器化测试莫名超时/偶发失败时，先看模拟器资源，别急着改代码。原值已备份在 `config.ini.bak-perf` |
@@ -512,144 +412,14 @@ Luzzy.copyToClipboard = function (text) {
 | **Gradle 结果目录会被上次崩溃的残留文件锁住**（会话 77 实证） | 上一次崩溃留下的 `androidTest-results/.../logcat-*-crash-report.txt` 被仍在运行的 JVM 持有 → 后续 `connectedDebugAndroidTest` 一启动就 `FileSystemException: 另一个程序正在使用此文件`。处置：**先 `./gradlew --stop`** 释放句柄，**再**删 `app/build/outputs/androidTest-results`（顺序反了删不掉） |
 | **`pinToBottom()` 不能在测量帧里发滚动**（会话 77 实证，产品缺陷） | 该函数被 `runTurn` 的流式事件收集器调用（`ChatPage.kt:752`）；测试环境里这个收集器由 `ApplyingContinuationInterceptor` **在 `measureAndLayout` 内部**恢复 → `scrollToItem` 内部的 `forceRemeasure()` 重入 → `performMeasureAndLayout called during measure layout`。**症状会伪装成别的东西**：`ChatPersistenceTest.sendingAppendsARowToStorage` 表现为「8 秒超时」（超时只是表象，崩溃才是根因）。修法：滚动前 `withFrameNanos { }` 推迟到下一帧 |
 | **`debug` 包点图标进的是 WebView 老界面，不是 Compose 界面**（会话 77 用户误判为「包是旧版」） | `AndroidManifest` 的 `launchable-activity` 至今是 `com.luzzymeow.luzzyrp.MainActivity`（WebView，加载上游 RP-Hub 网页界面）；新的 Compose 界面在 `ui.ComposeActivity`，**只能用 `am start` 进**。**这与包的新旧无关**（会话 77 已用 SHA-256 核对设备 APK 与本地新构建逐字节一致）。切 launcher 属 **P6**。**判断包新旧要看哈希，不要看界面长相** |
-| **纯 `waitUntil` 自旋会饿死帧（被测内容是异步取数时）**（会话 78 实证，两条面板用例交替红） | 面板内容由 `LaunchedEffect` 读库 → setState，其协程续体恢复挂在**帧回调**上；`waitUntil` 自旋期间**不产出帧** → 续体永不恢复 → 条件永不成立（实测自旋 8s 仍停在「读取中…」，而同一份代码先推帧则 200ms 内绿）。**正解 = 「推帧 → 查 → 让出真实时间」轮询**：`compose.waitForIdle()` + 条件 + `Thread.sleep(50)`，三者缺一不可（只推帧则后台查询未回，只等待则续体不恢复）。同族于 `CHAT-REGRESSION.md` §4.1 的「`Thread.sleep` 饿死帧」。判据要确定性：**交替红的用例就是判据不稳，必须改成确定性写法** |
+| **纯 `waitUntil` 自旋会饿死帧（被测内容是异步取数时）**（会话 78 实证，两条面板用例交替红） | 面板内容由 `LaunchedEffect` 读库 → setState，其协程续体恢复挂在**帧回调**上；`waitUntil` 自旋期间**不产出帧** → 续体永不恢复 → 条件永不成立（实测自旋 8s 仍停在「读取中…」，而同一份代码先推帧则 200ms 内绿）。**正解 = 「推帧 → 查 → 让出真实时间」轮询**：`compose.waitForIdle()` + 条件 + `Thread.sleep(50)`，三者缺一不可（只推帧则后台查询未回，只等待则续体不恢复）。同族于 `CHAT-REGRESSION.md` §4 的「`Thread.sleep` 饿死帧」。判据要确定性：**交替红的用例就是判据不稳，必须改成确定性写法** |
 | **`onRoot()` 在 BottomSheet / Dialog 打开后会抛**（会话 78 实证） | 面板是**独立窗口**（第二个 root），`compose.onRoot()` 要求唯一匹配 → `Expected exactly '1' node but found '2' nodes that satisfy: (isRoot)`。**诊断 dump 必须逐 root**：`compose.onAllNodes(isRoot())[i].printToString(...)`，且整段用 `runCatching` 包住 —— 否则诊断代码自己变成新的失败源（本会话踩过一次：本想 dump 现场，结果报错盖掉了真正的断言失败） |
 | **模拟器长跑会劣化，表现为随机的生命周期断言失败 + 漏跑用例**（会话 78 再次实证） | 多次装卸 APK 后出现 `Activity never becomes requested state "[DESTROYED]" (last lifecycle transition = "PAUSED")`、整套只跑 **51/80** 条、失败用例随机换。**处置：冷启动模拟器**（`adb emu kill` → 清 `*.lock` → `Start-Process emulator`），同一份代码即 **80/80 全绿**。**别改代码去迎合劣化环境的红**。另：`adb install` 后务必确认装的是**新构建**的测试件（曾跑到上一版、拿到假红） |
 
 ---
 
-## 9. 当前状态与已知问题（2026-09-09 会话 26 快照 · v1.5.0 开发中 · 上游基线 1.9.3）
+## 9. 版本状态
 
-> 完整过程见 `docs/WORKLOG.md` 会话 26 及追记。上游基线 RP-Hub **1.9.3**（commit `4aef0bb`，
-> 2026-09-09 同步完成）。参考克隆锚定 `4aef0bb`（**合并全程只引用该工作树**，勿用 HEAD~N）。
-> v1.5.0 工作流：**W0 文档与纪律 ✅** · **W1 上游同步 ✅** · ~~W2 助手原生 Agent~~（2026-09-11 按用户指示移除）。
-
-### 版本状态（2026-09-09 · 会话 26）
-
-- **v1.5.0 开发中（未发布）**，最新可下载版本仍为 **v1.4.0**。本版原含「上游同步 1.9.3」+
-  「助手原生 Agent」两条主线；**助手已于 2026-09-11 按用户指示彻底移除**（见 `CHANGELOG.md`
-  v1.5.0「移除」段），本版只交付上游同步。
-- **W1 上游同步 1.9.3 已完成**（2026-09-09）：三方合并（1.9.3 纯净底 + 1.9.2 纯净祖先 +
-  二创工作树）——index.html / ui-components.js / character/index.html 零冲突，app.js 1 处冲突
-  取上游侧；**顺带修复 1.9.2 合并时误删 `let workshopImportPending = false;` 的存量缺陷**；
-  U5 签名变更 6 处调用点核对无需改动；实体 9 枚按 §18.6 修正规程重生成；`apply-patches.ps1`
-  基线参数化 + `sync-upstream.ps1` 指纹表头带 commit；`LuzzyBridge.UPSTREAM_VERSION` → 1.9.3；
-  README 基线/徽章 → 1.9.3；指纹表 13 项以 `4aef0bb` 重算；styles.css / novel/index.html
-  工作树行尾归一为 CRLF（与检出态一致，git 零差异）。详见 `CHANGELOG.md` v1.5.0「同步」段。
-- **门禁现状**：verify-markers **82 PASS / 0 FAIL**（实体 9 枚以 `4aef0bb` 基线再生成，
-  仓库外**逆向 9/9 PASS** + 纯净基线**端到端 9/9 PASS**；全 JS `node --check` 13/13；
-  `assembleDebug` 构建通过；桌面冒烟零 JS 异常）。
-- **合规实证**：未 patch 的 4 文件（`built-in-content.js` / `styles.css` / `presence.js` /
-  `update-check.js`）与上游 1.9.3 **LF 归一同构**；`nsfw_rules` 块（1588 字节）**逐字节一致**
-  （规定 1）；无新增 CDN 引用、无新增/删除文件。
-- **W1 遗留（需真机 / 联网）**：工坊 Diff 工具调用与抗截断需带 tool 的模型实测；万相广场
-  一键导入需联网实测（iframe 与 `RPH_FORUM_*` 桥已就位）；开屏动画 / 剧情面板时机 / 沉浸模式
-  宽度需真机目测。
-- **W2（助手原生 Agent）已终止**：模块与全部子页面已于 2026-09-11 按用户指示彻底移除
-  （代码 / 资产 / 测试 / 构建接入 / 桥接 / 扩展层入口一并删除，详见 `CHANGELOG.md` v1.5.0
-  「移除」段）。patch 040 已用于供应商编辑器模型列表的卡片化 + 二级弹窗（2026-09-10）。
-- **发布纪律（长期，见 §3.4）**：**只构建/发布一个 APK**（`app-release.apk`，ABI 拆分保持
-  关闭、禁止恢复）；**每次发布必须保持同一应用签名**（`keystore/luzzy-release.keystore`，
-  发布前 `apksigner verify --print-certs` 核对指纹与上一版一致，`keystore.properties` 缺失
-  会回退 debug 签名 → 不得发布）。
-- **包名与数据边界（release note 必写）**：debug 包 `com.luzzymeow.luzzyrp.debug` 与
-  release 包 `com.luzzymeow.luzzyrp` 是**两个独立应用 ID**，数据互不可见——用户首次从
-  debug 切到 release 需重填用户信息与供应商 API 配置（角色卡/世界书/预设可经应用内导入
-  导出搬移；聊天记录与记忆不随包迁移）。**发布说明中必须主动告知并致歉**，同时说明同包名
-  覆盖安装（升级）数据保留、后续版本沿用同一包名不会再发生。
-- **明确不做（本版）**：剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制（先 classic
-  样式交付，真机体验后按硬性规定 9 走设计流程）、styles.css 低频硬编码蓝收编、向量阈值
-  滑杆、「荧光笔落笔」动效、深链、自建更新检查。
-
-### 版本状态（2026-09-08 · 会话 25 · 历史快照 · v1.4.0 已发布 · 上游基线 1.9.2）
-
-- **v1.4.0 正式版已发布**（2026-09-08，versionCode 12，**Release 附单个 APK**
-  `app-release.apk`，签名 CN=LuzzyRP）：同步上游 1.9.2（UI 实时生成剧情面板 `story_panels`
-  / 沉浸模式 `immersiveMode` / CharacterDeck / 主动工具调用改原生 toolCalls / 快捷面板密度 /
-  抗截断改 `output_reply` 工具协议）+ 用户三项需求（patch 037 用量页时间筛选去冲突 /
-  038 更新公告品牌化与同步注释 / 039 关于页检索关键词高亮）——决策 D1-A 全屏继续下线、
-  D2-A 抗截断采纳上游协议、D3-A 保留「开卷」开屏、D4-A 新功能默认值原样。
-  发布记录：commit `ac0d5957` → push origin main → GitHub Release v1.4.0（tag 已推送、
-  `releases/latest` 指向 v1.4.0）；真机（小米 df97f3c4）人工验证通过。
-- **发布打包约定（2026-09-08 用户指示，2026-09-09 重申为长期纪律，后续版本一律遵循）**：
-  **只构建/发布一个 APK**（`app/build/outputs/apk/release/app-release.apk`，GitHub Release
-  只附这一个）。原因：纯 WebView 壳无 native 库，ABI 拆分产出的三件套字节完全相同
-  （v1.2.2~v1.4.0 资产 SHA256 实测一致），拆分为零收益；`app/build.gradle.kts` 的
-  `splits.abi` 块已注释关闭（**禁止恢复**）。debug 包构建同样只产出单包（旧产物需手动清理）。
-- **签名一致性纪律（2026-09-09 用户指示，与单包并列的长期纪律）**：**每次发布必须保持
-  同一个应用签名**——自 LuzzyRP 已发布的最新 Release 起，一律使用
-  `keystore/luzzy-release.keystore`（别名 `luzzy`，CN=LuzzyRP，有效期 30 年），
-  **永不更换密钥库**。发布前必须 `apksigner verify --print-certs` 核对指纹与上一版一致
-  （详见 §3.4 步骤 5）；`keystore.properties` 缺失时构建会回退 debug 签名——那意味着
-  release 包签名不一致，**不得发布**。密钥库与口令需离线备份（丢失 = 该应用 ID 无法再发
-  升级包），且严禁入库。
-- **包名与数据边界（release note 必写）**：debug 包 `com.luzzymeow.luzzyrp.debug` 与
-  release 包 `com.luzzymeow.luzzyrp` 是**两个独立应用 ID**，数据互不可见——用户首次从
-  debug 切到 release 需重填用户信息与供应商 API 配置（角色卡/世界书/预设可经应用内导入
-  导出搬移；聊天记录与记忆不随包迁移）。**发布说明中必须主动告知并致歉**，同时说明同包名
-  覆盖安装（升级）数据保留、后续版本沿用同一包名不会再发生。
-- **门禁现状**：verify-markers **82 PASS / 0 FAIL**（实体 9 枚以 d2f2625 基线再生成，
-  仓库外逆向 9/9 PASS + 纯净基线端到端重放 9/9 PASS；全 JS `node --check` 13/13）。
-- **会话 25 修复**：index.html 开屏区混合体恢复完整「开卷」块 + 补回 001/004/006 标记 +
-  删除 Google Fonts preconnect；指纹表全表更新至 d2f2625（R1/R2 转 PASS）；**实体重放通道
-  三层根因修复**（脚本顺序：实体段先于字符串块；前像判定：实体头 `index pre` 的 LF 归一
-  blob id；git stderr 隔离 + 落盘校验）。
-- **待办**：无阻塞项。后续候选见 README 规划表 v1.5.0 行（styles.css 低频硬编码蓝收编、
-  向量阈值滑杆、剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制等）。
-- **明确不做（本版）**：剧情面板/沉浸模式/CharacterDeck 的 luzzy 主题化定制（先 classic
-  样式交付，真机体验后按硬性规定 9 走设计流程）、styles.css 低频硬编码蓝收编、向量阈值
-  滑杆、「荧光笔落笔」动效、深链、自建更新检查。
-
-### 版本状态（2026-09-05 · 会话 21 · 历史快照）
-
-- **v1.3.0 正式版已发布**（2026-09-06，versionCode 11，Release 附三件套 APK；v1.2.3 为 versionCode 10）：
-  ① patch 032 流式渲染降载（间隔 60→120ms + 流式 LRU 旁路）；② patch 034 性能治理
-  （D1 高频面退实底：气泡/typing/输入岛/侧栏 blur 归零；glass-stabilize/scroll-reveal
-  will-change 瘦身；开屏 lspDiveZoom 去 filter:blur）；③ patch 033 输入区过渡定向化
-  （发送键热区漂移根除，FAB v4 配方）；④ patch 029 内置供应商精简仅留 DeepSeek
-  （editable + apiProviderOverrides；老用户 STA1N/OpenRouter/SiliconFlow 无损迁移为
-  用户商；默认商切 deepseek；**023 校验项退役由 029 接管**）；⑤ patch 030 关于页
-  「基于 RP-Hub」固定文案（防同步遗忘）；⑥ patch 031 记忆召回思考节点（盖戳+渲染，
-  零模板改动）。
-- **门禁现状**：verify-markers **74 PASS / 0 FAIL**（实体 9 枚以 1.9.1 基线再生成，逆向
-  9/9 PASS；008/011 字符串块退役，015-runtime→015-api-utils 接管，032 拆双项）；
-  **v1.3.0 正式版已发布（2026-09-06，versionCode 11，Release 附三件套 APK）**。
-- **待办**：debug 包真机回归（§6.2 + 性能专项：流式 10s 录制对比 / elementFromPoint
-  热区向量 / 开屏逐帧）；玻璃档位（D1）视觉走查（亮/暗双模式）。
-- **明确不做（本版）**：壳层 textZoom/offscreenPreRaster（零收益）、styles.css 低频蓝
-  收编与向量阈值滑杆（v1.4.0 候选，理由见 WORKLOG 会话 21）。
-
-### 版本状态（2026-09-04 · 会话 19 · 历史快照）
-
-- **v1.2.2（versionCode 9 / EXTRACT_VERSION 20）已发布**（2026-09-04，Release v1.2.2 附三件套 APK；commit b815589b）：
-  ① patch 008 v4 blue/indigo 色板收编（toggle 蓝/叙事视角 luzzy 下珊瑚化，classic 原值）；
-  ② patch 020 向量检索失败 toast 外化（30s 节流+降级）；
-  ③ **全新品牌图标**（White Fox 头像版，纯 1:1 满幅，adaptive=全图前景 68%+同色背景
-  #EDD7BD，源图 docs/design/brand-logo-v2-source.png，换 icon SOP 见 §3.5）；
-  ④ styles.css 硬编码蓝 4 族收编（侧栏激活项/segmented 选中态/settings-toggle 家族/
-  弹窗主按钮，均 luzzy-theme.css 组件级，约 66 处其余低频入遗留）；
-  ⑤ verify-markers 43 PASS / 0 FAIL；entities/012-020-*。
-- **真机（小米 df97f3c4 / Android 16）已复验**（2026-09-04，v1.2.2-debug 包
-  install -r 覆盖日常包，数据保留）：MIUI 桌面新图标渲染 ✓、EXTRACT 20 重解压 ✓、
-  关于页 v1.2.2 + 新品牌 LOGO ✓、真实会话完好 ✓。**注意**：该机日常包=debug 包
-  （真实数据在内），见 §6.1 设备辨别。
-- **上游基线 RP-Hub 1.9.0**（2026-09-04 会话 20 同步：上游仅更新 built-in-content.js，破限预设标记改名 rphub_default）；built-in-content.js / styles.css 与上游逐字节一致。
-- **会话 20 同步执行**：EXTRACT 20→21；CHANGELOG 新增 v1.2.3「开发中」章节（发版时重跑
-  gen-changelog）；指纹基线表更新至 94a0cd9；同步门 43 PASS / 0 FAIL；debug 包构建后待真机
-  安装回归（会话 20 收尾时设备未连接）。
-- **仓库描述已纠正**（2026-09-03）：WebView 封装（Kotlin 薄壳），非「原生 Kotlin +
-  Compose」；换图标 SOP 见 §3.5。
-
-### 遗留待办（按优先级 · 会话 20 复核）
-
-1. v1.2.3（上游 1.9.0 同步版）真机回归：debug 包 install -r 覆盖日常包 + §6.2 数据兼容/
-   核心功能走查（会话 20 收尾时设备未连接，APK 已构建）；
-2. patch 020 toast 罐装验证（模拟器）+ classic 主题目测复核（用户日常手动切换）；
-3. classic 总结记忆在管理器中的显示（依赖提取管线完整结构，罐装提取补测）；
-4. styles.css 其余 ~66 处低频硬编码蓝收编（v1.3.0 候选，清单见 DESIGN.md Do's & Don'ts）；
-5. v1.3.0 候选顺延（图像模型生图流、「荧光笔落笔」动效等，见 README 规划表）。
-
-### 高频坑速查（会话 14/15 实踩，勿再踩）
-
-- **~~改 assets 不 bump EXTRACT_VERSION~~（v1.2.3 起资产签名自动比对，零手动）；会话 20 曾三踩此坑（EXTRACT 25 消费后连续改 assets 未 bump），促成了根治方案落地；**
-- **Edit 工具整文件写回会翻转 index.html 混合行尾**（blob 为 CRLF 为主 + 14 个 LF 行，
+> 本节不再维护逐版快照（历史上曾存 v1.5.0/v1.4.0/v1.3.0/v1.2.2 四份，2026-09-16 移除）。
+> **版本与各版说明以 `CHANGELOG.md` 为准**（README「当前版本」行自动同步，应用内「关于」页同源）；
+> 过程记录见 `docs/WORKLOG.md`；长期纪律见 §3.4（单 APK + 固定签名）与 §6.1（真机用 release 包）。

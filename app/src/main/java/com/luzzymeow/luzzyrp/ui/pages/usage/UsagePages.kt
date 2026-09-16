@@ -39,7 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -62,6 +64,9 @@ import com.luzzymeow.luzzyrp.ui.pages.common.SegmentChips
 import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.StatMini
 import com.luzzymeow.luzzyrp.ui.pages.common.ThinDivider
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomEasing
+import com.luzzymeow.luzzyrp.ui.theme.LoomMotion
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlinx.coroutines.launch
 
@@ -139,22 +144,28 @@ fun UsagePage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
         )
     }
 
-    PageScaffold("用量统计", LuzzyIcons.ChartBar, onOpenDrawer, actions = {
-        IconButton(
-            onClick = { confirmClear = true },
-            enabled = all.isNotEmpty(),
-        ) {
-            Icon(
-                painter = painterResource(LuzzyIcons.Trash),
-                contentDescription = "清空用量记录",
-                tint = if (all.isEmpty()) {
-                    MaterialTheme.colorScheme.outlineVariant
-                } else {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-                },
-            )
-        }
-    }) { padding ->
+    PageScaffold(
+        title = "用量统计",
+        iconRes = LuzzyIcons.ChartBar,
+        onOpenDrawer = onOpenDrawer,
+        accent = MaterialTheme.colorScheme.primary,
+        actions = {
+            IconButton(
+                onClick = { confirmClear = true },
+                enabled = all.isNotEmpty(),
+            ) {
+                Icon(
+                    painter = painterResource(LuzzyIcons.Trash),
+                    contentDescription = "清空用量记录",
+                    tint = if (all.isEmpty()) {
+                        MaterialTheme.colorScheme.outlineVariant
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    },
+                )
+            }
+        },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("usage_list"),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
@@ -386,28 +397,20 @@ fun UsagePage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
     }
 
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("清空用量记录？", fontFamily = LuzzyFonts.Body) },
-            text = {
-                Text(
-                    text = "将删除全部 ${all.size} 条用量记录（跨角色累计，含迁移进来的旧记录）。\n" +
-                        "会话、记忆、世界书不受影响。\n\n此操作不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                )
+        com.luzzymeow.luzzyrp.ui.pages.common.LoomConfirmDialog(
+            title = "清空用量记录？",
+            text = "将删除全部 ${all.size} 条用量记录（跨角色累计，含迁移进来的旧记录）。\n" +
+                "会话、记忆、世界书不受影响。\n\n此操作不可恢复。",
+            confirmLabel = "清空",
+            onConfirm = {
+                confirmClear = false
+                scope.launch {
+                    val removed = source.clearUsage()
+                    message = if (removed > 0) "已清空 $removed 条用量记录" else "没有可清空的记录"
+                    refresh++
+                }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmClear = false
-                    scope.launch {
-                        val removed = source.clearUsage()
-                        message = if (removed > 0) "已清空 $removed 条用量记录" else "没有可清空的记录"
-                        refresh++
-                    }
-                }) { Text("清空", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("取消") } },
+            onDismiss = { confirmClear = false },
         )
     }
 }
@@ -484,16 +487,28 @@ private fun ChipStrip(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             chips.forEach { chip ->
+                val bg by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (chip.selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    },
+                    animationSpec = com.luzzymeow.luzzyrp.ui.theme.loomSpring(),
+                    label = "usage-chip-bg",
+                )
+                val fg by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (chip.selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    animationSpec = com.luzzymeow.luzzyrp.ui.theme.loomSpring(),
+                    label = "usage-chip-fg",
+                )
                 Row(
                     Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(
-                            if (chip.selected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                        )
+                        .background(bg)
                         .clickable(onClick = chip.onClick)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -506,11 +521,7 @@ private fun ChipStrip(
                         text = chip.label,
                         fontSize = 11.5.sp,
                         fontFamily = LuzzyFonts.Body,
-                        color = if (chip.selected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        color = fg,
                     )
                 }
             }
@@ -519,20 +530,37 @@ private fun ChipStrip(
 }
 
 /**
- * 用量折线图（每格一条线 + 网格 + 纵轴刻度）。
+ * 用量折线图（每格一条线 + 网格 + 纵轴刻度；v3.1 Loom 化：渐变面积填充 + 绘制入场）。
  *
  * 纵轴刻度与横轴标签用**布局**而不是 Canvas 里写字：Compose 的 Canvas 文本要
  * `TextMeasurer`，而刻度文本的排版（对齐、字号）用现成的 `Text` 更省事也更一致。
  * 坐标轴留白固定（左侧 44dp 给刻度），与旧版 SVG 的 `left: 44` 是同一个数。
+ *
+ * **绘制入场**：expressive 320ms 按 x 轴裁剪推进（0→1）；减弱动效时恒为终态。
+ * 面积填充只在**首条系列**下画一层 primary 渐变（22%→透明），多系列时叠加会脏，
+ * 故只给 rank 0 的系列画。
  */
 @Composable
 private fun UsageLineChart(chart: UsageChart.Data) {
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+    val gridColor = Loom.current.hairline
     val axisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val axisLabelColor = MaterialTheme.colorScheme.outline
     val colors = chart.series.map { seriesColor(it.rank) }
     // 三条刻度：0 / 中 / 峰（够定位形状，又不至于把图糊满）
     val ticks = listOf(chart.peak, chart.peak / 2, 0)
+    // 绘制进度（1 = 完整）；减弱动效时直接终态
+    val reduce = com.luzzymeow.luzzyrp.ui.rememberReduceMotion()
+    var played by remember { mutableStateOf(reduce) }
+    LaunchedEffect(chart) { played = true }
+    val progress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (played) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(
+            com.luzzymeow.luzzyrp.ui.scaledDuration(com.luzzymeow.luzzyrp.ui.theme.LoomMotion.ExpressiveMs, reduce),
+            easing = com.luzzymeow.luzzyrp.ui.theme.LoomEasing.Page,
+        ),
+        label = "usage-draw",
+    )
+    val areaTop = MaterialTheme.colorScheme.primary
 
     Row(Modifier.fillMaxWidth().height(150.dp)) {
         Column(
@@ -587,20 +615,46 @@ private fun UsageLineChart(chart: UsageChart.Data) {
                     strokeWidth = 1f,
                 )
             }
-            // 曲线与数据点
-            chart.series.forEachIndexed { seriesIndex, series ->
-                val color = colors[seriesIndex]
-                for (index in 0 until series.totals.size - 1) {
-                    drawLine(
-                        color = color,
-                        start = Offset(xOf(index), yOf(series.totals[index])),
-                        end = Offset(xOf(index + 1), yOf(series.totals[index + 1])),
-                        strokeWidth = 2.2f,
-                    )
+            // 绘制进度裁剪（从左往右推进）
+            clipRect(right = size.width * progress) {
+                // 首系列的渐变面积（primary 22% → 透明）
+                chart.series.firstOrNull()?.let { first ->
+                    if (first.totals.isNotEmpty()) {
+                        val path = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(0f, size.height)
+                            val points = first.totals.mapIndexed { index, value ->
+                                Offset(xOf(index), yOf(value))
+                            }
+                            points.forEach { lineTo(it.x, it.y) }
+                            lineTo(points.lastOrNull()?.x ?: 0f, size.height)
+                            close()
+                        }
+                        drawPath(
+                            path = path,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    areaTop.copy(alpha = 0.22f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        )
+                    }
                 }
-                series.totals.forEachIndexed { index, value ->
-                    if (value > 0) {
-                        drawCircle(color = color, radius = 2.6f, center = Offset(xOf(index), yOf(value)))
+                // 曲线与数据点
+                chart.series.forEachIndexed { seriesIndex, series ->
+                    val color = colors[seriesIndex]
+                    for (index in 0 until series.totals.size - 1) {
+                        drawLine(
+                            color = color,
+                            start = Offset(xOf(index), yOf(series.totals[index])),
+                            end = Offset(xOf(index + 1), yOf(series.totals[index + 1])),
+                            strokeWidth = 2.2f,
+                        )
+                    }
+                    series.totals.forEachIndexed { index, value ->
+                        if (value > 0) {
+                            drawCircle(color = color, radius = 2.6f, center = Offset(xOf(index), yOf(value)))
+                        }
                     }
                 }
             }

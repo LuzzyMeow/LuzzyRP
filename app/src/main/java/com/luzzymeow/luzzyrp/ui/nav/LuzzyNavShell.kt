@@ -1,43 +1,51 @@
 package com.luzzymeow.luzzyrp.ui.nav
 
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luzzymeow.luzzyrp.BuildConfig
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
+import com.luzzymeow.luzzyrp.ui.theme.LoomMotion
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
+import com.luzzymeow.luzzyrp.ui.theme.LoomEasing
+import com.luzzymeow.luzzyrp.ui.theme.Loom
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
-import com.luzzymeow.luzzyrp.ui.theme.Motion
 import kotlinx.coroutines.launch
 
 /**
- * v3.0 路由（P1 静态稿；P5 引入详情栈时再议 Navigation3）。
- * 页面为平铺切换，转场 = DESIGN-compose §13.2（fadeIn 200ms + scaleIn 0.96 /
- * fadeOut 140ms，交叉淡化语义）。
+ * v3.1（Loom v4）路由。页面集合不变（P6 定稿）。
  */
 enum class LuzzyRoute(val title: String, val icon: Int, val inDrawer: Boolean = true) {
     Chat("对话", LuzzyIcons.Conversation),
@@ -62,14 +70,13 @@ enum class LuzzyRoute(val title: String, val icon: Int, val inDrawer: Boolean = 
  * 抽屉收起动画时长。
  *
  * **实测取值（2026-09-12，会话 64）**：App 内按帧采样 `drawerState.offset`，三次实测
- * 「开始移动 → 完全停止」= **419 / 405 / 409 ms**（frames=11~25, movedFrames≈全部,
- * endOffset=-945 完全收起）→ 取上界 **420ms** 作为抽屉动画时长。
+ * 「开始移动 → 完全停止」= **419 / 405 / 409 ms** → 取上界 **420ms**。
+ * Loom v4 保留该值（[LoomMotion.PageMs]）——转场语义不变。
  */
 const val DrawerCloseMs = 420
 
 /**
- * 内容转场时长 = **实测抽屉收起时长**（用户定稿语义：侧边菜单栏完全收入左侧抽屉时
- * 页面转场刚好完成）。等长交叉 → 两者同帧起跑、同时结束。
+ * 内容转场时长 = **实测抽屉收起时长**（侧边菜单完全收入抽屉时页面转场刚好完成）。
  */
 const val ContentTxMs = DrawerCloseMs
 
@@ -77,22 +84,20 @@ const val ContentTxMs = DrawerCloseMs
 const val OldFadeMs = DrawerCloseMs
 
 /**
- * 转场曲线：M3 标准对称缓动 `FastOutSlowIn`（cubic-bezier(0.4, 0, 0.2, 1)）。
+ * 转场曲线：M3 标准对称缓动 `FastOutSlowIn`。
  *
- * **为何不用强 ease-out（2026-09-12 三修，用户续报「还是快」的根因）**：
- * `cubic-bezier(0.23,1,0.32,1)` 会在时长前 1/4 内完成约 75~80% 的变化——400ms 的动画
- * 实际感知只有 ~100ms（新页 alpha 在 100ms 时已 0.83），因此视觉上仍是硬切。
- * 改为对称曲线后，不透明度变化均匀铺满全程，**感知时长 = 实际时长**。
- * 抽屉与内容**共用同一曲线与同一时长** → 严格同帧起跑、同时完成。
+ * **为何不用强 ease-out（2026-09-12 三修）**：`cubic-bezier(0.23,1,0.32,1)` 在时长前 1/4
+ * 内完成约 75~80% 变化——400ms 动画实际感知只有 ~100ms。对称曲线铺满全程；
+ * 抽屉与内容共用同一曲线与同一时长 → 严格同帧起跑、同时完成。
+ * （元素级动效仍走 [LoomEasing.Enter] 的 ease-out——见 LoomMotion。）
  */
-val TxEasing = androidx.compose.animation.core.FastOutSlowInEasing
+val TxEasing = LoomEasing.Page
 
 /**
- * v3.0 应用壳：抽屉（提升到壳层，全页共用）+ AnimatedContent 页面转场。
+ * v3.1 应用壳：抽屉 + AnimatedContent 页面转场。
  *
- * 转场（DESIGN-compose §13.2）：进入 fadeIn(200ms)+scaleIn(0.96)，退出 fadeOut(140ms)——
- * 交叉淡化语义（现行 DESIGN.md「页面交接」条款移植）；抽屉点菜单 = setRoute + 关抽屉同拍
- * （rikkahub「直接 navigate」实践合并）。
+ * Loom v4 抽屉：品牌头（logo 环 + Lora 字标 + 版本）→ 分组条目（44dp 高、
+ * 选中态 = coral 药丸 + 指示器 spring 位移）→ 底部版本行。
  */
 @Composable
 fun LuzzyNavShell(
@@ -105,8 +110,6 @@ fun LuzzyNavShell(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     // C7：减弱动效时抽屉与跨页交叉淡化都瞬时完成。
-    // 为什么这里也要管：转场是**全屏**运动（抽屉占屏 80%），对前庭敏感用户来说
-    // 它比点呼吸那种小动效更值得关掉。
     val reduceMotion = com.luzzymeow.luzzyrp.ui.rememberReduceMotion()
     val drawerCloseMs = com.luzzymeow.luzzyrp.ui.scaledDuration(DrawerCloseMs, reduceMotion)
     val contentTxMs = com.luzzymeow.luzzyrp.ui.scaledDuration(ContentTxMs, reduceMotion)
@@ -115,64 +118,30 @@ fun LuzzyNavShell(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-                Text(
-                    text = "LuzzyRP",
-                    fontFamily = LuzzyFonts.Lora,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(20.dp),
-                )
-                LuzzyRoute.entries.filter { it.inDrawer }.forEach { r ->
-                    val selected = r == route
-                    ListItem(
-                        leadingContent = {
-                            Icon(
-                                painter = painterResource(r.icon),
-                                contentDescription = null,
-                                tint = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        },
-                        headlineContent = {
-                            Text(
-                                text = r.title,
-                                fontFamily = LuzzyFonts.Body,
-                                fontSize = 14.sp,
-                                color = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                            )
-                        },
-                        modifier = Modifier.clickable {
-                            onNavigate(r)
-                            // 抽屉与内容转场等长同帧起跑（DESIGN-compose §13.2）
-                            scope.launch {
-                                drawerState.animateTo(
-                                    DrawerValue.Closed,
-                                    tween(drawerCloseMs, easing = TxEasing),
-                                )
-                            }
-                        },
-                    )
-                }
-            }
+            LoomDrawerSheet(
+                route = route,
+                onNavigate = onNavigate,
+                onCloseDrawer = {
+                    scope.launch {
+                        drawerState.animateTo(
+                            androidx.compose.material3.DrawerValue.Closed,
+                            androidx.compose.animation.core.tween(drawerCloseMs, easing = TxEasing),
+                        )
+                    }
+                },
+                darkMode = darkMode,
+                onToggleDarkMode = onToggleDarkMode,
+            )
         },
     ) {
-        AnimatedContent(
+        androidx.compose.animation.AnimatedContent(
             targetState = route,
             transitionSpec = {
-                // DESIGN-compose §13.2（三次修订）：纯交叉淡化（无位移）。
-                // 实测 250ms 交叉期仅 ~1 录屏帧（≈130ms 可辨窗口）→ 用户观感「像硬切」；
-                // 现取 400ms：交叉段延伸到抽屉收完之后，两页交叠可见时间 ≈ 400ms，
-                // 新页 alpha 0.35→1（抬高起点防灰陷），旧页 1→0；ease-out；禁 scale(0)。
-                (fadeIn(
-                    animationSpec = tween(contentTxMs, easing = TxEasing),
-                    initialAlpha = 0.30f,   // 关键帧起点：抬高防灰陷，同时让淡化幅度更大更可见
+                (androidx.compose.animation.fadeIn(
+                    animationSpec = androidx.compose.animation.core.tween(contentTxMs, easing = TxEasing),
+                    initialAlpha = 0.30f,
                 )).togetherWith(
-                    fadeOut(animationSpec = tween(oldFadeMs, easing = TxEasing)),
+                    androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(oldFadeMs, easing = TxEasing)),
                 )
             },
             label = "pageTransition",
@@ -182,6 +151,165 @@ fun LuzzyNavShell(
                 // 两个动画槽位会渲染同一个新页面（旧页瞬间消失）→ 视觉上退化成硬切。
                 content(current) { scope.launch { drawerState.open() } }
             }
+        }
+    }
+}
+
+/** Loom 抽屉内容（品牌头 + 分组条目 + 主题切换 + 版本）。 */
+@Composable
+private fun LoomDrawerSheet(
+    route: LuzzyRoute,
+    onNavigate: (LuzzyRoute) -> Unit,
+    onCloseDrawer: () -> Unit,
+    darkMode: Boolean,
+    onToggleDarkMode: () -> Unit,
+) {
+    val loom = Loom.current
+    val scheme = MaterialTheme.colorScheme
+    ModalDrawerSheet(drawerContainerColor = loom.canvas) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 16.dp)) {
+            // 品牌头：logo 圆环 + 名称 + 版本
+            Row(
+                Modifier.padding(start = 8.dp, bottom = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(
+                    Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(scheme.primary.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(scheme.primary.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "L",
+                            fontFamily = LuzzyFonts.Lora,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = scheme.onPrimary,
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = "LuzzyRP",
+                        fontFamily = LuzzyFonts.Lora,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = scheme.onSurface,
+                    )
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME}",
+                        fontFamily = LuzzyFonts.Body,
+                        fontSize = 10.5.sp,
+                        color = scheme.outline,
+                    )
+                }
+            }
+
+            LuzzyRoute.entries.filter { it.inDrawer }.forEach { r ->
+                val selected = r == route
+                LoomDrawerItem(
+                    route = r,
+                    selected = selected,
+                    onClick = {
+                        onNavigate(r)
+                        onCloseDrawer()
+                    },
+                )
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // 主题切换（保留原 toggleDark 语义）
+            Surface(
+                shape = RoundedCornerShape(LoomShape.Control),
+                color = loom.card,
+                border = androidx.compose.foundation.BorderStroke(1.dp, loom.hairline),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    Modifier
+                        .clickable(onClick = onToggleDarkMode)
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(if (darkMode) LuzzyIcons.Sun else LuzzyIcons.Moon),
+                        contentDescription = null,
+                        tint = scheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = if (darkMode) "切到亮色" else "切到暗色",
+                        fontFamily = LuzzyFonts.Body,
+                        fontSize = 13.5.sp,
+                        color = scheme.onSurface,
+                    )
+                }
+            }
+            Text(
+                text = "每次对话，都像一本有你的小说。",
+                fontFamily = LuzzyFonts.Body,
+                fontSize = 10.5.sp,
+                color = scheme.outline,
+                modifier = Modifier.padding(start = 10.dp, top = 12.dp),
+            )
+        }
+    }
+}
+
+/** 抽屉条目：44dp 高、圆角行；选中 = coral 药丸底 + onPrimary 文字（spring 变色）。 */
+@Composable
+private fun LoomDrawerItem(route: LuzzyRoute, selected: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val loom = Loom.current
+    val bg by animateColorAsState(
+        targetValue = if (selected) scheme.primary else Color.Transparent,
+        animationSpec = com.luzzymeow.luzzyrp.ui.theme.loomSpring(),
+        label = "drawer-item-bg",
+    )
+    val fg by animateColorAsState(
+        targetValue = if (selected) scheme.onPrimary else scheme.onSurfaceVariant,
+        animationSpec = com.luzzymeow.luzzyrp.ui.theme.loomSpring(),
+        label = "drawer-item-fg",
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            painter = painterResource(route.icon),
+            contentDescription = null,
+            tint = fg,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(
+            text = route.title,
+            fontFamily = LuzzyFonts.Body,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = fg,
+        )
+        if (selected) {
+            Spacer(Modifier.weight(1f))
+            // 织机针脚指示点
+            Box(Modifier.size(6.dp).background(scheme.onPrimary.copy(alpha = 0.9f), CircleShape))
         }
     }
 }

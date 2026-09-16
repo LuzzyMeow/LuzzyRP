@@ -44,9 +44,12 @@ fun LuzzyTheme(
     val extendColors = remember(dark) { extendFor(dark = dark) }
     val typography = remember(fontScale) { luzzyTypography(fontScale) }
     val markdownTokens = remember(fontScale) { MarkdownTokens().scaled(fontScale) }
+    // Loom v4：织层色一次性推导（由 M3 role 派生，随亮暗切换）
+    val loom = remember(dark) { loomColors(dark = dark) }
     CompositionLocalProvider(
         LocalDarkMode provides dark,
         LocalExtendColors provides extendColors,
+        LocalLoom provides loom,
         LocalMarkdownTokens provides markdownTokens,
     ) {
         MaterialTheme(

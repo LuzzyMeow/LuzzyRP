@@ -8,20 +8,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,20 +44,28 @@ import com.luzzymeow.luzzyrp.chat.RecallOptions
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
-import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
-import com.luzzymeow.luzzyrp.ui.pages.common.EmptyState
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomBadge
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomCard
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomChip
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomConfirmDialog
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomEmpty
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomField
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomMenuAction
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomOverflowMenu
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomRow
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomSectionLabel
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomScaffold
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomSkeletonRow
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomSwitch
 import com.luzzymeow.luzzyrp.ui.pages.common.LongTextEditorDialog
-import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
-import com.luzzymeow.luzzyrp.ui.pages.common.PageScaffold
-import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
-import com.luzzymeow.luzzyrp.ui.pages.common.SectionTitle
-import com.luzzymeow.luzzyrp.ui.pages.common.SegmentChips
-import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomAppear
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlinx.coroutines.launch
 
 /**
- * 记忆系统页（v3.2 重建）。
+ * 记忆系统页（v3.2 重建；Loom v4 重皮）。
  *
  * ## 为什么重建（而不是「再修一处」）
  *
@@ -91,6 +93,12 @@ import kotlinx.coroutines.launch
  * 原生引擎是**词面重叠**打分（不需要嵌入模型）；库里带 `embeddingQ` 的向量分片是旧版迁移
  * 过来的数据。因此编辑一条分片**不重算向量**——旧版保存时会调嵌入模型重新嵌入，原生侧还没有
  * embeddings 客户端。这一点写在编辑弹层的页脚里，而不是让按钮假装在算。
+ *
+ * ## Loom v4 重皮（组件映射不变式）
+ * 骨架 `PageScaffold` → `LoomScaffold`（织纹画布 + 大标题头，accent = primary）；
+ * 卡/行/徽标/开关/chip/输入框/空态/骨架/确认框全部换 LoomKit 同语义组件；
+ * 内容条目行入场 `LoomAppear`；**标题文案保持「记忆系统」不变**（文案不变式 +
+ * LargeFontUiCaptureTest 断言）。数据流、回调与函数签名一字未动。
  *
  * @param pageData 测试接缝（同 `CharactersPage`）：不注入时自建指向设备真库的实例。
  */
@@ -153,7 +161,12 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
     val shownKind = if (section == 0) MemoryBrowser.VECTOR else MemoryBrowser.CLASSIC
     val options = recall ?: RecallOptions()
 
-    PageScaffold("记忆系统", LuzzyIcons.Memory, onOpenDrawer) { padding ->
+    LoomScaffold(
+        title = "记忆系统",
+        iconRes = LuzzyIcons.Memory,
+        onOpenDrawer = onOpenDrawer,
+        accent = MaterialTheme.colorScheme.primary,
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("memory_list"),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
@@ -161,7 +174,7 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
         ) {
             // ① 作用域
             item {
-                SettingCard {
+                LoomCard {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             text = "作用域",
@@ -207,7 +220,7 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             if (current?.isActive == true) {
-                                BadgeChip("当前角色", MaterialTheme.colorScheme.primary)
+                                LoomBadge("当前角色", MaterialTheme.colorScheme.primary)
                             }
                             Spacer(Modifier.weight(1f))
                             Text(
@@ -222,9 +235,9 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
             }
 
             // ② 记忆引擎（真设置：写 kv，发送路径真的读）
-            item { SectionTitle("记忆引擎") }
+            item { LoomSectionLabel("记忆引擎") }
             item {
-                SettingCard {
+                LoomCard {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -242,7 +255,7 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            LuzzySwitch(
+                            LoomSwitch(
                                 checked = options.enabled,
                                 label = "注入记忆召回",
                                 onCheckedChange = { on ->
@@ -287,9 +300,9 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
             }
 
             // ③ 检索测试（真跑：与发送路径同一算法、同一设置）
-            item { SectionTitle("检索测试") }
+            item { LoomSectionLabel("检索测试") }
             item {
-                SettingCard {
+                LoomCard {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
                             text = if (turns > 0) {
@@ -305,12 +318,12 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            OutlinedTextField(
+                            LoomField(
                                 value = query,
                                 onValueChange = { query = it },
-                                placeholder = { Placeholder("输入一句话看会召回哪些轮次") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f).testTag("memory_query"),
+                                placeholder = "输入一句话看会召回哪些轮次",
+                                modifier = Modifier.weight(1f),
+                                testTag = "memory_query",
                             )
                             TextButton(
                                 enabled = !searching && query.isNotBlank() && turns > 0,
@@ -339,8 +352,8 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                             else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 result.forEach { hit ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        BadgeChip("第 ${hit.turn} 轮", MaterialTheme.colorScheme.primary)
-                                        BadgeChip(RecallEngine.percent(hit.score), MaterialTheme.colorScheme.tertiary)
+                                        LoomBadge("第 ${hit.turn} 轮", MaterialTheme.colorScheme.primary)
+                                        LoomBadge(RecallEngine.percent(hit.score), MaterialTheme.colorScheme.tertiary)
                                         Text(
                                             text = hit.text,
                                             fontSize = 12.sp,
@@ -364,9 +377,9 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
             }
 
             // ④ 内容管理
-            item { SectionTitle("记忆内容") }
+            item { LoomSectionLabel("记忆内容") }
             item {
-                SegmentChips(
+                LoomSegmentChips(
                     labels = listOf("向量分片 ${vector?.size ?: 0}", "总结记忆 ${classic?.size ?: 0}"),
                     selectedIndex = section,
                     onSelect = { section = it },
@@ -374,19 +387,21 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
             }
             when {
                 shown == null -> item {
-                    SettingCard {
+                    // 加载骨架（三行扫光，观感「正在读取」而非「页面坏了」）
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        repeat(3) { LoomSkeletonRow(height = 56.dp) }
                         Text(
                             text = "正在读取记忆…",
                             fontSize = 12.sp,
                             fontFamily = LuzzyFonts.Body,
                             color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp),
                         )
                     }
                 }
 
                 shown.isEmpty() -> item {
-                    EmptyState(
+                    LoomEmpty(
                         iconRes = LuzzyIcons.Memory,
                         title = if (shownKind == MemoryBrowser.VECTOR) "这个作用域没有向量分片" else "这个作用域没有总结记忆",
                         supporting = if (shownKind == MemoryBrowser.VECTOR) {
@@ -398,25 +413,27 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                     )
                 }
 
-                else -> items(shown, key = { "${it.kind}#${it.id}" }) { item ->
-                    MemoryRow(
-                        item = item,
-                        onToggle = { enabled ->
-                            scope.launch {
-                                val ok = source.setMemoryEnabled(
-                                    scopeUuid, scopeBranch, item.kind, item.id, enabled,
-                                )
-                                message = if (ok) {
-                                    if (enabled) "已恢复参与召回（${item.turnLabel}）" else "已停用（${item.turnLabel}）"
-                                } else {
-                                    "操作失败：这条记忆已不在库里"
+                else -> itemsIndexed(shown, key = { _, item -> "${item.kind}#${item.id}" }) { index, item ->
+                    LoomAppear(index = index) {
+                        MemoryRow(
+                            item = item,
+                            onToggle = { enabled ->
+                                scope.launch {
+                                    val ok = source.setMemoryEnabled(
+                                        scopeUuid, scopeBranch, item.kind, item.id, enabled,
+                                    )
+                                    message = if (ok) {
+                                        if (enabled) "已恢复参与召回（${item.turnLabel}）" else "已停用（${item.turnLabel}）"
+                                    } else {
+                                        "操作失败：这条记忆已不在库里"
+                                    }
+                                    refresh++
                                 }
-                                refresh++
-                            }
-                        },
-                        onEdit = { editing = item },
-                        onDelete = { deleting = item },
-                    )
+                            },
+                            onEdit = { editing = item },
+                            onDelete = { deleting = item },
+                        )
+                    }
                 }
             }
             if (shown?.isNotEmpty() == true) {
@@ -490,54 +507,38 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
     }
 
     deleting?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("删除这条记忆？", fontFamily = LuzzyFonts.Body) },
-            text = {
-                Text(
-                    text = "${item.turnLabel} · ${item.preview(60)}\n\n删除后不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                )
+        LoomConfirmDialog(
+            title = "删除这条记忆？",
+            text = "${item.turnLabel} · ${item.preview(60)}\n\n删除后不可恢复。",
+            confirmLabel = "删除",
+            onConfirm = {
+                deleting = null
+                scope.launch {
+                    val ok = source.deleteMemory(scopeUuid, scopeBranch, item.kind, item.id)
+                    message = if (ok) "已删除（${item.turnLabel}）" else "删除失败：这条记忆已不在库里"
+                    refresh++
+                }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    scope.launch {
-                        val ok = source.deleteMemory(scopeUuid, scopeBranch, item.kind, item.id)
-                        message = if (ok) "已删除（${item.turnLabel}）" else "删除失败：这条记忆已不在库里"
-                        refresh++
-                    }
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("取消") } },
+            onDismiss = { deleting = null },
         )
     }
 
     if (clearing) {
         val total = (vector?.size ?: 0) + (classic?.size ?: 0)
-        AlertDialog(
-            onDismissRequest = { clearing = false },
-            title = { Text("清空记忆？", fontFamily = LuzzyFonts.Body) },
-            text = {
-                Text(
-                    text = "将删除「${current?.name ?: "当前角色"}」在${branchLabel(current, scopeBranch)}上的 " +
-                        "$total 条记忆（向量分片与总结记忆一起）。\n\n此操作不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                )
+        LoomConfirmDialog(
+            title = "清空记忆？",
+            text = "将删除「${current?.name ?: "当前角色"}」在${branchLabel(current, scopeBranch)}上的 " +
+                "$total 条记忆（向量分片与总结记忆一起）。\n\n此操作不可恢复。",
+            confirmLabel = "清空",
+            onConfirm = {
+                clearing = false
+                scope.launch {
+                    val removed = source.clearMemories(scopeUuid, scopeBranch)
+                    message = if (removed > 0) "已清空 $removed 条记忆" else "没有可清空的记忆"
+                    refresh++
+                }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    clearing = false
-                    scope.launch {
-                        val removed = source.clearMemories(scopeUuid, scopeBranch)
-                        message = if (removed > 0) "已清空 $removed 条记忆" else "没有可清空的记忆"
-                        refresh++
-                    }
-                }) { Text("清空", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { clearing = false }) { Text("取消") } },
+            onDismiss = { clearing = false },
         )
     }
 }
@@ -563,38 +564,24 @@ private fun branchLabel(scope: MemoryScopeOption?, branchId: String?): String {
     return if (branch.isMain) "「${branch.name}」主线" else "「${branch.name}」分支"
 }
 
-/** 一行「标签 + 值 + 切换」，点了开选择器。 */
+/**
+ * 一行「标签 + 值 + 切换」，点了开选择器（LoomRow：值为主文本、标签为支撑文本）。
+ */
 @Composable
 private fun ScopeRow(label: String, value: String, enabled: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontFamily = LuzzyFonts.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(64.dp),
-        )
-        Text(
-            text = value,
-            fontSize = 14.sp,
-            fontFamily = LuzzyFonts.Body,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = if (enabled) "切换 ›" else "—",
-            fontSize = 12.sp,
-            fontFamily = LuzzyFonts.Body,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    LoomRow(
+        title = value,
+        supporting = label,
+        trailing = {
+            Text(
+                text = if (enabled) "切换 ›" else "—",
+                fontSize = 12.sp,
+                fontFamily = LuzzyFonts.Body,
+                color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+            )
+        },
+        onClick = if (enabled) onClick else null,
+    )
 }
 
 /** 引擎卡里的一组分段芯片（标题 + 选项 + 说明）。 */
@@ -615,7 +602,7 @@ private fun EngineChips(
             fontWeight = FontWeight.Medium,
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
         )
-        SegmentChips(
+        LoomSegmentChips(
             labels = labels,
             selectedIndex = selected,
             onSelect = onSelect,
@@ -630,7 +617,53 @@ private fun EngineChips(
     }
 }
 
-/** 一条记忆（向量分片 / 总结记忆共用）。点正文 = 展开/收起（旧版同义）。 */
+/**
+ * 分段选择（LoomChip 组合，承旧 `SegmentChips` 语义）：
+ * 禁用项**置灰并保持可读**，而不是隐藏——用户需要知道这个选项存在、为什么点不了
+ * （LoomChip 本体没有 disabled 态，按「缺组件用 Row/Box 组合」的纪律在本地补，不改库）。
+ */
+@Composable
+private fun LoomSegmentChips(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    selectable: List<Boolean> = labels.map { true },
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        labels.forEachIndexed { index, label ->
+            val enabled = selectable.getOrElse(index) { true }
+            if (enabled) {
+                LoomChip(
+                    text = label,
+                    selected = index == selectedIndex,
+                    onClick = { onSelect(index) },
+                )
+            } else {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .defaultMinSize(minHeight = 32.dp),
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 12.5.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 一条记忆（向量分片 / 总结记忆共用）。点正文 = 展开/收起（旧版同义）。
+ *
+ * 行卡 = `LoomCard`；徽标 = `LoomBadge`；启停 = `LoomSwitch`（读屏标签不变，
+ * 仪器化测试按 `启用 第 N 轮` 这个 contentDescription 点它）；「⋯」菜单 = `LoomOverflowMenu`。
+ */
 @Composable
 private fun MemoryRow(
     item: MemoryBrowser.Item,
@@ -638,51 +671,25 @@ private fun MemoryRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
     var expanded by remember(item.id) { mutableStateOf(false) }
-    SettingCard {
+    LoomCard {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                BadgeChip(item.turnLabel, MaterialTheme.colorScheme.secondary)
-                if (item.hasEmbedding) BadgeChip("已嵌入", MaterialTheme.colorScheme.tertiary)
-                if (item.chunkMode.isNotBlank()) BadgeChip(item.chunkMode, MaterialTheme.colorScheme.outline)
+                LoomBadge(item.turnLabel, MaterialTheme.colorScheme.secondary)
+                if (item.hasEmbedding) LoomBadge("已嵌入", MaterialTheme.colorScheme.tertiary)
+                if (item.chunkMode.isNotBlank()) LoomBadge(item.chunkMode, MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.weight(1f))
-                LuzzySwitch(checked = item.enabled, onCheckedChange = onToggle, label = "启用 ${item.turnLabel}")
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(
-                            painter = painterResource(LuzzyIcons.DotsHorizontal),
-                            contentDescription = "${item.turnLabel} 的更多操作",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("编辑内容", fontFamily = LuzzyFonts.Body, fontSize = 14.sp) },
-                            onClick = {
-                                menuOpen = false
-                                onEdit()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = "删除",
-                                    fontFamily = LuzzyFonts.Body,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                            onClick = {
-                                menuOpen = false
-                                onDelete()
-                            },
-                        )
-                    }
-                }
+                LoomSwitch(checked = item.enabled, onCheckedChange = onToggle, label = "启用 ${item.turnLabel}")
+                LoomOverflowMenu(
+                    label = "${item.turnLabel} 的更多操作",
+                    actions = listOf(
+                        LoomMenuAction(label = "编辑内容", onClick = onEdit),
+                        LoomMenuAction(label = "删除", onClick = onDelete, destructive = true),
+                    ),
+                )
             }
             // 元信息**单独一行**（截图抓到过缺陷：把它塞在徽标与开关之间时，
             // 空间被两头挤掉 → 模型名在词中间折行成「text-embeddin / g-3-small · 1536 维」）。
@@ -724,14 +731,14 @@ private fun MemoryRow(
     }
 }
 
-/** 危险操作行（清空）。 */
+/** 危险操作行（清空）：error 容器语义，文字用 onErrorContainer 保证可读。 */
 @Composable
 private fun DangerRow(text: String, onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f))
+            .clip(RoundedCornerShape(LoomShape.Control))
+            .background(MaterialTheme.colorScheme.errorContainer)
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
@@ -741,7 +748,7 @@ private fun DangerRow(text: String, onClick: () -> Unit) {
             fontSize = 13.sp,
             fontFamily = LuzzyFonts.Body,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.error,
+            color = MaterialTheme.colorScheme.onErrorContainer,
         )
     }
 }
@@ -752,6 +759,8 @@ private data class PickOption(val label: String, val selected: Boolean, val onPi
 private fun PickDialog(title: String, options: List<PickOption>, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = Loom.current.raised,
+        shape = RoundedCornerShape(LoomShape.Card),
         title = { Text(title, fontFamily = LuzzyFonts.Body) },
         text = {
             Column {

@@ -163,7 +163,12 @@ fun SettingsPage(
     val reportScope = rememberCoroutineScope()
     var showReport by remember { mutableStateOf(false) }
     var reportState by remember { mutableStateOf<Result<MigrationReport?>?>(null) }
-    PageScaffold("设置", LuzzyIcons.Settings, onOpenDrawer) { padding ->
+    PageScaffold(
+        title = "设置",
+        iconRes = LuzzyIcons.Settings,
+        onOpenDrawer = onOpenDrawer,
+        accent = MaterialTheme.colorScheme.primary,
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("settings_list"),
             contentPadding = PaddingValues(12.dp),
@@ -445,7 +450,12 @@ private fun FontSizeSliderRow(
 
 @Composable
 fun AboutPage(onOpenDrawer: () -> Unit) {
-    PageScaffold("关于", LuzzyIcons.Info, onOpenDrawer) { padding ->
+    PageScaffold(
+        title = "关于",
+        iconRes = LuzzyIcons.Info,
+        onOpenDrawer = onOpenDrawer,
+        accent = MaterialTheme.colorScheme.tertiary,
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),

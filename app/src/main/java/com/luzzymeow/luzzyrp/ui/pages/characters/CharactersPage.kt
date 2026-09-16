@@ -1,7 +1,10 @@
 package com.luzzymeow.luzzyrp.ui.pages.characters
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,13 +22,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -53,36 +56,30 @@ import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.AvatarLoader
-import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
-import com.luzzymeow.luzzyrp.ui.pages.common.EmptyState
-import com.luzzymeow.luzzyrp.ui.pages.common.PageScaffold
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomBadge
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomEmpty
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomIconButton
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomScaffold
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomSkeletonRow
 import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
+import com.luzzymeow.luzzyrp.ui.theme.LuzzySemantic
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import kotlinx.coroutines.launch
 
 /**
- * 角色卡页（v3.2 重建）。
+ * 角色卡页（v3.2 重建；v3.1 Loom v4 重皮）。
  *
- * ## 重建前的三处硬伤（都是「看着像功能」）
+ * ## Loom 化（逻辑与 testTag 全部保留）
+ * 织纹画布 + 大标题头；检索框 → 圆角字段（focus 珊瑚描边）；布局切换 → 40dp tonal 钮；
+ * 卡片 = 2:3 封面（真头像 / monogram 降级）+ 自下而上黑渐变 + 白字标题（两行防截断）+
+ * 徽标（当前使用 / 世界书 / 正则）+ 右上动作列；批量模式 = 变暗 + 中央勾选圆；
+ * 空态 / 检索未命中 / 加载骨架全部 Loom 形态。
  *
- * 1. **每张卡都用同一张固定立绘** `R.drawable.vanio_card` 当卡面，真头像缩成 26dp 小圆——列表里
- *    十张卡长得一模一样，认不出谁是谁（旧版卡面 = **角色自己的头像**，`ui-components.js` 的
- *    `CharacterCard` 模板）；
- * 2. 卡右上角的「导出 / 删除」是**不带点击的图标**；
- * 3. 卡片**点了没反应**：既不能切换角色、也不能进对话。
- *
- * ## 现在的形态（照旧版 IA 翻译）
- *
- * 头部动作（批量删除 / 导入）+ 检索框（名称或描述）+ 布局切换（网格 ↔ 叠卡）→
- * 卡片网格：真头像铺满卡面 + 底部渐变 + 「当前使用」徽标 + 「N 世界书 / N 正则」徽标 +
- * 真实动作（收藏 / 导出 / 删除）。批量模式下点卡片 = 勾选，右上角显示确认删除与计数。
- *
- * ## 两处**有意偏离**旧版（都写进 UI 或注释）
- *
- * 1. **不做「角色卡工坊 / 编辑器」**：旧版卡片还能点进编辑器改全部字段；本应用没有那个页面，
- *    所以**不放编辑按钮**（放一个点了没反应的按钮正是本轮在修的病）。
- * 2. **不做叠卡翻牌动画**：旧版的 deck 模式带翻卡聚焦与切换过渡（`focusedId` / `character-deck`），
- *    这里只做「单列大卡」这一层——过渡编排要跟聊天页的转场一起设计，不在这轮硬塞。
+ * ## 两处**有意偏离**旧版（保留，都写进注释）
+ * 1. **不做「角色卡工坊 / 编辑器」以外的假按钮**（点了没反应的按钮正是要修的病）；
+ * 2. **不做叠卡翻牌动画**——过渡编排要跟聊天页的转场一起设计。
  *
  * @param pageData 测试接缝（同 `MemoryPage`）。
  * @param onImportCharacter 宿主提供：拉起 SAF 选择角色卡 JSON（复用设置页那条导入通道）。
@@ -120,75 +117,67 @@ fun CharactersPage(
     val all = rows
     val shown = remember(all, query) { all?.filter { it.matches(query) } ?: emptyList() }
 
-    PageScaffold("角色卡管理", LuzzyIcons.Assistants, onOpenDrawer, actions = {
-        if (batchMode) {
-            IconButton(onClick = { batchMode = false; selected = emptySet() }) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Close),
+    LoomScaffold(
+        title = "角色",
+        iconRes = LuzzyIcons.Assistants,
+        onOpenDrawer = onOpenDrawer,
+        accent = MaterialTheme.colorScheme.secondary,
+        headerActions = {
+            if (batchMode) {
+                LoomIconButton(
+                    iconRes = LuzzyIcons.Close,
                     contentDescription = "取消选择",
+                    onClick = { batchMode = false; selected = emptySet() },
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            IconButton(
-                onClick = { confirmBatch = true },
-                enabled = selected.isNotEmpty(),
-            ) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Trash),
+                LoomIconButton(
+                    iconRes = LuzzyIcons.Trash,
                     contentDescription = "确认删除选中的 ${selected.size} 张",
-                    tint = if (selected.isEmpty()) {
-                        MaterialTheme.colorScheme.outlineVariant
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
+                    onClick = { if (selected.isNotEmpty()) confirmBatch = true },
+                    tint = if (selected.isEmpty()) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.error,
                 )
-            }
-        } else {
-            IconButton(onClick = onImportCharacter) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Download),
+            } else {
+                LoomIconButton(
+                    iconRes = LuzzyIcons.Download,
                     contentDescription = "导入角色卡",
-                    tint = MaterialTheme.colorScheme.primary,
+                    onClick = onImportCharacter,
+                    tint = MaterialTheme.colorScheme.secondary,
                 )
-            }
-            IconButton(
-                onClick = {
-                    // 「新建角色」= 建一张空白卡并直接进编辑器（旧版同流程：新建后就在编辑器里）。
-                    // 取数同样在主树里做完再开窗。
-                    scope.launch {
-                        val uuid = source.createCharacter()
-                        if (uuid == null) {
-                            message = "新建失败：写库出错"
-                        } else {
-                            refresh++
-                            editing = EditorRequest(
-                                uuid = uuid,
-                                draft = source.characterDraft(uuid),
-                                avatarPath = source.characterAvatarPath(uuid),
-                            )
-                        }
-                    }
-                },
-            ) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Plus),
+                LoomIconButton(
+                    iconRes = LuzzyIcons.Plus,
                     contentDescription = "新建角色",
-                    tint = MaterialTheme.colorScheme.primary,
+                    onClick = {
+                        // 「新建角色」= 建一张空白卡并直接进编辑器（旧版同流程：新建后就在编辑器里）。
+                        // 取数同样在主树里做完再开窗。
+                        scope.launch {
+                            val uuid = source.createCharacter()
+                            if (uuid == null) {
+                                message = "新建失败：写库出错"
+                            } else {
+                                refresh++
+                                editing = EditorRequest(
+                                    uuid = uuid,
+                                    draft = source.characterDraft(uuid),
+                                    avatarPath = source.characterAvatarPath(uuid),
+                                )
+                            }
+                        }
+                    },
+                    tint = MaterialTheme.colorScheme.secondary,
                 )
-            }
-            IconButton(onClick = { batchMode = true; selected = emptySet() }) {
-                Icon(
-                    painter = painterResource(LuzzyIcons.Trash),
+                LoomIconButton(
+                    iconRes = LuzzyIcons.Trash,
                     contentDescription = "批量删除",
+                    onClick = { batchMode = true; selected = emptySet() },
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                 )
             }
-        }
-    }) { padding ->
+        },
+    ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             // 检索 + 布局切换
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -197,15 +186,14 @@ fun CharactersPage(
                     onValueChange = { query = it },
                     placeholder = { Placeholder("检索角色卡名称或描述…") },
                     singleLine = true,
-                    modifier = Modifier.weight(1f).testTag("character_search"),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.weight(1f).height(54.dp).testTag("character_search"),
                 )
-                IconButton(onClick = { deck = !deck }) {
-                    Icon(
-                        painter = painterResource(if (deck) LuzzyIcons.Grid else LuzzyIcons.Cards),
-                        contentDescription = if (deck) "切换为网格布局" else "切换为叠卡布局",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                LoomIconButton(
+                    iconRes = if (deck) LuzzyIcons.Grid else LuzzyIcons.Cards,
+                    contentDescription = if (deck) "切换为网格布局" else "切换为叠卡布局",
+                    onClick = { deck = !deck },
+                )
             }
             Text(
                 text = when {
@@ -216,27 +204,27 @@ fun CharactersPage(
                 fontSize = 12.sp,
                 fontFamily = LuzzyFonts.Body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
+                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp),
             )
 
             when {
-                all == null -> Unit
-                all.isEmpty() -> EmptyState(
+                all == null -> Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    repeat(3) { LoomSkeletonRow(height = 150.dp) }
+                }
+                all.isEmpty() -> LoomEmpty(
                     iconRes = LuzzyIcons.Assistants,
                     title = "库里还没有角色卡",
                     supporting = "点右上角「＋」导入角色卡（PNG / JSON）；导入后这里会列出，并带上真实头像。",
                 )
-
-                shown.isEmpty() -> EmptyState(
+                shown.isEmpty() -> LoomEmpty(
                     iconRes = LuzzyIcons.Search,
                     title = "未找到匹配的角色卡",
                     supporting = "尝试更换检索关键词（检索范围：名称与描述）。",
                 )
-
                 else -> LazyVerticalGrid(
                     columns = if (deck) GridCells.Fixed(1) else GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize().testTag("character_grid"),
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -289,7 +277,7 @@ fun CharactersPage(
                     fontSize = 12.sp,
                     fontFamily = LuzzyFonts.Body,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
                 )
             }
         }
@@ -310,9 +298,12 @@ fun CharactersPage(
         )
     }
 
-    deleting?.let { card ->        AlertDialog(
+    deleting?.let { card ->
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("删除「${card.name}」？", fontFamily = LuzzyFonts.Body) },
+            shape = RoundedCornerShape(LoomShape.Card),
+            containerColor = Loom.current.raised,
+            title = { Text("删除「${card.name}」？", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error) },
             text = {
                 Text(
                     text = "将删除这张角色卡，以及它的**全部会话与记忆**（主线与所有分支），" +
@@ -320,10 +311,11 @@ fun CharactersPage(
                         "此操作不可恢复。",
                     fontFamily = LuzzyFonts.Body,
                     fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                androidx.compose.material3.TextButton(onClick = {
                     deleting = null
                     scope.launch {
                         val ok = source.deleteCharacter(card.uuid)
@@ -332,23 +324,28 @@ fun CharactersPage(
                     }
                 }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("取消") } },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text("取消") }
+            },
         )
     }
 
     if (confirmBatch) {
-        AlertDialog(
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmBatch = false },
-            title = { Text("删除选中的 ${selected.size} 张角色卡？", fontFamily = LuzzyFonts.Body) },
+            shape = RoundedCornerShape(LoomShape.Card),
+            containerColor = Loom.current.raised,
+            title = { Text("删除选中的 ${selected.size} 张角色卡？", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error) },
             text = {
                 Text(
                     text = "每张卡的**全部会话与记忆**（主线与所有分支）会一并删除。\n\n此操作不可恢复。",
                     fontFamily = LuzzyFonts.Body,
                     fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                androidx.compose.material3.TextButton(onClick = {
                     confirmBatch = false
                     val targets = selected.toList()
                     scope.launch {
@@ -361,16 +358,18 @@ fun CharactersPage(
                     }
                 }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmBatch = false }) { Text("取消") } },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmBatch = false }) { Text("取消") }
+            },
         )
     }
 }
 
 /**
- * 一张角色卡。
+ * 一张角色卡（Loom 形态）。
  *
  * 卡面 = **角色自己的头像**（解码失败或无头像 → 首字 monogram 大字，见 [AvatarLoader] 的降级纪律）。
- * 旧版把这张图铺满 2:3 的卡并压一层自下而上的黑渐变，让白字标题在任何画面上都可读——这里照做。
+ * 黑渐变保证白字标题在任意画面上可读；选中/当前态用 tonal 层表达。
  */
 @Composable
 private fun CharacterCard(
@@ -384,117 +383,125 @@ private fun CharacterCard(
     onExport: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Box(
-        Modifier
+    val scheme = MaterialTheme.colorScheme
+    val scale by animateFloatAsState(
+        targetValue = if (batchMode && selected) 0.97f else 1f,
+        animationSpec = com.luzzymeow.luzzyrp.ui.theme.loomSpring(),
+        label = "char-card-scale",
+    )
+    Surface(
+        modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(2f / 3f)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { if (batchMode) onToggleSelect() else onOpen() },
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(LoomShape.Card))
+            .let {
+                if (selected) it.border2(scheme.secondary) else it
+            },
+        shape = RoundedCornerShape(LoomShape.Card),
+        color = Loom.current.card,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (selected) scheme.secondary else Loom.current.hairline,
+        ),
     ) {
-        CharacterCover(card)
-        // 底部渐变：白字标题压在任意画面上都要读得清
         Box(
             Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, Color(0xFF141413).copy(alpha = 0.78f)),
-                        startY = 0f,
-                    ),
-                ),
-        )
-
-        if (card.isActive && !batchMode) {
-            Box(Modifier.align(Alignment.TopStart).padding(10.dp)) {
-                BadgeChip("当前使用", Color(0xFF5DB872))
-            }
-        }
-
-        if (batchMode) {
+                .clickable { if (batchMode) onToggleSelect() else onOpen() },
+        ) {
+            CharacterCover(card)
+            // 底部渐变：白字标题压在任意画面上都要读得清
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.35f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.error else Color.White.copy(alpha = 0.28f),
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color(0xFF141413).copy(alpha = 0.78f)),
+                            startY = 0f,
                         ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (selected) {
-                        Icon(
-                            painter = painterResource(LuzzyIcons.Check),
-                            contentDescription = "已选中",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
+                    ),
+            )
+
+            if (card.isActive && !batchMode) {
+                Box(Modifier.align(Alignment.TopStart).padding(10.dp)) {
+                    LoomBadge("当前使用", LuzzySemantic.Success)
                 }
             }
-        } else {
-            Column(
-                Modifier.align(Alignment.TopEnd).padding(6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                CardAction(
-                    iconRes = LuzzyIcons.Edit,
-                    desc = "编辑 ${card.name}",
-                    tint = Color.White,
-                    onClick = onEdit,
-                )
-                CardAction(
-                    iconRes = LuzzyIcons.Star,
-                    desc = if (card.favorite) "取消收藏 ${card.name}" else "收藏 ${card.name}",
-                    tint = if (card.favorite) Color(0xFFE9B949) else Color.White,
-                    onClick = onFavorite,
-                )
-                CardAction(
-                    iconRes = LuzzyIcons.Download,
-                    desc = "导出 ${card.name}",
-                    tint = Color.White,
-                    onClick = onExport,
-                )
-                CardAction(
-                    iconRes = LuzzyIcons.Trash,
-                    desc = "删除 ${card.name}",
-                    tint = Color.White,
-                    onClick = onDelete,
-                )
-            }
-        }
 
-        Column(
-            Modifier.align(Alignment.BottomStart).padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = card.name,
-                fontFamily = LuzzyFonts.Lora,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                // **两行**而不是一行：150% 系统字号下中文名一行放不下，
-                // `maxLines = 1` 会把名字**静默截断**（截图实测：「钟楼下的小恶魔」→「钟楼下的小恶」）。
-                // 卡片高度由 2:3 比例固定，名字多占一行只会往上挤一点，不会把卡撑破；
-                // 真要有超长名字，两行 + 省略号也比悄悄吃字强。
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 20.sp,
-            )
-            if (!batchMode) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    BadgeChip("${card.worldInfoCount} 世界书", Color.White)
-                    BadgeChip("${card.regexCount} 正则", Color.White)
+            if (batchMode) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) scheme.secondary else Color.White.copy(alpha = 0.28f),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) {
+                            Icon(
+                                painter = painterResource(LuzzyIcons.Check),
+                                contentDescription = "已选中",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    Modifier.align(Alignment.TopEnd).padding(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    CardAction(iconRes = LuzzyIcons.Edit, desc = "编辑 ${card.name}", tint = Color.White, onClick = onEdit)
+                    CardAction(
+                        iconRes = LuzzyIcons.Star,
+                        desc = if (card.favorite) "取消收藏 ${card.name}" else "收藏 ${card.name}",
+                        tint = if (card.favorite) Color(0xFFE9B949) else Color.White,
+                        onClick = onFavorite,
+                    )
+                    CardAction(iconRes = LuzzyIcons.Download, desc = "导出 ${card.name}", tint = Color.White, onClick = onExport)
+                    CardAction(iconRes = LuzzyIcons.Trash, desc = "删除 ${card.name}", tint = Color.White, onClick = onDelete)
+                }
+            }
+
+            Column(
+                Modifier.align(Alignment.BottomStart).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = card.name,
+                    fontFamily = LuzzyFonts.Lora,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    // **两行**而不是一行：150% 系统字号下中文名一行放不下，
+                    // `maxLines = 1` 会把名字**静默截断**（截图实测：「钟楼下的小恶魔」→「钟楼下的小恶」）。
+                    // 卡片高度由 2:3 比例固定，名字多占一行只会往上挤一点，不会把卡撑破。
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 20.sp,
+                )
+                if (!batchMode) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LoomBadge("${card.worldInfoCount} 世界书", Color.White)
+                        LoomBadge("${card.regexCount} 正则", Color.White)
+                    }
                 }
             }
         }
     }
 }
+
+private fun Modifier.border2(color: androidx.compose.ui.graphics.Color): Modifier =
+    this.border(2.dp, color, RoundedCornerShape(LoomShape.Card))
 
 /** 卡面头像（真图 / 首字降级）。 */
 @Composable
@@ -519,7 +526,6 @@ private fun CharacterCover(card: CharacterCards.Row) {
         // 1. 卡面名字与动作图标都是**白字**，底色必须恒为深色——用 `primaryContainer` 时
         //    亮色主题是浅粉（白字看不见）、暗色主题是深棕（与真图卡糊成一片），两头都不对；
         // 2. 深色底 + 浅色首字在亮/暗两套主题下**表现一致**，不需要按主题再分支。
-        // （第一版在浅底上补了一层 34% 黑纱，暗色下反而更脏——截图实测后改成这个方案。）
         Box(
             Modifier.fillMaxSize().background(Color(0xFF2E2724)),
             contentAlignment = Alignment.Center,
@@ -537,7 +543,7 @@ private fun CharacterCover(card: CharacterCards.Row) {
 /** 卡面右上角的圆形动作钮（白底半透明 + 白色图标，压在任意画面上都可辨）。 */
 @Composable
 private fun CardAction(iconRes: Int, desc: String, tint: Color, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(34.dp)) {
+    androidx.compose.material3.IconButton(onClick = onClick, modifier = Modifier.size(34.dp)) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = desc,

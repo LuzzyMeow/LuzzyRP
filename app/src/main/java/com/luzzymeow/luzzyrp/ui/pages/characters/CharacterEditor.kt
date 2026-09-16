@@ -122,10 +122,11 @@ fun CharacterEditorDialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        val loom = com.luzzymeow.luzzyrp.ui.theme.Loom.current
         Column(
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
+                .background(loom.canvas)
                 .imePadding(),
         ) {
             EditorHeader(
@@ -148,6 +149,7 @@ fun CharacterEditorDialog(
                             text = if (saving) "保存中…" else "保存角色",
                             fontFamily = LuzzyFonts.Body,
                             fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.secondary,
                         )
                     }
                 },
@@ -189,7 +191,7 @@ fun CharacterEditorDialog(
                                 .align(Alignment.CenterHorizontally)
                                 .fillMaxWidth(0.55f)
                                 .aspectRatio(2f / 3f)
-                                .clip(RoundedCornerShape(16.dp)),
+                                .clip(RoundedCornerShape(com.luzzymeow.luzzyrp.ui.theme.LoomShape.Hero)),
                         ) {
                             EditorCover(name = current.name, avatarPath = avatarPath)
                         }

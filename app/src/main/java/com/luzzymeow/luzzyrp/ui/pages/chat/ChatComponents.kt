@@ -256,20 +256,21 @@ fun List<ChatMessage>.visibleMessages(): List<ChatMessage> =
 
 /** AI 消息段落已由 Markdown 渲染器接管（[com.luzzymeow.luzzyrp.ui.markdown.MarkdownText]）。 */
 
-/** 分支指示 chip：`‹ 2/3 ›`。 */
+/** 分支指示 chip：`‹ 2/3 ›`（v3.1 Loom 化：tonal 底 + hairline 边 + primary 强调）。 */
 @Composable
 fun BranchChip(label: String, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f), RoundedCornerShape(50))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(50))
             .padding(horizontal = 8.dp, vertical = 2.dp),
     ) {
         Text(
             text = label,
             fontSize = 10.sp,
             fontFamily = LuzzyFonts.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }

@@ -2,17 +2,20 @@ package com.luzzymeow.luzzyrp.ui.pages.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,11 +23,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,7 +38,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import com.luzzymeow.luzzyrp.ui.theme.loomSpring
 
 /**
  * 编辑器通用件（W4 抽出）：世界书与预设两个编辑器共用同一套壳，
@@ -46,33 +54,42 @@ import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
  *   的嵌套滚动反模式（jetpack-compose 栈规约 #29），在手机上表现为「拖不动 / 拖错层」。
  */
 
-/** 编辑器页头：关闭 + 标题 + 右侧动作槽。 */
+/** 编辑器页头：关闭 + 标题 + 右侧动作槽（v3.1 Loom 化：44dp 钮 + 发丝线下界）。 */
 @Composable
 fun EditorHeader(
     title: String,
     onClose: () -> Unit,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onClose) {
-            Icon(
-                painter = painterResource(LuzzyIcons.Close),
-                contentDescription = "关闭",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.IconButton(onClick = onClose) {
+                Icon(
+                    painter = painterResource(LuzzyIcons.Close),
+                    contentDescription = "关闭",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = title,
+                fontFamily = LuzzyFonts.Lora,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
             )
+            trailing?.invoke()
         }
-        Text(
-            text = title,
-            fontFamily = LuzzyFonts.Lora,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .height(1.dp)
+                .background(Loom.current.hairline),
         )
-        trailing?.invoke()
     }
 }
 
@@ -138,7 +155,7 @@ fun ToggleRow(
 }
 
 /**
- * 分段选择（世界书的「范围」、预设的「注入角色」共用）。
+ * 分段选择（世界书的「范围」、预设的「注入角色」共用；v3.1 = Loom 药丸 + spring 变色）。
  *
  * [selectable] 用来表达「这一项现在不能选」（例：没有角色时不能建绑定条目）——
  * 此时**置灰并保持可读**，而不是隐藏：用户需要知道这个选项存在、为什么点不了。
@@ -154,42 +171,58 @@ fun SegmentChips(
         labels.forEachIndexed { index, label ->
             val enabled = selectable.getOrElse(index) { true }
             val active = index == selectedIndex
+            val bg by androidx.compose.animation.animateColorAsState(
+                targetValue = when {
+                    !enabled -> Loom.current.card
+                    active -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                },
+                animationSpec = loomSpring(),
+                label = "segment-bg",
+            )
+            val fg by androidx.compose.animation.animateColorAsState(
+                targetValue = when {
+                    !enabled -> MaterialTheme.colorScheme.outline
+                    active -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                animationSpec = loomSpring(),
+                label = "segment-fg",
+            )
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        when {
-                            !enabled -> MaterialTheme.colorScheme.surfaceContainer
-                            active -> MaterialTheme.colorScheme.primaryContainer
-                            else -> MaterialTheme.colorScheme.surfaceContainerHighest
-                        },
-                    )
+                    .clip(RoundedCornerShape(50))
+                    .background(bg)
                     .then(if (enabled) Modifier.clickable { onSelect(index) } else Modifier)
+                    .defaultMinSize(minHeight = 36.dp)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = label,
                     fontSize = 13.sp,
                     fontFamily = LuzzyFonts.Body,
-                    color = when {
-                        !enabled -> MaterialTheme.colorScheme.outline
-                        active -> MaterialTheme.colorScheme.onPrimaryContainer
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                    color = fg,
                 )
             }
         }
     }
 }
 
-/** 主按钮（保存 / 完成）。 */
+/** 主按钮（保存 / 完成；v3.1 = 48dp 高珊瑚药丸 + 按压缩放）。 */
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val reduce = com.luzzymeow.luzzyrp.ui.rememberReduceMotion()
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .graphicsLayer { if (pressed && !reduce) { scaleX = 0.985f; scaleY = 0.985f } }
+            .clip(RoundedCornerShape(LoomShape.Control))
             .background(MaterialTheme.colorScheme.primary)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick, interactionSource = interaction, indication = null)
+            .defaultMinSize(minHeight = 48.dp)
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -197,7 +230,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
             text = text,
             fontSize = 15.sp,
             fontFamily = LuzzyFonts.Body,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onPrimary,
         )
     }
@@ -226,7 +259,7 @@ fun LongTextEditorDialog(
         Column(
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Loom.current.canvas)
                 .imePadding(),
         ) {
             EditorHeader(

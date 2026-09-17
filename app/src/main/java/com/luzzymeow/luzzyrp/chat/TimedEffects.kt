@@ -189,4 +189,7 @@ object TimedEffects {
 
     /** kv 键（分支作用域：ST 的「效果只作用于激活它的那条聊天」的等价物）。 */
     fun kvKey(branchId: String): String = "worldbook.timedEffects.$branchId"
+
+    /** kv 键前缀（清理/继承时按前缀遍历所有分支的作用域状态）。 */
+    const val KV_PREFIX = "worldbook.timedEffects."
 }

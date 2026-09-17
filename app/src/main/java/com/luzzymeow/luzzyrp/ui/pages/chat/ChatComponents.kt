@@ -80,9 +80,9 @@ object LuzzyGlass {
 fun glassTint(user: Boolean): Color {
     val dark = LuzzyThemeColors.isDark
     return if (user) {
-        if (dark) Color(0xFF3A2E26) else Color(0xFFF1E3D9)
+        if (dark) ChatPalette.GlassTintDark else ChatPalette.GlassTintLight
     } else {
-        if (dark) Color(0xFF2B2824) else Color(0xFFF5F0E8)
+        if (dark) ChatPalette.GlassNeutralDark else ChatPalette.GlassNeutralLight
     }
 }
 
@@ -469,8 +469,9 @@ val LocalChatHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.c
  * ```
  *
  * - **功能行**：入口统一 48dp 热区 / 17dp 图标、**彼此相邻不留缝**（热区不重叠、
- *   视觉成簇不散）；附件尚未实现，点击给出「需要哪一期」的如实说明——
- *   保留入口但不说谎，比删掉入口或装死都更合适；
+ *   视觉成簇不散）；附件已由批 C4 实现（选择器/待发条/三协议图片转换全链路，
+ *   见 [ChatAttachment] 与 [PendingAttachmentStrip]）——本段 2026-09-12「尚未实现」的
+ *   记录已过时，2026-09-17 注释回填；
  *   **C6（会话 78）撤掉了「工作区」入口**：上游零对应物（已核实），保留它只会让功能行
  *   在窄屏上更挤——它此前点击也只给提示，不是真功能。
  * - **模型**：从「实心珊瑚胶囊」降为**纯文字 + 下拉箭头**，只占一行尾部——

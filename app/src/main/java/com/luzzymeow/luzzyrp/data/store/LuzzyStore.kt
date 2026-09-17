@@ -244,6 +244,10 @@ class LuzzyStore(private val db: LuzzyDatabase) {
 
     suspend fun keys(): List<String> = db.kv().keys()
 
+    /** 前缀过滤的键列表（数据量 = kv 总量，量级小；供作用域键遍历，如定时效果清理）。 */
+    suspend fun keysWithPrefix(prefix: String): List<String> =
+        keys().filter { it.startsWith(prefix) }
+
     // ---------------------------------------------------------------- 附件
 
     suspend fun attachments(): List<AttachmentEntity> = db.attachments().all()

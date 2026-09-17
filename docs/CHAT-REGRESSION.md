@@ -24,9 +24,11 @@ ANDROID_SERIAL=emulator-5554 ./gradlew checkChat
 
 它做三件事：
 1. `verifyEmulatorDevice` —— 设备门禁（只允许模拟器）；
-2. `testDebugUnitTest` —— **304 例**纯逻辑单测（引擎 / 检索 / 工具 / 标记过滤 / 用量 / 分支模型 /
-   消息与状态机 / Markdown 解析）；
-3. `connectedDebugAndroidTest` —— **7 例**仪器化 UI 测试（见下）。
+2. `testDebugUnitTest` —— 纯逻辑单测（引擎 / 检索 / 工具 / 标记过滤 / 用量 / 分支模型 /
+   消息与状态机 / Markdown 解析 / 定时效果 / 记忆总结触发；v3.2 期实测 **840+ 例**，以当轮输出为准）；
+3. `connectedDebugAndroidTest` —— **153 例**仪器化 UI 测试（v3.2 起；早先「7 例」为 Stage 0 基线）。
+   覆盖：聊天链路（发送/流式/错误卡/确认框/用量脚注）+ 各页（会话/角色/世界书/预设/记忆/
+   用量/设置/关于）+ 数据层 + 组件画廊留证 + 亮暗/字号 VisualCapture。
 
 | UI 用例 | 覆盖的产品契约 |
 |---|---|

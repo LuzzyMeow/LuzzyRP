@@ -75,6 +75,7 @@ import com.luzzymeow.luzzyrp.chat.BranchTree
 import com.luzzymeow.luzzyrp.chat.ChatBranch
 import com.luzzymeow.luzzyrp.chat.AgentLoop
 import android.util.Log
+import com.luzzymeow.luzzyrp.chat.MemorySummarizer
 import com.luzzymeow.luzzyrp.chat.PromptAssembler
 import com.luzzymeow.luzzyrp.chat.PromptInputSource
 import com.luzzymeow.luzzyrp.chat.WorldBookTool
@@ -88,11 +89,14 @@ import com.luzzymeow.luzzyrp.data.world.WorldBookRepository
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.legacy.MigrationCoordinator
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomConfirmDialog
 import com.luzzymeow.luzzyrp.chat.llm.LlmMessage
 import com.luzzymeow.luzzyrp.chat.llm.LlmRole
 import com.luzzymeow.luzzyrp.ui.DevHooks
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 import com.luzzymeow.luzzyrp.ui.theme.Motion
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -365,6 +369,13 @@ fun ChatPage(
      * 所以在记忆页改完设置回到聊天页，读到的就是新值（不需要跨页事件总线）。
      */
     var recallOptions by remember { mutableStateOf(com.luzzymeow.luzzyrp.chat.RecallOptions()) }
+    /**
+     * 记忆自动总结（v3.2）：与角色一起载入设置，每轮完成后按阈值触发（见 [maybeSummarize]）。
+     */
+    val summarizer = remember(repository) { MemorySummarizer(repository.storeIfAvailable) }
+    var summarySettings by remember { mutableStateOf(MemorySummarizer.Settings()) }
+    /** 本分支已总结覆盖到的轮次（kv 持久化；键随角色+分支，避免切换后重复总结）。 */
+    var lastSummarizedTurn by remember { mutableStateOf(0) }
     var characterName by remember { mutableStateOf(VanioCard.Name) }
     var characterStatus by remember { mutableStateOf("${VanioCard.Subtitle} · 在线") }
     var tree by remember { mutableStateOf(BranchTree.single()) }
@@ -409,7 +420,18 @@ fun ChatPage(
                 // 与「没配过名字」两种状态混成一个，而它们的提示词字节完全不同。
                 promptUserName = runCatching { promptSource.userName() }.getOrDefault("")
                 recallOptions = runCatching { promptSource.recallOptions() }
-                    .getOrDefault(com.luzzymeow.luzzyrp.chat.RecallOptions())            } else {
+                    .getOrDefault(com.luzzymeow.luzzyrp.chat.RecallOptions())
+                // 记忆自动总结：设置（全局 kv）+ 本角色本分支的进度（按角色键，切换后不重复总结）
+                summarySettings = runCatching {
+                    repository.storeIfAvailable.let { s ->
+                        MemorySummarizer.Settings.from(s.json(MemorySummarizer.SETTINGS_KEY))
+                    }
+                }.getOrDefault(MemorySummarizer.Settings())
+                lastSummarizedTurn = runCatching {
+                    repository.storeIfAvailable
+                        .string("memory.summaryProgress.$characterUuid.${session.activeBranchId}")
+                        ?.toIntOrNull() ?: 0
+                }.getOrDefault(0)            } else {
                 val main = demoHistory()
                 branchMessages[ChatBranch.MainId] = main
                 tree = tree.addChild(
@@ -444,6 +466,44 @@ fun ChatPage(
     }
     val activeBranchId = tree.activeId
     val activeMessages = branchMessages[activeBranchId].orEmpty()
+
+    /**
+     * 记忆自动总结触发点（v3.2，send/onFinish 的收尾调用）。
+     *
+     * **为什么在 AI 消息落库之后**：总结取「最近可见消息」，必须等本轮 AI 回复已入库，
+     * 否则最后一条轮次还没进历史。任何失败静默（[MemorySummarizer] 内部已保证），
+     * 这里只负责算进度、落进度键——**不弹提示、不阻塞界面**（后台优化，用户无感）。
+     * 演示态（无宿主角色）不触发：没有 scope 可写。
+     */
+    fun maybeSummarize(branchId: String) {
+        val uuid = characterUuid ?: return
+        val completedTurns = activeMessages.count { it is ChatMessage.User }
+        val lastCovered = lastSummarizedTurn
+        val due = summarizer.shouldSummarize(summarySettings, completedTurns, lastCovered) ?: return
+        val turns = activeMessages.visibleMessages().map { message ->
+            when (message) {
+                is ChatMessage.User -> promptUserName.ifBlank { "你" } to message.text
+                is ChatMessage.Ai -> characterName to message.raw
+                else -> null
+            }
+        }.filterNotNull()
+        if (turns.isEmpty()) return
+        val turnBranchId = branchId
+        val settings = summarySettings
+        scope.launch {
+            val text = summarizer.summarizeAndStore(
+                scope = ScopeId(uuid, turnBranchId),
+                turns = turns,
+                upToTurn = due,
+                config = config,
+                characterName = characterName,
+            )
+            if (text != null) {
+                lastSummarizedTurn = due
+                repository.storeIfAvailable.putString("memory.summaryProgress.$uuid.$turnBranchId", due.toString())
+            }
+        }
+    }
 
     /**
      * 「可见项 → 存储下标」映射（A6）：尾部快照**不渲染**，但**下标必须仍是存储下标**——
@@ -920,6 +980,8 @@ fun ChatPage(
                     )
                 }
                 if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
+                // 记忆自动总结（v3.2）：同 regenerateFrom——本轮也是一次真实轮次推进
+                maybeSummarize(turnBranchId)
             }
         }
     }
@@ -967,6 +1029,8 @@ fun ChatPage(
                     )
                 }
                 if (error != null) chatErrors.add(ChatError(System.currentTimeMillis(), error))
+                // 记忆自动总结（v3.2）：AI 回复已入库后检查阈值（内部静默失败，不阻塞）
+                maybeSummarize(turnBranchId)
             }
         }
     }
@@ -1018,6 +1082,8 @@ fun ChatPage(
                 branch = tree.branches.first { it.id == branchId },
                 copiedMessages = copied,
                 makeActive = true,
+                // 定时效果继承：分叉点是父线历史前缀，正生效的粘性/冷却窗口随分支带走（ST 语义）
+                parentBranchId = parentId,
             )
         }
         followTail = true
@@ -1111,7 +1177,7 @@ fun ChatPage(
                         .align(Alignment.TopCenter)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color(0xFF141413).copy(alpha = 0.55f), Color.Transparent),
+                                listOf(ChatPalette.ScrimWarm.copy(alpha = 0.55f), Color.Transparent),
                             ),
                         ),
                 )
@@ -1122,7 +1188,7 @@ fun ChatPage(
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color.Transparent, Color(0xFF141413).copy(alpha = 0.30f)),
+                                listOf(Color.Transparent, ChatPalette.ScrimWarm.copy(alpha = 0.30f)),
                             ),
                         ),
                 )
@@ -1504,57 +1570,35 @@ fun ChatPage(
     }
 
     pendingDelete?.let { pending ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("删除消息", fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
-            text = {
-                Text(
-                    text = if (pending.count == 1) {
-                        "将删除 1 条消息，不可恢复。"
-                    } else {
-                        "将删除 ${pending.count} 条消息（这条及其之后的全部楼层），不可恢复。"
-                    },
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                )
+        LoomConfirmDialog(
+            title = "删除消息",
+            text = if (pending.count == 1) {
+                "将删除 1 条消息，不可恢复。"
+            } else {
+                "将删除 ${pending.count} 条消息（这条及其之后的全部楼层），不可恢复。"
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    removeMessage(pending.branchId, pending.index, pending.andAfter)
-                    pendingDelete = null
-                }) {
-                    Text("删除", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error)
-                }
+            confirmLabel = "删除",
+            onConfirm = {
+                removeMessage(pending.branchId, pending.index, pending.andAfter)
+                pendingDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("取消", fontFamily = LuzzyFonts.Body) }
-            },
+            onDismiss = { pendingDelete = null },
         )
     }
 
     pendingRerunIndex?.let { index ->
-        AlertDialog(
-            onDismissRequest = { pendingRerunIndex = null },
-            title = { Text("按新内容重新生成？", fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
-            text = {
-                Text(
-                    text = "你的消息已修改。若现在重新生成，这条消息之后的楼层会被删除。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                )
+        LoomConfirmDialog(
+            title = "按新内容重新生成？",
+            text = "你的消息已修改。若现在重新生成，这条消息之后的楼层会被删除。",
+            confirmLabel = "重新生成",
+            danger = false,
+            cancelLabel = "只改内容",
+            onConfirm = {
+                pendingRerunIndex = null
+                removeMessage(activeBranchId, index + 1, andAfter = true)
+                regenerateFrom(index)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingRerunIndex = null
-                    removeMessage(activeBranchId, index + 1, andAfter = true)
-                    regenerateFrom(index)
-                }) { Text("重新生成", fontFamily = LuzzyFonts.Body) }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRerunIndex = null }) { Text("只改内容", fontFamily = LuzzyFonts.Body) }
-            },
+            onDismiss = { pendingRerunIndex = null },
         )
     }
 
@@ -1669,6 +1713,10 @@ private fun TransportConfigDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        // v3.2 Dialog 收敛：供应商配置是复杂表单（四字段+校验+保存逻辑），保留自有结构，
+        // 但容器统一 Loom 视觉（圆角/容器色与其余弹层一致）
+        shape = RoundedCornerShape(LoomShape.Card),
+        containerColor = Loom.current.raised,
         title = {
             Text(
                 text = "供应商配置",

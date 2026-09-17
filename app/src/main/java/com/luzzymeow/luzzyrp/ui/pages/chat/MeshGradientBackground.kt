@@ -61,24 +61,25 @@ fun MeshGradientBackground(
     val a3 = if (reduceMotion) 2.4f else p3
     val a4 = if (reduceMotion) 3.6f else p4
 
+    // 色值真源 = ChatPalette（v3.2 收敛：聊天沉浸特许色区，出处见其 KDoc）
     val baseStops: List<Pair<Float, Color>> = if (dark) {
         listOf(
-            0.0f to Color(0xFF231917),
-            0.35f to Color(0xFF1C1412),
-            0.7f to Color(0xFF171110),
-            1.0f to Color(0xFF140E0D),
+            0.0f to ChatPalette.DarkBase0,
+            0.35f to ChatPalette.DarkBase1,
+            0.7f to ChatPalette.DarkBase2,
+            1.0f to ChatPalette.DarkBase3,
         )
     } else {
         listOf(
-            0.0f to Color(0xFFFFF4F1),
-            0.4f to Color(0xFFFDEFEA),
-            0.75f to Color(0xFFFFF4F1),
-            1.0f to Color(0xFFFFF8F6),
+            0.0f to ChatPalette.LightBase0,
+            0.4f to ChatPalette.LightBase1,
+            0.75f to ChatPalette.LightBase2,
+            1.0f to ChatPalette.LightBase3,
         )
     }
-    val blobCoral = if (dark) Color(0xFF723520).copy(alpha = 0.34f) else Color(0xFFFFDBD0).copy(alpha = 0.55f)
-    val blobAmber = if (dark) Color(0xFF51461A).copy(alpha = 0.22f) else Color(0xFFF4E2A7).copy(alpha = 0.42f)
-    val blobSoft = if (dark) Color(0xFF5D4036).copy(alpha = 0.20f) else Color(0xFFF7E4DF).copy(alpha = 0.5f)
+    val blobCoral = if (dark) ChatPalette.BlobCoralDark.copy(alpha = 0.34f) else ChatPalette.BlobCoralLight.copy(alpha = 0.55f)
+    val blobAmber = if (dark) ChatPalette.BlobAmberDark.copy(alpha = 0.22f) else ChatPalette.BlobAmberLight.copy(alpha = 0.42f)
+    val blobSoft = if (dark) ChatPalette.BlobSoftDark.copy(alpha = 0.20f) else ChatPalette.BlobSoftLight.copy(alpha = 0.5f)
 
     Box(modifier = modifier) {
         Canvas(Modifier.fillMaxSize()) {

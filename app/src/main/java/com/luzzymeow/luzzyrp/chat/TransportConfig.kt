@@ -9,7 +9,9 @@ import androidx.core.content.edit
  * **密钥纪律**：apiKey 只保存在设备本地（SharedPreferences），不入库、不进构建产物、
  * 不写日志；界面展示一律经 [maskedKey] 打码。
  *
- * P2 用 SharedPreferences 持久化；P4 数据层建设时迁 DataStore（届时本类改为 DataStore 读取层）。
+ * P2 用 SharedPreferences 持久化。旧注释「P4 迁 DataStore」已撤（2026-09-17）：
+ * P4 数据层建成后评估，本配置只有 5 个标量键、无查询需求，迁移属纯改写无收益；
+ * SharedPreferences + apply 在本场景（低频写、进程内读）没有实际问题。
  */
 data class TransportConfig(
     /** 供应商 Base URL（可含 `/v1`），如 `https://api.deepseek.com`。 */

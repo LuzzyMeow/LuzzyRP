@@ -214,6 +214,30 @@ class WorldBookActivatorV31Test {
     }
 
     @Test
+    fun `定时效果——整书清理 下标漂移场景 整书forget语义`() {
+        // 书 bookA 两个条目 + 别的书 bookB 一条；编辑/删除/插入后整书 forget 只清 bookA
+        val entryA0 = WorldEntry(comment = "a0", content = "c", keys = listOf("龙"), sticky = 3)
+        val entryA1 = WorldEntry(comment = "a1", content = "c", keys = listOf("凤"), cooldown = 2)
+        val entryB = WorldEntry(comment = "b", content = "c", keys = listOf("鹰"), sticky = 2)
+        val keyA0 = "bookA#0"
+        val keyA1 = "bookA#1"
+        val keyB = "bookB#0"
+        var state = TimedEffects.State()
+        state = TimedEffects.advance(state, 1, listOf(keyA0 to entryA0), listOf(keyA0 to entryA0))
+        state = TimedEffects.advance(state, 1, listOf(keyA1 to entryA1), listOf(keyA1 to entryA1))
+        state = TimedEffects.advance(state, 1, listOf(keyB to entryB), listOf(keyB to entryB))
+
+        // 模拟 LoreBookRepository.forgetBookTimedEffects 的核心过滤（按书 id 前缀）
+        val forgotten = state.copy(
+            sticky = state.sticky.filterKeys { !it.startsWith("bookA#") },
+            cooldown = state.cooldown.filterKeys { !it.startsWith("bookA#") },
+        )
+        assertFalse("bookA 粘性清除", forgotten.sticky.containsKey(keyA0))
+        assertFalse("bookA 冷却清除", forgotten.cooldown.containsKey(keyA1))
+        assertTrue("别的书不受影响", forgotten.sticky.containsKey(keyB))
+    }
+
+    @Test
     fun `激活整合——delay 拦下、粘性直过、冷却拦下`() {
         val entry = WorldEntry(comment = "龙", content = "c", keys = listOf("龙"), sticky = 2, delay = 1)
         val rows = listOf(row(entry))

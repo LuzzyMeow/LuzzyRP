@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.ui.pages
 
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
@@ -193,6 +194,11 @@ class MemoryVisualCaptureTest {
         capture("65-memory-light-top")
 
         // ② 检索测试：真打字 + 真检索 → 命中行
+        // v3.2 起记忆引擎卡下新增「自动总结」卡，检索测试（含 memory_query）被推到首屏之外
+        // ——LazyColumn 首屏外节点不组合（CHAT-REGRESSION §4 登记过的坑），
+        // 必须先语义滚动把它带进组合树再打字。
+        compose.onNodeWithTag("memory_list").performScrollToNode(hasTestTag("memory_query"))
+        compose.waitForIdle()
         compose.onNodeWithTag("memory_query").performTextInput("红苹果树在哪")
         compose.onAllNodes(hasText("检索", substring = false)).onFirst().performClick()
         Await.text(compose, "命中会以", 8_000, substring = true)

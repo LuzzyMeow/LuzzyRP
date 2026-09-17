@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -54,6 +55,8 @@ import com.luzzymeow.luzzyrp.chat.CharacterCards
 import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.data.store.DatabaseProvider
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
+import com.luzzymeow.luzzyrp.ui.pages.chat.ChatPalette
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomConfirmDialog
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.AvatarLoader
 import com.luzzymeow.luzzyrp.ui.pages.common.LoomBadge
@@ -63,6 +66,7 @@ import com.luzzymeow.luzzyrp.ui.pages.common.LoomScaffold
 import com.luzzymeow.luzzyrp.ui.pages.common.LoomSkeletonRow
 import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
 import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomAppear
 import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 import com.luzzymeow.luzzyrp.ui.theme.LuzzySemantic
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
@@ -228,7 +232,8 @@ fun CharactersPage(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(shown, key = { it.uuid }) { card ->
+                    itemsIndexed(shown, key = { _, card -> card.uuid }) { index, card ->
+                        LoomAppear(index = index) {
                         CharacterCard(
                             card = card,
                             batchMode = batchMode,
@@ -268,6 +273,7 @@ fun CharactersPage(
                                 }
                             },
                         )
+                        }
                     }
                 }
             }
@@ -299,68 +305,42 @@ fun CharactersPage(
     }
 
     deleting?.let { card ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { deleting = null },
-            shape = RoundedCornerShape(LoomShape.Card),
-            containerColor = Loom.current.raised,
-            title = { Text("删除「${card.name}」？", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error) },
-            text = {
-                Text(
-                    text = "将删除这张角色卡，以及它的**全部会话与记忆**（主线与所有分支），" +
-                        "并同步删除 ${card.worldInfoCount} 条角色世界书与 ${card.regexCount} 条正则。\n\n" +
-                        "此操作不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        LoomConfirmDialog(
+            title = "删除「${card.name}」？",
+            text = "将删除这张角色卡，以及它的**全部会话与记忆**（主线与所有分支），" +
+                "并同步删除 ${card.worldInfoCount} 条角色世界书与 ${card.regexCount} 条正则。\n\n" +
+                "此操作不可恢复。",
+            confirmLabel = "删除",
+            onConfirm = {
+                deleting = null
+                scope.launch {
+                    val ok = source.deleteCharacter(card.uuid)
+                    message = if (ok) "已删除「${card.name}」及其会话数据" else "删除失败"
+                    refresh++
+                }
             },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    deleting = null
-                    scope.launch {
-                        val ok = source.deleteCharacter(card.uuid)
-                        message = if (ok) "已删除「${card.name}」及其会话数据" else "删除失败"
-                        refresh++
-                    }
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text("取消") }
-            },
+            onDismiss = { deleting = null },
         )
     }
 
     if (confirmBatch) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { confirmBatch = false },
-            shape = RoundedCornerShape(LoomShape.Card),
-            containerColor = Loom.current.raised,
-            title = { Text("删除选中的 ${selected.size} 张角色卡？", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error) },
-            text = {
-                Text(
-                    text = "每张卡的**全部会话与记忆**（主线与所有分支）会一并删除。\n\n此操作不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        LoomConfirmDialog(
+            title = "删除选中的 ${selected.size} 张角色卡？",
+            text = "每张卡的**全部会话与记忆**（主线与所有分支）会一并删除。\n\n此操作不可恢复。",
+            confirmLabel = "删除",
+            onConfirm = {
+                confirmBatch = false
+                val targets = selected.toList()
+                scope.launch {
+                    var removed = 0
+                    targets.forEach { if (source.deleteCharacter(it)) removed++ }
+                    batchMode = false
+                    selected = emptySet()
+                    message = if (removed > 0) "已删除 $removed 张角色卡" else "删除失败"
+                    refresh++
+                }
             },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    confirmBatch = false
-                    val targets = selected.toList()
-                    scope.launch {
-                        var removed = 0
-                        targets.forEach { if (source.deleteCharacter(it)) removed++ }
-                        batchMode = false
-                        selected = emptySet()
-                        message = if (removed > 0) "已删除 $removed 张角色卡" else "删除失败"
-                        refresh++
-                    }
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { confirmBatch = false }) { Text("取消") }
-            },
+            onDismiss = { confirmBatch = false },
         )
     }
 }
@@ -527,7 +507,7 @@ private fun CharacterCover(card: CharacterCards.Row) {
         //    亮色主题是浅粉（白字看不见）、暗色主题是深棕（与真图卡糊成一片），两头都不对；
         // 2. 深色底 + 浅色首字在亮/暗两套主题下**表现一致**，不需要按主题再分支。
         Box(
-            Modifier.fillMaxSize().background(Color(0xFF2E2724)),
+            Modifier.fillMaxSize().background(ChatPalette.MonogramBase),
             contentAlignment = Alignment.Center,
         ) {
             Text(

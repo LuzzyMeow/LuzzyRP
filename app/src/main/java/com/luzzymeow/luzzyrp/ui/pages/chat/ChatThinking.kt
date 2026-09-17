@@ -59,6 +59,8 @@ import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 import com.luzzymeow.luzzyrp.ui.theme.Motion
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 
 /**
  * 思考节点（DESIGN-compose §14；形态对齐 rikkahub）。
@@ -396,7 +398,7 @@ fun ThinkingCard(
                 Modifier.drawBehind {
                     val x = 12.dp.toPx()
                     drawLine(
-                        color = Color(0xFFBEB6A8).copy(alpha = 0.35f),
+                        color = ChatPalette.PanelMuted.copy(alpha = 0.35f),
                         start = Offset(x, 18.dp.toPx()),
                         end = Offset(x, size.height - 18.dp.toPx()),
                         strokeWidth = 1.dp.toPx(),
@@ -594,6 +596,9 @@ fun EditMessageDialog(
     var text by remember(initial) { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        // v3.2 Dialog 收敛：多行正文编辑保留自有结构（testTag 不动），容器统一 Loom 视觉
+        shape = RoundedCornerShape(LoomShape.Card),
+        containerColor = Loom.current.raised,
         title = { Text(title, fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
         text = {
             OutlinedTextField(

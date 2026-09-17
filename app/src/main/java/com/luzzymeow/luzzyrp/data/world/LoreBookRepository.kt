@@ -1,5 +1,6 @@
 package com.luzzymeow.luzzyrp.data.world
 
+import com.luzzymeow.luzzyrp.chat.TimedEffects
 import com.luzzymeow.luzzyrp.data.store.LuzzyStore
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -247,6 +248,56 @@ class LoreBookRepository(private val store: LuzzyStore) {
             raws.add(target, moved)
             store.replaceRecords(LoreBook.KIND_ENTRY, bookId, raws, System.currentTimeMillis())
             touch(bookId)
+        }
+    }
+
+    // ---------------------------------------------------------------- 定时效果清理
+
+    /**
+     * 整书清除定时效果状态（v3.2，接通 `TimedEffects.forget` 的 UI 保存路径）。
+     *
+     * **语义与取舍（如实登记）**：条目身份 = `TimedEffects.keyOf(bookId, slot)`（书内下标），
+     * 所以**删除 / 插入 / 复制 / 移动**任一使下标漂移的操作，都会让已登记的窗口挂到
+     * 错位的条目上——窗口错挂比状态丢失更糟（会凭空激活无关条目），故这类操作一律
+     * 整书 forget（宁丢状态不挂错）。纯内容编辑（不改条目数）由 UI 调
+     * [forgetEntryTimedEffects] 只清对应 slot。
+     *
+     * 状态按分支作用域存 kv（`worldbook.timedEffects.<branchId>`，[TimedEffects.kvKey]），
+     * 这里遍历全部分支键逐个清除——书是全局资产，任何分支上的效果都不该留。
+     */
+    suspend fun forgetBookTimedEffects(bookId: String) {
+        store.transaction {
+            val keys = store.keysWithPrefix(TimedEffects.KV_PREFIX)
+            for (key in keys) {
+                val state = TimedEffects.fromJson(store.json(key))
+                val next = state.copy(
+                    sticky = state.sticky.filterKeys { !it.startsWith("$bookId#") },
+                    cooldown = state.cooldown.filterKeys { !it.startsWith("$bookId#") },
+                )
+                if (next != state) {
+                    if (next.isEmpty) store.putJson(key, null) else store.putJson(key, TimedEffects.toJson(next))
+                }
+            }
+        }
+    }
+
+    /**
+     * 单条目的定时效果清除（条目**内容编辑**路径；ST「修改条目移除效果」语义）。
+     *
+     * 只在**条目数不变**的内容保存时调用——插入 / 删除使后续条目下标整体漂移，
+     * 应改调 [forgetBookTimedEffects] 整书清除。
+     */
+    suspend fun forgetEntryTimedEffects(bookId: String, slot: Int) {
+        store.transaction {
+            val key = TimedEffects.keyOf(bookId, slot)
+            val kvKeys = store.keysWithPrefix(TimedEffects.KV_PREFIX)
+            for (kvKey in kvKeys) {
+                val state = TimedEffects.fromJson(store.json(kvKey))
+                val next = TimedEffects.forget(state, key)
+                if (next != state) {
+                    if (next.isEmpty) store.putJson(kvKey, null) else store.putJson(kvKey, TimedEffects.toJson(next))
+                }
+            }
         }
     }
 

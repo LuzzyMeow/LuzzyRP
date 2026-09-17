@@ -64,6 +64,12 @@ import com.luzzymeow.luzzyrp.ui.pages.common.EntryCard
 import com.luzzymeow.luzzyrp.ui.pages.common.EntryMenuAction
 import com.luzzymeow.luzzyrp.ui.pages.common.FieldLabel
 import com.luzzymeow.luzzyrp.ui.pages.common.LongTextEditorDialog
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomConfirmDialog
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomOption
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomOptionDialog
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomSkeletonRow
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomScaffold
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomTextDialog
 import com.luzzymeow.luzzyrp.ui.pages.common.LuzzySwitch
 import com.luzzymeow.luzzyrp.ui.pages.common.PageHeader
 import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
@@ -73,6 +79,8 @@ import com.luzzymeow.luzzyrp.ui.pages.common.SettingCard
 import com.luzzymeow.luzzyrp.ui.pages.common.ToggleRow
 import com.luzzymeow.luzzyrp.ui.pages.common.loomCanvas
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -231,9 +239,14 @@ private fun LoreBookList(
 
     val visible = books?.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
-        topBar = { PageHeader("世界书", LuzzyIcons.BookOpen, onOpenDrawer) },
+    // Loom v4 顶页头（v3.2 收敛）：原 M3 TopAppBar 兼容壳（PageHeader）与其它顶页的
+    // 「织纹画布 + 大标题头」观感割裂——统一到 LoomScaffold（accent 照设计契约 = tertiary）。
+    // 搜索框/新建按钮的既有版式不动。
+    LoomScaffold(
+        title = "世界书",
+        iconRes = LuzzyIcons.BookOpen,
+        onOpenDrawer = onOpenDrawer,
+        accent = MaterialTheme.colorScheme.tertiary,
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
@@ -244,11 +257,12 @@ private fun LoreBookList(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("lore_search"),
             )
             when {
-                books == null -> Box(
-                    Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                books == null -> Column(
+                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("读取中…", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // 骨架统一（v3.2）：裸文本「读取中…」换与其它页一致的三行骨架
+                    repeat(3) { LoomSkeletonRow(height = 64.dp) }
                 }
                 books!!.isEmpty() -> LazyColumn(
                     // weight(1f) 而不是 fillMaxSize()：后者会吃掉全部空间，把底部「新建」按钮
@@ -327,36 +341,25 @@ private fun LoreBookList(
     }
 
     if (showCreate) {
-        AlertDialog(
-            onDismissRequest = { showCreate = false },
-            title = { Text("创建世界书", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OptionRow(
-                        title = "新建世界书",
-                        supporting = "从头开始，创建一个新世界书",
-                        onClick = {
-                            showCreate = false
-                            scope.launch {
-                                val id = withContext(Dispatchers.IO) { repo.create("未命名世界书") }
-                                books = withContext(Dispatchers.IO) { repo.all() }
-                                onChanged()
-                                onOpenBook(id)
-                            }
-                        },
-                    )
-                    OptionRow(
-                        title = "导入世界书",
-                        supporting = "支持 CCv3 Spec 与 SillyTavern 格式",
-                        onClick = {
-                            showCreate = false
-                            importLauncher.launch(arrayOf("application/json"))
-                        },
-                    )
+        LoomOptionDialog(
+            title = "创建世界书",
+            options = listOf(
+                LoomOption(title = "新建世界书", supporting = "从头开始，创建一个新世界书"),
+                LoomOption(title = "导入世界书", supporting = "支持 CCv3 Spec 与 SillyTavern 格式"),
+            ),
+            onDismiss = { showCreate = false },
+            onPick = { index ->
+                showCreate = false
+                if (index == 0) {
+                    scope.launch {
+                        val id = withContext(Dispatchers.IO) { repo.create("未命名世界书") }
+                        books = withContext(Dispatchers.IO) { repo.all() }
+                        onChanged()
+                        onOpenBook(id)
+                    }
+                } else {
+                    importLauncher.launch(arrayOf("application/json"))
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCreate = false }) { Text("取消", fontFamily = LuzzyFonts.Body) }
             },
         )
     }
@@ -398,11 +401,13 @@ private fun LoreBookList(
     }
 
     notice?.let { text ->
-        AlertDialog(
-            onDismissRequest = { notice = null },
-            title = { Text("世界书", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) },
-            text = { Text(text, fontFamily = LuzzyFonts.Body, fontSize = 14.sp) },
-            confirmButton = { TextButton(onClick = { notice = null }) { Text("好", fontFamily = LuzzyFonts.Body) } },
+        LoomConfirmDialog(
+            title = "世界书",
+            text = text,
+            confirmLabel = "好",
+            danger = false,
+            onConfirm = { notice = null },
+            onDismiss = { notice = null },
         )
     }
 }
@@ -540,24 +545,12 @@ private fun LoreBookRow(
         }
     }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("删除世界书", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) },
-            text = {
-                Text(
-                    "将删除《${book.name}》及其 ${book.entryCount} 条条目，并从角色绑定中移除。此操作不可撤销。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 14.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete() }) {
-                    Text("删除", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消", fontFamily = LuzzyFonts.Body) }
-            },
+        LoomConfirmDialog(
+            title = "删除世界书",
+            text = "将删除《${book.name}》及其 ${book.entryCount} 条条目，并从角色绑定中移除。此操作不可撤销。",
+            confirmLabel = "删除",
+            onConfirm = { confirmDelete = false; onDelete() },
+            onDismiss = { confirmDelete = false },
         )
     }
 }
@@ -692,28 +685,42 @@ private fun LoreBookEdit(
                             onEdit = { onEditEntry(indexed.index) },
                             onDuplicate = {
                                 scope.launch {
-                                    withContext(Dispatchers.IO) { repo.duplicateEntry(bookId, indexed.index) }
+                                    withContext(Dispatchers.IO) {
+                                        repo.duplicateEntry(bookId, indexed.index)
+                                        // 插入使后续条目下标整体漂移 → 整书 forget（宁丢状态不挂错，
+                                        // 见 LoreBookRepository.forgetBookTimedEffects 取舍注）
+                                        repo.forgetBookTimedEffects(bookId)
+                                    }
                                     book = withContext(Dispatchers.IO) { repo.byId(bookId) }
                                     onChanged()
                                 }
                             },
                             onMoveUp = {
                                 scope.launch {
-                                    withContext(Dispatchers.IO) { repo.moveEntry(bookId, indexed.index, -1) }
+                                    withContext(Dispatchers.IO) {
+                                        repo.moveEntry(bookId, indexed.index, -1)
+                                        repo.forgetBookTimedEffects(bookId)
+                                    }
                                     book = withContext(Dispatchers.IO) { repo.byId(bookId) }
                                     onChanged()
                                 }
                             },
                             onMoveDown = {
                                 scope.launch {
-                                    withContext(Dispatchers.IO) { repo.moveEntry(bookId, indexed.index, +1) }
+                                    withContext(Dispatchers.IO) {
+                                        repo.moveEntry(bookId, indexed.index, +1)
+                                        repo.forgetBookTimedEffects(bookId)
+                                    }
                                     book = withContext(Dispatchers.IO) { repo.byId(bookId) }
                                     onChanged()
                                 }
                             },
                             onDelete = {
                                 scope.launch {
-                                    withContext(Dispatchers.IO) { repo.removeEntry(bookId, indexed.index) }
+                                    withContext(Dispatchers.IO) {
+                                        repo.removeEntry(bookId, indexed.index)
+                                        repo.forgetBookTimedEffects(bookId)
+                                    }
                                     book = withContext(Dispatchers.IO) { repo.byId(bookId) }
                                     onChanged()
                                 }
@@ -826,24 +833,12 @@ private fun EntryRow(
      * 收编进菜单后这条纪律照旧：菜单点「删除」只开确认框，确认才真删。
      */
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("删除「${entry.displayName}」？", fontFamily = LuzzyFonts.Body) },
-            text = {
-                Text(
-                    text = "这条条目会从本书里移除（${entry.triggerSummary}）。\n\n此操作不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete() }) {
-                    Text("删除", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消", fontFamily = LuzzyFonts.Body) }
-            },
+        LoomConfirmDialog(
+            title = "删除「${entry.displayName}」？",
+            text = "这条条目会从本书里移除（${entry.triggerSummary}）。\n\n此操作不可恢复。",
+            confirmLabel = "删除",
+            onConfirm = { confirmDelete = false; onDelete() },
+            onDismiss = { confirmDelete = false },
         )
     }
 }
@@ -885,7 +880,12 @@ private fun WorldEntryEdit(
                 trailing = {
                     TextButton(onClick = {
                         scope.launch {
-                            withContext(Dispatchers.IO) { repo.upsertEntry(bookId, slot, draft ?: return@withContext) }
+                            withContext(Dispatchers.IO) {
+                                repo.upsertEntry(bookId, slot, draft ?: return@withContext)
+                                // 定时效果「修改条目移除效果」（ST 语义，v3.2 接通）：
+                                // 编辑保存只清本 slot（条目数未变，其他条目下标未漂移）。
+                                if (slot != null) repo.forgetEntryTimedEffects(bookId, slot)
+                            }
                             onBack()
                         }
                     }) { Text("保存", fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.Medium) }
@@ -999,7 +999,11 @@ private fun WorldEntryEdit(
                 item {
                     PrimaryButton("保存", onClick = {
                         scope.launch {
-                            withContext(Dispatchers.IO) { repo.upsertEntry(bookId, slot, entry) }
+                            withContext(Dispatchers.IO) {
+                                repo.upsertEntry(bookId, slot, entry)
+                                // 同顶部「保存」：内容编辑只清本 slot 的定时效果
+                                if (slot != null) repo.forgetEntryTimedEffects(bookId, slot)
+                            }
                             onBack()
                         }
                     }, modifier = Modifier.fillMaxWidth())
@@ -1188,21 +1192,11 @@ private fun OptionDialog(
     onDismiss: () -> Unit,
     onPick: (WorldEntry) -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                options.forEach { option ->
-                    OptionRow(
-                        title = option.title,
-                        supporting = option.supporting,
-                        onClick = { onPick(option.apply(entry)) },
-                    )
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("取消", fontFamily = LuzzyFonts.Body) } },
+    LoomOptionDialog(
+        title = title,
+        options = options.map { LoomOption(title = it.title, supporting = it.supporting) },
+        onDismiss = onDismiss,
+        onPick = { index -> onPick(options[index].apply(entry)) },
     )
 }
 
@@ -1219,6 +1213,8 @@ private fun NumberDialog(
     var text by remember { mutableStateOf(initial.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(LoomShape.Card),
+        containerColor = Loom.current.raised,
         title = { Text(title, fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1254,21 +1250,12 @@ private fun TextInputDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var text by remember { mutableStateOf(initial) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { FieldLabel(hint) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(text) }) { Text("确定", fontFamily = LuzzyFonts.Body) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消", fontFamily = LuzzyFonts.Body) } },
+    LoomTextDialog(
+        title = title,
+        initial = initial,
+        hint = hint,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
     )
 }
 

@@ -47,6 +47,8 @@ import com.luzzymeow.luzzyrp.chat.BranchTree
 import com.luzzymeow.luzzyrp.chat.ChatBranch
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.common.BadgeChip
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomConfirmDialog
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomTextDialog
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
 
 /**
@@ -149,28 +151,15 @@ fun BranchListSheet(
     }
 
     deleting?.let { branch ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("删除分支", fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
-            text = {
-                Text(
-                    text = "「${branch.name}」及其后代的全部楼层会被删除，且不可恢复。",
-                    fontFamily = LuzzyFonts.Body,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                )
+        LoomConfirmDialog(
+            title = "删除分支",
+            text = "「${branch.name}」及其后代的全部楼层会被删除，且不可恢复。",
+            confirmLabel = "删除",
+            onConfirm = {
+                onDelete(branch.id)
+                deleting = null
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDelete(branch.id)
-                    deleting = null
-                }) {
-                    Text("删除", fontFamily = LuzzyFonts.Body, color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleting = null }) { Text("取消", fontFamily = LuzzyFonts.Body) }
-            },
+            onDismiss = { deleting = null },
         )
     }
 }
@@ -212,7 +201,7 @@ private fun BranchRow(
                 if (depth > 0) {
                     val x = 9.dp.toPx()
                     val stroke = 1.5.dp.toPx()
-                    val line = Color(0xFFBEB6A8).copy(alpha = 0.85f)
+                    val line = ChatPalette.PanelMuted.copy(alpha = 0.85f)
                     drawLine(line, Offset(x, 0f), Offset(x, size.height), stroke)
                     drawLine(line, Offset(x, size.height / 2f), Offset(19.dp.toPx(), size.height / 2f), stroke)
                 }
@@ -291,36 +280,12 @@ private fun RenameDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var name by remember { mutableStateOf(branch.name) }
-    val trimmed = name.trim()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("重命名分支", fontFamily = LuzzyFonts.Body, fontSize = 17.sp) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it.take(ChatBranch.MaxNameLength) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = "${name.length}/${ChatBranch.MaxNameLength}",
-                    fontSize = 11.sp,
-                    fontFamily = LuzzyFonts.Body,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.align(Alignment.End),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(trimmed) },
-                enabled = trimmed.isNotEmpty(),
-            ) { Text("保存", fontFamily = LuzzyFonts.Body) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", fontFamily = LuzzyFonts.Body) }
-        },
+    LoomTextDialog(
+        title = "重命名分支",
+        initial = branch.name,
+        maxLength = ChatBranch.MaxNameLength,
+        confirmLabel = "保存",
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
     )
 }

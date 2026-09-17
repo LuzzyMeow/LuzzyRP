@@ -447,6 +447,8 @@ fun LoomHero(
     summary: String? = null,
     trailing: (@Composable () -> Unit)? = null,
     overlap: (@Composable () -> Unit)? = null,
+    /** 带下内容槽（BandCard 兼容壳走这里；不传 = 纯 hero 头带）。 */
+    content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(LoomShape.Hero)
     Surface(
@@ -461,21 +463,29 @@ fun LoomHero(
                     val w = size.width
                     val h = size.height
                     drawRect(Brush.horizontalGradient(listOf(first, second)))
-                    // 织纹（两层错位波形，白 14%/7%）
+                    // 顶缘微光（织层高光，与 LoomCard 同一语言）
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
+                            startY = 0f,
+                            endY = h * 0.22f,
+                        ),
+                    )
+                    // 织纹（两层错位波形，白 16%/8%）
                     val upper = Path().apply {
                         moveTo(0f, h * 0.72f)
                         cubicTo(w * 0.24f, h * 0.38f, w * 0.52f, h * 1.0f, w * 0.76f, h * 0.56f)
                         cubicTo(w * 0.87f, h * 0.36f, w, h * 0.52f, w, h * 0.52f)
                         lineTo(w, h); lineTo(0f, h); close()
                     }
-                    drawPath(upper, Color.White.copy(alpha = 0.14f))
+                    drawPath(upper, Color.White.copy(alpha = 0.16f))
                     val lower = Path().apply {
                         moveTo(0f, h * 0.88f)
                         cubicTo(w * 0.2f, h * 0.64f, w * 0.46f, h * 1.06f, w * 0.7f, h * 0.78f)
                         cubicTo(w * 0.85f, h * 0.6f, w, h * 0.74f, w, h * 0.74f)
                         lineTo(w, h); lineTo(0f, h); close()
                     }
-                    drawPath(lower, Color.White.copy(alpha = 0.07f))
+                    drawPath(lower, Color.White.copy(alpha = 0.08f))
                 }
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -534,8 +544,9 @@ fun LoomHero(
             }
             Column(
                 Modifier.padding(top = if (overlap != null) 30.dp else 6.dp, bottom = 8.dp),
-                content = {},
-            )
+            ) {
+                content?.invoke(this)
+            }
         }
     }
 }
@@ -867,6 +878,143 @@ data class LoomMenuAction(
     val destructive: Boolean = false,
     val enabled: Boolean = true,
 )
+
+/**
+ * 选项弹层（LoomDialog 形态，v3.2 Dialog 收敛新增）：
+ * 标题 + 一列可点选项 + 取消钮。世界书「创建/绑定/激活策略」、记忆「作用域切换」同构。
+ *
+ * [destructiveIndex] 标记的选项以 error 色呈现（如「删除」入口）。
+ */
+data class LoomOption(val title: String, val supporting: String? = null, val destructive: Boolean = false)
+
+@Composable
+fun LoomOptionDialog(
+    title: String,
+    options: List<LoomOption>,
+    onDismiss: () -> Unit,
+    onPick: (Int) -> Unit,
+    testTag: String? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(LoomShape.Card),
+        containerColor = Loom.current.raised,
+        title = {
+            Text(
+                title,
+                fontFamily = LuzzyFonts.Body,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurface,
+            )
+        },
+        text = {
+            Column {
+                options.forEachIndexed { index, option ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onPick(index) }
+                            .padding(horizontal = 10.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = option.title,
+                                fontSize = 14.sp,
+                                fontFamily = LuzzyFonts.Body,
+                                color = if (option.destructive) scheme.error else scheme.onSurface,
+                            )
+                            if (option.supporting != null) {
+                                Text(
+                                    text = option.supporting,
+                                    fontSize = 11.5.sp,
+                                    fontFamily = LuzzyFonts.Body,
+                                    color = scheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier,
+            ) { Text("取消", color = scheme.onSurfaceVariant, fontFamily = LuzzyFonts.Body) }
+        },
+    )
+}
+
+/**
+ * 文本输入弹层（LoomDialog 形态，v3.2 Dialog 收敛新增）：
+ * 标题 + 单行输入 + 确定/取消。[confirmEnabled] 供「空名不许提交」这类守卫；
+ * 尾部字符计数（[maxLength] 非空时显示）承分支重命名的 `n/30` 语义。
+ */
+@Composable
+fun LoomTextDialog(
+    title: String,
+    initial: String,
+    hint: String? = null,
+    maxLength: Int? = null,
+    confirmLabel: String = "确定",
+    testTagConfirm: String? = null,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf(initial) }
+    val scheme = MaterialTheme.colorScheme
+    val trimmed = text.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(LoomShape.Card),
+        containerColor = Loom.current.raised,
+        title = {
+            Text(
+                title,
+                fontFamily = LuzzyFonts.Body,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurface,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { next ->
+                        text = if (maxLength != null) next.take(maxLength) else next
+                    },
+                    label = hint?.let { h -> { androidx.compose.material3.Text(h, fontFamily = LuzzyFonts.Body) } },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (maxLength != null) {
+                    Text(
+                        text = "${text.length}/$maxLength",
+                        fontSize = 11.sp,
+                        fontFamily = LuzzyFonts.Body,
+                        color = scheme.outline,
+                        modifier = Modifier.align(Alignment.End),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(trimmed) },
+                enabled = trimmed.isNotEmpty(),
+                modifier = if (testTagConfirm != null) Modifier.testTag(testTagConfirm) else Modifier,
+            ) { Text(confirmLabel, color = scheme.primary, fontFamily = LuzzyFonts.Body, fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消", color = scheme.onSurfaceVariant, fontFamily = LuzzyFonts.Body) }
+        },
+    )
+}
 
 /** 「⋯」图标钮 + 菜单。 */
 @Composable

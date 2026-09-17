@@ -1,6 +1,7 @@
 package com.luzzymeow.luzzyrp.data.chat
 
 import com.luzzymeow.luzzyrp.chat.ChatBranch
+import com.luzzymeow.luzzyrp.chat.TimedEffects
 import com.luzzymeow.luzzyrp.chat.ToolStep
 import com.luzzymeow.luzzyrp.chat.UsageInfo
 import com.luzzymeow.luzzyrp.data.legacy.LegacyKeys
@@ -44,6 +45,13 @@ import kotlinx.serialization.json.put
  * 属 P5 范围；现在重启后只保留当前展示的那一版。
  */
 class ChatSessionRepository(private val store: LuzzyStore) {
+
+    /**
+     * 存储门面只读暴露（v3.2）：记忆自动总结（`MemorySummarizer`）与聊天页共用**同一个库**——
+     * 各自 new `LuzzyStore(DatabaseProvider.luzzy(...))` 虽然等价（Room 单例），但绕开了
+     * 仪器化注入的接缝（测试注入指向临时库的 repository，总结却去读真库）。消费方只读。
+     */
+    val storeIfAvailable: LuzzyStore get() = store
 
     /** 一次会话的完整快照（一个角色 + 它的全部分支与消息）。 */
     data class Session(
@@ -92,7 +100,8 @@ class ChatSessionRepository(private val store: LuzzyStore) {
      *
      * 只带列表要显示的东西（角色名/分支名/条数/末条预览），不搬历史正文：
      * 总览页要为每个分支各取一次摘要，把正文一起读出来会让「打开一个列表」变成搬几 MB。
-     * 呈现层（总览页）尚未设计（新页面属视觉产出，按硬性规定 9 需先过设计流程），
+     * 呈现层 = `ui/pages/SessionsPage.kt`（Loom v4 会话总览，已上线消费本层）——
+     * 「尚未设计」的旧注释已过时（2026-09-17 回填）。
      * 所以这一层先把数据准备好并按语义排好序。
      */
     data class SessionSummary(
@@ -265,12 +274,21 @@ class ChatSessionRepository(private val store: LuzzyStore) {
         }
     }
 
-    /** 新建分支并把它当前的消息副本落盘（从某楼分叉）。 */
+    /**
+     * 新建分支并把它当前的消息副本落盘（从某楼分叉）。
+     *
+     * **定时效果继承**（v3.2，对齐 ST「分支继承父聊天状态」语义）：新分支复制父分支的
+     * `worldbook.timedEffects.<parentBranchId>` 状态——分叉点是父线历史的前缀，那时正生效的
+     * 粘性/冷却窗口在新线上同样成立（父线后续推进不影响新线的既有窗口）。
+     * 父分支无状态时**不写键**（避免给每个新分支都留一份空 JSON）。
+     */
     suspend fun createBranch(
         characterUuid: String,
         branch: ChatBranch,
         copiedMessages: List<ChatMessage>,
         makeActive: Boolean,
+        /** 父分支 id（定时效果继承的来源；null = 不继承，如演示态）。 */
+        parentBranchId: String? = null,
     ) {
         val existing = store.branches(characterUuid)
         val rows = existing + branch.toEntity(characterUuid, isMain = branch.id == ChatBranch.MainId)
@@ -287,9 +305,15 @@ class ChatSessionRepository(private val store: LuzzyStore) {
                 },
             )
         }
+        if (parentBranchId != null) {
+            val parentState = store.json(TimedEffects.kvKey(parentBranchId))
+            if (parentState != null && TimedEffects.fromJson(parentState).isEmpty.not()) {
+                store.putJson(TimedEffects.kvKey(branch.id), parentState)
+            }
+        }
     }
 
-    /** 删除分支：连它的消息一起清掉（上游语义：删除分支即删除该分支的会话数据）。 */
+    /** 删除分支：连它的消息与定时效果状态一起清掉（上游语义：删除分支即删除该分支的会话数据）。 */
     suspend fun deleteBranch(characterUuid: String, branchId: String) {
         store.replaceBranches(
             characterUuid = characterUuid,
@@ -298,6 +322,7 @@ class ChatSessionRepository(private val store: LuzzyStore) {
                 ?.takeIf { it != branchId } ?: ChatBranch.MainId,
         )
         store.deleteScope(scopeOf(characterUuid, branchId))
+        store.remove(TimedEffects.kvKey(branchId))
     }
 
     /** 重命名分支。 */

@@ -5733,3 +5733,124 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - 49130 字节 / 425 行，低于 65536 预算（此前超 12570）；
 - `git diff --stat`：+44 / −274；章节结构完整（§0-§7 + §9），硬性规定引用全部可达；
 - 坑表逐条核对未动。
+
+## 会话 91 · 2026-09-17 · 收尾计划批 A-E 中断点（用户暂停，待续）
+
+> 本会话执行「遗留清零 + 上游定向借鉴 + 设计收敛 + 可游玩发版」计划（v2，用户批准）。
+> **用户在批 E-3 中途叫停**，工作节点如下，恢复时从「待办」继续。
+
+### 完成（已编译验证 / 测试绿）
+
+**批 G · 上游对照（先行完成）**
+- 调研：上游 STA1N156/RP-Hub 最新发布 1.9.5（09-15）；基线 1.9.3 后仅 1.9.4（零 UI）+ 1.9.5。
+  1.9.5 设计增量四点：导航面板分组/世界书设置布局/记忆系统样式/移动端。上游纯亮色 Tailwind 风、无暗色。
+- 对照基准：模拟机 Loom v4 逐页截图（8 页）+ 上游在线 demo 截图（浏览器 agent-browser 采集，
+  空库 demo 有 Vue 插值裸露）→ `docs/design/upstream-vs-loom/`（13 图 + README 判断文档）。
+- **结论**：不换设计基线。定向借鉴仅 2 项落地（G-1 抽屉分组标签 / G-2 记忆模式说明排版），
+  其余（两列网格/双滑杆并排/压缩率可视化/亮色观感）不借鉴，理由登记在对照 README。
+- 「拉取上游」澄清：代码层无落点（同步退役+WebView 删），只做设计借鉴。
+
+**批 A · 机制修复**
+- `app/build.gradle.kts`：release 签名 keystore.properties 缺失时 throw GradleException（原静默回退 debug 签名）。
+- `tools/verify-markers.ps1`：收编为只校验 assets/ext/**（8 文件清单 + 孤儿检查），142 条 P6 遗留 FAIL 清零，8 PASS 全绿。
+- 注释漂移×3：ChatComponents.kt（附件已实现）/ RecallEngine.kt（词面口径为现行，撤真嵌入承诺）/ TransportConfig.kt（撤 DataStore 承诺）。
+
+**批 B · 世界书定时效果收尾**
+- `LoreBookRepository.forgetBookTimedEffects / forgetEntryTimedEffects`（新）+ `LuzzyStore.keysWithPrefix`（新）+ `TimedEffects.KV_PREFIX`（新）。
+- UI 接线：条目**内容保存**只 forget 本 slot（LoreBookPages 两处保存按钮）；**删除/复制/上移/下移**整书 forget（下标漂移，宁丢状态不挂错）。
+- 分支继承：`ChatSessionRepository.createBranch` 加 parentBranchId 参数复制父分支定时效果 kv（ST 语义）；deleteBranch 连带清 kv；ChatPage「从这里分支」已接线。
+- JVM 测试：`WorldBookActivatorV31Test` 加「整书清理」用例，绿。
+
+**批 C · 记忆自动总结**
+- `chat/MemorySummarizer.kt`（新）：每 N 轮（默认 5，UI 3-20 可调）取最近可见消息 → 复用 OpenAiTransport 总结 → 写 classic 记忆（payload 口径对齐旧数据）；失败静默（日志 W）。
+- 触发点：ChatPage send()/regenerateFrom() 的 onFinish 后 `maybeSummarize`（AI 消息落库后）；进度按角色+分支存 kv。
+- 设置：`PageDataSource.summarySettings/saveSummarySettings`（kv `memory.autoSummary`）；记忆页新「自动总结」卡（开关+间隔 chips）。
+- 文案：空状态两段改为如实（原生已产出）；词面口径说明照上游模式说明排版重构（G-2）。
+- JVM 测试：`MemorySummarizerTest`（触发/跳档/关闭/序列化，5 用例，绿）。
+
+**批 D · 会话总览**
+- 核实：SessionsPage 本就是消费 overview()/SessionSummary 的跨角色总览（Loom v4 完整）——
+  此前盘点误判「悬空」，`ChatSessionRepository.kt:103` 过时注释已回填。无需新页面。
+
+**批 E（部分）**
+- E-1：BandCard 薄壳化（4 处调用零改动，织带绘制单源到 LoomHero，含顶缘高光补齐）。
+- E-2：`DrawerCloseMs = LoomMotion.PageMs`（420ms 单一真源）；抽屉分组标签（对话/创作/数据，G-1）。
+- E-3（部分）：LoreBookList 顶页头换 LoomScaffold（tertiary accent）+ 加载态换骨架；
+  `ChatPalette.kt`（新）建立聊天特许色区，已接入 MeshGradient 全部 14 值 + 玻璃 tint 4 值 +
+  PanelMuted 2 处 + ScrimWarm 2 处 + MonogramBase 豁免色 2 处（ChatPalette 同包免导入，
+  characters 两文件已加 import）。
+
+### 中断点（批 E-3 最后一项进行中）
+
+- **CharactersPage LoomAppear 接入编译红**：`itemsIndexed` + `LoomAppear` 包裹 CharacterCard
+  后出现连锁报错（114 行 `EditorRequest` unresolved / 227 行 when else 报「must be last」）——
+  疑似编辑后某层大括号不平衡或 private 类解析被连锁污染（EditorRequest 定义在 571 行，文件结构肉眼看完好）。
+  **下一步**：从 232 行 items 区段核对大括号配平（LoomAppear 加了一层 `{}`），或直接 `git diff`
+  该文件回看改动；修绿后跑一次 compileDebugKotlin 全量确认。
+
+### 待办（恢复后按序）
+
+1. **修 CharactersPage 编译红**（上述中断点）。
+2. 批 E-3 剩余：Settings/About/Usage/World 列表 LoomAppear 补齐（Usage 无列表可跳过酌情）；
+   Dialog 收敛 ~16 处手写 AlertDialog → LoomConfirmDialog（testTag/文案不变；世界书 10 处、Chat 3 处、Static/Characters 3 处）。
+3. 批 F：checkChat 全绿（153 条）→ WORKLOG 本会话补记完成态 → CHAT-REGRESSION 用例数更新（153）→
+   DESIGN-ui-v4 回填（批 G 借鉴决策 + 收敛决策）→ CHANGELOG v3.2.0 段（versionCode 15→16，build.gradle.kts 同步）→
+   `:app:assembleRelease` + apksigner 核对（ed78235d…）→ 模拟机逐页真窗口 screencap 走查（insets/Dialog 顶带）→
+   `docs/HANDOFF-release-acceptance.md`（真机验收清单，含 SAF 实测/设置还原两条命令/首装回落流）→ push + tag v3.2.0（Release 不发，等真机回归）。
+
+### 决策
+
+- 上游借鉴范围：仅 2 项（对照文档已登记「不借鉴」清单，防未来再议）。
+- verify-markers 门禁去留：收编（非删除）——扩展层是 AGPL 自有代码且仍有 WebView 兜底语义。
+- 会话总览页：不新建（已存在），把精力转给 Dialog 收敛与发版链。
+- 模拟器截图通道：`adb exec-out screencap -p`（真窗口含系统栏）+ agent-browser 截上游 demo；
+  上游 demo 空库页面 Vue 插值裸露属上游自身问题，不影响对照判断。
+
+## 会话 92 · 2026-09-17/18 · 收尾计划续（批 E 完成 + 批 F 进行中）
+
+> 会话 91 的继续（用户「继续工作」）。承接 WORKLOG 会话 91 的中断点。
+
+### 批 E-3 完成
+
+- **编译红修复**：CharactersPage 的 when 表达式少一层闭合大括号（LoomAppear 包裹时误删
+  `when` 的 `}`）——git diff 定位，补回后全量编译绿。
+- **Dialog 收敛（16 处）**：
+  - LoomKit 新增 `LoomOptionDialog`（选项列表）/ `LoomTextDialog`（单行输入 + 字数上限 + hint）；
+  - 换组件 11 处：BranchListSheet 删除分支+重命名分支 / ChatPage 删除消息+编辑后重跑 /
+    LoreBookPages 删除书+删除条目+创建选择+notice+OptionDialog+TextInputDialog /
+    CharactersPage 删除单卡+批量删除 / MemoryPages PickDialog；
+  - 复杂表单保留结构、统一 Loom 容器 5 处：供应商配置（ChatPage）/ 多行消息编辑（ChatThinking）/
+    数值滑杆 NumberDialog + 绑定角色（LoreBookPages）/ 迁移报告（StaticPages）；
+  - testTag 与用户可见文案全部不变（`edit_message_field` / `edit_message_confirm` 等原样）；
+  - 教训：LoomTextDialog 初版丢了 hint 渲染 → 「页头重命名真的写回库」测试等不到「名字」标签
+    而红 → 补 hint 支持（label 渲染）后修复。
+- **角色页 LoomAppear**：itemsIndexed + LoomAppear 包裹 CharacterCard（items→itemsIndexed）。
+
+### 批 F 进展
+
+- **CHANGELOG v3.2.0 段**（新增/优化/修复/注意事项）+ versionCode 15→16、versionName 3.2.0
+  （`gen-changelog.mjs` 已重跑：README 徽章/版本行 + 应用内 `luzzy-changelog.js` 同步）。
+- **DESIGN-ui-v4 §6 回填**：上游借鉴决策（2 项借鉴 + 4 项不借鉴登记）/ ChatPalette 色值围栏 /
+  Dialog 收敛口径 / 420ms 单源 / LoomAppear 覆盖面；组件清单补两个新弹层。
+- **CHAT-REGRESSION**：用例数更新（单测以当轮输出为准、仪器化 153 例），「7 例」标注为 Stage 0 基线。
+- **`docs/HANDOFF-release-acceptance.md`**（新）：v3.2.0 真机验收清单（从 v3.0 版 git 历史 `dedb3a3a`
+  精简重写：v3.2 专项 9 项 + 沿用 B1/B3/B6/SAF + B7 只重验 3 条 + 发版检查单 + 设置还原）；
+  B7-12「编辑后效果清除已知未接」登记作废（v3.2 已接通）。
+- **签名 fail-fast 实证**：临时移开 keystore.properties → assembleRelease 立即报
+  「release 构建需要根目录 keystore.properties…」并失败（不再静默回退 debug 签名）；已还原。
+- **模拟器操作纪律强化（真机误装事件）**：`installDebug` 不带 `ANDROID_SERIAL` 时落到任何在线设备
+  ——本次误把 debug 测试件装上了在线的 A9210 真机（PA921BMGL3190210G），**当场卸载**；
+  以后装模拟器必须显式 `ANDROID_SERIAL=emulator-5554`（已写进 HANDOFF 设备纪律）。
+- **checkChat 第 1 轮**：152 执行 2 失败——①`MemoryVisualCaptureTest.有数据时的记忆页与弹层逐张留证`
+  （新「自动总结」卡把检索框推到首屏外 → 测试补语义滚动）；②`WorldInfoPageTest.页头重命名真的写回库`
+  （LoomTextDialog 丢 hint → 补 label）。两修后重跑。
+- **checkChat 第 2 轮**：跑至 104/152 时 `INSTRUMENTATION_ABORTED: System has crashed`（模拟器
+  系统级崩溃，空 failure 块）——与 WORKLOG 会话 79/84/88 登记的「长跑劣化」同特征。
+  **按纪律冷启动模拟器后重跑判定，不改代码迎合**（进行中）。
+
+### 待续（本轮恢复点）
+
+- [ ] checkChat 冷启动重跑全绿（进行中）
+- [ ] `:app:assembleRelease` + apksigner 指纹核对（ed78235d…）
+- [ ] 模拟机逐页真窗口 screencap 走查（v3.2 改动页：抽屉/世界书/记忆/设置/关于 + 弹层）证据落 docs/design/verify-v4/
+- [ ] push + tag v3.2.0（GitHub Release 等真机回归，不发）

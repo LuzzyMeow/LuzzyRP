@@ -55,6 +55,7 @@ import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.ui.icons.LuzzyIcons
 import com.luzzymeow.luzzyrp.ui.pages.AvatarLoader
 import com.luzzymeow.luzzyrp.ui.pages.common.EditorHeader
+import com.luzzymeow.luzzyrp.ui.pages.chat.ChatPalette
 import com.luzzymeow.luzzyrp.ui.pages.common.FieldLabel
 import com.luzzymeow.luzzyrp.ui.pages.common.Placeholder
 import com.luzzymeow.luzzyrp.ui.pages.common.PrimaryButton
@@ -337,7 +338,7 @@ private fun EditorCover(name: String, avatarPath: String?) {
         )
     } else {
         Box(
-            Modifier.fillMaxSize().background(Color(0xFF2E2724)),
+            Modifier.fillMaxSize().background(ChatPalette.MonogramBase),
             contentAlignment = Alignment.Center,
         ) {
             Text(

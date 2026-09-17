@@ -67,13 +67,10 @@ enum class LuzzyRoute(val title: String, val icon: Int, val inDrawer: Boolean = 
 }
 
 /**
- * 抽屉收起动画时长。
- *
- * **实测取值（2026-09-12，会话 64）**：App 内按帧采样 `drawerState.offset`，三次实测
- * 「开始移动 → 完全停止」= **419 / 405 / 409 ms** → 取上界 **420ms**。
- * Loom v4 保留该值（[LoomMotion.PageMs]）——转场语义不变。
+ * 抽屉收起动画时长 = **单一真源** [LoomMotion.PageMs]（v3.2 收敛：三常量曾在 NavShell
+ * 重复定义 420，违背单一真源；语义值不变——2026-09-12 帧采样实测 419/405/409ms 取上界）。
  */
-const val DrawerCloseMs = 420
+const val DrawerCloseMs = LoomMotion.PageMs
 
 /**
  * 内容转场时长 = **实测抽屉收起时长**（侧边菜单完全收入抽屉时页面转场刚好完成）。
@@ -214,17 +211,30 @@ private fun LoomDrawerSheet(
                 }
             }
 
-            LuzzyRoute.entries.filter { it.inDrawer }.forEach { r ->
-                val selected = r == route
-                LoomDrawerItem(
-                    route = r,
-                    selected = selected,
-                    onClick = {
-                        onNavigate(r)
-                        onCloseDrawer()
-                    },
-                )
-            }
+            // 分组条目（G-1 借鉴上游 1.9.5 导航面板的「分组小标题」信息架构：
+            // 8 项平铺在功能增多后可读性会降；分组语义 = 对话主场 / 创作物料 / 数据与设置。
+            // 布局**不**学上游的两列网格——桌面宽屏产物，移动单列拇指可达性更好）。
+            LoomDrawerGroup(
+                "对话",
+                listOf(LuzzyRoute.Chat),
+                route = route,
+                onNavigate = onNavigate,
+                onCloseDrawer = onCloseDrawer,
+            )
+            LoomDrawerGroup(
+                "创作",
+                listOf(LuzzyRoute.Characters, LuzzyRoute.WorldInfo, LuzzyRoute.Presets, LuzzyRoute.Memory),
+                route = route,
+                onNavigate = onNavigate,
+                onCloseDrawer = onCloseDrawer,
+            )
+            LoomDrawerGroup(
+                "数据",
+                listOf(LuzzyRoute.Usage, LuzzyRoute.Settings, LuzzyRoute.About),
+                route = route,
+                onNavigate = onNavigate,
+                onCloseDrawer = onCloseDrawer,
+            )
 
             Spacer(Modifier.weight(1f))
 
@@ -264,6 +274,38 @@ private fun LoomDrawerSheet(
                 modifier = Modifier.padding(start = 10.dp, top = 12.dp),
             )
         }
+    }
+}
+
+/** 分组条目：组标签（LoomSectionLabel 同语言的小字距排版）+ 该组成员逐行渲染。 */
+@Composable
+private fun LoomDrawerGroup(
+    label: String,
+    routes: List<LuzzyRoute>,
+    route: LuzzyRoute,
+    onNavigate: (LuzzyRoute) -> Unit,
+    onCloseDrawer: () -> Unit,
+) {
+    if (routes.none { it.inDrawer }) return
+    Text(
+        text = label,
+        fontFamily = LuzzyFonts.Body,
+        fontSize = 10.5.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 1.5.sp,
+        color = MaterialTheme.colorScheme.outline,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 2.dp),
+    )
+    routes.filter { it.inDrawer }.forEach { r ->
+        val selected = r == route
+        LoomDrawerItem(
+            route = r,
+            selected = selected,
+            onClick = {
+                onNavigate(r)
+                onCloseDrawer()
+            },
+        )
     }
 }
 

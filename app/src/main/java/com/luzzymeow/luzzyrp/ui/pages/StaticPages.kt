@@ -77,6 +77,8 @@ import com.luzzymeow.luzzyrp.ui.pages.common.StatMini
 import com.luzzymeow.luzzyrp.ui.pages.common.ThinDivider
 import com.luzzymeow.luzzyrp.ui.pages.common.bandTone
 import com.luzzymeow.luzzyrp.ui.theme.LuzzyFonts
+import com.luzzymeow.luzzyrp.ui.theme.Loom
+import com.luzzymeow.luzzyrp.ui.theme.LoomShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -330,6 +332,9 @@ fun SettingsPage(
         if (showReport) {
             AlertDialog(
                 onDismissRequest = { showReport = false },
+                // v3.2 Dialog 收敛：迁移报告是动态内容（行数不定），保留自有结构，容器统一 Loom 视觉
+                shape = RoundedCornerShape(LoomShape.Card),
+                containerColor = Loom.current.raised,
                 title = {
                     Text(
                         "迁移报告",

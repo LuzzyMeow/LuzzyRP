@@ -395,6 +395,16 @@ class PageDataSource(private val store: LuzzyStore) {
         return runCatching { store.messages(scope).count { it.role == "user" } }.getOrDefault(0)
     }
 
+    /** 记忆自动总结设置（v3.2；全局 kv，聊天页发送路径同读一键）。 */
+    suspend fun summarySettings(): MemorySummarizer.Settings = runCatching {
+        MemorySummarizer.Settings.from(store.json(MemorySummarizer.SETTINGS_KEY))
+    }.getOrDefault(MemorySummarizer.Settings())
+
+    suspend fun saveSummarySettings(settings: MemorySummarizer.Settings): Boolean = runCatching {
+        store.putJson(MemorySummarizer.SETTINGS_KEY, settings.toJson())
+        true
+    }.getOrDefault(false)
+
     /** 「按 id 改写某一形态的整组」——读 → 改 → 写整组（纯函数在 [MemoryBrowser]）。 */
     private suspend fun mutateMemories(
         characterUuid: String?,

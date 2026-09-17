@@ -60,8 +60,8 @@ android {
 
         // 资产签名（见 assetSignature）：资产变更即触发设备侧重新解压
         buildConfigField("String", "ASSET_SIGNATURE", """"$assetSignature"""")
-        versionCode = 15
-        versionName = "3.1.0"
+        versionCode = 16
+        versionName = "3.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -79,7 +79,9 @@ android {
     //     }
     // }
 
-    // 签名：keystore.properties 存在时创建 luzzy 签名；否则 release 回退 debug 签名保证可编译
+    // 签名：keystore.properties 缺失时**直接构建失败**（2026-09-17）——
+    // 旧逻辑静默回退 debug 签名，侧载分发下会产出「假 release」（换签 = 老用户无法覆盖升级，
+    // 事故级产物）；fail-fast 让缺 keystore 的构建当场报错而不是发出去才被发现。
     signingConfigs {
         if (keystoreProps != null) {
             create("luzzy") {
@@ -96,7 +98,13 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName(if (keystoreProps != null) "luzzy" else "debug")
+            signingConfig = signingConfigs.getByName(
+                if (keystoreProps != null) "luzzy"
+                else throw GradleException(
+                    "release 构建需要根目录 keystore.properties（签名单一真源，见 AGENTS.md §3）。" +
+                        "缺失时禁止回退 debug 签名——那会产出老用户无法覆盖升级的假 release。"
+                ),
+            )
         }
         debug {
             applicationIdSuffix = ".debug"

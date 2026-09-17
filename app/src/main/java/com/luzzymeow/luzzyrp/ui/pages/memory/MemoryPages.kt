@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.luzzymeow.luzzyrp.chat.BranchOption
 import com.luzzymeow.luzzyrp.chat.MemoryBrowser
 import com.luzzymeow.luzzyrp.chat.MemoryScopeOption
+import com.luzzymeow.luzzyrp.chat.MemorySummarizer
 import com.luzzymeow.luzzyrp.chat.PageDataSource
 import com.luzzymeow.luzzyrp.chat.RecallEngine
 import com.luzzymeow.luzzyrp.chat.RecallOptions
@@ -56,6 +57,8 @@ import com.luzzymeow.luzzyrp.ui.pages.common.LoomRow
 import com.luzzymeow.luzzyrp.ui.pages.common.LoomSectionLabel
 import com.luzzymeow.luzzyrp.ui.pages.common.LoomScaffold
 import com.luzzymeow.luzzyrp.ui.pages.common.LoomSkeletonRow
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomOption
+import com.luzzymeow.luzzyrp.ui.pages.common.LoomOptionDialog
 import com.luzzymeow.luzzyrp.ui.pages.common.LoomSwitch
 import com.luzzymeow.luzzyrp.ui.pages.common.LongTextEditorDialog
 import com.luzzymeow.luzzyrp.ui.theme.Loom
@@ -120,6 +123,7 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
 
     // ── 引擎与检索 ──
     var recall by remember { mutableStateOf<RecallOptions?>(null) }
+    var summarySettings by remember { mutableStateOf<MemorySummarizer.Settings?>(null) }
     var turns by remember { mutableStateOf(0) }
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<RecallEngine.Hit>?>(null) }
@@ -138,6 +142,7 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
         val loaded = source.memoryScopes()
         scopes = loaded
         recall = source.recallOptions()
+        summarySettings = source.summarySettings()
         val first = loaded.firstOrNull { it.isActive } ?: loaded.firstOrNull()
         if (first != null && scopeUuid == null) {
             scopeUuid = first.uuid
@@ -288,13 +293,64 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                             scope.launch { source.saveRecallOptions(next) }
                         }
                         Text(
-                            text = "原生召回是词面重叠打分（中文二元组 + 英文整词），离线可跑、不依赖嵌入模型；" +
-                                "库里带向量的分片是旧版迁移过来的数据。",
+                            // 词面召回口径说明（照上游 1.9.5 记忆模式说明的排版借鉴：
+                            // 模式名加粗 + 一句话语义 + 用户视角后果；见 docs/design/upstream-vs-loom）
+                            text = "词面召回（现行口径）：按中文二元组 + 英文整词的重叠打分，离线可跑、" +
+                                "不依赖嵌入模型；库里带向量的分片是旧版迁移来的数据，照常参与召回。",
                             fontSize = 11.sp,
                             lineHeight = 16.sp,
                             fontFamily = LuzzyFonts.Body,
                             color = MaterialTheme.colorScheme.outline,
                         )
+                    }
+                }
+            }
+
+            // ②b 自动总结（v3.2：原生产出半边——每 N 轮让总结模型写一条 classic 记忆）
+            item {
+                LoomCard {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = "自动总结",
+                                    fontSize = 14.sp,
+                                    fontFamily = LuzzyFonts.Body,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "每 N 个新轮次，用当前对话的供应商在后台生成一段第三人称记忆要点，" +
+                                        "写入「总结记忆」；失败静默，不打断对话",
+                                    fontSize = 11.5.sp,
+                                    lineHeight = 16.sp,
+                                    fontFamily = LuzzyFonts.Body,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            LoomSwitch(
+                                checked = (summarySettings ?: MemorySummarizer.Settings()).enabled,
+                                label = "自动总结",
+                                onCheckedChange = { on ->
+                                    val next = (summarySettings ?: MemorySummarizer.Settings()).copy(enabled = on)
+                                    summarySettings = next
+                                    scope.launch { source.saveSummarySettings(next) }
+                                },
+                            )
+                        }
+                        EngineChips(
+                            title = "总结间隔",
+                            hint = "每多少个新轮次总结一次",
+                            labels = listOf("3 轮", "5 轮", "8 轮", "10 轮", "15 轮"),
+                            selected = listOf(3, 5, 8, 10, 20)
+                                .indexOf((summarySettings ?: MemorySummarizer.Settings()).everyTurns)
+                                .coerceAtLeast(0),
+                            enabled = (summarySettings ?: MemorySummarizer.Settings()).enabled,
+                        ) { index ->
+                            val next = (summarySettings ?: MemorySummarizer.Settings())
+                                .copy(everyTurns = listOf(3, 5, 8, 10, 20)[index])
+                            summarySettings = next
+                            scope.launch { source.saveSummarySettings(next) }
+                        }
                     }
                 }
             }
@@ -405,10 +461,11 @@ fun MemoryPage(onOpenDrawer: () -> Unit, pageData: PageDataSource? = null) {
                         iconRes = LuzzyIcons.Memory,
                         title = if (shownKind == MemoryBrowser.VECTOR) "这个作用域没有向量分片" else "这个作用域没有总结记忆",
                         supporting = if (shownKind == MemoryBrowser.VECTOR) {
-                            "旧版会在对话推进到一定轮数后按段落切分并嵌入；原生侧尚未接入自动生成，" +
-                                "新对话不会自动产出分片（迁移进来的旧数据照常显示在这里）。"
+                            "旧版会按段落切分并嵌入（向量召回未做，见引擎卡说明）；原生侧不产出分片，" +
+                                "迁移进来的旧数据照常显示在这里。"
                         } else {
-                            "总结记忆由旧版按轮次生成；原生侧尚未接入自动总结，历史数据可在这里查看与编辑。"
+                            "开启「自动总结」后，每 N 个新轮次会在后台生成一段总结记忆写到这里；" +
+                                "迁移进来的历史总结也显示在这里。"
                         },
                     )
                 }
@@ -757,47 +814,17 @@ private data class PickOption(val label: String, val selected: Boolean, val onPi
 
 @Composable
 private fun PickDialog(title: String, options: List<PickOption>, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Loom.current.raised,
-        shape = RoundedCornerShape(LoomShape.Card),
-        title = { Text(title, fontFamily = LuzzyFonts.Body) },
-        text = {
-            Column {
-                if (options.isEmpty()) {
-                    Text("没有可选项", fontFamily = LuzzyFonts.Body, fontSize = 13.sp)
-                }
-                options.forEach { option ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable {
-                                option.onPick()
-                                onDismiss()
-                            }
-                            .padding(horizontal = 10.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = option.label,
-                            fontSize = 14.sp,
-                            fontFamily = LuzzyFonts.Body,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (option.selected) {
-                            Text(
-                                text = "当前",
-                                fontSize = 11.sp,
-                                fontFamily = LuzzyFonts.Body,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-            }
+    // v3.2 Dialog 收敛：视觉走 LoomOptionDialog（「当前」徽记并入标题文案，语义不变）
+    LoomOptionDialog(
+        title = title,
+        options = if (options.isEmpty()) listOf(LoomOption(title = "没有可选项")) else options.map { option ->
+            LoomOption(title = if (option.selected) "${option.label} · 当前" else option.label)
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+        onDismiss = onDismiss,
+        onPick = { index ->
+            options.getOrNull(index)?.onPick?.invoke()
+            onDismiss()
+        },
+        testTag = "memory_pick_cancel",
     )
 }

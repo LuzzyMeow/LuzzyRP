@@ -50,17 +50,33 @@
 
 ## 4. 组件（`ui/pages/common/LoomKit.kt` 为唯一组件源）
 
-`LoomScaffold`（织纹画布+大标题头+可折叠）/ `LoomHero` / `BandCard`（=hero 皮的 API 兼容壳）/ `LoomCard(tier, rail)` / `LoomRow` / `LoomBadge` / `LoomChip` / `LoomSectionLabel` / `LoomSwitch` / `LoomSliderRow` / `LoomField` / `LoomEmpty` / `LoomSkeletonRow` / `LoomConfirmDialog` / `LoomOverflowMenu` / `LoomIconButton`。
+`LoomScaffold`（织纹画布+大标题头+可折叠）/ `LoomHero` / `BandCard`（=hero 皮的 API 兼容壳，v3.2 起薄壳转调 LoomHero，织带绘制单源）/ `LoomCard(tier, rail)` / `LoomRow` / `LoomBadge` / `LoomChip` / `LoomSectionLabel` / `LoomSwitch` / `LoomSliderRow` / `LoomField` / `LoomEmpty` / `LoomSkeletonRow` / `LoomConfirmDialog` / `LoomOptionDialog`（v3.2）/ `LoomTextDialog`（v3.2）/ `LoomOverflowMenu` / `LoomIconButton`。
 旧名（`PageKit` 的 `SettingCard`/`EntryCard`/`EmptyState` 等）保留为**兼容壳**，内部已全部指向 Loom 实现——新代码直接用 Loom 名。
 
 ## 5. 交付判据（验收门）
 
 1. 仪器化留证：`LoomGalleryVisualCaptureTest`（组件画廊，亮暗）+ 各页 VisualCapture（亮暗+状态）→ `/sdcard/Download/luzzy-captures` → 逐张识图。
 2. 对比度门禁：`ThemeContrastTest`（正文 ≥4.5:1、图形 ≥3:1，色值取自生产推导）。
-3. 行为门禁：`checkChat`（152 条仪器化用例）全绿；testTag 与用户可见文案在任何重皮中不变。
+3. 行为门禁：`checkChat`（153 条仪器化用例）全绿；testTag 与用户可见文案在任何重皮中不变。
 4. 触控目标 ≥48dp；文本层级随 fontScale；动效尊重「移除动画」。
 5. **insets 必须用真窗口截图验收（screencap，不是 `captureToImage`）**：
    - `captureToImage` 只截 Compose root，**不含系统状态栏/导航栏**，因此 insets 类缺陷在留证图里完全看不见——本项目实测踩过：9 个页面顶栏被状态栏压住、空态长文案两侧溢出，而仪器化留证全绿。
    - 规矩：`adb shell screencap -p` + `adb pull`，**逐页**看图；重点看「顶栏是否在状态栏下方」「底部主按钮是否在导航栏上方」「长文案是否出屏」。
    - 全屏 `Dialog` 同样要查：默认 `decorFitsSystemWindows = true` 时窗口不覆盖状态栏，那里会透出被 dim 的下层（一条深灰带）；全屏编辑器须显式关掉 fit 并自行消费 insets。
    - 仪器化测试环境（`createComposeRule` 的空 Activity）**没有系统栏**，任何 insets 断言在那里都是空转——不要用「写个测试断言 insets」替代真窗口走查。
+## 6. v3.2 收敛与上游借鉴决策（2026-09-17 批 G/E 回填）
+
+- **上游对照（RP-Hub 1.9.5）**：逐页对照与判断在 `docs/design/upstream-vs-loom/`（13 图 + README）。
+  结论＝不换设计基线；定向借鉴仅 2 项：① 抽屉分组标签（对话/创作/数据，G-1）；
+  ② 记忆引擎口径说明的「模式名加粗 + 一句话后果」排版（G-2）。
+  不借鉴登记：两列导航网格（桌面产物）、世界书双滑杆并排（窄屏滑杆过短）、压缩率可视化
+  （无对应机制）、上游亮色 Tailwind 观感与字体三态（违反字体锁定与零硬编码契约）。
+- **色值围栏**：聊天沉浸形态的实证配方色（暖幕/玻璃/scrim/二级面板魔色）收进
+  `ui/pages/chat/ChatPalette.kt`——它是**聊天特许区**，不进 M3 role；其余页面禁止引用。
+  卡面 monogram 豁免色 `#2E2724` 同步收敛为 `ChatPalette.MonogramBase` 命名常量。
+- **Dialog 收敛**：确认框一律 `LoomConfirmDialog`；选择/文本输入用 v3.2 新增的
+  `LoomOptionDialog` / `LoomTextDialog`；复杂表单弹层（供应商配置/迁移报告/多行编辑/数值滑杆/
+  绑定角色）保留自有结构但容器统一 Loom 视觉（hero 圆角 + raised 底）。
+- **420ms 单一真源**：`DrawerCloseMs = LoomMotion.PageMs`（NavShell 不再自带常量）。
+- **入场动效覆盖**：LoomAppear 已覆盖 会话/预设/记忆/角色 四页列表（reduced-motion 内建折算）；
+  设置/关于为 hero 卡结构无列表项，不强加。

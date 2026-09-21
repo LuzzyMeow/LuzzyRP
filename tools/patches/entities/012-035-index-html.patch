@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index 64334905..9b19946c 100644
+index 6433490..932fb23 100644
 --- a/index.html
 +++ b/index.html
 @@ -6,19 +6,20 @@
@@ -1200,6 +1200,4 @@ index 64334905..9b19946c 100644
 +         还原为直接走 JS 路径（即原回落分支本身）。 -->
  </body>
  
--</html>
-+</html>
-\ No newline at end of file
+ </html>

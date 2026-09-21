@@ -1,5 +1,5 @@
 diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
-index cfc9ccd8..bbf5670d 100644
+index cfc9ccd..e4461ff 100644
 --- a/assets/js/runtime-services.js
 +++ b/assets/js/runtime-services.js
 @@ -99,10 +99,17 @@
@@ -144,10 +144,3 @@ index cfc9ccd8..bbf5670d 100644
          };
      };
  
-@@ -593,4 +586,4 @@
-     };
- 
-     window.RPHubComposables = Object.freeze({ useStorageManagement, useTokenUsage });
--})();
-+})();
-\ No newline at end of file

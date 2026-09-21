@@ -1,5 +1,5 @@
 diff --git a/assets/js/core-utils.js b/assets/js/core-utils.js
-index 5a3f0e4e..3d999dee 100644
+index 5a3f0e4..6292082 100644
 --- a/assets/js/core-utils.js
 +++ b/assets/js/core-utils.js
 @@ -165,8 +165,7 @@ const stringifyErrorDetail = (detail) => {
@@ -103,10 +103,3 @@ index 5a3f0e4e..3d999dee 100644
              ]),
              fontSizes: Object.freeze([12, 13, 14, 15, 16, 17, 18, 19, 20].map(size => ({
                  value: size,
-@@ -1042,4 +1050,4 @@ window.RPHubUtils = {
-         }),
-         latestUpdate: window.RPHubLatestUpdate
-     });
--})();
-+})();
-\ No newline at end of file

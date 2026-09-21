@@ -1,5 +1,5 @@
 diff --git a/assets/js/ui-components.js b/assets/js/ui-components.js
-index 738b87b0..b9d2c37c 100644
+index 738b87b..5e30c24 100644
 --- a/assets/js/ui-components.js
 +++ b/assets/js/ui-components.js
 @@ -308,7 +308,13 @@
@@ -288,10 +288,3 @@ index 738b87b0..b9d2c37c 100644
                                   <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                              </div>
                              <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">
-@@ -2953,4 +3051,4 @@
-         UiTemplatePending,
-         WorldInfoEditorModal
-     };
--})();
-+})();
-\ No newline at end of file

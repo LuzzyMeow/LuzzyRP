@@ -1,23 +1,43 @@
 # ============================================================
 # apply-patches.ps1 —— 上游同步后的二创 patch 重放脚本
 # ============================================================
-# 用法:  .\tools\apply-patches.ps1 [-BaselineCommit <sha>]
+# 用法:  .\tools\apply-patches.ps1 [-BaselineCommit <sha>] [-CheckBaseline <ref>]
 # 前置:  sync-upstream.ps1 已覆盖上游文件（app/src/main/assets/rphub/）
 # 行为:  两段重放（顺序关键，会话 25 修正）：
 #        ① 实体段（patches/entities/）——实体前像 = 上游纯净基线，必须先于字符串块落盘；
-#        ② 字符串块段（001-011）——实体已覆盖同名改动，此段在覆盖态下多为 SKIP。
+#        ② 字符串块段（001-011）——实体已覆盖同名改动，此段在覆盖态多为 SKIP。
 #        失败时逐条报告（AGENTS.md §4.3 冲突处理）。
 # 基线:  「全新上游覆盖态」兜底判定所需的上游 commit——v1.5.0 起**不再硬编码**
 #        （会话 26 发现旧版写死 d2f2625，同步到 1.9.3 后兜底判定必然失效）。
 #        优先级：-BaselineCommit 参数 > tools/upstream-fingerprints.txt 头部
 #        「(commit <sha>)」> 参考克隆 FETCH_HEAD。取不到时仅跳过兜底分支（前像判定仍生效）。
+# 退出码: 0 = 全部实体 [OK]/[SKIP] 且字符串块无 FAIL；1 = 存在 FAIL（2026-09-21 新增）。
+#        此前本脚本**从不返回非零退出码**，导致 sync-upstream.ps1 里的
+#        `if ($LASTEXITCODE -ne 0)` 永不触发——8 枚实体全 FAIL 也会被报成同步成功。
+# 检查模式: -CheckBaseline <git-ref> 只读预检，**不写任何文件**：
+#        对每枚实体，取参考克隆里该 ref 的目标文件 → LF 归一 → 算 blob id → 与前像比对，
+#        输出「可重放 / 需三方合并」清单。这是判定「上游新版要重做多少」的正确办法；
+#        AGENTS.md §4.1 曾写「比对 git rev-parse <ref>:<file>」，那是**错的**——
+#        参考克隆按 core.autocrlf=true 检出，存储 blob 是 CRLF，而实体前像是 LF 归一后的 id，
+#        照那条做会把可干净重放的实体全部误判为需三方合并（2026-09-21 实测）。
 # ============================================================
 param(
-    [string]$BaselineCommit = ''
+    [string]$BaselineCommit = '',
+    [string]$CheckBaseline = ''
 )
 
 $ErrorActionPreference = "Stop"
 $RphubDir = Join-Path $PSScriptRoot "..\app\src\main\assets\rphub"
+
+# ---- 失败计数（2026-09-21 退出码契约）----
+# 本脚本此前**从不返回非零退出码**，于是 sync-upstream.ps1 里
+# `if ($LASTEXITCODE -ne 0)` 永不触发——8 枚实体全 FAIL 也会被报成同步成功。
+# 现在所有 FAIL 都经 Report-Fail 记账，末尾按计数 exit。
+$script:FailCount = 0
+function Report-Fail([string]$Message) {
+    $script:FailCount++
+    Write-Host "[FAIL] $Message"
+}
 
 Write-Host "== LuzzyRP patch 重放（目标: $RphubDir）=="
 
@@ -146,13 +166,63 @@ $entityItems = @(
     # 上游 1.9.5 重构记忆系统后，本仓库 patch 016（向量召回块防合并）随之失效退场，
     # 该文件现已与上游逐字节相同（无任何 [LuzzyRP patch] 标记），无需重放。
 )
+# ---- 只读检查模式（-CheckBaseline <ref>）：不写任何文件，只报可重放/需三方合并 ----
+if ($CheckBaseline) {
+    $refDirCheck = Join-Path $repoRoot "rp-hub-reference"
+    if (-not (Test-Path (Join-Path $refDirCheck '.git'))) {
+        Report-Fail "-CheckBaseline 需要 rp-hub-reference/ 参考克隆（未找到）"
+        exit 1
+    }
+    Write-Host "== 实体前像预检（只读）—— 目标 ref: $CheckBaseline =="
+    $replayable = 0; $needMerge = 0
+    foreach ($item in $entityItems) {
+        $entityPath = Join-Path $entitiesDir $item.Entity
+        $preImage = Get-EntityPreImage $entityPath
+        if (-not $preImage) { Write-Host "[WARN] $($item.Entity): 实体头无 index 行，判不出前像"; continue }
+        # 从参考克隆取该 ref 的目标文件原始字节（cmd 重定向保字节），再 LF 归一算 blob id
+        $tmpCheck = Join-Path ([System.IO.Path]::GetTempPath()) "luzzy-check-$PID.bin"
+        $prevEapC = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $null = & cmd /c ('git -C "{0}" show {1}:{2} > "{3}" 2>nul' -f $refDirCheck, $CheckBaseline, $item.File, $tmpCheck)
+        $checkExit = $LASTEXITCODE
+        $ErrorActionPreference = $prevEapC
+        if ($checkExit -ne 0 -or -not (Test-Path $tmpCheck)) {
+            Write-Host "[WARN] $($item.Entity): 该 ref 下取不到 $($item.File)（上游可能重命名或删除）"
+            $needMerge++
+            continue
+        }
+        $upBlob = (Get-FileGitBlobIdLfNormalized $tmpCheck)
+        Remove-Item $tmpCheck -Force -ErrorAction SilentlyContinue
+        $match = $false
+        if ($upBlob -and $preImage) {
+            $cl = [Math]::Min($preImage.Length, $upBlob.Length)
+            $match = ($upBlob.Substring(0, $cl) -eq $preImage.Substring(0, $cl))
+        }
+        if ($match) {
+            $replayable++
+            Write-Host "[可重放  ] $($item.File)  前像 $preImage == 该 ref 的 LF 归一 blob"
+        } else {
+            $needMerge++
+            Write-Host "[需合并  ] $($item.File)  前像 $preImage != 该 ref 的 $(if($upBlob){$upBlob.Substring(0,8)}else{'?'})（上游改了同一片区域 → 走 AGENTS.md §4.1 三方合并）"
+        }
+    }
+    Write-Host ""
+    Write-Host "== 预检结果: $replayable 枚可重放 / $needMerge 枚需三方合并（共 $($entityItems.Count)）=="
+    if ($needMerge -gt 0) {
+        Write-Host "需三方合并时：禁止直接覆盖 + 重放（会得到破碎树），按 AGENTS.md §4.1 六步走。"
+        exit 2
+    }
+    Write-Host "全部可重放：直接跑 tools/sync-upstream.ps1 即可。"
+    exit 0
+}
+
 Write-Host ""
 Write-Host "== 实体 patch（007/009/012-035/015-032）=="
 foreach ($item in $entityItems) {
     $relKey = $item.File.ToLower()
     $targetPath = Join-Path $RphubDir ($item.File -replace '/', '\')
     $entityPath = Join-Path $entitiesDir $item.Entity
-    if (-not (Test-Path $targetPath)) { Write-Host "[FAIL] $($item.Entity): 目标文件不存在"; continue }
+    if (-not (Test-Path $targetPath)) { Report-Fail "$($item.Entity): 目标文件不存在"; continue }
     if (([System.IO.File]::ReadAllText($targetPath)).Contains($item.Marker)) {
         Write-Host "[SKIP] $($item.Entity) (已应用)"
         continue
@@ -173,18 +243,18 @@ foreach ($item in $entityItems) {
             # 参考克隆不可用（离线等）→ 退回指纹表比对
             $rawBaseline = $fingerprints[$relKey]
             if (-not $rawBaseline) {
-                Write-Host "[FAIL] $($item.Entity): 无法判定基线（rp-hub-reference 不可用且指纹表缺项）"
+                Report-Fail "$($item.Entity): 无法判定基线（rp-hub-reference 不可用且指纹表缺项）"
                 continue
             }
             Write-Host "[WARN] $($item.Entity): rp-hub-reference 不可用，退回指纹表比对（请确认基线版本）"
             $baseline = $rawBaseline
         }
         if ((Get-FileSha256LfNormalized $targetPath) -ne $baseline) {
-            Write-Host "[FAIL] $($item.Entity): 目标文件与上游基线不一致（上游可能已更新），请手工合并该文件全部二创改动"
+            Report-Fail "$($item.Entity): 目标文件与上游基线不一致（上游可能已更新），请手工合并该文件全部二创改动"
             continue
         }
     }
-    if (-not (Test-Path $entityPath)) { Write-Host "[FAIL] $($item.Entity): 实体文件缺失"; continue }
+    if (-not (Test-Path $entityPath)) { Report-Fail "$($item.Entity): 实体文件缺失"; continue }
     # git apply 会把 "trailing whitespace" 等告警写到 stderr；本脚本 $ErrorActionPreference='Stop'
     # 时 PowerShell 会把原生命令 stderr 视为终止错误（会话 25 实证：第 4 枚实体后脚本整体中断）。
     # 故显式重定向到临时文件，仅在退出码非 0 时读取内容。
@@ -202,10 +272,10 @@ foreach ($item in $entityItems) {
         if (([System.IO.File]::ReadAllText($targetPath)).Contains($item.Marker)) {
             Write-Host "[ OK ] $($item.Entity)"
         } else {
-            Write-Host "[FAIL] $($item.Entity): git apply 返回成功但标记未落盘（$($item.Marker) 缺失），请检查实体与行尾"
+            Report-Fail "$($item.Entity): git apply 返回成功但标记未落盘（$($item.Marker) 缺失），请检查实体与行尾"
         }
     }
-    else { Write-Host "[FAIL] $($item.Entity): git apply 失败 — $applyErr" }
+    else { Report-Fail "$($item.Entity): git apply 失败 — $applyErr" }
 }
 
 Write-Host ""
@@ -224,7 +294,7 @@ if ($titleContent -match '<title>LuzzyRP</title>') {
         [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "[ OK ] 001-brand-title"
     } else {
-        Write-Host "[FAIL] 001-brand-title: 未找到 <title>RP Hub</title>，上游可能已改标题结构"
+        Report-Fail "001-brand-title: 未找到 <title>RP Hub</title>，上游可能已改标题结构"
     }
 }
 
@@ -240,7 +310,7 @@ if ($titleContent -notmatch 'rphub-update-api') {
         [System.IO.File]::WriteAllText($titlePath, $newContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "[ OK ] 002-disable-update-check"
     } else {
-        Write-Host "[FAIL] 002-disable-update-check: meta 标签格式与预期不符"
+        Report-Fail "002-disable-update-check: meta 标签格式与预期不符"
     }
 }
 
@@ -289,7 +359,7 @@ if ($titleContent -match 'luzzy-theme\.css' -and $titleContent -match 'luzzy-ext
         [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "[ OK ] 005-ext-mount"
     } else {
-        Write-Host "[FAIL] 005-ext-mount: 未找到 </body>"
+        Report-Fail "005-ext-mount: 未找到 </body>"
     }
 }
 
@@ -312,10 +382,10 @@ if ($titleContent -match 'local-fonts\.css') {
             [System.IO.File]::WriteAllLines($titlePath, $lines, [System.Text.UTF8Encoding]::new($false))
             Write-Host "[ OK ] 006-local-fonts"
         } else {
-            Write-Host "[FAIL] 006-local-fonts: 未找到 Lora 链接"
+            Report-Fail "006-local-fonts: 未找到 Lora 链接"
         }
     } else {
-        Write-Host "[FAIL] 006-local-fonts: 未找到 Google Fonts Lora 引用，上游可能已改字体加载方式"
+        Report-Fail "006-local-fonts: 未找到 Google Fonts Lora 引用，上游可能已改字体加载方式"
     }
 }
 
@@ -386,7 +456,7 @@ if ($coreContent -match "value: 'luzzy'") {
         [System.IO.File]::WriteAllText($corePath, $coreContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "[ OK ] 009-font-options"
     } else {
-        Write-Host "[FAIL] 009-font-options: fontFamilies 结构变化，请手工更新"
+        Report-Fail "009-font-options: fontFamilies 结构变化，请手工更新"
     }
 }
 
@@ -455,7 +525,7 @@ if (-not ($titleContent -match '界面主题')) {
         [System.IO.File]::WriteAllText($titlePath, $titleContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "[ OK ] 011-theme-ui"
     } else {
-        Write-Host "[FAIL] 011-theme-ui: 未找到 Font Family Setting 锚点"
+        Report-Fail "011-theme-ui: 未找到 Font Family Setting 锚点"
     }
 }
 
@@ -522,3 +592,16 @@ if ($appContent -match "theme: 'luzzy'") {
     [System.IO.File]::WriteAllText($appPath, $appContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host "[ OK ] 011b-theme-logic"
 }
+
+# ------------------------------------------------------------------
+# 退出码契约（2026-09-21）：有 FAIL 即返回 1，供 sync-upstream.ps1 判定。
+# 此前本脚本无任何 exit，调用方的退出码检查是**死代码**。
+# ------------------------------------------------------------------
+Write-Host ""
+if ($script:FailCount -gt 0) {
+    Write-Host "== 重放结果: $($script:FailCount) 项 FAIL —— 同步未完成，按 AGENTS.md §4.1 处置 =="
+    Write-Host "   （上游改了同一片区域时走三方合并，禁止盲目覆盖 + 重放）"
+    exit 1
+}
+Write-Host "== 重放结果: 无 FAIL（实体段全部 [OK]/[SKIP]，字符串块无失败）=="
+exit 0

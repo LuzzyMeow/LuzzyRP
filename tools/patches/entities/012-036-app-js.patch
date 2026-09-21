@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 94bc79b7..0af1195b 100644
+index 94bc79b..057d75e 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -2861,10 +2861,3 @@ index 94bc79b7..0af1195b 100644
              handleConfirm, handleCancel, // Export handlers
              copyMessage, playMessageActionFeedback, canDeleteMessage, deleteMessage, regenerateMessage,
              editMessage, saveEditMessage, cancelEditMessage,
-@@ -8555,4 +10461,4 @@ const app = createApp({
- // 公共弹窗部件需要全局注册，供其他弹窗组件内部直接复用。
- app.component('ModalShell', ModalShell);
- app.component('ModalHeader', ModalHeader);
--app.mount('#app');
-+app.mount('#app');
-\ No newline at end of file

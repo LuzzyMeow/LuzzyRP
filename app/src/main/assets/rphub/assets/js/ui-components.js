@@ -331,7 +331,7 @@
             window.RPHubUpdateCheck.useUpdateCheck();
             const isDark = ref(window.RPHubTheme.current === 'dark');
             const syncTheme = event => { isDark.value = event.detail === 'dark'; };
-            const toggleTheme = event => window.RPHubTheme.set(isDark.value ? 'light' : 'dark', event.currentTarget);
+            const toggleTheme = () => window.RPHubTheme.set(isDark.value ? 'light' : 'dark');
             onMounted(() => window.addEventListener('rphub-theme-change', syncTheme));
             onBeforeUnmount(() => window.removeEventListener('rphub-theme-change', syncTheme));
             const panel = ref(null);
@@ -437,11 +437,11 @@
                             <button type="button" class="appearance-switch" role="switch" :aria-checked="isDark"
                                 aria-label="夜间模式" :title="isDark ? '切换到日间模式' : '切换到夜间模式'" @click="toggleTheme">
                                 <svg v-if="!isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                    <path d="M20.5 13.1A8.5 8.5 0 0110.9 3.5 8.5 8.5 0 1020.5 13.1Z" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M20.5 13.1A8.5 8.5 0 0110.9 3.5 8.5 8.5 0 1020.5 13.1Z" stroke-linecap="round" stroke-linejoin="round"></path>
                                 </svg>
                                 <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                    <circle cx="12" cy="12" r="3.5" stroke-width="1.7"></circle>
-                                    <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-width="1.7" stroke-linecap="round"></path>
+                                    <circle cx="12" cy="12" r="3.5"></circle>
+                                    <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"></path>
                                 </svg>
                             </button>
                         </footer>
@@ -1000,10 +1000,6 @@
                                     <span class="ml-1.5 text-[10px] tabular-nums">{{ tag.count }}</span>
                                 </button>
                             </div>
-                        </div>
-                        <div class="flex shrink-0 items-center justify-between gap-3 border-y border-gray-100 bg-gray-50/60 px-4 py-2 text-xs text-gray-500 sm:px-5">
-                            <span>模型列表 <span class="ml-1 font-semibold tabular-nums text-gray-700">{{ models.length }}</span></span>
-                            <span v-if="target === 'quickModels'">正在设置槽位 {{ activeSlot + 1 }}</span>
                         </div>
                         <div class="model-selector-list min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50/40 p-3 custom-scrollbar sm:p-4">
                             <div v-if="models.length === 0" class="flex min-h-full flex-col items-center justify-center gap-3 py-8 text-sm text-gray-500">
@@ -2701,7 +2697,7 @@
                         </div>
                     </div>
 
-                    <div v-if="!batchMode" class="absolute top-3 right-3 flex flex-col gap-2 z-20">
+                    <div v-if="!batchMode" class="character-card-actions absolute top-3 right-3 flex flex-col gap-2 z-20">
                         <button @click.stop="$emit('edit')"
                             title="编辑角色" aria-label="编辑角色"
                             class="p-2 bg-white/20 backdrop-blur-md text-white rounded-full border border-white/20 active:bg-white/40 shadow-lg">
@@ -2751,7 +2747,7 @@
                             </div>
                         </div>
 
-                        <div v-if="!batchMode" class="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div v-if="!batchMode" class="character-card-actions absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                             <button @click.stop="$emit('edit')" class="p-2 bg-white/90 backdrop-blur-sm text-gray-700 hover:text-primary-600 rounded-full shadow-lg transition-all hover:scale-110" title="编辑角色">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>

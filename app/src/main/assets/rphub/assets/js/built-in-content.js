@@ -715,17 +715,22 @@ ${closingInstruction}
 
 // --- Update announcement (keep this section at the bottom) ---
 window.RPHubLatestUpdate = Object.freeze({
-    id: 10214,
+    id: 10215,
     title: '网站公告',
     content: `
-### RP-Hub 1.9.6 
+### RP-Hub 1.9.7 
 
-- 新增夜间模式
-- 新增记忆补录进度查看
-- 重构设置界面UI
-- 优化了模型选择界面
-- 修复了移动端模型选择界面UI错位的问题
+- 支持NovelAI官方密钥生图
+- 优化了深色/夜间模式的观感
 
-#### 更新时间：09/19/23:15
+RPH交流群①：1015293774
+RPH交流群②：1093110485
+RPH交流群③：1095662319
+RPH交流群④：412083825
+RPH交流群⑤：1060621211
+群友管理在线解答、全套新手教程。
+欢迎进群讨论，群内也有低价免费API中转 ！
+
+#### 更新时间：09/21/14:47
     `
 });

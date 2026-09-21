@@ -369,9 +369,8 @@
         }
 
         .app-nav-trigger--chat {
-            color: rgba(255, 255, 255, 0.8);
+            color: #fff;
         }
-        .app-nav-trigger--chat:hover { color: #fff; }
 
         .app-nav-trigger--embedded {
             position: absolute;

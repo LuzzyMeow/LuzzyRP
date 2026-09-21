@@ -382,7 +382,7 @@
                         </summary>
 
                         <ul
-                            class="dropdown-content z-[100] menu p-2 shadow-xl bg-base-100 rounded-2xl w-64 md:w-96 mt-2 border border-base-200/50">
+                            class="dropdown-content z-[100] menu p-2 shadow-xl bg-base-100 rounded-2xl w-full md:w-96 mt-2 border border-base-200/50">
                             <li>
                                 <a onclick="this.closest('details').removeAttribute('open')"
                                     @click="setActiveModel('quality')"
@@ -1831,10 +1831,6 @@
                     ...savedOptionValues,
                     customModels: { ...defaultOptions.customModels }
                 });
-                if (typeof options.resetOnLoad === 'undefined') options.resetOnLoad = false;
-
-
-
                 // Ensure generateExtra is always true if loaded from old save where it might be false
                 options.generateExtra = true;
 

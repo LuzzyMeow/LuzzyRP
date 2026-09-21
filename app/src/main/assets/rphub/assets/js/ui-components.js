@@ -294,10 +294,10 @@
 (function () {
     const primaryItems = Object.freeze([
         { view: 'chat', label: '聊天', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
-        { view: 'usage', label: '用量统计', icon: 'M4 19V9m5 10V5m5 14v-7m5 7V3M3 21h18' },
+        { view: 'characters', label: '角色卡管理', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
         { view: 'memory', label: '记忆系统', status: 'memory', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
         { view: 'uitemplates', label: 'UI模板', status: 'ui', icon: 'M4 5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm4 3h8M8 12h8M8 16h5' },
-        { view: 'characters', label: '角色卡管理', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' }
+        { view: 'usage', label: '用量统计', icon: 'M4 19V9m5 10V5m5 14v-7m5 7V3M3 21h18' }
     ]);
     const onlineItems = Object.freeze([
         { view: 'generator', label: '角色卡生成', icon: 'M15 8a3 3 0 11-6 0 3 3 0 016 0zm-3 5c-4 0-7 2-7 5v1h8m5-6v6m-3-3h6' },
@@ -308,177 +308,135 @@
         { view: 'presets', label: '预设', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4M6 18a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
         { view: 'worldinfo', label: '世界书', icon: 'M12 6.25v13m0-13C10.83 5.48 9.25 5 7.5 5S4.17 5.48 3 6.25v13C4.17 18.48 5.75 18 7.5 18s3.33.48 4.5 1.25m0-13C13.17 5.48 14.75 5 16.5 5S19.83 5.48 21 6.25v13C19.83 18.48 18.25 18 16.5 18s-3.33.48-4.5 1.25' },
         { view: 'regex', label: '正则', title: '正则脚本', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
-        { view: 'tools', label: '工具', icon: 'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94L14.7 6.3z' }
+        { view: 'tools', label: '工具', icon: 'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94L14.7 6.3z' },
+        // [LuzzyRP patch 014 移植 · 1.9.5 合并] 上游新侧栏（数据驱动）没有「外观」「关于」入口，
+        // 而本仓库这两个独立视图（patch 014，v1.2.0）与对应 currentView 分支仍在 index.html 中保留。
+        // 故按 patch 014 的原顺序补回：外观 → 关于（「设置」由上游放在「常用」组末尾，位置不变）。
+        // 图标取自项目内既有 Heroicons v1 同名形状，与其余条目同风格。
+        { view: 'appearance', label: '外观', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
+        { view: 'about', label: '关于', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }
     ]);
 
-    const AppSidebar = {
+    const AppNavigation = {
         props: {
             currentView: { type: String, required: true },
-            collapsed: Boolean,
-            onlineOpen: Boolean,
-            advancedOpen: Boolean,
+            open: Boolean,
             memoryProcessing: Boolean,
             uiTemplateRunning: Boolean,
             user: { type: Object, required: true }
         },
-        emits: ['update:current-view', 'update:collapsed', 'toggle-online', 'toggle-advanced', 'close-mobile'],
+        emits: ['update:current-view', 'close'],
         setup(props, { emit }) {
+            const { ref, watch, nextTick } = Vue;
             window.RPHubUpdateCheck.useUpdateCheck();
-            const selectView = (view) => {
+            const panel = ref(null);
+            const position = ref({});
+            const centered = ref(false);
+            let returnFocus = null;
+            const sections = [
+                { label: '常用', items: [...primaryItems, { view: 'settings', label: '设置' }] },
+                { label: '在线', items: onlineItems },
+                { label: '高级', items: advancedItems }
+            ];
+            const selectView = view => {
                 emit('update:current-view', view);
-                emit('close-mobile');
+                emit('close');
             };
-            const itemClass = (view) => view === props.currentView
-                ? 'bg-primary-50 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900';
-            return {
-                advancedItems,
-                advancedViews: advancedItems.map(item => item.view),
-                itemClass,
-                onlineItems,
-                onlineViews: onlineItems.map(item => item.view),
-                primaryItems,
-                selectView
+            watch(() => props.open, async open => {
+                if (!open) return;
+                returnFocus = document.activeElement;
+                centered.value = onlineItems.some(item => item.view === props.currentView);
+                await nextTick();
+                if (!props.open || !panel.value) return;
+                const anchor = returnFocus?.getBoundingClientRect();
+                position.value = centered.value ? {} : {
+                    left: Math.max(12, Math.min(anchor?.left || 12, window.innerWidth - panel.value.offsetWidth - 12)) + 'px',
+                    top: Math.max(12, Math.min((anchor?.bottom || 48) + 10, window.innerHeight - panel.value.offsetHeight - 12)) + 'px'
+                };
+                (panel.value.querySelector('[aria-current="page"]') || panel.value).focus({ preventScroll: true });
+            });
+            const restoreFocus = () => {
+                if (props.open) return;
+                const target = returnFocus?.isConnected && returnFocus.getClientRects().length
+                    ? returnFocus
+                    : [...document.querySelectorAll('.app-nav-trigger')].find(button => button.getClientRects().length);
+                target?.focus({ preventScroll: true });
+                returnFocus = null;
             };
+            const trapFocus = event => {
+                if (event.key !== 'Tab') return;
+                const buttons = [...panel.value.querySelectorAll('button')];
+                const first = buttons[0], last = buttons[buttons.length - 1];
+                if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.value)) {
+                    event.preventDefault();
+                    last?.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first?.focus();
+                }
+            };
+            return { panel, position, centered, sections, selectView, restoreFocus, trapFocus };
         },
         template: `
-            <div @click="$emit('close-mobile')"
-                class="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden mobile-overlay"></div>
-
-            <div class="app-sidebar fixed inset-y-0 left-0 z-50 w-72 md:w-72 bg-white/95 border-r border-gray-200/80 transform transition-all duration-300 md:relative md:translate-x-0 flex flex-col shadow-2xl md:shadow-sm md:rounded-none rounded-r-3xl overflow-hidden"
-                :class="collapsed ? 'md:w-16' : 'md:w-72'">
-                <div class="h-16 flex items-center border-b border-gray-100/80 bg-white/70 backdrop-blur-xl transition-all duration-300"
-                    :class="collapsed ? 'justify-center px-0' : 'justify-between px-6'">
-                    <div v-show="!collapsed" class="app-logo relative inline-flex items-baseline gap-1.5 pr-1 min-w-0">
-                        <!-- [LuzzyRP patch 019] 侧栏品牌字样：RP HUB → LuzzyRP（Luzzy 主字 + RP 品牌色，与开屏字标同构） -->
-                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.02em] leading-none">Luzzy</span>
-                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.08em] leading-none">RP</span>
-                        <span class="absolute -bottom-1 left-0 h-[2px] w-14 rounded-full bg-primary-500/60"></span>
-                    </div>
-                    <button @click="$emit('update:collapsed', !collapsed)"
-                        :class="['hidden md:flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200/80 rounded-xl text-gray-500 hover:text-primary-600 transition-all shadow-sm active:scale-95', collapsed ? 'w-12 h-12 p-0' : 'p-2']"
-                        :title="collapsed ? '展开侧边栏' : '收起侧边栏'">
-                        <svg v-if="!collapsed" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7M20 12H4"></path>
-                        </svg>
-                        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M4 12h16"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="sidebar-nav custom-scrollbar flex-1 overflow-y-auto py-4 transition-all duration-300"
-                    :class="collapsed ? 'px-2 space-y-2' : 'px-3 space-y-1.5'">
-                    <button v-for="item in primaryItems" :key="item.view" @click="selectView(item.view)" :title="item.label"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass(item.view), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon"></path>
-                        </svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">{{ item.label }}</span>
-                        <span v-if="!collapsed && ((item.status === 'memory' && memoryProcessing) || (item.status === 'ui' && uiTemplateRunning))" class="ml-auto">
-                            <span class="inline-block w-2 h-2 rounded-full bg-primary-500 memory-extracting"></span>
-                        </span>
-                    </button>
-
-                    <div class="advanced-nav" :class="{ 'is-open': onlineOpen && !collapsed }">
-                        <button @click="$emit('toggle-online')"
-                            class="sidebar-nav-button advanced-nav-trigger flex items-center rounded-xl transition-all duration-200 font-medium"
-                            :class="[onlineViews.includes(currentView) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900', collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']"
-                            title="在线" aria-controls="online-nav-panel" :aria-expanded="onlineOpen && !collapsed">
-                            <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-                            </svg>
-                            <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">在线</span>
-                            <svg v-show="!collapsed" class="advanced-nav-chevron ml-auto w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                        <div id="online-nav-panel" class="advanced-nav-panel" :aria-hidden="!(onlineOpen && !collapsed)" :inert="!(onlineOpen && !collapsed)">
-                            <div class="advanced-nav-panel-inner"><div class="advanced-nav-list">
-                                <button v-for="item in onlineItems" :key="item.view" @click="selectView(item.view)"
-                                    class="sidebar-nav-button advanced-nav-item transition-all duration-200" :class="itemClass(item.view)" :title="item.label">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <template v-if="item.square">
-                                            <rect x="3" y="3" width="7" height="7" rx="2" stroke-width="1.8"></rect>
-                                            <rect x="14" y="3" width="7" height="7" rx="2" stroke-width="1.8"></rect>
-                                            <rect x="3" y="14" width="7" height="7" rx="2" stroke-width="1.8"></rect>
-                                            <rect x="14" y="14" width="7" height="7" rx="2" stroke-width="1.8"></rect>
-                                        </template>
-                                        <path v-else stroke-linecap="round" stroke-linejoin="round" :stroke-width="item.view === 'generator' ? 1.8 : 2" :d="item.icon"></path>
-                                    </svg>
-                                    <span>{{ item.label }}</span>
-                                </button>
-                            </div></div>
-                        </div>
-                    </div>
-
-                    <div class="advanced-nav" :class="{ 'is-open': advancedOpen && !collapsed }">
-                        <button @click="$emit('toggle-advanced')"
-                            class="sidebar-nav-button advanced-nav-trigger flex items-center rounded-xl transition-all duration-200 font-medium"
-                            :class="[advancedViews.includes(currentView) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900', collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']"
-                            title="高级" aria-controls="advanced-nav-panel" :aria-expanded="advancedOpen && !collapsed">
-                            <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7.5h16M7.5 3v9m9 0v9M4 16.5h16"></path>
-                                <circle cx="7.5" cy="16.5" r="2" fill="white" stroke="currentColor" stroke-width="2"></circle>
-                                <circle cx="16.5" cy="7.5" r="2" fill="white" stroke="currentColor" stroke-width="2"></circle>
-                            </svg>
-                            <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">高级</span>
-                            <svg v-show="!collapsed" class="advanced-nav-chevron ml-auto w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                        <div id="advanced-nav-panel" class="advanced-nav-panel" :aria-hidden="!(advancedOpen && !collapsed)" :inert="!(advancedOpen && !collapsed)">
-                            <div class="advanced-nav-panel-inner"><div class="advanced-nav-list">
-                                <button v-for="item in advancedItems" :key="item.view" @click="selectView(item.view)"
-                                    class="sidebar-nav-button advanced-nav-item transition-all duration-200" :class="itemClass(item.view)" :title="item.title || item.label">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" :d="item.icon"></path>
-                                    </svg>
-                                    <span>{{ item.label }}</span>
-                                </button>
-                            </div></div>
-                        </div>
-                    </div>
-
-                    <!-- [LuzzyRP patch 014] 侧栏底部簇：外观/关于改为独立视图（selectView 带激活态）；
-                         [LuzzyRP patch 019] 顺序调整：外观 → 设置 → 关于（关于置底） -->
-                    <button @click="selectView('appearance')" title="外观"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('appearance'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
-                    </button>
-
-                    <button @click="selectView('settings')" title="设置"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
-                    </button>
-
-                    <button @click="selectView('about')" title="关于"
-                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
-                    </button>
-                </div>
-
-                <div class="p-3 border-t border-gray-100/80 bg-white/70 backdrop-blur-xl">
-                    <div class="flex items-center transition-all" :class="collapsed ? 'justify-center' : 'rounded-2xl border border-gray-200/70 bg-gray-50/80 px-3 py-2 shadow-sm'">
-                        <div class="w-10 h-10 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 ring-2 ring-white">
-                            <img v-if="user?.avatar" :src="user.avatar" class="w-full h-full object-cover">
-                            <div v-else class="w-full h-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold">
-                                {{ user.name.charAt(0).toUpperCase() }}
+            <transition name="app-navigation" :duration="{ enter: 380, leave: 250 }" @after-leave="restoreFocus">
+                <div v-if="open" class="app-navigation-layer" @click.self="$emit('close')"
+                    :class="{ 'app-navigation-layer--centered': centered }"
+                    @keydown.esc.stop.prevent="$emit('close')" @keydown="trapFocus">
+                    <section ref="panel" id="app-navigation-panel" class="app-navigation-panel"
+                        :style="position" role="dialog" aria-modal="true" aria-label="应用导航" tabindex="-1">
+                        <header class="app-navigation-header">
+                            <div class="app-logo app-navigation-brand">
+                                <!-- [LuzzyRP patch 019 移植 · 1.9.5 合并] 上游把侧栏重写为 AppNavigation（数据驱动），
+                                     品牌区从旧的 .app-logo（RP HUB 双段）变为 .app-navigation-brand 单段。
+                                     保持 patch 019 的品牌化意图：LuzzyRP 主字 + RP 品牌色，与开屏字标同构；
+                                     上游的 <em> 强调结构保留为 RP 段，样式沿用上游的 em 规则。 -->
+                                <span>Luzzy<em>RP</em></span>
                             </div>
-                        </div>
-                        <div v-if="!collapsed" class="ml-3 whitespace-nowrap overflow-hidden">
-                            <div class="text-sm font-bold text-gray-900 truncate">{{ user.name }}</div>
-                            <div class="text-xs text-gray-500">User</div>
-                        </div>
-                    </div>
+                            <button type="button" class="app-navigation-close" @click="$emit('close')" aria-label="关闭导航">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                    <path d="m6 6 12 12M18 6 6 18" stroke-width="1.8" stroke-linecap="round"></path>
+                                </svg>
+                            </button>
+                        </header>
+                        <nav class="app-navigation-content custom-scrollbar" aria-label="页面">
+                            <section v-for="section in sections" :key="section.label" class="app-navigation-section">
+                                <h3>{{ section.label }}</h3>
+                                <div class="app-navigation-grid" :class="{ 'app-navigation-grid--online': section.label === '在线' }">
+                                    <button v-for="item in section.items" :key="item.view" type="button"
+                                        class="app-navigation-item" :class="{ 'is-current': item.view === currentView }"
+                                        :aria-current="item.view === currentView ? 'page' : null"
+                                        @click="selectView(item.view)">
+                                        <span class="app-navigation-icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                <template v-if="item.square">
+                                                    <rect x="3" y="3" width="7" height="7" rx="2" stroke-width="1.8"></rect>
+                                                    <rect x="14" y="3" width="7" height="7" rx="2" stroke-width="1.8"></rect>
+                                                    <rect x="3" y="14" width="7" height="7" rx="2" stroke-width="1.8"></rect>
+                                                    <rect x="14" y="14" width="7" height="7" rx="2" stroke-width="1.8"></rect>
+                                                </template>
+                                                <path v-else-if="item.icon" :d="item.icon" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                <use v-else href="#icon-settings"></use>
+                                            </svg>
+                                        </span>
+                                        <span>{{ item.label }}</span>
+                                        <i v-if="(item.status === 'memory' && memoryProcessing) || (item.status === 'ui' && uiTemplateRunning)"
+                                            class="app-navigation-status" aria-label="处理中"></i>
+                                    </button>
+                                </div>
+                            </section>
+                        </nav>
+                        <footer class="app-navigation-user">
+                            <img v-if="user.avatar" :src="user.avatar" alt="">
+                            <span v-else class="app-navigation-avatar">{{ (user.name || 'U').charAt(0).toUpperCase() }}</span>
+                            <div><strong>{{ user.name }}</strong></div>
+                            <span class="app-navigation-user-mark" aria-hidden="true"></span>
+                        </footer>
+                    </section>
                 </div>
-            </div>`
+            </transition>`
     };
 
-    window.RPHubLayoutComponents = Object.freeze({ AppSidebar });
+    window.RPHubLayoutComponents = Object.freeze({ AppNavigation });
 })();
 
 // --- Reusable views and modals ---
@@ -514,12 +472,10 @@
         emits: ['load', 'menu'],
         template: `
             <button @click="$emit('menu')"
-                class="md:hidden absolute left-0 top-1/2 transform -translate-y-1/2 z-20 pl-2 pr-1.5 py-3 bg-white/90 backdrop-blur-md text-gray-600 text-xs font-medium rounded-r-xl shadow-lg border border-l-0 border-gray-200 active:scale-95 transition-all flex flex-col items-center gap-1">
+                class="app-nav-trigger app-nav-trigger--embedded" aria-label="打开导航" aria-haspopup="dialog" aria-controls="app-navigation-panel">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    <use href="#icon-menu"></use>
                 </svg>
-                <span class="leading-none">返</span>
-                <span class="leading-none">回</span>
             </button>
             <div class="flex-1 w-full relative bg-white h-full">
                 <div v-if="loading" class="absolute inset-0 z-10 flex items-center justify-center bg-gray-50">
@@ -562,8 +518,8 @@
         emits: ['menu'],
         template: `
             <div class="settings-page-header">
-                <div class="flex items-center">
-                    <button @click="$emit('menu')" class="mobile-menu-button">
+                <div class="management-page-heading">
+                    <button @click="$emit('menu')" class="app-nav-trigger" aria-label="打开导航" aria-haspopup="dialog" aria-controls="app-navigation-panel">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor"><use href="#icon-menu"></use></svg>
                     </button>
                     <h2 class="text-xl md:text-2xl font-bold text-gray-800 flex items-center">
@@ -1144,20 +1100,14 @@
                             <h3 class="mt-4 text-xl md:text-2xl font-bold text-gray-900 leading-tight">{{ tool.name || '未命名工具' }}</h3>
                             <p class="mt-3 text-sm text-gray-500 leading-relaxed whitespace-pre-wrap">{{ displayDescription }}</p>
                         </div>
-                        <div class="max-w-2xl mx-auto bg-white border border-gray-200 rounded-2xl p-5 md:p-6 shadow-sm">
-                            <div class="flex items-center justify-between gap-4 mb-5">
-                                <div>
-                                    <div class="text-sm font-bold text-gray-800">返回条数</div>
-                                    <div class="text-xs text-gray-500 mt-1">控制每次工具检索返回的内容条数</div>
-                                </div>
-                                <div class="text-xs font-mono text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100">{{ tool.resultCount || 8 }} 条</div>
+                        <div v-if="tool.resultCount !== undefined" class="settings-field max-w-2xl mx-auto">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-sm font-semibold text-gray-700">返回条数</div>
+                                <div class="text-xs font-mono font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 whitespace-nowrap">{{ tool.resultCount || 8 }} 条</div>
                             </div>
                             <input :value="tool.resultCount" @input="$emit('update:result-count', Number($event.target.value))" type="range"
                                 :min="minResultCount" :max="maxResultCount" step="1"
-                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600">
-                            <div class="mt-2 flex justify-between text-[11px] text-gray-400 font-medium">
-                                <span>{{ minResultCount }} 条</span><span>{{ maxResultCount }} 条</span>
-                            </div>
+                                class="compact-range w-full h-1.5 bg-primary-100 rounded-lg appearance-none cursor-pointer accent-primary-500">
                         </div>
                         <div v-if="webTool" class="max-w-2xl mx-auto bg-white border border-gray-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-5">
                             <div>
@@ -1413,11 +1363,11 @@
                             <div class="p-5 border-t border-gray-200 space-y-5 bg-gray-50/30">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">生效位置</label>
-                                    <div class="flex gap-3">
+                                    <div class="grid grid-cols-2 gap-3">
                                         <label v-for="(label, val) in {1: '用户消息', 2: 'AI消息'}" :key="val"
-                                            :class="['flex-1 flex items-center space-x-2 cursor-pointer p-2 rounded-xl border transition-all select-none shadow-sm active:scale-95', script.placement && script.placement.includes(Number(val)) ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-100 text-gray-600 hover:border-primary-200']">
-                                            <input type="checkbox" :checked="script.placement && script.placement.includes(Number(val))" @change="togglePlacement(Number(val))" class="hidden">
-                                            <div :class="['w-4 h-4 rounded flex items-center justify-center border transition-colors', script.placement && script.placement.includes(Number(val)) ? 'bg-primary-600 border-primary-600' : 'bg-white border-gray-300']">
+                                            class="message-placement" :class="{ 'is-selected': script.placement && script.placement.includes(Number(val)) }">
+                                            <input type="checkbox" :checked="script.placement && script.placement.includes(Number(val))" @change="togglePlacement(Number(val))" class="sr-only">
+                                            <div class="message-placement-check">
                                                 <svg v-if="script.placement && script.placement.includes(Number(val))" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
                                             </div>
                                             <span class="text-xs font-bold">{{ label }}</span>
@@ -1427,9 +1377,9 @@
 
                                 <div class="grid grid-cols-2 gap-3">
                                     <label v-for="(label, key) in {markdownOnly: '仅用户可见', promptOnly: '仅AI可见'}" :key="key"
-                                        :class="['flex items-center space-x-2 cursor-pointer p-2 rounded-xl border transition-all select-none shadow-sm active:scale-95', script[key] ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-100 text-gray-600 hover:border-primary-200']">
-                                        <input type="checkbox" :checked="script[key]" @change="toggleMode(key, $event.target.checked)" class="hidden">
-                                        <div :class="['w-4 h-4 rounded flex items-center justify-center border transition-colors', script[key] ? 'bg-primary-600 border-primary-600' : 'bg-white border-gray-300']">
+                                        class="message-placement" :class="{ 'is-selected': script[key] }">
+                                        <input type="checkbox" :checked="script[key]" @change="toggleMode(key, $event.target.checked)" class="sr-only">
+                                        <div class="message-placement-check">
                                             <svg v-if="script[key]" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
                                         </div>
                                         <span class="text-xs font-bold">{{ label }}</span>
@@ -1492,18 +1442,16 @@
             },
             checkProtocol() {
                 const utils = window.RPHubUiTemplateUtils;
-                const checks = [];
                 if (!utils?.normalizeUiTemplateUpdateList) {
-                    this.protocolCheck = { ok: false, message: '模板校验器尚未加载', checks: [] };
+                    this.protocolCheck = { ok: false, message: '模板校验器尚未加载' };
                     return;
                 }
                 let variableState;
                 try {
                     variableState = JSON.parse(this.templateData.variableStateText || '{}');
                     if (variableState === null || typeof variableState !== 'object') throw new Error('变量状态必须是 JSON 对象或数组');
-                    checks.push('变量 JSON 格式正确');
                 } catch (error) {
-                    this.protocolCheck = { ok: false, message: error.message || '变量 JSON 格式错误', checks: [] };
+                    this.protocolCheck = { ok: false, message: error.message || '变量 JSON 格式错误' };
                     return;
                 }
                 let variableSchema = this.templateData.variableSchemaText || '';
@@ -1518,17 +1466,15 @@
                         variableSchema
                     };
                     utils.normalizeUiTemplateUpdateList({ updates: [{ id: template.id, variables: variableState }] }, [template]);
-                    checks.push('变量结构与 JSON 更新协议兼容');
                 } catch (error) {
-                    this.protocolCheck = { ok: false, message: error.message || '变量结构检查失败', checks };
+                    this.protocolCheck = { ok: false, message: error.message || '变量结构检查失败' };
                     return;
                 }
                 if (!String(this.templateData.htmlTemplate || '').trim()) {
-                    this.protocolCheck = { ok: false, message: 'HTML 模板为空', checks };
+                    this.protocolCheck = { ok: false, message: 'HTML 模板为空' };
                     return;
                 }
-                checks.push('HTML 模板可用于预览');
-                this.protocolCheck = { ok: true, message: '模板协议检查通过', checks };
+                this.protocolCheck = { ok: true, message: '模板协议检查通过' };
             }
         },
         data() {
@@ -1633,7 +1579,6 @@
                             <div v-if="protocolCheck" aria-live="polite" class="rounded-xl border px-4 py-3 text-sm" :class="protocolCheck.ok ? 'border-emerald-200 bg-emerald-50/70 text-emerald-700' : 'border-rose-200 bg-rose-50/70 text-rose-700'">
                                 <div class="font-bold">{{ protocolCheck.ok ? protocolCheck.message : '模板协议检查未通过' }}</div>
                                 <div v-if="!protocolCheck.ok" class="mt-1 text-xs whitespace-pre-wrap break-words">{{ protocolCheck.message }}</div>
-                                <div v-else-if="protocolCheck.checks && protocolCheck.checks.length" class="mt-1 text-xs opacity-80">{{ protocolCheck.checks.join(' · ') }}</div>
                             </div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                 <div>
@@ -1986,16 +1931,10 @@
                                         <summary class="flex flex-col p-3.5 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer select-none transition-colors gap-2">
                                             <div class="flex flex-row justify-between items-center w-full">
                                                 <div class="flex items-center gap-2">
-                                                    <span :class="{
-                                                        'bg-green-100 text-green-700 border border-green-200 shadow-sm': message.isMemory,
-                                                        'bg-red-100 text-red-700 border border-red-200 shadow-sm': message.role === 'system' && !message.isMemory,
-                                                        'bg-green-100 text-green-700 border border-green-200 shadow-sm': message.role === 'user',
-                                                        'bg-purple-100 text-purple-700 border border-purple-200 shadow-sm': message.role === 'assistant',
-                                                        'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm': message.role === 'tool'
-                                                    }" class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider flex items-center justify-center min-w-[70px] whitespace-nowrap">
+                                                    <span class="meta-badge meta-badge--role" :class="'meta-badge--' + (message.isMemory ? 'memory' : message.role)">
                                                         <span v-if="message.floor" class="opacity-70 mr-1 font-bold">F{{ message.floor }}</span> {{ message.isMemory ? '记忆' : message.role }}
                                                     </span>
-                                                    <span class="font-bold bg-white border border-gray-200 shadow-sm text-gray-500 px-2.5 rounded-full py-0.5 text-[11px]">{{ message.content.length }} 字符</span>
+                                                    <span class="meta-badge">{{ message.content.length }} 字符</span>
                                                 </div>
                                                 <div class="flex items-center flex-shrink-0 ml-2">
                                                     <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -2290,16 +2229,12 @@
                                     'bg-blue-50 text-blue-700 border-blue-200': updateStatus.state === 'running',
                                     'bg-green-50 text-green-700 border-green-200': updateStatus.state === 'success',
                                     'bg-yellow-50 text-yellow-700 border-yellow-200': updateStatus.state === 'skipped',
-                                    'bg-red-50 text-red-700 border-red-200': updateStatus.state === 'error',
-                                    'bg-gray-50 text-gray-500 border-gray-200': updateStatus.state === 'idle'
+                                    'bg-red-50 text-red-700 border-red-200': updateStatus.state === 'error'
                                 }">
                                 {{ updateStatus.message }}
                             </span>
                         </span>
-                        <span class="flex items-center gap-3 flex-shrink-0">
-                            <span class="text-xs font-bold" :class="settings.uiTemplateEnabled ? 'text-primary-600' : 'text-gray-400'">
-                                {{ settings.uiTemplateEnabled ? '已开启' : '已关闭' }}
-                            </span>
+                        <span class="flex items-center flex-shrink-0">
                             <svg :class="{'transform rotate-180': showSettings}"
                                 class="settings-collapse-chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -2391,25 +2326,27 @@
 
                 <div v-if="!hasCharacter && templates.length === 0" class="py-24 text-center text-gray-400">请先选择角色卡</div>
                 <div v-else-if="templates.length === 0" class="py-24 text-center text-gray-400">当前没有UI模板</div>
-                <div v-else class="space-y-4">
+                <div v-else class="sortable-list">
                     <div v-for="(template, index) in templates" :key="template.id"
-                        class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div class="p-4 flex items-start justify-between gap-3">
+                        class="sortable-list-item">
+                        <div class="sortable-item-main">
                             <div class="min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <h3 class="font-bold text-gray-800 truncate">{{ template.name }}</h3>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full border"
-                                        :class="template.scope === 'global' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'">
+                                <div class="sortable-item-heading">
+                                    <h3 class="truncate" :title="template.name">{{ template.name }}</h3>
+                                    <span class="meta-badge meta-badge--desktop"
+                                        :class="template.scope === 'global' ? 'meta-badge--global' : 'meta-badge--bound'">
                                         {{ template.scope === 'global' ? '全局' : '绑定' }}
                                     </span>
                                 </div>
                                 <p class="text-xs text-gray-500 mt-1">{{ Object.keys(template.variableState || {}).length }} 个变量 · {{ (template.changeLog || []).length }} 条记录</p>
                             </div>
-                            <div class="flex items-center gap-1">
-                                <label class="relative inline-flex items-center cursor-pointer mr-2">
-                                    <input type="checkbox" v-model="template.enabled" class="settings-toggle-input sr-only">
-                                    <div class="settings-toggle settings-toggle--compact settings-toggle--solid"></div>
-                                </label>
+                        </div>
+                        <div class="sortable-item-actions">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="template.enabled" class="settings-toggle-input sr-only" :aria-label="'启用模板：' + template.name">
+                                <div class="settings-toggle settings-toggle--compact settings-toggle--solid"></div>
+                            </label>
+                            <div class="sortable-item-buttons">
                                 <button @click="$emit('edit', index)" class="item-action-button item-action-button--edit" title="编辑">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"><use href="#icon-edit"></use></svg>
                                 </button>

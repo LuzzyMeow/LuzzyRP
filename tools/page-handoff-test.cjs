@@ -94,19 +94,29 @@ async function main() {
             isChrome(el) { const c = this.cls(el); return c === 'lsp-fab-row' || c.indexOf('lsp-fab') === 0; },
             pages() { const m = this.main(); return m ? Array.from(m.children).filter((e) => e.nodeType === 1 && !this.isChrome(e)) : []; },
             visible() { return this.pages().filter((e) => getComputedStyle(e).display !== 'none'); },
-            sidebar() { return document.querySelector('.app-sidebar'); },
+            sidebar() { return document.querySelector('.app-navigation-panel') || document.querySelector('.app-sidebar'); },
+            // [1.9.5 上游重写] 打开态判据：新侧栏是 v-if 渲染（元素在即打开），旧侧栏是类名切换。
+            isNavOpen() {
+                if (document.querySelector('.app-navigation-layer')) return true;
+                const s = document.querySelector('.app-sidebar');
+                return !!s && s.classList.contains('mobile-sidebar-open');
+            },
             hamburger() {
-                // 用 <use href="#icon-menu"> 定位，比类名稳（聊天页/管理页的菜单按钮类不同）
-                return Array.from(document.querySelectorAll('button'))
-                    .find((b) => b.querySelector('use[href="#icon-menu"]'));
+                // [1.9.5 上游重写] 侧栏由 AppSidebar 换成 AppNavigation：触发按钮类名为 .app-nav-trigger，
+                // 图标不再是 <use href="#icon-menu">（上游改为内联 SVG）。优先按新类名定位，
+                // 回退到旧图标选择器以兼容未升级的上游基线。
+                return document.querySelector('button.app-nav-trigger')
+                    || Array.from(document.querySelectorAll('button'))
+                        .find((b) => b.querySelector('use[href="#icon-menu"]'));
             },
             nav(name) {
-                // 侧栏里同名项可能有两个（「助手」子项 与 RP-Hub 页面项，如「设置」「记忆」）：
-                // 助手子项走原生桥接、桌面上不导航，必须排除（.advanced-nav-item 即助手/在线/高级的展开项）。
-                const all = Array.from(document.querySelectorAll('.app-sidebar button'))
+                // [1.9.5 上游重写] 导航项类名由 .app-sidebar button 变为 .app-navigation-item。
+                // 同名项可能不止一个（上游的「设置」在「常用」组、其他组也可能出现同名），
+                // 取最后一个与旧行为一致（旧实现取 top[last]）。
+                const sel = '.app-navigation-panel button, .app-navigation-item, .app-sidebar button';
+                const all = Array.from(document.querySelectorAll(sel))
                     .filter((b) => (b.textContent || '').trim() === name);
-                const top = all.filter((b) => !b.classList.contains('advanced-nav-item'));
-                return top[top.length - 1] || all[all.length - 1];
+                return all[all.length - 1];
             },
             // 采样一次转场：旧页/新页不透明度 + 侧栏 translateX
             probe: null,
@@ -162,8 +172,12 @@ async function main() {
         const opened = await evalJs(`(() => {
             const t = window.__lspT; const h = t.hamburger();
             if (!h) return 'no-hamburger';
-            if (!(t.sidebar() || {}).classList.contains('mobile-sidebar-open')) { h.click(); return 'opened'; }
-            return 'already-open';
+            // [1.9.5 上游重写] 打开态判据随侧栏组件变化：
+            //   旧 AppSidebar：给 .app-sidebar 加 mobile-sidebar-open 类
+            //   新 AppNavigation：v-if="open" 渲染 .app-navigation-layer（元素存在即已打开）
+            if (t.isNavOpen ? t.isNavOpen() : false) return 'already-open';
+            h.click();
+            return 'opened';
         })()`);
         await sleep(300);
         const clicked = await evalJs(`(() => { const b = window.__lspT.nav(${JSON.stringify(name)}); if (!b) return 'not-found'; b.click(); return 'clicked'; })()`);
@@ -242,10 +256,11 @@ async function main() {
     const a9 = await evalJs(`(async () => {
         const t = window.__lspT;
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-        // 摆到聊天页 + 开侧栏
-        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
+        // 摆到聊天页 + 开侧栏（[1.9.5 上游重写] 统一用 t.isNavOpen()，兼容新旧侧栏形态：
+        // 旧 AppSidebar 是 mobile-sidebar-open 类，新 AppNavigation 是 v-if 渲染 .app-navigation-layer）
+        if (!t.isNavOpen()) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
         const b1 = t.nav('聊天'); if (b1) b1.click(); await sleep(650);
-        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h2 = t.hamburger(); if (h2) h2.click(); await sleep(360); }
+        if (!t.isNavOpen()) { const h2 = t.hamburger(); if (h2) h2.click(); await sleep(360); }
         const target = t.nav('记忆系统');
         if (!target) return { error: 'target-not-found' };
         const hoBefore = document.documentElement.classList.contains('lsp-page-handoff');
@@ -317,9 +332,9 @@ async function main() {
     const a10 = await evalJs(`(async () => {
         const t = window.__lspT;
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
+        if (!t.isNavOpen()) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
         const b1 = t.nav('聊天'); if (b1) b1.click(); await sleep(650);
-        if (!t.sidebar().classList.contains('mobile-sidebar-open')) { const h2 = t.hamburger(); if (h2) h2.click(); await sleep(360); }
+        if (!t.isNavOpen()) { const h2 = t.hamburger(); if (h2) h2.click(); await sleep(360); }
         const target = t.nav('记忆系统');
         if (!target) return { error: 'target-not-found' };
         target.click();
@@ -341,7 +356,7 @@ async function main() {
         return {
             out: timingOf(document.querySelector('.lsp-view-out')),
             inFly: timingOf(document.querySelector('.lsp-view-in')),
-            sidebar: cs ? { duration: cs.transitionDuration, easing: cs.transitionTimingFunction } : null,
+            sidebar: cs ? { duration: cs.transitionDuration, easing: cs.transitionTimingFunction, property: cs.transitionProperty } : null,
         };
     })()`);
     report.checks.declaredMotion = a10;
@@ -361,9 +376,39 @@ async function main() {
             }
         }
         const sbDur = norm(a10.sidebar && a10.sidebar.duration);
-        if (sbDur !== '0.2s') report.failures.push(`A10 侧栏时长 ${sbDur} ≠ 0.2s（应与其他三处共用一个令牌值）`);
-        if (norm(a10.sidebar && a10.sidebar.easing) !== TOKEN_EASE) {
-            report.failures.push(`A10 侧栏曲线 ${a10.sidebar && a10.sidebar.easing} ≠ ${TOKEN_EASE}`);
+        // [1.9.5 上游重写] 侧栏由 AppSidebar（自有 CSS transition 0.2s + 令牌曲线）换成 AppNavigation
+        // （Vue <transition name="app-navigation"> + 自有 CSS：enter 0.38s / leave 0.18s，曲线为上游自定义）。
+        // 旧断言「必须 0.2s + 本仓令牌曲线」在上游新结构下已无对象——实测读到的是上游 leave-active 的
+        // 0.18s/0.16s。故改为断言**上游实际契约**：app-navigation-enter/leave 规则存在（过渡体系在）；
+        // 仅当侧栏仍由本仓旧形态（.app-sidebar + 令牌过渡）承载时，才校验令牌一致性。
+        const sbEasing = norm(a10.sidebar && a10.sidebar.easing);
+        const isLegacyTokenised = sbDur === '0.2s' && sbEasing === TOKEN_EASE;
+        if (!isLegacyTokenised) {
+            // 新形态：确认过渡体系真的在跑。注意**不能扫 document.styleSheets**——
+            // file:// 下外部 CSS 会抛 SecurityError（cssRules 不可读，实测），
+            // 故改为实测面板的过渡类名（Vue <transition> 生效时必然挂上 enter/leave-* 类）。
+            const ok = await evalJs(`(async () => {
+                const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+                const t = window.__lspT;
+                if (!t.isNavOpen()) { const h = t.hamburger(); if (h) h.click(); await sleep(360); }
+                const trig = t.hamburger();
+                if (trig) { trig.click(); await sleep(30); }
+                const el = document.querySelector('.app-navigation-layer, .app-navigation-panel');
+                if (!el) return false;
+                // 过渡类在 enter/leave 期间挂载；短窗口内命中即证明过渡体系在工作
+                for (let i = 0; i < 8; i++) {
+                    const cls = (document.querySelector('.app-navigation-layer') || {}).className || '';
+                    if (/app-navigation-(enter|leave)/.test(cls)) return true;
+                    await sleep(25);
+                }
+                return false;
+            })()`);
+            if (!ok) {
+                report.failures.push(
+                    `A10 侧栏过渡：既非本仓令牌形态（0.2s + ${TOKEN_EASE}，实测 ${sbDur} / ${sbEasing}），` +
+                    `也未观测到上游 app-navigation-enter/leave 过渡类——过渡体系缺失`,
+                );
+            }
         }
     }
 

@@ -1,5 +1,8 @@
 # ===== LuzzyRP .gitignore =====
 
+# AOCI 接入产生的 preimage 备份（file.backup.时间戳.摘要，写前保护；内容与 Git HEAD 等价）
+*.backup.*
+
 # Gradle
 .gradle/
 build/

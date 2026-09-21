@@ -7,80 +7,27 @@ import android.os.Build
 import android.webkit.JavascriptInterface
 import android.widget.Toast
 import com.luzzymeow.luzzyrp.BuildConfig
-import com.luzzymeow.luzzyrp.chat.ChatEventSink
-import com.luzzymeow.luzzyrp.chat.ChatJobs
-import com.luzzymeow.luzzyrp.chat.ChatJsCall
-import com.luzzymeow.luzzyrp.data.legacy.MigrationInbox
 
 /**
  * JSBridge 原生实现（AGENTS.md §5.4 新增桥接方法流程的落点）。
  *
- * 所有 `@JavascriptInterface` 方法集中于此；前端通过
- * `assets/ext/luzzy-bridge.js`（以及 v2.0 的 `luzzy-chat-native.js`）的封装调用
- * （含存在性检测与降级）。
+ * 所有 `@JavascriptInterface` 方法集中于此；前端通过 `assets/ext/luzzy-bridge.js`
+ * 的封装调用（含存在性检测与降级）。
  *
  * [HARD-REQ-3] 扩展层隔离：本类属于原生层，与上游 RP-Hub 文件无关；
  * 方法名被前端 JS 直接引用，R8 规则已保留（proguard-rules.pro）。
+ *
+ * [v1.5.0 移除] 原「助手」桥接契约（openAssistant / openAssistantAt / openRpSidebar /
+ * isAssistantVisible / set-getAssistantConfig / setAssistantThemeMode）已随助手功能
+ * 按用户指示于 2026-09-11 一并移除。
+ *
+ * [v1.5.0 移除] v2.0 原生聊天传输桥（chatStart / chatAbort / chatCapabilities / 事件出口）
+ * 与 v3.0 数据迁移桥（migrateStart / migrateChunk / migrateDone / migrateError）已随
+ * 「放弃原生 Kotlin + Compose 路线」按用户指示于 2026-09-20 一并移除——本项目回到
+ * 纯 WebView 壳形态，聊天传输与数据由 WebView 侧自理（详见 docs/WORKLOG.md）。
  */
 @Suppress("unused")
 class LuzzyBridge(private val context: Context) {
-
-    /**
-     * 原生 → JS 事件出口（v2.0）。
-     *
-     * 由 WebView 宿主在创建 WebView 后设置（原主壳 MainActivity 已于 P6 随 WebView 路径
-     * 退役删除；v3.0 Compose 路径不经过 WebView，本属性仅作为 v2.x 契约保留），契约：
-     * 收到的字符串是**完整的 JS 表达式**，宿主须在 **UI 线程** 调
-     * `webView.evaluateJavascript(js, null)`；WebView 销毁前须置回 null。
-     */
-    @Volatile
-    var eventSink: ((String) -> Unit)? = null
-
-    /** 事件出口的稳定适配器（读 [eventSink] 的最新值，避免每任务重新分配）。 */
-    private val chatSink = ChatEventSink { jobId, eventJson ->
-        eventSink?.invoke(ChatJsCall.onEvent(jobId, eventJson))
-    }
-
-    /** 原生聊天传输任务管理器（懒建：不用原生传输时不占资源）。 */
-    private val chatJobs: ChatJobs by lazy {
-        ChatJobs(
-            sink = { chatSink },
-            log = { message -> android.util.Log.d(TAG, message) },
-        )
-    }
-
-    // ---------- v2.0 原生聊天传输桥接契约（JS 侧：assets/ext/luzzy-chat-native.js） ----------
-
-    /** 启动一次原生聊天传输；返回 jobId（成功）或空串（原生不可用/参数非法）。必须立即返回，不得阻塞。 */
-    @JavascriptInterface
-    fun chatStart(planJson: String): String = try {
-        chatJobs.start(planJson)
-    } catch (e: Throwable) {
-        android.util.Log.w(TAG, "chatStart 失败：${e.javaClass.simpleName}")
-        ""
-    }
-
-    /** 中止指定 job；返回是否真的中止了。 */
-    @JavascriptInterface
-    fun chatAbort(jobId: String): Boolean = try {
-        chatJobs.abort(jobId)
-    } catch (e: Throwable) {
-        false
-    }
-
-    /** 原生传输能力探测；返回 JSON 字符串 {"available":true,"protocols":[...]} 或 {"available":false,"reason":"..."}。 */
-    @JavascriptInterface
-    fun chatCapabilities(): String = try {
-        ChatJobs.capabilitiesJson(available = true)
-    } catch (e: Throwable) {
-        ChatJobs.capabilitiesJson(available = false, reason = e.javaClass.simpleName)
-    }
-
-    /** WebView 销毁时收尾：停止全部在跑的传输任务，并断开事件出口。 */
-    fun shutdownChatJobs() {
-        eventSink = null
-        chatJobs.shutdown()
-    }
 
     /** 剪贴板写入。返回是否成功（后端实现总是返回 true）。 */
     @JavascriptInterface
@@ -164,106 +111,8 @@ class LuzzyBridge(private val context: Context) {
         }
     }
 
-    // ---------- v3.0 数据迁移通道（JS 侧：assets/ext/luzzy-migrate.html + luzzy-bridge.js 封装） ----------
-    //
-    // 旧数据活在 WebView 的 IndexedDB 里（LevelDB 形态），Kotlin 直接解析不现实 → 迁移必须由
-    // 跑在 WebView 里的 JS 把数据「读出来」。通道形状：开始 → 若干块 → 结束。
-    // 分块是**硬要求**：真实用户的全量导出有几 MB，一次传会撞 Binder 事务上限（1 MB），
-    // 而这类失败在数据量小时看不出来（详见 docs/DESIGN-migration.md §6）。
-    //
-    // 本组方法只往 `filesDir/migration/incoming/` 写文件，**不碰旧库**（迁移不破坏源，G5）。
-
-    private val migrationInbox: MigrationInbox by lazy {
-        MigrationInbox(java.io.File(context.filesDir, "migration"))
-    }
-
-    /**
-     * 迁移导出结束的回调（成功, 说明）。由 [com.luzzymeow.luzzyrp.data.legacy.MigrationRunner] 挂上，
-     * 用来把「页面跑完了」这件事告诉等待中的原生协程。
-     *
-     * 为什么不用轮询桥方法：轮询要猜时长（快机器 1 秒、慢机器 10 秒），而回调是**事件本身**。
-     * WebView 销毁前须置回 null（否则回调会打在已销毁的 WebView 流程上）。
-     */
-    @Volatile
-    var migrationDoneSink: ((Boolean, String) -> Unit)? = null
-
-    /** 开始一次导出，返回会话 id（页面后续回传）。 */
-    @JavascriptInterface
-    fun migrateStart(sessionId: String): String = try {
-        migrationInbox.start(sessionId)
-    } catch (e: Throwable) {
-        android.util.Log.w(TAG, "migrateStart 失败：${e.javaClass.simpleName}")
-        ""
-    }
-
-    /**
-     * 追加一块。返回 false = 被拒（顺序错乱/无会话），页面必须停下并调 [migrateError]。
-     * 顺序校验存在的理由：缺块拼出来的 JSON 可能**恰好能被解析**，然后悄悄少掉一部分数据。
-     */
-    @JavascriptInterface
-    fun migrateChunk(seq: Int, payload: String): Boolean = try {
-        migrationInbox.appendChunk(seq, payload)
-    } catch (e: Throwable) {
-        false
-    }
-
-    /** 收尾。返回 JSON 报告（块数/字符数/sha256），失败返回空串。 */
-    @JavascriptInterface
-    fun migrateDone(summaryJson: String): String = try {
-        val summary = parseMigrationSummary(summaryJson)
-        val result = migrationInbox.finish(summary)
-        if (result == null) {
-            migrationDoneSink?.invoke(false, "导出文件未通过校验（块数不足或为空）")
-            ""
-        } else {
-            migrationDoneSink?.invoke(true, "chunks=${result.chunkCount} chars=${result.charCount}")
-            """{"chunks":${result.chunkCount},"chars":${result.charCount},"sha256":"${result.sha256}",""" +
-                """"path":"${result.file.name}"}"""
-        }
-    } catch (e: Throwable) {
-        android.util.Log.w(TAG, "migrateDone 失败：${e.javaClass.simpleName}")
-        ""
-    }
-
-    /** 页面侧异常出口（不吞错）：清掉半成品并记录。 */
-    @JavascriptInterface
-    fun migrateError(message: String) {
-        android.util.Log.w(TAG, "迁移导出失败：$message")
-        migrationDoneSink?.invoke(false, message)
-        try {
-            migrationInbox.abandon()
-        } catch (_: Throwable) {
-            // 清理失败不影响「已经失败」这个结论
-        }
-    }
-
-    /** 迁移收件箱的上次结果（原生侧读报告用）。 */
-    fun migrationResult(): MigrationInbox.Result? = migrationInbox.last
-
-    private fun parseMigrationSummary(json: String): MigrationInbox.Summary? = try {
-        val obj = kotlinx.serialization.json.Json.parseToJsonElement(json)
-            as? kotlinx.serialization.json.JsonObject ?: return null
-        fun intOf(key: String): Int? =
-            (obj[key] as? kotlinx.serialization.json.JsonPrimitive)
-                ?.let { runCatching { it.content.toInt() }.getOrNull() }
-        MigrationInbox.Summary(
-            mainKeys = intOf("mainKeys") ?: -1,
-            legacyKeys = intOf("legacyKeys") ?: -1,
-            mainVersion = intOf("mainVersion"),
-            legacyVersion = intOf("legacyVersion"),
-        )
-    } catch (e: Throwable) {
-        null
-    }
-
     companion object {
-        private const val TAG = "LuzzyBridge"
-
         /** 上游基线版本；每次同步上游后更新（v1.5.0 同步至 1.9.3 / commit 4aef0bb）。 */
         const val UPSTREAM_VERSION = "1.9.3"
     }
-
-    // [v1.5.0 移除] 原「助手」桥接契约（openAssistant / openAssistantAt / openRpSidebar /
-    // isAssistantVisible / set-getAssistantConfig / setAssistantThemeMode）已随助手功能
-    // 按用户指示于 2026-09-11 一并移除。
 }

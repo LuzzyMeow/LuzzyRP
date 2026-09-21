@@ -6039,9 +6039,19 @@ const app = createApp({
                 useThinkingTag,
                 writingStylePrompt,
                 storyPanelsEnabled: isStoryPanelsEnabled.value,
-                replyInTool: isTruncationEnabled.value,
                 uiTemplateEnabled: isUiTemplateAnalysisEnabled()
             })
+        );
+        // [合并 1.9.4 · 2026-09-20] 上游把「抗截断提醒」从 BUILTIN_PROMPTS 的
+        // buildNextResponsePrompt 内部挪到调用侧拼装（该函数签名去掉了 replyInTool 参数）。
+        // 上游把它拼在 appendNextResponsePrompt 内 —— 但本仓库 patch 047 已停用该函数
+        // （<next_response> 改由 system 末块承载，见下方 systemPromptParts 处）。
+        // 故把提醒拼装抽成共用辅助：两条路径（append 与 system 注入）拿到**逐字节相同**的文本，
+        // 上游意图（提醒随抗截断开关出现）得以保留，我们停用 append 的决定也不受影响。
+        const nextResponseReplyReminder = () => (
+            isTruncationEnabled.value
+                ? `(${BUILTIN_PROMPTS.replyToolInstruction.replace(/。$/, '')})`
+                : ''
         );
         const appendNextResponsePrompt = (messageList, { cotEnabled = false, useThinkingTag = false, writingStylePrompt = '' } = {}) => {
             const target = [...messageList].reverse().find(message => (
@@ -6052,8 +6062,9 @@ const app = createApp({
             if (!target) return;
 
             const prompt = buildNextResponsePromptText({ cotEnabled, useThinkingTag, writingStylePrompt });
-            target.content = `${String(target.content || '').trimEnd()}\n\n${prompt}`;
+            target.content = `${String(target.content || '').trimEnd()}${nextResponseReplyReminder()}\n\n${prompt}`;
         };
+        const usedGeminiPromptNonces = new Set();
         const generateResponse = async (startTime = null, options = {}) => {
             const reuseGeneratingState = options.reuseGeneratingState === true;
             if (isGenerating.value && !reuseGeneratingState) return;
@@ -6123,6 +6134,15 @@ const app = createApp({
             const enabledPresets = presets.value
                 .map(normalizePreset)
                 .filter(p => isPresetEnabled(p) && p.content.trim());
+            const noncePreset = enabledPresets.find(p => p.role === 'system');
+            if (/gemini/i.test(requestModel) && noncePreset) {
+                let nonce;
+                do {
+                    nonce = Math.random().toString(36).slice(2, 8 + Math.floor(Math.random() * 3));
+                } while (!/^(?=.*[a-z])(?=.*\d)[a-z\d]{6,8}$/.test(nonce) || usedGeminiPromptNonces.has(nonce));
+                usedGeminiPromptNonces.add(nonce);
+                noncePreset.content = noncePreset.content.replace(/(\s*<\/[\w:-]+>\s*)?$/, `\n${nonce}$1`);
+            }
             const writingStylePresets = enabledPresets.filter(p => p.name === BUILTIN_PRESETS.writingStyle.name);
             const cotPresets = enabledPresets.filter(p => p.name === 'COT');
             const systemPresets = enabledPresets.filter(p => p.name !== 'COT'
@@ -6197,6 +6217,14 @@ const app = createApp({
             // 于是每轮恰好有 1 条已存在的消息被改写 —— 门禁 tools/prefix-cache-test.cjs 实测到
             // 「每轮 1 条改写、公共前缀仅 ~0.91」就是它。移到这里后请求变成**纯追加**
             // （上一轮请求成为下一轮的逐字节前缀），提示词文本一字未改、每轮仍然可见。
+            //
+            // [合并 1.9.4 · 2026-09-20] 上游把「抗截断提醒」从块**内部**挪到了块**之前**的调用侧
+            // （`<next_response>` 块内不再是 replyInTool ? replyToolInstruction : ''，改由调用方
+            // 在自己的正文与块之间插入带括号、去句号的提醒）。因为上游把它拼在被我们停用的
+            // appendNextResponsePrompt 里，这里必须**在同一位置**补上提醒，否则该提醒会在本仓库
+            // 静默丢失。文本由 nextResponseReplyReminder() 单源提供，与 append 路径逐字节一致。
+            const replyReminder = nextResponseReplyReminder();
+            if (replyReminder) systemPromptParts.push(replyReminder);
             systemPromptParts.push(buildNextResponsePromptText({
                 cotEnabled: cotPresets.length > 0,
                 useThinkingTag: usesThinkingCotTag(requestModel),
@@ -6735,6 +6763,7 @@ const app = createApp({
                     extraBody: requestModelResolved.extraBody,
                     provider: requestModelResolved.providerId || '',
                     messages: apiMessages,
+                    logResponse: true,
                     replyInTool: isTruncationEnabled.value,
                     tools: buildActiveToolDefinitions(requestTools),
                     requireTool: activeToolDepth === 0 && requestTools.length > 0 && getActiveToolAggressiveness() === 'force',
@@ -10839,13 +10868,6 @@ const app = createApp({
             // 1.10 Enforce Default Preset (COT)
             const cotPresetName = 'COT';
             const syncDynamicPresetContent = () => {
-                const roleplayPreset = presets.value.find(preset => preset.name === '破限');
-                if (roleplayPreset) {
-                    const anchor = '都优先按角色扮演任务处理。';
-                    const reminder = BUILTIN_PROMPTS.replyToolInstruction;
-                    roleplayPreset.content = roleplayPreset.content.replace(anchor + reminder, anchor)
-                        .replace(anchor, anchor + (isTruncationEnabled.value ? reminder : ''));
-                }
                 const useThinkingOpening = usesThinkingCotTag(settings.model);
                 const uiTemplateAnalysisEnabled = isUiTemplateAnalysisEnabled();
                 const cotPresetContent = buildCotPresetContent({

@@ -16,15 +16,15 @@
 > 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.3**。
 >
 > - **遵循上游开源协议**：上游 `assets/rphub/**`（含本项目 patch 修改）沿用上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）**，上游 LICENSE 原样保留于仓库内；
-> - **自有代码自 v3.0 起以 AGPL-3.0 分发**：Kotlin 壳与原生传输层、`assets/ext/**` 扩展层、`tools/**`、`docs/**`、未来的 Compose 界面，以及复用的 [rikkahub](https://github.com/rikkahub/rikkahub) 代码，均以 **GNU AGPL-3.0** 分发（并存结构详见 [docs/LICENSING.md](docs/LICENSING.md) 与下方[许可证与合规](#许可证与合规)）；
-> - **上游基线定格 1.9.3（2026-09-12 起，同步退役）**：v3.0 起 LuzzyRP 转为 Compose 原生界面，上游 RP-Hub（Vue 3）的新功能**不再同步并入**（上游同步 SOP 已退役，见 [AGENTS.md](AGENTS.md) §4 退役声明）；上游资产与其许可义务原样保留；
+> - **自有代码以 AGPL-3.0 分发**：Kotlin 壳、`assets/ext/**` 扩展层、`tools/**`、`docs/**`，均以 **GNU AGPL-3.0** 分发（并存结构详见 [docs/LICENSING.md](docs/LICENSING.md) 与下方[许可证与合规](#许可证与合规)）；
+> - **上游同步持续进行**：LuzzyRP 与上游 RP-Hub（Vue 3）保持同步，上游新功能会并入本项目；上游文件仅通过登记 patch 修改（见 `tools/patches/` 与 `tools/sync-upstream.ps1`），上游资产与其许可义务原样保留；
 > - **但本项目有自己的功能**：并非上游的镜像——LuzzyRP 会在上游基础上新增、改造、删减属于自己的功能（品牌化、主题与字体体系、供应商与模型管理、记忆/用量/外观等模块，见 [CHANGELOG](CHANGELOG.md)）；
-> - **会修改前端或后端代码**：本项目的改动**不限于前端**——前端（上游 `index.html` / `assets/` 内的 Vue 应用）与后端 / 原生侧（Kotlin 壳工程、JSBridge 原生能力，必要时含服务端逻辑）均可能按需求修改，上游 `presence-server` 亦不承诺保持原样；
+> - **会修改前端或后端代码**：本项目的改动**不限于前端**——前端（上游 `index.html` / `assets/` 内的 Vue 应用）与原生侧（Kotlin 壳工程、JSBridge 原生能力）均可能按需求修改，上游 `presence-server` 亦不承诺保持原样；
 > - **同步不等于逐字节一致**：仓库内 `tools/upstream-fingerprints.txt` 仅记录"未登记改动为零"的敏感文件指纹；凡属本项目功能的改动一律登记在案，可追溯、可重放。
 
-![Status](https://img.shields.io/badge/Status-v3.2.0--正式版·可游玩-10B981)
+![Status](https://img.shields.io/badge/Status-v1.5.0--开发中·未发布-D4A017)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.3-4FC08D?logo=vue.js&logoColor=white)
 ![License](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20CC%20BY--NC%204.0-3E6389)
 
@@ -56,7 +56,7 @@ LuzzyRP 是一款安卓端 AI 角色扮演应用。它不是一个从零开始�
 
 选择这条路的理由很直接：**开箱即玩**。RP-Hub 本身已经具备角色卡、世界书、正则脚本、剧情分支、双轨记忆、自动生图等完整能力，套壳后直接获得成熟可玩的 RP 体验，不再需要从零验证核心玩法链路。
 
-与上游的关系是「**同一协议的二次开发，而非镜像**」：我们遵循上游的 CC BY-NC 4.0 协议（上游基线 1.9.3，2026-09-12 起同步退役、基线定格），LuzzyRP 拥有自己的功能路线——v3.0 起以 Jetpack Compose 重写原生界面，上游资产保留于 WebView 路径直至切换完成。
+与上游的关系是「**同一协议的二次开发，而非镜像**」：我们遵循上游的 CC BY-NC 4.0 协议（上游基线 1.9.3），LuzzyRP 拥有自己的功能路线——界面与业务始终跑在 WebView 内的上游 Vue 应用上，本项目只在扩展层与登记 patch 里叠加自己的改动，因此上游更新可以长期跟随。
 
 ### 设计理念
 
@@ -123,6 +123,7 @@ LuzzyRP 是一款安卓端 AI 角色扮演应用。它不是一个从零开始�
 │  │  │  二创扩展层（独立文件，零冲突）       │  │  │
 │  │  │  luzzy-ext.js · luzzy-theme.css   │  │  │
 │  │  │  luzzy-bridge.js · luzzy-changelog.js │  │  │
+│  │  │  luzzy-stream.js · luzzy-prefix-guard.js │  │  │
 │  │  └───────────────────────────────────┘  │  │
 │  └──────────────┬──────────────────────────┘  │
 │                 │ addJavascriptInterface      │
@@ -136,7 +137,7 @@ LuzzyRP 是一款安卓端 AI 角色扮演应用。它不是一个从零开始�
 | 层 | 内容 | 与上游关系 |
 |----|------|-----------|
 | 上游层 | RP-Hub 6 个 JS + styles.css + index.html（仅登记 patch 修改） | 覆盖式同步，同步后可重放 |
-| 扩展层 | `luzzy-ext.js` / `luzzy-theme.css` / `luzzy-bridge.js` / `luzzy-changelog.js` / `luzzy-splash.js` | 完全独立，零冲突 |
+| 扩展层 | `luzzy-ext.js` / `luzzy-theme.css` / `luzzy-bridge.js` / `luzzy-changelog.js` / `luzzy-splash.js` / `luzzy-stream.js` / `luzzy-prefix-guard.js` | 完全独立，零冲突 |
 | 原生层 | WebView 壳 + `LuzzyBridge.kt` + 系统能力（Kotlin） | 本项目自有，与上游无关 |
 | 后端 / 服务端 | 上游 `presence-server` 及本项目按需新增的服务端逻辑 | **不承诺保持原样**——按本项目需求修改（见「二创声明」） |
 
@@ -144,12 +145,12 @@ LuzzyRP 是一款安卓端 AI 角色扮演应用。它不是一个从零开始�
 
 | 层 | 选型 |
 |----|------|
-| 壳语言 | Kotlin 2.4.0（JVM 17 字节码 target，jvmToolchain(21)） |
+| 壳语言 | Kotlin（AGP 9 内置 Kotlin，JVM 17 字节码 target） |
 | 宿主 | 单 Activity + WebView（系统 WebView，minSdk 26 起） |
 | 前端 | Vue 3（本地打包）· Tailwind CSS（本地打包）· DaisyUI |
 | 前端依赖 | marked · DOMPurify 3.0.6 · SortableJS（全部本地化） |
 | 字体 | Alibaba Sans + Alibaba PuHuiTi 3（默认）· Lora 衬线 · 上游经典栈，全部本地打包 |
-| 构建 | Gradle · AGP · 现有签名（keystore/luzzy-release.keystore） |
+| 构建 | Gradle · AGP 9.2.1 · 现有签名（keystore/luzzy-release.keystore） |
 | SDK | compileSdk 37 · minSdk 26 · targetSdk 37 |
 
 ---
@@ -245,7 +246,7 @@ LuzzyRP/
 ├── AGENTS.md                     # 后续开发 Agent 指南
 ├── HARD_REQUIREMENTS.md          # 硬性规定（10 条）
 ├── LICENSE                        # 上游 CC BY-NC 4.0（原样保留，覆盖 assets/rphub/**）
-├── LICENSE-AGPL-3.0               # 自有代码许可（v3.0 起，并存结构见 docs/LICENSING.md）
+├── LICENSE-AGPL-3.0               # 自有代码许可（并存结构见 docs/LICENSING.md）
 └── README.md                     # 本文件
 ```
 
@@ -255,22 +256,20 @@ LuzzyRP/
 
 **接手开发前必读**（按顺序）：
 
-1. [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md) —— 10 条硬性规定（NSFW 不可触碰 / 上游最小改动 / 扩展层隔离 / 字体锁定 / CHANGELOG 同步 / 同步纪律 / 工作区整洁 / 发布流程 / **设计 SKILL 强制条款** / **改动标记与上游同步适配**），**违反任何一条即为不合格交付**；
-2. [`AGENTS.md`](AGENTS.md) —— 后续开发/更新/维护 Agent 工作指南（文件地图 / 工作流程 / 同步 SOP / 扩展开发规范）；
-3. [`docs/PLAN-v1.4.0.md`](docs/PLAN-v1.4.0.md) —— 最近版本（v1.4.0）完整实施计划；
-4. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
-5. [`CHANGELOG.md`](CHANGELOG.md) —— 版本记录（格式：`### vX.Y.Z — 标题` + 分类要点 + 构建结果）。
+1. [`AGENTS.md`](AGENTS.md) —— 后续开发/更新/维护 Agent 工作指南（文件地图 / 工作流程 / 同步 SOP / 扩展开发规范）；
+2. [`docs/WORKLOG.md`](docs/WORKLOG.md) —— 工作日志（跨会话连续记忆）；
+3. [`CHANGELOG.md`](CHANGELOG.md) —— 版本记录（格式：`### vX.Y.Z — 标题` + 分类要点 + 构建结果）。
 
 ---
 
 ## 版本规划
 
-**当前版本**：[v3.2.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
+**当前版本**：[v1.5.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
 
 > [!IMPORTANT]
-> **v1.5.0 为「开发中」版本**（文档定位澄清 + 发布纪律固化 + 同步上游 1.9.3；
-> 原「助手」原生页已按用户指示于 2026-09-11 彻底移除），
-> **尚未发布**；**最新可下载版本仍是 [v1.4.0](https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.4.0)**。
+> **v1.5.0 为「开发中」版本**：撤回 v2.0/v3.0 的原生化方向（原生 Kotlin 传输层与
+> Jetpack Compose 界面已整体移除），项目回到「WebView 壳 + 上游 RP-Hub + 扩展层」形态，
+> 上游同步能力随之复活。**尚未发布**；**最新可下载版本仍是 [v1.4.0](https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.4.0)**。
 > 顶部 Status 徽章与上面这行版本号由 `tools/gen-changelog.mjs` 自动同步（取 CHANGELOG 顶部
 > 版本与状态），**是否已发版以 [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases) 为准**。
 
@@ -288,12 +287,12 @@ LuzzyRP/
 
 ## 许可证与合规
 
-本项目自 **v3.0 起采用双许可并存（mixed licensing）**，完整契约见 [docs/LICENSING.md](docs/LICENSING.md)：
+本项目采用双许可并存（mixed licensing），完整契约见 [docs/LICENSING.md](docs/LICENSING.md)：
 
 | 范围 | 许可 |
 |------|------|
 | **上游资产** `app/src/main/assets/rphub/**`（RP-Hub Vue 前端，含本项目 patch 修改） | [CC BY-NC 4.0](LICENSE)（上游许可，原样署名分发） |
-| **自有代码**（Kotlin 壳与原生传输层、`assets/ext/**`、`tools/**`、`docs/**`、未来 Compose 界面、复用的 [rikkahub](https://github.com/rikkahub/rikkahub) 代码） | [AGPL-3.0](LICENSE-AGPL-3.0) |
+| **自有代码**（Kotlin 壳、`assets/ext/**`、`tools/**`、`docs/**`） | [AGPL-3.0](LICENSE-AGPL-3.0) |
 
 > [!WARNING]
 > **一处已知并存冲突**：CC BY-NC 4.0 的「不得商用」与 AGPL-3.0 第 10 条的「不得限制他人商用」
@@ -306,7 +305,7 @@ LuzzyRP/
 | 署名 | 本 README 顶部二创声明 + 保留上游 LICENSE 文件 |
 | 非商业（上游资产部分） | 对上游资产禁止任何形式的商业化使用（售卖、付费订阅、广告盈利） |
 | AGPL 义务（自有代码部分） | 分发时提供对应源码（本仓库公开即满足）；复用代码文件头保留原始版权与来源标注 |
-| 修改声明 | CHANGELOG 与 README 注明上游基线版本与修改范围；本项目**会修改前端或后端 / 原生侧代码**（上游基线 1.9.3 定格，同步已退役） |
+| 修改声明 | CHANGELOG 与 README 注明上游基线版本与修改范围；本项目**会修改前端或原生侧代码**（上游同步按 [AGENTS.md](AGENTS.md) 的 SOP 持续进行） |
 | 变更可追溯 | 上游文件内改动一律携带 `[LuzzyRP patch NNN]` 标记并登记于 `tools/patches/`；同步后 `tools/verify-markers.ps1` 全绿 |
 
 **合规红线**：上游 LICENSE 文件原样保留；仅侧载分发，不上架应用商店。

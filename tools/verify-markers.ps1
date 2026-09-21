@@ -1,12 +1,14 @@
 # ============================================================
-# verify-markers.ps1 —— 扩展层完整性校验门（2026-09-17 收编）
+# verify-markers.ps1 —— 扩展层完整性校验门（2026-09-20 复位版）
 # ============================================================
-# 历史：本门原校验 app/src/main/assets/rphub/** 的二创标记（硬性规定 10）。
-#       P6 WebView 渲染层退役后 rphub/** 已整体删除（基线定格 1.9.3，
-#       上游同步纪律退役），全部 142 条「文件不存在」FAIL 先于任何改动存在。
-# 收编：改为只校验**仍随应用分发**的 assets/ext/** 扩展层——
-#       它是 AGPL 自有代码（docs/LICENSING.md §2），被 WebView 退役后仅存的
-#       JS 运行时资产（assetSignature 也只覆盖 ext 树），完整性仍值得一道门。
+# 历史：
+#   ① 本门原校验 app/src/main/assets/rphub/** 的二创标记（硬性规定 10）；
+#   ② v3.0 P6 曾把 rphub/** 整体删除（渲染层退役、上游同步纪律退役），本门收编为
+#      只校验 assets/ext/** 扩展层；
+#   ③ [2026-09-20「放弃原生 Kotlin + Compose 路线」] rphub/** 已随 WebView 路线复位
+#      （见 AGENTS.md §4 上游同步纪律），上游标记校验**应当恢复**——
+#      待下次上游同步（1.9.3 → 1.9.7）时按新基线重新登记校验项，本版先保留
+#      扩展层校验（它是当前唯一随包分发的自有 JS 资产），避免留下空转的 FAIL。
 # 用法:  .\tools\verify-markers.ps1
 # ============================================================
 
@@ -18,8 +20,6 @@ $ExtDir = Join-Path $RepoRoot "app\src\main\assets\ext"
 $Manifest = @(
     @{ File = 'luzzy-ext.js';          Purpose = '扩展层主入口（主题快照/宏/胶水）' },
     @{ File = 'luzzy-stream.js';       Purpose = 'SSE 流式旁路（content/reasoning 双通道）' },
-    @{ File = 'luzzy-chat-native.js';  Purpose = '原生桥接封装（传输卸载的 JS 侧）' },
-    @{ File = 'luzzy-chat-offload.js'; Purpose = '传输卸载适配层（不可用即回落 JS 路径）' },
     @{ File = 'luzzy-bridge.js';       Purpose = '原生桥 JS 侧接口' },
     @{ File = 'luzzy-prefix-guard.js'; Purpose = 'prompt 前缀纯追加守卫' },
     @{ File = 'luzzy-splash.js';       Purpose = '开屏动画' },

@@ -1,4 +1,4 @@
-# LICENSING · LuzzyRP 许可安排（v3.0 起）
+# LICENSING · LuzzyRP 许可安排
 
 > **本文件的用途**：把 LuzzyRP 的许可结构写成可核对的契约，避免"混着写、日后说不清"。
 > **它不是法律意见。** 凡标 ⚠️ 的地方都需要你自己确认。
@@ -10,30 +10,30 @@
 | 材料 | 许可 | 核实方式 |
 |---|---|---|
 | 上游 RP-Hub（仓库根 `LICENSE`，即 `app/src/main/assets/rphub/**` 的来源） | **CC BY-NC 4.0** | 读 `LICENSE` 第 1 行 `Attribution-NonCommercial 4.0 International`；`rp-hub-reference/LICENSE` 同款 |
-| rikkahub（拟复用的 Compose 前端来源） | **AGPL-3.0** | 读其仓库 `LICENSE` 原文：`GNU AFFERO GENERAL PUBLIC LICENSE, Version 3` |
+| LuzzyRP 自有代码 | **AGPL-3.0** | 仓库根 `LICENSE-AGPL-3.0` 全文 |
 
-**用户决策（2026-09-12）**：选择「整体转为 AGPL-3.0，换取 rikkahub 源码级复用」。
+**注**：自有代码采用 AGPL-3.0 的安排在 v3.0 立项时确定；**该版的原生化路线（原生 Kotlin 传输层 /
+Jetpack Compose 界面）已于 2026-09-20 放弃并整体删除**，但**本许可安排本身保持不变**
+（见 CHANGELOG v1.5.0 段）。AGPL-3.0 是当前自有代码的生效许可。
 
 ---
 
-## 2. 许可安排（按用户决策执行）
+## 2. 许可安排（现行）
 
 仓库根 `LICENSE`（CC BY-NC 4.0）是**上游署名义务的载体，禁止删除或改写**（AGENTS 硬性规定）。
 因此采用**并存（mixed licensing）**，而不是覆盖：
 
 | 范围 | 许可 |
 |---|---|
-| `app/src/main/java/com/luzzymeow/luzzyrp/**`（Kotlin 壳、`chat/` 传输层等**自有代码**） | **AGPL-3.0** |
+| `app/src/main/java/com/luzzymeow/luzzyrp/**`（Kotlin 壳等**自有代码**） | **AGPL-3.0** |
 | `app/src/main/assets/ext/**`（扩展层，自有代码） | **AGPL-3.0** |
 | `tools/**`、`docs/**`（自有工具与文档） | **AGPL-3.0** |
 | `app/src/main/assets/rphub/**`（上游资产，含我们的 patch 修改） | **保持 CC BY-NC 4.0**，原样署名分发 |
-| 未来的 `ui/**`（v3.0 Compose 界面） | **AGPL-3.0** |
-| 从 rikkahub 复用的代码 | **AGPL-3.0**（按其条款保留版权声明与来源标注） |
 
-**待落地动作（尚未执行）**：
-1. 新增 `LICENSE-AGPL-3.0`（AGPL-3.0 全文，取自 gnu.org）——**不替换**根 `LICENSE`；
-2. `README.md` 增加「许可」段，说明并存结构与各自适用范围；
-3. 复用的 rikkahub 代码文件头部保留其原始版权与许可声明，并注明来源。
+**已落地动作**：
+1. `LICENSE-AGPL-3.0` 已新增（AGPL-3.0 全文）——**不替换**根 `LICENSE`；
+2. `README.md` 已含「许可」段，说明并存结构与各自适用范围；
+3. 上游文件内的改动一律携带 `[LuzzyRP patch NNN]` 标记并登记于 `tools/patches/`。
 
 ---
 
@@ -53,7 +53,7 @@
 
 - **读法 A（聚合）**：AGPL-3.0 第 5 条末段明确允许 *aggregate* ——
   *"Inclusion of a covered work in an aggregate does not cause this License to apply to the other parts
-  of the aggregate."* 若「我们的 Kotlin/Compose 代码」与「上游 Web 资产」被认定为**各自独立、
+  of the aggregate."* 若「我们的壳与扩展层代码」与「上游 Web 资产」被认定为**各自独立、
   仅聚合分发**，则 AGPL 不波及上游部分。本项目的形态（上游资产是被 WebView 加载的独立 web 应用，
   经 patch 修改后原样分发）**偏向支持这一读法**，但不是定论。
 - **读法 B（单一作品）**：若被认定为 *"combined ... to form a larger program"*，则 AGPL 第 5 条 c 款
@@ -75,17 +75,19 @@
 - **署名义务**：README 的二创署名声明与 `rp-hub-reference/` 均保留。
 - **分发方式**：仍为**仅侧载**（不应用商店，12 岁条款合规风险不变）。
 - **AGPL 的"提供对应源码"义务**：本项目仓库公开，可满足；若日后转为私有分发，
-  则必须随二进制提供 Corresponding Source —— **这是 AGPL 与 GPL 之外、v3.0 起新增的持续义务**。
+  则必须随二进制提供 Corresponding Source —— **这是 AGPL 与 GPL 之外的持续义务**。
 
 ---
 
-## 5. rikkahub 参考的逐笔登记（勿事后补）
+## 5. 外部代码复用的逐笔登记（勿事后补）
 
-**纪律**：整体转 AGPL-3.0 的目的正是让 rikkahub（AGPL-3.0）的**源码级复用名正言顺**，
-但复用必须**逐笔登记**，并区分两种性质：
+**纪律**：复用外部代码必须**逐笔登记**，并区分两种性质：
 ① **采用架构/形态**（非逐行复制）——登记即可；
-② **逐行复制代码**——必须在文件头保留原始版权声明与来源标注（硬性规定 1 的复用条款）。
+② **逐行复制代码**——必须在文件头保留原始版权声明与来源标注。
 
-| 日期 | rikkahub 来源 | 复用性质 | 落到我们哪里 |
+| 日期 | 来源 | 复用性质 | 落到我们哪里 |
 |---|---|---|---|
-| 2026-09-12 | `ui/components/ai/ChatInput.kt` | **① 采用架构与节拍，未逐行复制代码** | 输入岛 `InputIsland`：输入框满宽在上 + 动作行在下 + 左簇 `weight(1f)+horizontalScroll` + 容器 padding 8/4、行距 2dp。差异：模型取「图标 + 短名省略」（rikkahub 为 `onlyIcon`），按钮取 44dp（rikkahub 30dp，我们守 Android 触控下限）。代码内已标来源注释。 |
+| 2026-09-12 | rikkahub `ui/components/ai/ChatInput.kt` | ① 采用架构与节拍，未逐行复制代码 | 曾用于 v3.0 Compose 输入岛 `InputIsland`。**该界面已随 v3.0 路线放弃整体删除（2026-09-20）**，此笔保留作历史登记。 |
+
+> 当前在用的第三方资产（Vue 3 / Tailwind / marked / DOMPurify / SortableJS / 字体）
+> 已在 `assets/rphub/vendor/` 与 `assets/rphub/assets/fonts/` 本地化，其许可随文件保留。

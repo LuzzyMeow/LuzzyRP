@@ -5854,3 +5854,149 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - [ ] `:app:assembleRelease` + apksigner 指纹核对（ed78235d…）
 - [ ] 模拟机逐页真窗口 screencap 走查（v3.2 改动页：抽屉/世界书/记忆/设置/关于 + 弹层）证据落 docs/design/verify-v4/
 - [ ] push + tag v3.2.0（GitHub Release 等真机回归，不发）
+
+---
+
+## 2026-09-20 · 会话 90：接入 AOCI-CODE 项目认知索引
+
+### 完成
+
+- **接入 AOCI-CODE**（`aoci-spec/aoci-code` v0.1.0-rc14，FSL-1.1-MIT）。
+  二进制落 `C:\Users\Administrator\.aoci\bin\aoci.exe`；下载走 `gh release download`，
+  校验做到**完整层里可做的部分**：16 资产齐全 + 12 个 checksum 对象全对 + `gh attestation verify`
+  **14/14 通过**（绑定 `refs/tags/v0.1.0-rc14`、commit `92c78bc`、拒绝自托管 runner）。
+  **Cosign 那一步没做**——本机没装 cosign，如实标注为未完成的层级。
+- **范围决策（省下约 150 万 token）**：默认 production 档把 15527 个跟踪文件全划进 index
+  （估算 139 万 token，远超 40 万上限）。定 15 条项目 exclude 规则后 index 降到 **444**：
+  - `docs/skills/**`（14191 个第三方技能仓库存档）整体 exclude
+  - 二进制素材全 exclude（png/webp/jpg/svg/字体/音视频/jar）
+  规则赶在**首次 scan 之前**加好——角色由首次 scan 定格，事后摘除要走审批的 Scope Change。
+- **441 条认知条目全部落盘**：8 个子代理并行读文件产出条目，主控串行落盘（索引锁保证互斥）。
+  最终 `aligned`：entry 441/441、missing/stale/orphan 全 0、budget healthy（56818 tok / 上限 400000）、
+  `check` 报「✓ 可提交」。
+- **MCP 接入**：配进 `~/.dsh/profiles/desktop/cordis.patch.yml`（`serverName=aoci`，stdio）。
+  **本会话工具表在启动时已定型，`mcp__aoci__*` 未加载**，实际落盘走 CLI `update-entry`
+  （其 `--help` 明写「与 MCP `aoci_update_entry` 同一管线」）。下次宿主启动后应能直接用 MCP 工具。
+
+### 决策
+
+1. **二进制素材不进 index**：885 个 PNG 逐个写条目既烧时间又稀释索引信号，认知由引用它们的代码承载。
+2. **CLI 作者路径可信**：本仓库是 Volumes v1，Legacy 命令（`index agent plan` / `index inventory` /
+   `index score`）一律拒工作；`update-entry` 与 MCP 同管线且带 `--source-sha256` 绑定，
+   等效且可审计。
+3. **`.gitignore` 新增 `*.backup.*`**：AOCI 写 `AGENTS.md` 前的 preimage 保护副本
+   （`file.backup.时间戳.摘要`）会以未跟踪文件出现在 `git status`，按落点纪律补进忽略。
+
+### 踩坑记录（机器闸比文档严，全部实测确认）
+
+| 闸 | 实测规则 | 教训 |
+|---|---|---|
+| FRAS 分段 | 按 `" \| "`（空格-竖线-空格）切 | 竖线前缺空格会让 R 段吞掉 `A:`，报 `fras_a_empty` |
+| rune 闸 | F≤160 / R≤360 且≤8项 / A≤400 且≤6项 | 与 token 闸是**两套独立闸**，都要过 |
+| S rune 闸 | 按 C 档：C9-8≤600 / C7-4≤200 / C3-1≤50 | 来自 Meta 声明，与 token 闸并存 |
+| token 闸 | `utf8字节/3`（中文 1 字 = 1 token）：C9 R180 S200 / C8 R140 S140 / C5-7 R90 S80 / C1-4 R50 S40 | 比 rune 闸紧得多，C5-7 的 S 只能写 **80 个中文字** |
+| 标签字典 | B 位必须是 Meta 声明的值 | `K` 未声明（vendored 库要用 `L`） |
+| E 档 | 须与真实行数一致（>400 L / 200-400 M / 100-200 S / <100 T） | 写错会被回显提醒 |
+| items 计数 | 按**英文逗号**切分 | `A:Fn(a, b, c)` 会被算成多项，须改斜杠写法 |
+
+### 遗留
+
+- **MCP 工具待宿主重启验证**：配置与二进制路径均已复核可解析，但 `mcp__aoci__*` 尚未在本会话出现。
+- **`docs/skills/**` 不在索引覆盖内**：这是刻意的（第三方存档），若日后需要它们的认知，
+  要另走 Scope Change 把它们调回 index 角色。
+- **Cosign 层校验未做**：本机无 cosign，签名发布者认证这一层缺失（provenance 层已过）。
+- **两个只读工具会写本地审计**：`verify` / `check` 的「只读」指不改正式索引与基线，
+  不等于零文件写入（会追加 `.aoci/ledger.jsonl` 与 `verify_history/`）。
+
+---
+
+## 2026-09-20 · 会话 91：放弃原生 Kotlin + Compose 路线 —— 回退 WebView 手机端 + 上游同步复活
+
+**用户指令**（原话）：「完全去除原生 kotlin 和 compose，继续抓取上游更新我们的 webview 手机端，
+把后面的 v2.0 v3.0 全面删除，只保留曾经的工作记录，但不要详细记录，只写一下放弃该路线，
+继续保持同步上游 rp-hub 的更新」。
+
+### 完成
+
+- **原生 Kotlin / Compose 路线整体删除**：`chat/`（v2.0 原生传输层 + Agent Loop + 业务模型）、
+  `ui/`（Compose 界面 + Loom v4 + MCU 主题 + Markdown 渲染）、`data/`（Room 数据层 + 世界书 +
+  预设 + 设置 + 迁移）、`app/src/{test,androidTest,debug}`、v3.0 资源（`ic_lz_*.xml` /
+  `vanio_card.png` / 5 枚 v3.0 TTF）、v3.0 迁移产物（`ext/luzzy-migrate.html` / `tools/mig-fixture/`）。
+  构建配置回到最小依赖 WebView 壳（Compose/KSP/Room/OkHttp/serialization 依赖与插件全部摘除）。
+- **WebView 手机端复位**：`MainActivity` / `web/**` / `util/AssetExtractor` 自最后 WebView 提交
+  `7950d025` 还原；`assets/rphub/**`（38 文件）与 `assets/ext/**` 随之复位。
+- **v2.0/v3.0 在 WebView 侧的接线摘除**（关键，不做会留下死引用）：
+  - `LuzzyBridge.kt`：chat 桥（chatStart/chatAbort/chatCapabilities/事件出口）与迁移桥
+    （migrateStart/migrateChunk/migrateDone/migrateError）全删（269 → 128 行）；
+  - `ext/luzzy-bridge.js`：对应 JS 封装全删（182 → 99 行）；
+  - `assets/rphub/index.html`：patch 050 挂载块摘除（改为退役注释）；
+  - `assets/rphub/assets/js/app.js`：`requestTrackedChatCompletion` 的传输卸载分支还原为
+    直接走 JS 路径（即原回落分支本身，行为等价）；
+  - `AndroidManifest.xml`：`.ui.ComposeActivity` 与 README/WRITE_CALENDAR 权限移除。
+- **保留**（用户拍板）：v1.4.0 之后的**纯 WebView 侧改进**——流式渲染（042/044/045/046）与
+  前缀缓存治理（047/048）连同 `ext/luzzy-stream.js` / `ext/luzzy-prefix-guard.js` 与
+  `tools/*.cjs` JS 门禁原样留下。它们是 WebView 路线内的成果，不属于被放弃的原生化方向。
+- **文档收口**：CHANGELOG 的 v2.0.0/v3.0.0/v3.1.0/v3.2.0 四段详录（747 行）删除，换成
+  **一条简记**（v1.5.0 段：放弃该路线 + 移除/保留/许可/注意事项）；旧 v1.5.0 段改名
+  `v1.5.0-dev` 保留为开发线程存档（1748 → 1054 行）。AGENTS.md / README.md / LICENSING.md
+  全面复位为 WebView 口径。
+- **上游同步复活**：参考克隆 `rp-hub-reference/` 已 fetch 并 checkout 到上游最新 **1.9.7**
+  （commit `bcec53b`）；`tools/sync-upstream.ps1` 实测可运行（DryRun 通过）。
+
+### 验证（实测，非推断）
+
+| 项 | 结果 |
+|---|---|
+| `:app:assembleDebug` / `:app:assembleRelease` | BUILD SUCCESSFUL（各约 50s） |
+| release APK | **17.41 MB 单包**，versionCode 17 / versionName 1.5.0 |
+| `apksigner verify --print-certs` | 指纹 `ed78235d…ffb1`，**与历史同密钥库一致**（可覆盖升级） |
+| 模拟器安装启动 | `LuzzyRP_Test`（x86_64 / 4096M / gpu off）安装成功、`MainActivity` 为前台 |
+| 真窗口截图目视 | 开屏「开卷」、主界面 + 更新公告弹层、欢迎弹层——顶栏未被状态栏压住、按钮在导航栏上方 |
+| CDP 实测扩展层 | `window.Luzzy` 在；`prefixGuard`/`streamRender`/`toast`/`copyToClipboard`/`openUrl`/`setSystemBarStyle` 全在；**`chatOffload`/`chatNative`/`chatStart`/`chatAbort`/`chatTransportAvailable`/`migrateStart`/`migrateChunk`/`migrateDone` 全部 `undefined`（8/8 已摘净）**；Vue 正常挂载（`#app` 6 子节点）；无 JS 异常 |
+| `tools/verify-markers.ps1` | **6 PASS / 0 FAIL**（门禁自身抓出清单里两个已删文件，已修正——这正是它该做的） |
+| `tools/prefix-cache-test.cjs` | A1–A8 全绿、`failures: []` |
+| `tools/stream-render-test.cjs` / `page-handoff-test.cjs` / `model-list-test.cjs` | 全绿，exit=0 |
+
+### 决策
+
+1. **版本号走 v1.5.0 / versionCode 17**（用户选定）：接续 WebView 主线（v1.4.0 之后），
+   语义上承认「回到 WebView 主线」；versionCode 递增保证已装 v3.2.0 的设备可覆盖升级。
+2. **许可结构不变**（用户选定）：`LICENSE` / `LICENSE-AGPL-3.0` / `docs/LICENSING.md` 保持
+   双许可并存，只去掉「因转 Compose 而改许可」的理由表述与 rikkahub 的现行适用条目。
+3. **CHANGELOG 按用户原话收成简记**（用户选定）：四段详录删除，只写「放弃该路线」，
+   开发线程以 `v1.5.0-dev` 段保留可追溯性。
+4. **AOCI 索引保留、待维护**（用户选定）：`aoci.txt` / `.aoci/` 不动。既有 441 条覆盖的是
+   Compose 时代源码，本次改动使其大半失效——**收尾需调一次 `aoci_maintain`**（见遗留）。
+5. **上游分期合并**（用户选定）：先恢复可用基线（本会话已完成并验证），再单独做
+   1.9.3 → 1.9.7 的合并与 patch 重做。
+
+### 上游合并的实测结论（下次接手直接可用）
+
+**1.9.3 → 1.9.7 是一次大重写**：`app.js` 4869+/5750−（逾万行）、`index.html` 1303+/1429−、
+`styles.css` 926+/455−、`data-services.js` 512+/778−、`ui-components.js` 733+/680−；
+**新增 `assets/css/theme.css` 与 `assets/js/theme.js`**（上游自己上了主题体系）。
+
+**九枚实体 patch 的前像全部与 1.9.7 不符**（实测 `git rev-parse` 逐个比对）——
+意味着**每一条都需三方合并后重做**，不能盲目覆盖 + 重放。处置规程已写入
+`AGENTS.md` §4.1（三方合并六步 + 快速判定法）。1.9.4/1.9.5/1.9.6 的逐版差异也在上游仓库里，
+可按需拆成多轮小步合并以降低单次风险。
+
+### 遗留
+
+- **AOCI 维护已实测、按用户决定推迟到上游合并后一次做**：本轮收尾调用 `aoci_maintain` 一次，
+  返回 **`status: stopped / result: blocked`**（`next_action: explicit_orphan_remove_or_resolve_blocker`）。
+  实测差集：**孤儿 343 条**（全是已删的 Compose 时代文件）+ **缺条目 23 条**（刚复位的 rphub 上游文件）
+  + **待更新 13 条**（本轮改动的 AGENTS/README/CHANGELOG/LICENSING 等）。
+  **治理边界（实测确认，下次直接可用）**：Volumes v1 下 CLI `remove-entry` 返回 `volume_read_only`；
+  MCP `aoci_remove_entry` 必须用 **`code:<仓库相对路径>`** 形式（裸路径会被拒），
+  已用 `code:app/src/main/java/com/luzzymeow/luzzyrp/ui/ComposeActivity.kt` **实测通过一条**；
+  36 项创作须走 `aoci_update_entry` 批次入口。全量约 379 次操作。
+  **用户决定：全部推迟到「上游 1.9.7 合并完成」之后一次做**——理由：那 23 条 rphub 条目正是上游
+  要动的文件，现在写一遍、合并后再重写一遍是纯浪费。**当前 blocked 是索引如实反映「尚未对齐」，
+  不是故障**；`aoci.txt` / `.aoci/` 均保持现状不动（AGENTS.md AOCI 区块 §9 允许，且本次未禁写）。
+- **上游 1.9.7 合并未开始**：本轮目标只到「恢复可用基线 + 同步能力复位」，合并在下一轮；
+  合并完成后接 AOCI 全量维护（上一行的待办）。三份可用的判断依据已备好：
+  `AGENTS.md` §4.1、上方实测数据、上游仓库的逐版 diff。
+- **`HARD_REQUIREMENTS.md` 已不存在**：README 原有的「必读 1」指向它，已改为 AGENTS.md 打头；
+  `docs/PLAN-v1.4.0.md` 等历史计划文档也早已删除，README 引用已清理。
+- **`docs/skills/**` 仍不在 AOCI 覆盖内**（沿上轮结论，第三方存档刻意排除）。

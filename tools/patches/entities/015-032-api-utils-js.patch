@@ -1,5 +1,5 @@
 diff --git a/assets/js/api-utils.js b/assets/js/api-utils.js
-index dc5a47c..629df30 100644
+index 0b89044d..ef7b7151 100644
 --- a/assets/js/api-utils.js
 +++ b/assets/js/api-utils.js
 @@ -8,6 +8,40 @@
@@ -43,8 +43,8 @@ index dc5a47c..629df30 100644
      const parsePayload = (text, status) => {
          const data = JSON.parse(text);
          const error = extractApiErrorMessage(data, status);
-@@ -229,6 +263,9 @@
-             return await withApiResponse({ ...options, body: {
+@@ -279,6 +313,9 @@
+             }, body: {
                  model: options.model, messages: options.messages, temperature: options.temperature,
                  ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
 +                // [LuzzyRP patch 015] max_tokens（模型元数据）与供应商级 extraBody 注入
@@ -53,7 +53,7 @@ index dc5a47c..629df30 100644
                  ...(tools.length ? {
                      tools,
                      tool_choice: options.requireTool || (options.replyInTool && options.tools?.length) ? 'required'
-@@ -292,7 +329,7 @@
+@@ -344,7 +381,7 @@
                  };
                  const reader = rawText === undefined ? response.body.getReader() : null;
                  const decoder = new TextDecoder();
@@ -62,7 +62,7 @@ index dc5a47c..629df30 100644
                  try {
                      if (reader) {
                          while (!done) {
-@@ -328,12 +365,27 @@
+@@ -380,12 +417,27 @@
              // 在业务层 JSON/模板校验之前记账；部分流式响应后中止也不会漏掉已返回的用量。
              if (receivedPayload) options.onUsage?.(result.usage, {
                  isStream: result.isStream, durationMs: Date.now() - startedAt,
@@ -90,7 +90,7 @@ index dc5a47c..629df30 100644
          for (let attempt = 1; ; attempt++) {
              try { return await requestChatCompletionOnce(options, attempt); }
              catch (error) {
-@@ -342,6 +394,425 @@
+@@ -394,6 +446,425 @@
          }
      };
  
@@ -515,4 +515,6 @@ index dc5a47c..629df30 100644
 +
      window.RPHubApiUtils = Object.freeze({ buildApiEndpoint });
      window.RPHubApiClient = Object.freeze({ requestChatCompletion, requestJson });
- })();
+-})();
++})();
+\ No newline at end of file

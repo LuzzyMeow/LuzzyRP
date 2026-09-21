@@ -1,8 +1,8 @@
 diff --git a/novel/index.html b/novel/index.html
-index 7e8034a..ee68a77 100644
+index d0b623b7..6df4f730 100644
 --- a/novel/index.html
 +++ b/novel/index.html
-@@ -5,18 +5,16 @@
+@@ -6,18 +6,16 @@
      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
      <title>小说生成</title>
      <!-- Vue 3 -->
@@ -25,18 +25,26 @@ index 7e8034a..ee68a77 100644
      
      <style>
          :root {
-@@ -1202,11 +1200,10 @@
+@@ -1204,11 +1202,13 @@
                  const apiProviders = ref([]);
                  const isSyncingRPHub = ref(false);
                  const showApiProviderSelect = ref(false);
 +                // [LuzzyRP patch 029] 内置供应商精简（同步 core-utils）：兜底副本仅保留 DeepSeek
 +                // （editable 标志由主页面下发；原 sta1n/openrouter/siliconflow 迁移见 app.js，patch 023 随条目退位）
                  const RPHUB_PROVIDER_DEFINITIONS = [
--                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://picui.ogmua.cn/s1/2026/08/21/6a87a751bf871.webp' },
+-                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp' },
 -                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' },
 -                    { id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1', icon: 'https://openrouter.ai/favicon.ico' },
 -                    { id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1', icon: 'https://siliconflow.cn/favicon.ico' }
-+                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' }
++                    // [1.9.6 合并 · 2026-09-21] 上游更新了此处内置商（sta1n 等）的图标 URL
++                    // （旧图床 picui.ogmua.cn 失效 → 新 CDN）。本仓库 [LuzzyRP patch 029] 已按用户
++                    // 拍板把本页内置商精简为仅 DeepSeek，故不恢复上游条目；新图标 URL 备查：
++                    // { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp' },
                  ];
  
                  const currentModelTarget = ref('model');
+@@ -2867,4 +2867,3 @@ ${charPrompt}
+ 
+ 
+ 
+-

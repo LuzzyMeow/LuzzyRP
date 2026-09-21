@@ -141,8 +141,10 @@ $entityItems = @(
     @{ File = 'assets/js/app.js';             Entity = '012-036-app-js.patch';            Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/ui-components.js';   Entity = '012-035-ui-components-js.patch';  Marker = '[LuzzyRP patch 015]' },
     @{ File = 'assets/js/runtime-services.js'; Entity = '012-035-runtime-services-js.patch'; Marker = '[LuzzyRP patch 032]' },
-    @{ File = 'assets/js/api-utils.js';       Entity = '015-032-api-utils-js.patch';      Marker = '[LuzzyRP patch 015]' },
-    @{ File = 'assets/js/data-services.js';   Entity = '016-035-data-services-js.patch';  Marker = '[LuzzyRP patch 016]' }
+    @{ File = 'assets/js/api-utils.js';       Entity = '015-032-api-utils-js.patch';      Marker = '[LuzzyRP patch 015]' }
+    # [2026-09-21] assets/js/data-services.js 的实体（016-035-data-services-js.patch）已退场：
+    # 上游 1.9.5 重构记忆系统后，本仓库 patch 016（向量召回块防合并）随之失效退场，
+    # 该文件现已与上游逐字节相同（无任何 [LuzzyRP patch] 标记），无需重放。
 )
 Write-Host ""
 Write-Host "== 实体 patch（007/009/012-035/015-032）=="

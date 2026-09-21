@@ -99,9 +99,11 @@
             return modified;
         };
 
-    // [LuzzyRP patch 032 + 1.9.6 合并] 上游新增 allowHtml 开关（第 5 参），本仓库 patch 032 新增
-    // options.cache 旁路（第 4 参）。两者互不冲突，**合并为一个签名**：保留 options，追加 allowHtml。
-    const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}, allowHtml = true) => {
+        // [LuzzyRP patch 032] options.cache=false 旁路 LRU（流式期全文逐 tick 变化，中间串写缓存
+        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动）。
+        // [1.9.6 合并] 上游新增 allowHtml 开关（第 5 参），与本仓库的 options.cache 旁路（第 4 参）
+        // 互不冲突，合并为一个签名：保留 options，追加 allowHtml。
+        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}, allowHtml = true) => {
             if (!text) return '';
         // [1.9.6 合并] 缓存键纳入上游新增的 allowHtml 维度（不同渲染选项不可共用缓存），
         // 同时保留本仓库 patch 032 的 options.cache 旁路。

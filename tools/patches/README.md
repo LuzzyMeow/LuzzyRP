@@ -718,25 +718,29 @@
 #    同步新版上游重放失败时：三方合并该文件 → 按上述规程重新生成实体 →
 #    复跑 verify-markers.ps1 全绿。
 #
-#    当前基线 RP-Hub 1.9.3（commit 4aef0bb）· 实体前像 blob id（LF 归一，9 枚全量复核）：
-#      007-character-html        character/index.html      c3153f84  (2487 B)
-#      007-029-novel-html        novel/index.html          7e8034a1  (2645 B)
-#      009-035-core-utils-js     assets/js/core-utils.js   4f1c2c85  (5390 B)  ← 本版再生成
-#      012-035-index-html        index.html                52135b42  (115116 B) ← 本版再生成
-#      012-036-app-js            assets/js/app.js          79267c03  (205042 B) ← 本版再生成
-#      012-035-ui-components-js  assets/js/ui-components.js e9a992bc  (26061 B)
-#      012-035-runtime-services-js assets/js/runtime-services.js d2e47294 (7646 B)
-#      015-032-api-utils-js      assets/js/api-utils.js    dc5a47cc  (28177 B) ← 本版再生成
-#      016-035-data-services-js  assets/js/data-services.js 7858d9fc  (740 B)
+#    当前基线 RP-Hub 1.9.7（commit bcec53b）· 实体前像 blob id（LF 归一，8 枚全量复核）：
+#      007-character-html         character/index.html          07dc2c0f  (2522 B)
+#      007-029-novel-html         novel/index.html              d0b623b7  (3106 B)
+#      009-035-core-utils-js      assets/js/core-utils.js       5a3f0e4e  (5980 B)
+#      012-035-index-html         index.html                    64334905  (108397 B)
+#      012-036-app-js             assets/js/app.js              94bc79b7  (185773 B)
+#      012-035-ui-components-js   assets/js/ui-components.js    738b87b0  (26339 B)
+#      012-035-runtime-services-js assets/js/runtime-services.js cfc9ccd8  (8074 B)
+#      015-032-api-utils-js       assets/js/api-utils.js        0b89044d  (28686 B)
 #
-#    ★ 2026-09-11 再生成记录：本版新增的 047/048/050/051 恰好全落在其中 4 枚实体上
-#      （core-utils.js / index.html / app.js / api-utils.js），故这 4 枚按上述规程**整枚重生成**
-#      （前像 = 4aef0bb 纯净基线的 LF 归一 blob id，已逐枚复核与上表一致）。
+#    ★ 2026-09-21 全量再生成记录（v1.5.0 分期合并 1.9.3 → 1.9.7 完成后）：
+#      8 枚**全部按 1.9.7 新基线重新生成**（前像 = bcec53b 纯净基线的 LF 归一 blob id）。
+#      **第 9 枚 016-035-data-services-js.patch 已退场删除**：上游 1.9.5 重构记忆系统后，
+#      本仓库 patch 016（向量召回块防合并）随之失效，该文件现与上游**逐字节相同**、
+#      无任何 [LuzzyRP patch] 标记，无需重放。apply-patches.ps1 的 $entityItems 已同步摘除。
 #      双验证结果（均在仓库外干净目录执行，未触碰工作树）：
-#        a. 逆向 4/4：纯净基线 → git apply --ignore-whitespace
-#           --directory=app/src/main/assets/rphub → 与工作树 LF 归一**逐字节等同**；
-#        b. 端到端 9/9：纯净基线全量 → tools/apply-patches.ps1 实跑 → 9 枚全 [OK]，
-#           且重放结果 9/9 与工作树 LF 归一逐字节一致。
+#        a. 逆向 8/8：1.9.7 纯净基线 → 逐枚 git apply --ignore-whitespace
+#           → 与工作树 LF 归一**逐字节等同**；
+#        b. 端到端：见下方「端到端重放」记录。
+#      ⚠ 生成实体时**不要加 `--ignore-cr-at-eol`**（本仓库旧规程曾这么写）：
+#        两个输入都已 LF 归一，该参数没有收益，却会连「文件尾有无换行」的差异一起忽略，
+#        导致 patch 缺少覆盖文件尾的 hunk 与 `\ No newline at end of file` 标记
+#        → apply 后文件尾多出 1 个换行（2026-09-21 逐枚排查确认，去掉该参数后 8/8 通过）。
 #      注意：参考克隆里的基线 blob 是 **CRLF**，而实体头 `index <pre>` 是**LF 归一**后的 blob id
 #      （apply-patches.ps1 的 Get-FileGitBlobIdLfNormalized 同此口径）——故落盘基线必须先 LF 归一。
 #

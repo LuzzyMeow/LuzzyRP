@@ -55,7 +55,8 @@ LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launc
 **上游改动与 patch 面重叠时，禁止盲目覆盖 + 重放**（会得到破碎树）。正确路线是**三方合并**：
 
 1. **备份当前工作树**（它是「我们的版本」，含全部 patch）；
-2. 取三方：`base` = 我们 patch 的上游基线（现在 1.9.3）、`ours` = 当前工作树、`theirs` = 新版上游；
+2. 取三方：`base` = 我们 patch 的上游基线（见 `tools/upstream-fingerprints.txt` 表头的 commit）、
+   `ours` = 当前工作树、`theirs` = 新版上游；
 3. 逐文件合并：以 `theirs` 为底，把 `ours` 相对 `base` 的**意图**重新落到新结构上
    （不是文本搬运——上游重构后行号与结构都会变）；
 4. **重新生成实体 patch**：`git diff <新基线> <合并后工作树>` 产出实体，头部前像即为新基线 blob；

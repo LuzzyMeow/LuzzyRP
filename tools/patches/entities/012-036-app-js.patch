@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 79267c0..9cb6904 100644
+index 94bc79b7..0af1195b 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -11,7 +11,7 @@ index 79267c0..9cb6904 100644
      generateUUID,
      getApiUsagePayload,
      getImageTagRegex,
-@@ -224,6 +226,13 @@ const app = createApp({
+@@ -210,6 +212,13 @@ const app = createApp({
              uiTemplatePlacements: uiTemplatePlacementOptions,
              worldInfoPositions: worldInfoPositionOptions
          } = uiOptions;
@@ -24,10 +24,10 @@ index 79267c0..9cb6904 100644
 +        ]);
          const ACTIVE_TOOL_KEYWORD_TYPE = activeToolConfig.types.keyword;
          const ACTIVE_TOOL_WEB_TYPE = activeToolConfig.types.web;
-         const ACTIVE_TOOL_MIN_RESULT_COUNT = activeToolConfig.resultCount.min;
-@@ -354,6 +363,9 @@ const app = createApp({
+         const ACTIVE_TOOL_RANDOM_TYPE = activeToolConfig.types.random;
+@@ -320,6 +329,9 @@ const app = createApp({
          const confirmCallback = ref(null);
-         const showNoMemoryNeededModal = ref(false);
+         const showMemoryBackfillModal = ref(false);
          const isGenerating = ref(false);
 +        // [LuzzyRP patch 052] 最近一次生成的结束原因（OpenAI finish_reason / Anthropic stop_reason /
 +        // Gemini finishReason 归一）。诊断用：区分「被输出上限截断」与「模型自己收」。
@@ -35,7 +35,7 @@ index 79267c0..9cb6904 100644
          const isRemoteGenerating = ref(false); // 新增：远程生成状态
          const remoteEstimatedTime = ref(null); // 新增：远程预计时间
          const isReceiving = ref(false);
-@@ -381,7 +393,7 @@ const app = createApp({
+@@ -347,7 +359,7 @@ const app = createApp({
          const toasts = ref([]);
          let toastIdSeed = 0;
          const chatContainer = ref(null);
@@ -44,7 +44,7 @@ index 79267c0..9cb6904 100644
          const isMobileKeyboardOpen = ref(false);
          const inputBox = ref(null);
          const messageElements = ref([]);
-@@ -426,7 +438,8 @@ const app = createApp({
+@@ -392,7 +404,8 @@ const app = createApp({
          const autoResizeInput = () => {
              if (inputBox.value) {
                  inputBox.value.style.height = 'auto';
@@ -54,7 +54,7 @@ index 79267c0..9cb6904 100644
                      inputBox.value.style.height = '';
                  } else {
                      inputBox.value.style.height = Math.min(inputBox.value.scrollHeight, 180) + 'px';
-@@ -434,7 +447,46 @@ const app = createApp({
+@@ -400,7 +413,46 @@ const app = createApp({
              }
          };
  
@@ -101,7 +101,7 @@ index 79267c0..9cb6904 100644
              nextTick(autoResizeInput);
          });
  
-@@ -541,6 +593,7 @@ const app = createApp({
+@@ -500,6 +552,7 @@ const app = createApp({
          };
  
          const handleChatInputBlur = () => {
@@ -109,16 +109,18 @@ index 79267c0..9cb6904 100644
              clearTimeout(mobileKeyboardBlurTimer);
              mobileKeyboardBlurTimer = setTimeout(() => {
                  isMobileKeyboardOpen.value = false;
-@@ -606,6 +659,8 @@ const app = createApp({
+@@ -564,6 +617,10 @@ const app = createApp({
+             apiProviderId: DEFAULT_API_PROVIDER_ID,
              apiProviderKeys: {},
              customApiUrl: '',
-             customApiUrl2: '',
++    // [1.9.6 合并] 上游移除 customApiUrl2 字段（双槽位收敛为单 custom 入口）；
++    // 本仓库多商体系字段（apiProviders / apiProvidersMigrated）保留。
 +            apiProviders: [],
 +            apiProvidersMigrated: false,
              model: DEFAULT_API_CONFIG.qualityModel,
              contextSize: MAX_CONTEXT_SIZE,
              temperature: 1.0,
-@@ -624,13 +679,17 @@ const app = createApp({
+@@ -581,13 +638,17 @@ const app = createApp({
              uiTemplateAnalysisDepth: 4,
              uiTemplateInjectContext: false,
              uiTemplateMainModelAnalysis: true,
@@ -137,7 +139,7 @@ index 79267c0..9cb6904 100644
              imageSize: '竖图',
              imageGenCount: 2,
              qualityModel: DEFAULT_API_CONFIG.qualityModel,
-@@ -644,7 +703,22 @@ const app = createApp({
+@@ -601,7 +662,22 @@ const app = createApp({
              : imageStyleOptions);
          const getImageModelName = (value) => (imageModelOptions.find(option => option.value === value)?.label
              || imageModelOptions[0].label).replace(/（[^）]*）$/, '');
@@ -161,7 +163,7 @@ index 79267c0..9cb6904 100644
          const normalizeFontSize = (value) => {
              const size = Number(value);
              return Number.isFinite(size) ? Math.max(12, Math.min(20, Math.round(size))) : 16;
-@@ -653,6 +727,46 @@ const app = createApp({
+@@ -610,6 +686,46 @@ const app = createApp({
              document.documentElement.dataset.appFont = normalizeFontFamily(value);
          };
          watch(() => settings.fontFamily, applyFontFamily, { immediate: true });
@@ -208,9 +210,14 @@ index 79267c0..9cb6904 100644
  
          const showApiProviderSelector = ref(false);
          const selectedApiProviderId = ref(DEFAULT_API_PROVIDER_ID);
-@@ -672,10 +786,168 @@ const app = createApp({
-         const isCustomApiProviderId = (id) => customApiProviderOptions.some(provider => provider.id === id);
-         const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
+@@ -621,11 +737,173 @@ const app = createApp({
+         };
+         const customApiProviderOptions = [customApiProviderOption];
+         const isCustomApiProviderId = (id) => id === 'custom';
++        // [LuzzyRP patch 012 保留 · 1.9.6 合并] 上游把供应商槽位收敛为单 custom 后删掉了本函数，
++        // 但本仓库多商体系仍按 provider.id 取对应 URL 槽位（且需兼容老用户的 custom2 遗留数据），
++        // 故保留定义。customApiUrl2 字段本身仍随上游移除（新用户不再产生该键）。
++        const getCustomApiUrlKey = (id) => id === 'custom2' ? 'customApiUrl2' : 'customApiUrl';
          const normalizeApiProviderUrl = (url) => String(url || '').replace(/\/+$/, '').toLowerCase();
 -        const getApiProviderById = (id) => apiProviderOptions.find(provider => provider.id === id);
 +        // [LuzzyRP patch 012] 多模型商混用：用户自定义供应商（任意数量）+ 统一注册表 + 模型引用解析层
@@ -379,8 +386,8 @@ index 79267c0..9cb6904 100644
          };
          const syncCurrentApiKeyToProvider = () => {
              const providerId = settings.apiProviderId || selectedApiProvider.value.id || DEFAULT_API_PROVIDER_ID;
-@@ -687,15 +959,92 @@ const app = createApp({
-                 settings[getCustomApiUrlKey(providerId)] = settings.apiUrl || '';
+@@ -637,10 +915,89 @@ const app = createApp({
+                 settings.customApiUrl = settings.apiUrl || '';
              }
          };
 +        const migrateLegacyCustomProviders = () => {
@@ -453,7 +460,9 @@ index 79267c0..9cb6904 100644
 +            }
 +            settings.apiProvidersBuiltinMigrated = true;
 +        };
-         const normalizeApiProviderSettings = () => {
++        // [1.9.6 合并] 上游把签名改为 normalizeApiProviderSettings(savedSettings = settings)
++        // （便于加载期对传入快照做归一）；本仓库两处迁移函数保留在上方。
+         const normalizeApiProviderSettings = (savedSettings = settings) => {
              if (!settings.apiProviderKeys || typeof settings.apiProviderKeys !== 'object' || Array.isArray(settings.apiProviderKeys)) {
                  settings.apiProviderKeys = {};
              }
@@ -462,8 +471,12 @@ index 79267c0..9cb6904 100644
 +                settings.apiProviderOverrides = {};
 +            }
 +            settings.apiProviders = normalizeUserApiProviders(settings.apiProviders);
-             [...apiProviderOptions, ...customApiProviderOptions].forEach(provider => {
-                 if (typeof settings.apiProviderKeys[provider.id] !== 'string') {
++    // [1.9.6 合并] 上游在此新增「旧 custom2 配置并入单 custom 入口」的兼容迁移；
++    // 本仓库 patch 029 的 override 容器与之互不冲突（一个管旧槽位归并、一个管内置商 URL 覆盖），两者都保留。
+             // 将旧的当前自定义2配置并入唯一的自定义入口。
+             if (settings.apiProviderId === 'custom2') {
+                 settings.apiProviderId = 'custom';
+@@ -653,6 +1010,8 @@ const app = createApp({
                      settings.apiProviderKeys[provider.id] = '';
                  }
              });
@@ -472,18 +485,23 @@ index 79267c0..9cb6904 100644
  
              let provider = getApiProviderById(settings.apiProviderId);
              if (!provider && !isCustomApiProviderId(settings.apiProviderId)) {
-@@ -719,22 +1068,22 @@ const app = createApp({
+@@ -675,19 +1034,29 @@ const app = createApp({
              settings.apiKey = settings.apiProviderKeys[settings.apiProviderId] || '';
          };
          const selectedApiProvider = computed(() => {
--            const customProvider = customApiProviderOptions.find(provider => (
-+            const matched = allApiProviders.value.find(provider => (
-                 provider.id === settings.apiProviderId || provider.id === selectedApiProviderId.value
-             ));
--            if (customProvider) return customProvider;
+-            if (isCustomApiProviderId(settings.apiProviderId) || isCustomApiProviderId(selectedApiProviderId.value)) return customApiProviderOption;
 -            const selectedProvider = getApiProviderById(settings.apiProviderId) || getApiProviderById(selectedApiProviderId.value);
 -            if (selectedProvider) return selectedProvider;
++    // [1.9.6 合并] 上游改用 isCustomApiProviderId() 判自定义槽位；本仓库 patch 012 的多商体系
++    // 需要先在 allApiProviders（内置 + 用户商合并视图）里查，命中即返回（用户商也在该视图内）。
++            const matched = allApiProviders.value.find(provider => (
++                provider.id === settings.apiProviderId || provider.id === selectedApiProviderId.value
++            ));
 +            if (matched) return matched;
++    // [上游本处原文如下，仅作对照保留在注释中，不参与执行]
++    // if (isCustomApiProviderId(settings.apiProviderId) || isCustomApiProviderId(selectedApiProviderId.value)) return customApiProviderOption;
++    // const selectedProvider = getApiProviderById(settings.apiProviderId) || getApiProviderById(selectedApiProviderId.value);
++    // if (selectedProvider) return selectedProvider;
              return getApiProviderByUrl(settings.apiUrl) || customApiProviderOption;
          });
          const isCustomApiProvider = computed(() => isCustomApiProviderId(selectedApiProvider.value.id));
@@ -494,16 +512,22 @@ index 79267c0..9cb6904 100644
              settings.apiProviderId = provider.id;
 +            const known = getApiProviderById(provider.id);
              settings.apiUrl = isCustomApiProviderId(provider.id)
-                 ? settings[getCustomApiUrlKey(provider.id)] || ''
+-                ? settings.customApiUrl || ''
 -                : provider.apiUrl;
++    // [1.9.6 合并] 上游写死 settings.customApiUrl（单槽）；本仓库多商需按 provider.id 取对应槽位。
++                ? settings[getCustomApiUrlKey(provider.id)] || ''
 +                : (known?.apiUrl || '');
              settings.apiKey = settings.apiProviderKeys[provider.id] || '';
              showApiProviderSelector.value = false;
          };
-@@ -753,6 +1102,34 @@ const app = createApp({
+@@ -705,7 +1074,37 @@ const app = createApp({
+ 
          watch(() => settings.apiUrl, (newUrl) => {
              if (isCustomApiProviderId(settings.apiProviderId)) {
-                 settings[getCustomApiUrlKey(settings.apiProviderId)] = newUrl || '';
+-                settings.customApiUrl = newUrl || '';
++    // [1.9.6 合并] 上游单槽写法 settings.customApiUrl = newUrl 不适用于多商；保留本仓库回写链
++    // （自定义商槽位 / 用户商注册表 / 可编辑内置商 override，三条路径分别在下方）。
++                settings[getCustomApiUrlKey(settings.apiProviderId)] = newUrl || '';
 +                return;
 +            }
 +            // 用户自定义商：URL 在设置页直接编辑时回写注册表
@@ -535,7 +559,7 @@ index 79267c0..9cb6904 100644
              }
          });
  
-@@ -760,9 +1137,16 @@ const app = createApp({
+@@ -713,9 +1112,16 @@ const app = createApp({
              const iframe = document.querySelector('iframe[src*="character"]');
              if (iframe && iframe.contentWindow) {
                  try {
@@ -553,7 +577,7 @@ index 79267c0..9cb6904 100644
                      };
                      iframe.contentWindow.postMessage(syncData, '*');
                  } catch (e) {
-@@ -844,6 +1228,7 @@ const app = createApp({
+@@ -797,6 +1203,7 @@ const app = createApp({
                  return;
              }
  
@@ -561,7 +585,7 @@ index 79267c0..9cb6904 100644
              if (event.data?.type === 'REQUEST_RPHUB_API_SETTINGS') {
                  const iframe = document.querySelector('iframe[src*="novel/index.html"]');
                  if (event.source !== iframe?.contentWindow) return;
-@@ -857,14 +1242,27 @@ const app = createApp({
+@@ -810,14 +1217,29 @@ const app = createApp({
                          icon: ''
                      }))
                  ];
@@ -587,28 +611,23 @@ index 79267c0..9cb6904 100644
 +                        apiProviderId: workshopProviderId,
 +                        apiProviderKeys: workshopKeys,
                          apiKey: settings.apiKey,
--                        customApiUrl: settings.customApiUrl,
+-                        customApiUrl: settings.customApiUrl
++    // [1.9.6 合并] 上游移除 custom2（不再下发 customApiUrl2）；保留本仓库 workshopCustomUrl
++    // （小说工坊协议读取的自定义 URL）。
 +                        customApiUrl: workshopCustomUrl,
-                         customApiUrl2: settings.customApiUrl2
                      },
                      providers
-@@ -1394,7 +1792,6 @@ const app = createApp({
-             const packed = quantizeEmbeddingForStorage(embedding);
-             return packed ? { ...cleanMemory, ...packed } : cleanMemory;
-         };
--
-         const yieldMemoryStorageWork = () => new Promise(resolve => setTimeout(resolve, 0));
- 
-         const compactMemoriesForStorageAsync = async (items) => {
-@@ -1407,6 +1804,7 @@ const app = createApp({
-             return result;
+                 }, '*');
+@@ -1284,6 +1706,8 @@ const app = createApp({
+             return normalized;
          };
  
-+
++        // [1.9.5 合并 · 2026-09-21] 原 #1 段（80 行）已随上游重构移除。
++        // 上游 1.9.5 删除了记忆空轮次键与同步压缩辅助（compactMemoriesForStorageAsync/getMemoryEmptyTurnsKey）；改用 yieldToUi + 更大批次的内建实现。我方 patch 038/044 的性能治理被上游覆盖。
          const estimatedGenerationTime = computed(() => {
              if (recentGenerationTimes.value.length === 0) return null;
              const total = recentGenerationTimes.value.reduce((sum, item) => {
-@@ -1475,15 +1873,13 @@ const app = createApp({
+@@ -1352,15 +1776,13 @@ const app = createApp({
              getUncachedInputTokens,
              recordApiUsage,
              saveTokenUsageHistoryNow,
@@ -626,7 +645,7 @@ index 79267c0..9cb6904 100644
              latestMainTokenUsage
          } = useTokenUsage({
              pageSize: LIST_PAGE_SIZE,
-@@ -1499,11 +1895,27 @@ const app = createApp({
+@@ -1376,11 +1798,20 @@ const app = createApp({
              saveStoredValue: setStoredValue,
              toast: (...args) => showToast(...args)
          });
@@ -635,30 +654,22 @@ index 79267c0..9cb6904 100644
          const requestTrackedChatCompletion = (options, type) => {
 -            const apiUrl = settings.apiUrl;
 -            const request = { url: buildApiEndpoint(apiUrl, 'chat/completions'), apiKey: settings.apiKey, ...options };
--            return requestChatCompletion({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
--                type, model: request.model, apiUrl, apiKey: request.apiKey, ...metrics
 +            const request = { url: buildApiEndpoint(settings.apiUrl, 'chat/completions'), apiKey: settings.apiKey, ...options };
-+            // [LuzzyRP patch 050] B 方案（薄切）· 传输层可交由原生 Kotlin 后端执行。
-+            // 卸载的只是「HTTP + SSE 解帧 + 三协议线格式 + 工具增量拼装 + 取消/超时」；
-+            // 上下文装配与渲染仍在 JS（角色卡/世界书/记忆/预设/正则都在 JS 与 IndexedDB，
-+            // 原生与远端都无法替代 —— 这是「薄切」的定义，也是零双真源的前提）。
-+            // 扩展层未加载 / 桥不可用 / 协议不支持 / 非流式 / 原生首帧即失败 → 一律回落
-+            // 下面这条原有 JS 路径；该路径**保留不删不改**，故用户无感知升级、可随时降级。
-+            const performRequest = (opts) => {
-+                const offload = typeof window !== 'undefined' && window.Luzzy && window.Luzzy.chatOffload;
-+                if (offload && offload.canHandle(opts)) {
-+                    return offload.request(opts, () => requestChatCompletion(opts));
-+                }
-+                return requestChatCompletion(opts);
-+            };
-+            return performRequest({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
++            // [LuzzyRP patch 050 退役 · 2026-09-20「放弃原生 Kotlin + Compose 路线」]
++            // 此处原有「传输层可卸载到原生 Kotlin 后端」的分支：
++            //   offload.canHandle(opts) ? offload.request(opts, () => requestChatCompletion(opts))
++            //                           : requestChatCompletion(opts)
++            // 原生传输层（Kotlin chat/ 包 + ext/luzzy-chat-native.js + luzzy-chat-offload.js）
++            // 已整体删除，分支随之摘除，恢复为直接走 JS 路径（即原回落分支本身），行为等价。
+             return requestChatCompletion({ ...request, onUsage: (usage, metrics) => recordApiUsage(usage, {
+-                type, model: request.model, apiUrl, apiKey: request.apiKey, ...metrics
 +                type, model: request.model, apiUrl: request.url, apiKey: request.apiKey,
 +                provider: options.provider ?? settings.apiProviderId ?? '',
 +                protocol: options.protocol ?? '', ...metrics
              }) });
          };
          const {
-@@ -1531,6 +1943,173 @@ const app = createApp({
+@@ -1406,6 +1837,173 @@ const app = createApp({
              scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
              toast: (...args) => showToast(...args)
          });
@@ -832,7 +843,7 @@ index 79267c0..9cb6904 100644
          // Export Modal State
          const showExportModal = ref(false);
          const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
-@@ -1860,6 +2439,11 @@ const app = createApp({
+@@ -1744,6 +2342,11 @@ const app = createApp({
                              settings[key] = savedSettings[key];
                          }
                      });
@@ -844,7 +855,7 @@ index 79267c0..9cb6904 100644
                      if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
                          const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                          settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
-@@ -2074,6 +2658,88 @@ const app = createApp({
+@@ -1958,6 +2561,88 @@ const app = createApp({
              return payload;
          };
  
@@ -933,7 +944,7 @@ index 79267c0..9cb6904 100644
          const renderGeneratedImageJob = (card, task, job) => {
              if (!card?.isConnected) return task.cards.delete(card);
              task.job = job;
-@@ -2091,15 +2757,21 @@ const app = createApp({
+@@ -1975,15 +2660,21 @@ const app = createApp({
                  return;
              }
              if (job.status === 'running') {
@@ -961,7 +972,7 @@ index 79267c0..9cb6904 100644
              if (!imageUrl) {
                  card.classList.remove('is-generating');
                  card.classList.add('is-generation-error');
-@@ -2180,7 +2852,10 @@ const app = createApp({
+@@ -2064,7 +2755,10 @@ const app = createApp({
              card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
              const label = card.querySelector('.generated-image-progress-label');
              const bar = card.querySelector('.generated-image-progress-bar');
@@ -973,7 +984,7 @@ index 79267c0..9cb6904 100644
              if (!task.job) {
              if (label) label.textContent = '等待生成';
                  if (bar) bar.style.width = '0%';
-@@ -2190,7 +2865,9 @@ const app = createApp({
+@@ -2074,7 +2768,9 @@ const app = createApp({
              card.dataset.imageJobState = 'loading';
              card.classList.add('is-generating');
              card.classList.remove('is-generation-error');
@@ -984,7 +995,7 @@ index 79267c0..9cb6904 100644
              card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
              if (task.job) renderGeneratedImageJob(card, task, task.job);
              return task.promise;
-@@ -2250,9 +2927,22 @@ const app = createApp({
+@@ -2134,9 +2830,22 @@ const app = createApp({
                  + sourceText.slice(imageMatch.index + imageMatch[0].length);
              const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
              if (!sourceUrl) return;
@@ -1010,7 +1021,7 @@ index 79267c0..9cb6904 100644
  
              const originalContent = message.content;
              const finishLoading = () => {
-@@ -2262,7 +2952,7 @@ const app = createApp({
+@@ -2146,7 +2855,7 @@ const app = createApp({
              card.classList.add('is-rerolling');
              button.disabled = true;
  
@@ -1019,7 +1030,7 @@ index 79267c0..9cb6904 100644
              if (job.status === 'done') {
                  if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                      finishLoading();
-@@ -2364,6 +3054,16 @@ const app = createApp({
+@@ -2248,6 +2957,16 @@ const app = createApp({
              }
          }, { flush: 'sync' });
  
@@ -1036,7 +1047,7 @@ index 79267c0..9cb6904 100644
          watch(() => settings.imageSize, () => {
              const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
              if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
-@@ -3177,7 +3877,7 @@ const app = createApp({
+@@ -3061,7 +3780,7 @@ const app = createApp({
              const tags = new Set();
  
              availableModels.value.forEach(m => {
@@ -1045,7 +1056,7 @@ index 79267c0..9cb6904 100644
                  let found = false;
                  for (const family of popularModelFamilies) {
                      if (id.includes(family)) {
-@@ -3203,21 +3903,36 @@ const app = createApp({
+@@ -3087,21 +3806,36 @@ const app = createApp({
              if (activeModelTag.value && activeModelTag.value !== 'all') {
                  if (activeModelTag.value === 'other') {
                      result = result.filter(m => {
@@ -1088,7 +1099,7 @@ index 79267c0..9cb6904 100644
          });
  
          const getCharacterWICount = (char) => {
-@@ -3389,6 +4104,138 @@ const app = createApp({
+@@ -3273,6 +4007,138 @@ const app = createApp({
              clearMessageRenderCaches();
          }, { deep: true });
  
@@ -1227,7 +1238,7 @@ index 79267c0..9cb6904 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3445,21 +4292,133 @@ const app = createApp({
+@@ -3329,21 +4195,133 @@ const app = createApp({
          };
  
          // API & Models
@@ -1373,7 +1384,7 @@ index 79267c0..9cb6904 100644
              }
          };
  
-@@ -3471,9 +4430,572 @@ const app = createApp({
+@@ -3355,9 +4333,572 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1946,7 +1957,7 @@ index 79267c0..9cb6904 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3541,8 +5063,26 @@ const app = createApp({
+@@ -3425,8 +4966,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1974,7 +1985,7 @@ index 79267c0..9cb6904 100644
              ), () => true);
          };
  
-@@ -3619,13 +5159,66 @@ const app = createApp({
+@@ -3503,13 +5062,66 @@ const app = createApp({
          };
  
          const MAX_CHAT_IMAGES = 3;
@@ -2044,7 +2055,7 @@ index 79267c0..9cb6904 100644
                  .filter(Boolean);
              if (descriptions.length === 0) return '';
              return [
-@@ -3655,9 +5248,17 @@ const app = createApp({
+@@ -3539,9 +5151,17 @@ const app = createApp({
              reader.readAsDataURL(file);
          });
          const recognizeChatImage = async (image) => {
@@ -2063,7 +2074,7 @@ index 79267c0..9cb6904 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3692,7 +5293,8 @@ const app = createApp({
+@@ -3576,7 +5196,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -2073,7 +2084,7 @@ index 79267c0..9cb6904 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3732,6 +5334,11 @@ const app = createApp({
+@@ -3616,6 +5237,11 @@ const app = createApp({
                  slotsTransferred = true;
                  if (selectionEpoch !== chatImageSelectionEpoch) return;
                  pendingChatImages.value.push(...images);
@@ -2085,7 +2096,7 @@ index 79267c0..9cb6904 100644
                  const results = await Promise.all(images.map(recognizeChatImage));
                  if (results.some(result => !result)) showToast('部分图片识别失败，请移除后重新选择', 'error');
              } catch (error) {
-@@ -3743,6 +5350,7 @@ const app = createApp({
+@@ -3627,6 +5253,7 @@ const app = createApp({
          };
  
          const sendMessage = async () => {
@@ -2093,7 +2104,7 @@ index 79267c0..9cb6904 100644
              if ((!userInput.value.trim() && pendingChatImages.value.length === 0 && !pendingCardInteraction.value) || isConversationBusy.value || isRecognizingImages.value) return;
              if (pendingChatImages.value.some(image => image.status !== 'ready')) {
                  showToast('请先移除识别失败的图片', 'warning');
-@@ -3816,43 +5424,7 @@ const app = createApp({
+@@ -3699,43 +5326,10 @@ const app = createApp({
              });
          };
  
@@ -2121,7 +2132,7 @@ index 79267c0..9cb6904 100644
 -                    showToast('当前浏览器不支持全屏', 'warning');
 -                    return;
 -                }
--                closeMobileMenu();
+-                closeNavigation();
 -                isChatFullscreen.value = true;
 -                await requestNativeFullscreen(fullscreenTarget);
 -            } catch (err) {
@@ -2134,11 +2145,14 @@ index 79267c0..9cb6904 100644
 -        const syncChatFullscreenState = () => {
 -            isChatFullscreen.value = !!getNativeFullscreenElement();
 -        };
-+        // [LuzzyRP patch 022] 原生 fullscreen helpers 与全屏切换/同步函数整体移除（v1.2.3）
++        // [1.9.5 合并 · 2026-09-21] 上游 1.9.5 仍保留原生 fullscreen helpers 与全屏切换/同步函数，
++        // 但本仓库 [LuzzyRP patch 022]（用户需求 6：聊天页全屏功能整体下线，v1.2.3）已将其移除——
++        // 全屏按钮、app-native-fullscreen class、fullscreenchange 注册/清理、setup 导出全部不再存在。
++        // 该前提未变，故继续**不**接受上游恢复。
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -4022,7 +5594,9 @@ const app = createApp({
+@@ -3903,7 +5497,9 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -2149,7 +2163,7 @@ index 79267c0..9cb6904 100644
              if (!fallbackModel) {
                  markUiTemplateStatus('skipped', '未选模型');
                  return false;
-@@ -4058,7 +5632,14 @@ const app = createApp({
+@@ -3939,7 +5535,14 @@ const app = createApp({
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
                          const result = await requestTrackedChatCompletion({
@@ -2164,7 +2178,7 @@ index 79267c0..9cb6904 100644
                              messages: [
                                  {
                                      role: 'system',
-@@ -4443,7 +6024,7 @@ const app = createApp({
+@@ -4270,7 +5873,7 @@ const app = createApp({
                  maxRounds: ACTIVE_TOOL_MAX_AUTO_CONTINUE
              });
          };
@@ -2173,7 +2187,7 @@ index 79267c0..9cb6904 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              parts.push(parseCot(message?.content || '').rawCot);
-@@ -4452,15 +6033,12 @@ const app = createApp({
+@@ -4279,15 +5882,12 @@ const app = createApp({
          const wrapAnalysis = (tag, text) => text
              ? `<${tag}>\n${text.replace(/<\s*\/?\s*(?:thinking|think|cot)\s*>/gi, '')}\n</${tag}>\n`
              : '';
@@ -2195,12 +2209,26 @@ index 79267c0..9cb6904 100644
                  autoImageGenEnabled: isAutoImageGenEnabled.value,
                  cotEnabled,
                  imageGenCount: settings.imageGenCount,
-@@ -4470,7 +6048,17 @@ const app = createApp({
+@@ -4296,10 +5896,29 @@ const app = createApp({
+                 writingStylePrompt,
                  storyPanelsEnabled: isStoryPanelsEnabled.value,
-                 replyInTool: isTruncationEnabled.value,
                  uiTemplateEnabled: isUiTemplateAnalysisEnabled()
 -            });
+-            const replyToolReminder = isTruncationEnabled.value
+-                ? `(${BUILTIN_PROMPTS.replyToolInstruction.replace(/。$/, '')})` : '';
+-            target.content = `${String(target.content || '').trimEnd()}${replyToolReminder}\n\n${prompt}`;
 +            })
++        );
++        // [合并 1.9.4 · 2026-09-20] 上游把「抗截断提醒」从 BUILTIN_PROMPTS 的
++        // buildNextResponsePrompt 内部挪到调用侧拼装（该函数签名去掉了 replyInTool 参数）。
++        // 上游把它拼在 appendNextResponsePrompt 内 —— 但本仓库 patch 047 已停用该函数
++        // （<next_response> 改由 system 末块承载，见下方 systemPromptParts 处）。
++        // 故把提醒拼装抽成共用辅助：两条路径（append 与 system 注入）拿到**逐字节相同**的文本，
++        // 上游意图（提醒随抗截断开关出现）得以保留，我们停用 append 的决定也不受影响。
++        const nextResponseReplyReminder = () => (
++            isTruncationEnabled.value
++                ? `(${BUILTIN_PROMPTS.replyToolInstruction.replace(/。$/, '')})`
++                : ''
 +        );
 +        const appendNextResponsePrompt = (messageList, { cotEnabled = false, useThinkingTag = false, writingStylePrompt = '' } = {}) => {
 +            const target = [...messageList].reverse().find(message => (
@@ -2211,10 +2239,11 @@ index 79267c0..9cb6904 100644
 +            if (!target) return;
 +
 +            const prompt = buildNextResponsePromptText({ cotEnabled, useThinkingTag, writingStylePrompt });
-             target.content = `${String(target.content || '').trimEnd()}\n\n${prompt}`;
++            target.content = `${String(target.content || '').trimEnd()}${nextResponseReplyReminder()}\n\n${prompt}`;
          };
+         const usedGeminiPromptNonces = new Set();
          const generateResponse = async (startTime = null, options = {}) => {
-@@ -4479,7 +6067,15 @@ const app = createApp({
+@@ -4308,7 +5927,15 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -2231,7 +2260,7 @@ index 79267c0..9cb6904 100644
              const requestTools = activeToolDepth < ACTIVE_TOOL_MAX_AUTO_CONTINUE ? getEnabledActiveTools() : [];
  
              if (!currentCharacter.value) {
-@@ -4603,6 +6199,22 @@ const app = createApp({
+@@ -4441,6 +6068,30 @@ const app = createApp({
                  systemPromptParts.push(cotPresets.map(p => p.content).join('\n\n---\n\n'));
              }
  
@@ -2240,6 +2269,14 @@ index 79267c0..9cb6904 100644
 +            // 于是每轮恰好有 1 条已存在的消息被改写 —— 门禁 tools/prefix-cache-test.cjs 实测到
 +            // 「每轮 1 条改写、公共前缀仅 ~0.91」就是它。移到这里后请求变成**纯追加**
 +            // （上一轮请求成为下一轮的逐字节前缀），提示词文本一字未改、每轮仍然可见。
++            //
++            // [合并 1.9.4 · 2026-09-20] 上游把「抗截断提醒」从块**内部**挪到了块**之前**的调用侧
++            // （`<next_response>` 块内不再是 replyInTool ? replyToolInstruction : ''，改由调用方
++            // 在自己的正文与块之间插入带括号、去句号的提醒）。因为上游把它拼在被我们停用的
++            // appendNextResponsePrompt 里，这里必须**在同一位置**补上提醒，否则该提醒会在本仓库
++            // 静默丢失。文本由 nextResponseReplyReminder() 单源提供，与 append 路径逐字节一致。
++            const replyReminder = nextResponseReplyReminder();
++            if (replyReminder) systemPromptParts.push(replyReminder);
 +            systemPromptParts.push(buildNextResponsePromptText({
 +                cotEnabled: cotPresets.length > 0,
 +                useThinkingTag: usesThinkingCotTag(requestModel),
@@ -2254,7 +2291,7 @@ index 79267c0..9cb6904 100644
              const systemPrompt = systemPromptParts.join('\n\n');
              const systemWorldInfo = [
                  ...wiGroups.system_top,
-@@ -4842,7 +6454,7 @@ const app = createApp({
+@@ -4635,7 +6286,7 @@ const app = createApp({
                      return {
                          role: m.role === 'user' ? 'user' : 'assistant',
                          name: m.name || (m.role === 'user' ? user.name : currentCharacter.value.name),
@@ -2263,7 +2300,7 @@ index 79267c0..9cb6904 100644
                          _sourceIndexes: sourceIndexes,
                          _contextFloor: m._contextFloor,
                          _preventContextMerge: m._preventContextMerge === true
-@@ -4851,16 +6463,19 @@ const app = createApp({
+@@ -4644,16 +6295,19 @@ const app = createApp({
                  .filter(m => String(m.content || '').trim())
              );
              appendPendingUiTemplateCorrection(messages);
@@ -2291,10 +2328,10 @@ index 79267c0..9cb6904 100644
 +            //         .join('\n\n')
 +            // });
  
-             let selectedVectorMemories = [];
-             if (memorySettings.enabled
-@@ -4883,7 +6498,16 @@ const app = createApp({
-                 vectorDepth: MEMORY_VECTOR_DEFAULT_DEPTH,
+             // 世界书与其他提示处理完成后，再把召回附在最新用户消息末尾。
+             messages = injectContextMessages({
+@@ -4661,7 +6315,16 @@ const app = createApp({
+                 worldInfoGroups: wiGroups,
                  safeTargetLimit
              });
 -            if (activeToolDepth === 0) messages = appendActiveToolReminderToLatestUserMessage(messages);
@@ -2311,7 +2348,7 @@ index 79267c0..9cb6904 100644
              messages = postprocessContextMessages(messages).map((message, index, array) => ({
                  ...message,
                  content: processRegex(message.content || '', {
-@@ -4985,6 +6609,36 @@ const app = createApp({
+@@ -4740,6 +6403,36 @@ const app = createApp({
                  isReasoningAutoCollapsed: false
              });
  
@@ -2348,7 +2385,7 @@ index 79267c0..9cb6904 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4996,14 +6650,97 @@ const app = createApp({
+@@ -4751,12 +6444,92 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -2434,6 +2471,16 @@ index 79267c0..9cb6904 100644
 +                        /* 同上：上屏失败只影响观感（下一次提交会补上），不得抛出 */
 +                    }
 +                };
++
++        // [1.9.5 合并 · 2026-09-21] 上游在同位置新增了「增强记忆召回」（selectEnhancedMemories +
++        // appendEnhancedMemoryRecall），与本仓库 patch 044/045 的流式「活通道」节流各自独立、互不冲突，
++        // 故两者**都保留**：上方是流式性能治理，下方是上游的记忆召回链路。
+                 // 召回与主请求共用取消处理，避免停止时遗漏状态和计时器的清理。
+                 if (memorySettings.enabled && memorySettings.mode === MEMORY_MODE_ENHANCED) {
+                     const recalled = await selectEnhancedMemories(requestSignal);
+@@ -4788,7 +6561,14 @@ const app = createApp({
+                     ...(extra_content ? { extra_content } : {})
+                 }));
                  const responseResult = await requestTrackedChatCompletion({
 +                    // [LuzzyRP patch 015/025] 多商路由 + provider 透传
 +                    url: buildApiEndpoint(requestModelResolved.url, 'chat/completions'),
@@ -2444,9 +2491,9 @@ index 79267c0..9cb6904 100644
 +                    extraBody: requestModelResolved.extraBody,
 +                    provider: requestModelResolved.providerId || '',
                      messages: apiMessages,
+                     logResponse: true,
                      replyInTool: isTruncationEnabled.value,
-                     tools: buildActiveToolDefinitions(requestTools),
-@@ -5030,22 +6767,29 @@ const app = createApp({
+@@ -4816,22 +6596,29 @@ const app = createApp({
                                  collapseNativeReasoning(assistantMessage);
                              }
                              await nextTick();
@@ -2475,14 +2522,14 @@ index 79267c0..9cb6904 100644
                  }, activeToolDepth > 0 ? 'tool_continuation' : 'chat');
                  if (requestSignal.aborted) throw createAbortReason();
 -                if (activeToolDepth > 0 && !responseResult.toolCalls.length && !responseResult.content.trim()) {
-+                // [LuzzyRP patch 051] C1 · 可选链兜底：Anthropic / Gemini 适配器原先不返回
-+                // toolCalls 键（根因已在 api-utils.js 的 withUsageMetrics 出口补齐），
-+                // 这里再兜一层，避免以后新增协议适配器漏带该字段时重演同一次 TypeError。
 +                if (activeToolDepth > 0 && !responseResult.toolCalls?.length && !responseResult.content.trim()) {
-                     throw new Error('检索完成，但 API 未返回正文，请重新尝试。');
++                    // [LuzzyRP patch 051 + 1.9.5 合并] C1 · 可选链兜底：Anthropic / Gemini 适配器原先不返回
++                    // toolCalls 键（根因已在 api-utils.js 的 withUsageMetrics 出口补齐），这里再兜一层，
++                    // 避免以后新增协议适配器漏带该字段时重演同一次 TypeError。文案采纳上游措辞（「工具调用完成」）。
+                     throw new Error('工具调用完成，但 API 未返回正文，请重新尝试。');
                  }
                  if (!responseResult.isStream) {
-@@ -5065,7 +6809,8 @@ const app = createApp({
+@@ -4851,7 +6638,8 @@ const app = createApp({
                          }
                      }
                  }
@@ -2492,7 +2539,7 @@ index 79267c0..9cb6904 100644
                      assistantMessage = ensureAssistantMessage();
                      syncNativeActiveToolUis(assistantMessage, responseResult.toolCalls, requestToolUis, requestTools, true);
                      toolResponse = responseResult;
-@@ -5073,6 +6818,19 @@ const app = createApp({
+@@ -4859,6 +6647,19 @@ const app = createApp({
                  }
                  const duration = Date.now() - generationStartTime;
  
@@ -2512,7 +2559,7 @@ index 79267c0..9cb6904 100644
                  if (assistantMessage) {
                      generatedAssistantMessageId = assistantMessage.id;
                      if (!toolResponse && settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis) {
-@@ -5105,6 +6863,10 @@ const app = createApp({
+@@ -4891,6 +6692,10 @@ const app = createApp({
                      chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: errorMessage, skipReveal: true });
                  }
              } finally {
@@ -2523,17 +2570,19 @@ index 79267c0..9cb6904 100644
                  if (assistantMessage?.content) {
                      const styleFilterHits = [];
                      assistantMessage.content = filterBlockedStyleText(assistantMessage.content, {
-@@ -5330,12 +7092,20 @@ const app = createApp({
+@@ -5039,12 +6844,22 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
 -            const model = String(memorySettings.classicModel || '').trim();
 -            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
-+            // [LuzzyRP patch 015] 总结副模型走多商路由（provider/protocol 透传进用量记录）
++            // [LuzzyRP patch 015 + 1.9.5 合并] 总结副模型走多商路由（provider/protocol 透传进用量记录）。
++            // 上游把校验改成直接读 memorySettings.classicModel 字符串，但本仓库的多商体系要求经
++            // resolveModelRequest 解析出该引用所属的 url/apiKey/model（副模型可来自任意用户商）。
 +            const classicResolved = resolveModelRequest(memorySettings.classicModel);
 +            if (!classicResolved.url || !classicResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
 +            const model = classicResolved.model;
-             if (!model) throw new Error('请先选择总结模式副模型');
+             if (!model) throw new Error('请先选择总结模型');
  
              const result = await requestTrackedChatCompletion({
 -                model, temperature: 0.2, stream: false, messages: requestMessages, signal
@@ -2547,31 +2596,7 @@ index 79267c0..9cb6904 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5716,29 +7486,78 @@ const app = createApp({
- 
-             return fragments;
-         };
--
--        const requestMemoryEmbeddings = async (inputs, signal) => {
--            const model = getMemoryEmbeddingModel();
--            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
--            if (!model) throw new Error('请先选择向量嵌入模型');
-+        const requestMemoryEmbeddings = async (inputs, signal, embeddingRefOverride = null) => {
-+            // [LuzzyRP patch 012] 支持 (provider, model) 引用级嵌入：分桶检索时按桶现算查询向量
-+            const embeddingRef = embeddingRefOverride != null ? embeddingRefOverride : getMemoryEmbeddingModel();
-+            const embeddingResolved = resolveModelRequest(embeddingRef);
-+            // [LuzzyRP patch 026] 分桶引用指向已删除/改名的供应商时显式报错（v1.2.3，需求 2）：
-+            // 原行为经 parseModelRef 静默回退默认商（协议还可能错配），整桶必 404 且用户无从自查
-+            const refSeparator = String(embeddingRef).indexOf('::');
-+            if (refSeparator > 0 && !getApiProviderById(String(embeddingRef).slice(0, refSeparator))) {
-+                throw new Error('分片嵌入供应商已不存在：' + String(embeddingRef).slice(0, refSeparator) + '（请重嵌该批分片，或恢复该供应商 ID）');
-+            }
-+            if (!embeddingResolved.url || !embeddingResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
-+            if (!embeddingResolved.model) throw new Error('请先选择向量嵌入模型');
-+            const model = embeddingResolved.model;
-+            if (embeddingResolved.protocol === 'anthropic') throw new Error('Anthropic 接口不提供嵌入模型');
- 
-             const normalizedInputs = inputs.map(input => String(input || '').trim());
+@@ -5364,19 +7179,59 @@ const app = createApp({
              if (normalizedInputs.some(input => !input)) throw new Error('嵌入内容不能为空');
  
              const requestStartedAt = Date.now();
@@ -2644,7 +2669,7 @@ index 79267c0..9cb6904 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5749,6 +7568,18 @@ const app = createApp({
+@@ -5387,6 +7242,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2663,447 +2688,26 @@ index 79267c0..9cb6904 100644
              return vectors;
          };
  
-@@ -5780,7 +7611,8 @@ const app = createApp({
-                 contentFingerprint: getVectorFragmentFingerprint(fragment),
-                 sourceUserIds: fragment.sourceUserIds,
-                 sourceAssistantIds: fragment.sourceAssistantIds,
--                embeddingModel: getMemoryEmbeddingModel(),
-+                embeddingModel: parseModelRef(getMemoryEmbeddingModel()).bareId,
-+                embeddingProvider: parseModelRef(getMemoryEmbeddingModel()).providerId || '',
-                 embedding,
-                 sourceText: fragment.sourceText,
-                 ...(fragment.storyTime ? { storyTime: fragment.storyTime } : {})
-@@ -6044,10 +7876,6 @@ const app = createApp({
-             return retainedTurns;
-         };
- 
--        const getCurrentRetainedVectorMemoryTurns = () => getRetainedRecentMemoryTurns(
--            getPostprocessedChatMessages(chatHistory.value, { includeSystem: false })
--        );
--
-         const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
- 
-         const scoreVectorMemories = async (vectorMemories, queryVector, queryTerms, signal) => {
-@@ -6083,6 +7911,30 @@ const app = createApp({
-             vectorScore: scored.vectorScore
-         });
- 
-+        // [LuzzyRP patch 012] 跨商向量检索：分片按 (embeddingProvider, embeddingModel) 分桶，
-+        // 每桶用该商/该模型现算查询向量（桶内自比较，余弦有效）；legacy 分片（无商字段）跟随激活商 = 原行为
-+        const getVectorMemoryBucketKey = (memory) => `${memory.embeddingProvider || ''}\u0000${memory.embeddingModel || ''}`;
-+        const buildVectorMemoryBuckets = (vectorMemories) => {
-+            const buckets = new Map();
-+            vectorMemories.forEach(memory => {
-+                const key = getVectorMemoryBucketKey(memory);
-+                if (!buckets.has(key)) buckets.set(key, []);
-+                buckets.get(key).push(memory);
-+            });
-+            return buckets;
-+        };
-+        const getBucketEmbeddingRef = (memory) => {
-+            const providerId = memory.embeddingProvider || '';
-+            const model = memory.embeddingModel || '';
-+            if (!model) return '';
-+            return providerId ? `${providerId}::${model}` : model;
-+        };
-+        const compareVectorScores = (a, b) => {
-+            const scoreDiff = b.vectorScore - a.vectorScore;
-+            if (Math.abs(scoreDiff) > 0.0001) return scoreDiff;
-+            return (b.memory.turn || 0) - (a.memory.turn || 0);
-+        };
-+
-         const selectVectorMemoriesForContext = async (signal, options = {}) => {
-             const excludedTurns = options.excludedTurns instanceof Set
-                 ? options.excludedTurns
-@@ -6102,9 +7954,30 @@ const app = createApp({
-             if (!queryText) return [];
- 
-             try {
--                const [queryVector] = await requestMemoryEmbeddings([queryText], signal);
--                if (signal?.aborted || !isEmbeddingLike(queryVector)) return [];
--                const scoredMemories = await scoreVectorMemories(vectorMemories, queryVector, queryTerms, signal);
-+                const buckets = buildVectorMemoryBuckets(vectorMemories);
-+                const scoredMemories = [];
-+                for (const [bucketKey, bucketMemories] of buckets.entries()) {
-+                    if (signal?.aborted) return [];
-+                    const embeddingRef = getBucketEmbeddingRef(bucketMemories[0]);
-+                    try {
-+                        const [queryVector] = await requestMemoryEmbeddings([queryText], signal, embeddingRef);
-+                        if (signal?.aborted || !isEmbeddingLike(queryVector)) continue;
-+                        scoredMemories.push(...await scoreVectorMemories(bucketMemories, queryVector, queryTerms, signal));
-+                    } catch (err) {
-+                        if (err.name === 'AbortError') throw err;
-+                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
-+                        try {
-+                            const luzzyToastNow = Date.now();
-+                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
-+                                window.__luzzyVectorToastAt = luzzyToastNow;
-+                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
-+                            }
-+                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
-+                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
-+                    }
-+                }
-+                if (signal?.aborted) return [];
-+                scoredMemories.sort(compareVectorScores);
- 
-                 const selected = [];
-                 const seen = new Set();
-@@ -6133,16 +8006,15 @@ const app = createApp({
-                 return;
-             }
- 
--            const excludedTurns = getCurrentRetainedVectorMemoryTurns();
-+            // [LuzzyRP patch 026] 手动检索不再排除「近期保留楼层」轮次（v1.2.3，需求 2）：
-+            // 排除窗仅服务自动召回（避免与在上下文中的内容重复）；手动检索是显式动作，
-+            // 应覆盖全部启用分片——原行为使新会话分片后立即检索必空（分片轮次全落在
-+            // 保留窗内），且判空文案误导为「还没有分片」。
-             const vectorMemories = memories.value
-                 .filter(m => m.vectorMemory === true && m.enabled !== false)
--                .filter(m => isEmbeddingLike(m.embedding) && m.embedding.length > 0)
--                .filter(memory => {
--                    const turn = Number(memory.turn) || 0;
--                    return turn <= 0 || !excludedTurns.has(turn);
--                });
-+                .filter(m => isEmbeddingLike(m.embedding) && m.embedding.length > 0);
-             if (vectorMemories.length === 0) {
--                vectorMemorySearchError.value = '还没有可检索的向量分片';
-+                vectorMemorySearchError.value = '还没有可检索的向量分片（请先完成分片，或检查分片的参与召回开关）';
-                 return;
-             }
- 
-@@ -6159,21 +8031,43 @@ const app = createApp({
-             );
- 
-             try {
--                const [queryVector] = await requestMemoryEmbeddings([`用户：${query}`], searchAbort.signal);
--                if (!isCurrentSearch()) return;
-+                const buckets = buildVectorMemoryBuckets(vectorMemories);
-                 const scoredMemories = [];
--                for (let i = 0; i < vectorMemories.length; i++) {
-+                for (const [bucketKey, bucketMemories] of buckets.entries()) {
-                     if (!isCurrentSearch()) {
-                         const abortErr = new Error('Aborted');
-                         abortErr.name = 'AbortError';
-                         throw abortErr;
+@@ -5476,6 +7343,9 @@ const app = createApp({
+                         await yieldToUi();
+                         if (!isCurrent()) return [];
                      }
--                    const memory = vectorMemories[i];
--                    const vectorSearchScore = cosineSimilarity(queryVector, memory.embedding);
--                    if (Number.isFinite(vectorSearchScore) && vectorSearchScore > -1 && passesMemorySimilarityThreshold(vectorSearchScore)) {
--                        scoredMemories.push({ memory, vectorSearchScore });
-+                    const embeddingRef = getBucketEmbeddingRef(bucketMemories[0]);
-+                    try {
-+                        const [queryVector] = await requestMemoryEmbeddings([`用户：${query}`], searchAbort.signal, embeddingRef);
-+                        if (!isEmbeddingLike(queryVector)) continue;
-+                        for (let i = 0; i < bucketMemories.length; i++) {
-+                            if (!isCurrentSearch()) {
-+                                const abortErr = new Error('Aborted');
-+                                abortErr.name = 'AbortError';
-+                                throw abortErr;
-+                            }
-+                            const memory = bucketMemories[i];
-+                            const vectorSearchScore = cosineSimilarity(queryVector, memory.embedding);
-+                            if (Number.isFinite(vectorSearchScore) && vectorSearchScore > -1 && passesMemorySimilarityThreshold(vectorSearchScore)) {
-+                                scoredMemories.push({ memory, vectorSearchScore });
-+                            }
-+                            if (i > 0 && i % 512 === 0) await yieldToBrowser();
-+                        }
-+                    } catch (err) {
-+                        if (err.name === 'AbortError') throw err;
-+                        // [LuzzyRP patch 020] 检索失败外化 toast（30s 节流防离线刷屏；降级=仅 console.warn）
-+                        try {
-+                            const luzzyToastNow = Date.now();
-+                            if (luzzyToastNow - (window.__luzzyVectorToastAt || 0) > 30000) {
-+                                window.__luzzyVectorToastAt = luzzyToastNow;
-+                                showToast(`向量记忆分片检索失败（${bucketKey}）：${err.message}`, 'error', 4000);
-+                            }
-+                        } catch (luzzyToastErr) { /* 扩展层降级：不影响主流程 */ }
-+                        console.warn(`向量分桶检索失败（${bucketKey}）:`, err.message);
-                     }
--                    if (i > 0 && i % 512 === 0) await yieldToBrowser();
++                // [1.9.5 合并 · 2026-09-21] 原旧向量检索窗口的结果写入段已移除：
++                // 上游 1.9.5 删除了整套段落级向量分片机制（buildVectorMemory* / scoreVectorMemories /
++                // vectorMemorySearch* 全部不存在），改为 selectEnhancedMemories 的总结记忆级召回。
                  }
-                 if (!isCurrentSearch()) return;
-                 vectorMemorySearchResults.value = scoredMemories
-@@ -6219,6 +8113,278 @@ const app = createApp({
-             isVectorMemorySearching.value = false;
+                 return selected.sort((a, b) => b.score - a.score || a.turn - b.turn)
+                     .slice(0, SUMMARY_RECALL_LIMIT).sort((a, b) => a.turn - b.turn);
+@@ -5489,6 +7359,8 @@ const app = createApp({
+             }
          };
  
-+        // [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结（v1.2.1）
-+        // 写路径双轨：当前角色走内存数组 + save*Now（保持会话内响应式联动），
-+        // 其他角色走 scoped 存储直写（setScopedStoredValue + compact/clone），互不污染。
-+        const memoryManager = reactive({
-+            visible: false,
-+            selectedCharId: '',
-+            branchId: '',
-+            loading: false,
-+            saving: false,
-+            branches: [],
-+            vectorList: [],
-+            classicList: [],
-+            vectorPage: 1,
-+            classicPage: 1,
-+            expandedShardId: '',
-+            editor: null
-+        });
-+        const ensureCharacterUuids = () => {
-+            characters.value.forEach(char => { if (char && !char.uuid) char.uuid = generateUUID(); });
-+        };
-+        const memoryManagerCharacterOptions = computed(() => characters.value
-+            .filter(char => char && char.uuid)
-+            .map(char => ({ value: char.uuid, label: char.name || '未命名角色' })));
-+        const charactersValueFind = (uuid) => characters.value.find(char => char && char.uuid === uuid) || null;
-+        const resolveMemoryManagerChar = () => charactersValueFind(memoryManager.selectedCharId);
-+        const getMemoryManagerScopeId = () => {
-+            const char = resolveMemoryManagerChar();
-+            if (!char) return '';
-+            return getStoryBranchScopeId(char.uuid, memoryManager.branchId);
-+        };
-+        const isMemoryManagerCurrentScope = (scopeId) => Boolean(scopeId) && scopeId === getCurrentStoryBranchScopeId();
-+        const isMemoryManagerCurrentCharacter = computed(() => {
-+            const currentUuid = currentCharacter.value?.uuid || '';
-+            return Boolean(currentUuid) && currentUuid === memoryManager.selectedCharId;
-+        });
-+        const memoryManagerBranchOptions = computed(() => memoryManager.branches
-+            .map(branch => ({ value: branch.id, label: branch.name || '分支' })));
-+        const memoryManagerShardModelLabel = (memory) => {
-+            const ref = getBucketEmbeddingRef(memory || {});
-+            return ref ? formatModelRefText(ref) : '未记录嵌入模型';
-+        };
-+        const memoryManagerClassicTurnLabel = (memory) => {
-+            if (!memory) return '?';
-+            const start = memory.displayTurnStart ?? memory.turnStart ?? memory.turn;
-+            const end = memory.displayTurnEnd ?? memory.turnEnd ?? memory.turn;
-+            return start === end ? `第 ${start ?? '?'} 轮` : `第 ${start ?? '?'}-${end ?? '?'} 轮`;
-+        };
-+        const sortMemoryManagerVector = (items) => [...(Array.isArray(items) ? items : [])].sort((a, b) => {
-+            const turnDiff = (Number(a?.turn) || 0) - (Number(b?.turn) || 0);
-+            if (turnDiff !== 0) return turnDiff;
-+            return (Number(a?.sequence) || 0) - (Number(b?.sequence) || 0);
-+        });
-+        const sortMemoryManagerClassic = (items) => [...(Array.isArray(items) ? items : [])].sort((a, b) => {
-+            const turnA = Number(a?.turnStart ?? a?.turn) || 0;
-+            const turnB = Number(b?.turnStart ?? b?.turn) || 0;
-+            return turnA - turnB;
-+        });
-+        const loadMemoryManagerData = async () => {
-+            const char = resolveMemoryManagerChar();
-+            if (!char) {
-+                memoryManager.branches = [];
-+                memoryManager.vectorList = [];
-+                memoryManager.classicList = [];
-+                return;
-+            }
-+            memoryManager.loading = true;
-+            try {
-+                const branchState = await readStoryBranchesForCharacter(char);
-+                memoryManager.branches = (branchState.branches || []).map(branch => ({ id: branch.id, name: branch.name || '分支' }));
-+                if (!memoryManager.branches.some(branch => branch.id === memoryManager.branchId)) {
-+                    memoryManager.branchId = branchState.activeBranchId || STORY_BRANCH_MAIN_ID;
-+                }
-+                const scopeId = getStoryBranchScopeId(char.uuid, memoryManager.branchId);
-+                if (isMemoryManagerCurrentScope(scopeId)) {
-+                    memoryManager.vectorList = [...memories.value];
-+                    memoryManager.classicList = [...classicMemories.value];
-+                } else {
-+                    const [vectorSaved, classicSaved] = await Promise.all([
-+                        getScopedStoredValue('memories', scopeId),
-+                        getScopedStoredValue('classic_memories', scopeId)
-+                    ]);
-+                    memoryManager.vectorList = Array.isArray(vectorSaved) ? prepareMemoriesForRuntime(vectorSaved) : [];
-+                    memoryManager.classicList = Array.isArray(classicSaved) ? prepareClassicMemoriesForRuntime(classicSaved) : [];
-+                }
-+                memoryManager.vectorPage = 1;
-+                memoryManager.classicPage = 1;
-+            } catch (error) {
-+                console.error('[LuzzyRP patch 017] 记忆管理器加载失败:', error);
-+                showToast('记忆内容加载失败: ' + (error?.message || error), 'error');
-+            } finally {
-+                memoryManager.loading = false;
-+            }
-+        };
-+        const toggleMemoryManager = () => {
-+            memoryManager.visible = !memoryManager.visible;
-+            if (!memoryManager.visible) return;
-+            ensureCharacterUuids();
-+            if (!memoryManager.selectedCharId || !resolveMemoryManagerChar()) {
-+                memoryManager.selectedCharId = currentCharacter.value?.uuid
-+                    || memoryManagerCharacterOptions.value[0]?.value
-+                    || '';
-+                memoryManager.branchId = '';
-+            }
-+            loadMemoryManagerData();
-+        };
-+        const selectMemoryManagerCharacter = async (uuid) => {
-+            if (memoryManager.selectedCharId === uuid) return;
-+            memoryManager.selectedCharId = uuid;
-+            memoryManager.branchId = '';
-+            memoryManager.expandedShardId = '';
-+            await loadMemoryManagerData();
-+        };
-+        const selectMemoryManagerBranch = async (branchId) => {
-+            if (memoryManager.branchId === branchId) return;
-+            memoryManager.branchId = branchId;
-+            memoryManager.expandedShardId = '';
-+            await loadMemoryManagerData();
-+        };
-+        const writeMemoryManagerVector = async (list) => {
-+            const scopeId = getMemoryManagerScopeId();
-+            if (!scopeId) return;
-+            const nextList = sortMemoryManagerVector(list);
-+            if (isMemoryManagerCurrentScope(scopeId)) {
-+                memories.value = nextList;
-+                await saveMemoriesNow();
-+            } else {
-+                await setScopedStoredValue('memories', scopeId, await compactMemoriesForStorageAsync(nextList), { clone: false });
-+            }
-+            memoryManager.vectorList = [...nextList];
-+            memoryManager.vectorPage = Math.min(memoryManager.vectorPage, Math.max(1, Math.ceil(nextList.length / LIST_PAGE_SIZE)));
-+        };
-+        const writeMemoryManagerClassic = async (list) => {
-+            const scopeId = getMemoryManagerScopeId();
-+            if (!scopeId) return;
-+            const nextList = sortMemoryManagerClassic(list);
-+            if (isMemoryManagerCurrentScope(scopeId)) {
-+                classicMemories.value = nextList;
-+                await saveClassicMemoriesNow();
-+            } else {
-+                await setScopedStoredValue('classic_memories', scopeId, cloneForStorage(nextList), { clone: false });
-+            }
-+            memoryManager.classicList = [...nextList];
-+            memoryManager.classicPage = Math.min(memoryManager.classicPage, Math.max(1, Math.ceil(nextList.length / LIST_PAGE_SIZE)));
-+        };
-+        const memoryManagerVectorPageCount = computed(() => Math.max(1, Math.ceil(memoryManager.vectorList.length / LIST_PAGE_SIZE)));
-+        const memoryManagerClassicPageCount = computed(() => Math.max(1, Math.ceil(memoryManager.classicList.length / LIST_PAGE_SIZE)));
-+        const displayedMemoryManagerVector = computed(() => sortMemoryManagerVector(memoryManager.vectorList)
-+            .slice((memoryManager.vectorPage - 1) * LIST_PAGE_SIZE, memoryManager.vectorPage * LIST_PAGE_SIZE));
-+        const displayedMemoryManagerClassic = computed(() => sortMemoryManagerClassic(memoryManager.classicList)
-+            .slice((memoryManager.classicPage - 1) * LIST_PAGE_SIZE, memoryManager.classicPage * LIST_PAGE_SIZE));
-+        // [LuzzyRP patch 036] 记忆内容管理器实时联动：面板展开且作用域为当前会话时，
-+        // memories/classicMemories 变化（向量/总结补录新增分片等）即时同步进管理器列表。
-+        // 017 原实现为打开时一次性快照，补录完成后不刷新（真机实测反馈）。
-+        // 非当前作用域（其他角色/分支）仍走 loadMemoryManagerData 的存储读取，不做联动。
-+        // 分页不重置（新增分片追加展示）；管理器自身编辑走 writeMemoryManager* 自带同步。
-+        watch(
-+            () => [memories.value.length, classicMemories.value.length, memoryManager.visible, memoryManager.selectedCharId, memoryManager.branchId],
-+            () => {
-+                if (!memoryManager.visible) return;
-+                if (!isMemoryManagerCurrentScope(getMemoryManagerScopeId())) return;
-+                memoryManager.vectorList = [...memories.value];
-+                memoryManager.classicList = [...classicMemories.value];
-+            }
-+        );
-+        const openMemoryManagerEditor = (type, memory) => {
-+            memoryManager.expandedShardId = '';
-+            memoryManager.editor = {
-+                type,
-+                id: memory?.id || '',
-+                text: type === 'vector'
-+                    ? String(memory?.paragraph || memory?.summary || '')
-+                    : String(memory?.summary || ''),
-+                memory
-+            };
-+        };
-+        const closeMemoryManagerEditor = () => { memoryManager.editor = null; };
-+        const saveMemoryManagerEditor = async () => {
-+            const editor = memoryManager.editor;
-+            if (!editor || memoryManager.saving) return;
-+            const text = String(editor.text || '').trim();
-+            if (!text) { showToast('内容不能为空', 'warning'); return; }
-+            if (editor.type === 'vector') {
-+                const memory = memoryManager.vectorList.find(item => item && item.id === editor.id);
-+                if (!memory) { showToast('分片不存在或已被删除', 'error'); return; }
-+                const originalText = String(memory.paragraph || memory.summary || '');
-+                memoryManager.saving = true;
-+                try {
-+                    if (text !== originalText) {
-+                        // 强制重嵌成功才保存：文本变更必须配新向量，杜绝文本/向量错配的脏分片
-+                        const embeddingRef = getBucketEmbeddingRef(memory) || getMemoryEmbeddingModel();
-+                        const [vector] = await requestMemoryEmbeddings([text], undefined, embeddingRef || null);
-+                        if (!isEmbeddingLike(vector) || vector.length === 0) throw new Error('嵌入接口返回数据异常');
-+                        memory.embedding = vector;
-+                        memory.contentFingerprint = '';
-+                        memory.paragraph = text;
-+                        memory.summary = trimMemoryText(text, 900);
-+                        memory.sourceText = ['第 ' + (Number(memory.turn) || '?') + ' 轮', text].filter(Boolean).join('\n');
-+                    }
-+                    await writeMemoryManagerVector(memoryManager.vectorList);
-+                    showToast('分片已保存，嵌入向量已同步更新', 'success');
-+                    memoryManager.editor = null;
-+                } catch (error) {
-+                    if (error?.name === 'AbortError') return;
-+                    console.error('[LuzzyRP patch 017] 分片保存失败:', error);
-+                    showToast('保存失败：' + (error?.message || '重新生成嵌入向量出错，请检查嵌入模型与网络'), 'error', 5000);
-+                } finally {
-+                    memoryManager.saving = false;
-+                }
-+                return;
-+            }
-+            const classicMemory = memoryManager.classicList.find(item => item && item.id === editor.id);
-+            if (!classicMemory) { showToast('总结记忆不存在或已被删除', 'error'); return; }
-+            memoryManager.saving = true;
-+            try {
-+                classicMemory.summary = text;
-+                await writeMemoryManagerClassic(memoryManager.classicList);
-+                showToast('总结记忆已保存', 'success');
-+                memoryManager.editor = null;
-+            } catch (error) {
-+                console.error('[LuzzyRP patch 017] 总结保存失败:', error);
-+                showToast('保存失败: ' + (error?.message || error), 'error');
-+            } finally {
-+                memoryManager.saving = false;
-+            }
-+        };
-+        const toggleMemoryManagerVectorEnabled = async (memory) => {
-+            if (!memory) return;
-+            memory.enabled = memory.enabled === false;
-+            try {
-+                await writeMemoryManagerVector(memoryManager.vectorList);
-+            } catch (error) {
-+                memory.enabled = !memory.enabled;
-+                showToast('状态保存失败: ' + (error?.message || error), 'error');
-+            }
-+        };
-+        const deleteMemoryManagerVectorItem = (memory) => {
-+            if (!memory) return;
-+            confirmAction('确定删除这条记忆分片吗？删除后该轮内容可在记忆补录中重新生成。此操作无法撤销。', async () => {
-+                const list = memoryManager.vectorList.filter(item => item?.id !== memory.id);
-+                await writeMemoryManagerVector(list);
-+                showToast('记忆分片已删除', 'success');
-+            });
-+        };
-+        const deleteMemoryManagerClassicItem = (memory) => {
-+            if (!memory) return;
-+            confirmAction('确定删除这条总结记忆吗？此操作无法撤销。', async () => {
-+                const list = memoryManager.classicList.filter(item => item?.id !== memory.id);
-+                await writeMemoryManagerClassic(list);
-+                showToast('总结记忆已删除', 'success');
-+            });
-+        };
-+        const clearMemoryManagerAll = () => {
-+            const char = resolveMemoryManagerChar();
-+            if (!char) return;
-+            const vectorCount = memoryManager.vectorList.length;
-+            const classicCount = memoryManager.classicList.length;
-+            if (vectorCount + classicCount === 0) { showToast('该角色没有可清空的记忆', 'info'); return; }
-+            showVueConfirmModal(
-+                '清空角色记忆',
-+                `将删除「${char.name || '未命名角色'}」当前分支的全部记忆：向量分片 ${vectorCount} 条、总结记忆 ${classicCount} 条。此操作无法撤销。`
-+            ).then(async (confirmed) => {
-+                if (!confirmed) return;
-+                if (isMemoryManagerCurrentScope(getMemoryManagerScopeId())) {
-+                    abortVectorBatchExtraction();
-+                    abortClassicBatchExtraction();
-+                }
-+                await writeMemoryManagerVector([]);
-+                await writeMemoryManagerClassic([]);
-+                showToast('该角色记忆已清空', 'success');
-+            });
-+        };
-+
++        // [1.9.5 合并 · 2026-09-21] 原 #13 段（298 行）已随上游重构移除。
++        // 上游 1.9.5 移除了独立向量检索窗口（searchVectorMemories / vectorMemorySearchResults 等全部不存在），改为 selectEnhancedMemories 内部召回。我方 patch 020/026 的检索 UI 改造随之退场。
          const extractKeywordToolTerms = (query) => {
-             const cleanQuery = trimMemoryText(stripVectorMemoryCode(query), 300);
+             const cleanQuery = trimMemoryText(query, 300);
              if (!cleanQuery) return [];
-@@ -6269,7 +8435,7 @@ const app = createApp({
+@@ -5539,7 +7411,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -3112,7 +2716,7 @@ index 79267c0..9cb6904 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -6673,6 +8839,18 @@ const app = createApp({
+@@ -5968,6 +7840,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -3131,7 +2735,7 @@ index 79267c0..9cb6904 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -7462,7 +9640,10 @@ const app = createApp({
+@@ -6691,7 +8575,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -3143,7 +2747,7 @@ index 79267c0..9cb6904 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -8567,10 +10748,13 @@ const app = createApp({
+@@ -7753,10 +9640,13 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -3159,7 +2763,7 @@ index 79267c0..9cb6904 100644
              fetchQuota(); // Fetch quota after saved settings are loaded
  
              updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载
-@@ -8778,7 +10962,11 @@ const app = createApp({
+@@ -7957,7 +9847,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -3172,7 +2776,7 @@ index 79267c0..9cb6904 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -8799,9 +10987,7 @@ const app = createApp({
+@@ -7978,9 +9872,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -3183,17 +2787,19 @@ index 79267c0..9cb6904 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -8815,8 +11001,7 @@ const app = createApp({
+@@ -7995,8 +9887,9 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
-             closeMobileMenu();
+             closeNavigation();
 -            document.removeEventListener('fullscreenchange', syncChatFullscreenState);
 -            document.removeEventListener('webkitfullscreenchange', syncChatFullscreenState);
-+            // [LuzzyRP patch 022] fullscreenchange 监听移除已随全屏功能下线（v1.2.3）
++            // [LuzzyRP patch 022 + 1.9.5 合并] 上游改名 closeMobileMenu → closeNavigation；
++            // 我方 patch 022（用户需求：聊天页全屏下线）移除了 fullscreenchange 监听清理，
++            // 因为对应的注册侧与全屏功能已整体移除。两者不冲突。
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -9036,6 +11221,7 @@ const app = createApp({
+@@ -8182,6 +10075,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -3201,7 +2807,7 @@ index 79267c0..9cb6904 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -9048,22 +11234,25 @@ const app = createApp({
+@@ -8194,9 +10088,8 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -3213,17 +2819,14 @@ index 79267c0..9cb6904 100644
              latestMainTokenUsage, formatLatestTokenCount, formatLatestUsageCost,
              getUncachedInputTokens, formatTokenCount, formatTokenAggregate, formatTokenUsageTime, getTokenUsageTypeLabel, clearTokenUsageHistory,
              storageStats, refreshStorageStats, cleanupUnusedStorage, formatStorageSize,
-             showCharacterExportModal, openCharacterExportModal, confirmCharacterExport, // Character Export Modal
-             updateModalRef, latestUpdateConfig,
-             showConfirmModal, confirmMessage, modelMode, isGeminiModel, isTruncationEnabled, isPresetEnabled, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, showNoMemoryNeededModal, // Export for template
--            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters,
--            user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
-+            isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, lastFinishReason, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters, formatModelRefText, formatModelRef, formatUsageModelLabel, // [LuzzyRP patch 012]
-+            user, settings, apiProviderOptions, allApiProviders, userApiProviders, selectedApiProvider, isCustomApiProvider, isUserApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection,
-+            showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict,
-+            showModelEditor, modelEditorIndex, modelEditorDraft, openModelEditor, confirmModelEditor, cancelModelEditor, modelTypeBadgeClass, // [LuzzyRP patch 040]
-+            providerModelCount, providerIconInputEl, providerIconCrop, providerEditorIconPreview, providerIconPick, providerIconClear, providerIconFileChosen, providerIconBoxDown, providerIconCropCancel, providerIconCropConfirm, // [LuzzyRP patch 035]
-+            editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, themeModeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, regexScripts, worldInfo,
+@@ -8205,11 +10098,15 @@ const app = createApp({
+             showConfirmModal, confirmMessage, modelMode, isGeminiModel, isTruncationEnabled, isPresetEnabled, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, // Export for template
+             isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters,
+             user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, getSortableItemKey, regexScripts, worldInfo,
++            // [1.9.5 合并 · 2026-09-21] 以下为本仓库新增导出项（上游基础表没有；模板依赖它们，
++            // 漏出 setup() 返回列表会导致模板解析失败）。来源：patch 012 多商路由 / patch 015 三协议
++            // 供应商编辑器 / patch 035 图标裁剪 / patch 040 模型编辑器 / patch 046 输入解耦 / patch 051 结束原因。
++            lastFinishReason, formatModelRefText, formatModelRef, formatUsageModelLabel, allApiProviders, userApiProviders, isUserApiProvider, isProviderConfigured, showProviderManager, providerTestStatus, openProviderManager, addUserApiProvider, removeUserApiProvider, updateProviderKey, testProviderConnection, showProviderEditor, providerEditorDraft, providerEditorIsNew, providerEditorPresetNotice, providerEditorPresetModel, providerEditorProtocolHint, providerEditorExtraRows, providerEditorIdConflict, showModelEditor, modelEditorIndex, modelEditorDraft, openModelEditor, confirmModelEditor, cancelModelEditor, modelTypeBadgeClass, providerModelCount, providerIconInputEl, providerIconCrop, providerEditorIconPreview, providerIconPick, providerIconClear, providerIconFileChosen, providerIconBoxDown, providerIconCropCancel, providerIconCropConfirm, editUserApiProvider, cancelProviderEditor, saveProviderEditor, addProviderEditorModel, removeProviderEditorModel, onProviderEditorModelIdInput, undoModelIdPreset, addProviderEditorExtraRow, removeProviderEditorExtraRow, formatLengthToken, getProviderModelMeta, parseLengthSafe, toggleModelModality, setModelExtraBodyText, customImageModelOptions, themeModeOptions,
              activeTools, activeToolAggressivenessOptions: ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS, editingActiveTool, normalizeActiveTools, isWebActiveTool, getActiveToolDisplayDescription, getActiveToolResultCountMin, getActiveToolResultCountMax,
              getToolCallModeText, hasThinkingOrTools, isMessageThinkingOrRunning, isThinkingSummaryOpen, toggleThinkingSummary, markThinkingSummaryDetailOpened, getTimelineSteps,
              isStyleFilterDetailsOpen, toggleStyleFilterDetails, getStyleFilterHitSegments,
@@ -3233,30 +2836,35 @@ index 79267c0..9cb6904 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -9080,6 +11269,14 @@ const app = createApp({
-             vectorMemorySearchQuery, vectorMemorySearchResults, vectorMemorySearchError, vectorMemorySearchSortMode, isVectorMemorySearching,
-             startBatchMemoryExtraction, abortBatchExtraction, searchVectorMemories, clearVectorMemorySearch,
+@@ -8224,6 +10121,9 @@ const app = createApp({
+             showMemoryBackfillModal, memoryBackfillProgress,
+             startBatchMemoryExtraction, abortBatchExtraction: abortClassicBatchExtraction,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
-+            // [LuzzyRP patch 017] 记忆内容管理器：跨角色查看/编辑/删除分片与总结
-+            memoryManager, memoryManagerCharacterOptions, memoryManagerBranchOptions,
-+            isMemoryManagerCurrentCharacter, memoryManagerVectorPageCount, memoryManagerClassicPageCount,
-+            displayedMemoryManagerVector, displayedMemoryManagerClassic, memoryManagerShardModelLabel,
-+            memoryManagerClassicTurnLabel,
-+            toggleMemoryManager, selectMemoryManagerCharacter, selectMemoryManagerBranch, clearMemoryManagerAll,
-+            openMemoryManagerEditor, closeMemoryManagerEditor, saveMemoryManagerEditor,
-+            deleteMemoryManagerVectorItem, deleteMemoryManagerClassicItem, toggleMemoryManagerVectorEnabled,
++            // [1.9.5 合并 · 2026-09-21] 原 [LuzzyRP patch 017] 记忆管理器导出项（toggleMemoryManager /
++            // selectMemoryManagerCharacter / openMemoryManagerEditor / deleteMemoryManager* 等 13 个符号）
++            // 已随管理器一并移除——上游 1.9.5 无跨角色记忆管理界面，提供 clearAllMemories() 作清空入口。
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -9121,7 +11318,10 @@ const app = createApp({
+@@ -8240,7 +10140,13 @@ const app = createApp({
                  });
              },
-             toggleMobileMenu, closeMobileMenu,
+             toggleNavigation, closeNavigation,
 -            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat, toggleChatFullscreen,
++            // [1.9.5 合并] 上游此行末尾的 toggleChatFullscreen 已随 [LuzzyRP patch 022]（用户需求 6：
++            // 聊天页全屏功能整体下线，v1.2.3）一并移除——该函数在本仓库不存在，导出它会
++            // ReferenceError（整页白屏，实测踩过）。patch 046 的输入通道导出见下方。
 +            fetchModels, selectModel, selectQuickModels, sendMessage, autoResizeInput, handleChatInputFocus, handleChatInputBlur, stopGeneration, clearChat,
-+            // [LuzzyRP patch 046] 输入框带外通道（模板用 chatInputViewValue/handleChatInput/flushChatInput，
-+            // 漏出 setup() 返回列表会导致模板解析失败 → 整页白屏）
++            // [LuzzyRP patch 046 + 1.9.5 合并] 输入框带外通道（模板用 chatInputViewValue/handleChatInput/flushChatInput，
++            // 漏出 setup() 返回列表会导致模板解析失败 → 整页白屏）。上游改名 toggleMobileMenu → toggleNavigation 已采纳。
 +            chatInputViewValue, handleChatInput, flushChatInput, chatInputHasText,
              handleConfirm, handleCancel, // Export handlers
              copyMessage, playMessageActionFeedback, canDeleteMessage, deleteMessage, regenerateMessage,
              editMessage, saveEditMessage, cancelEditMessage,
+@@ -8555,4 +10461,4 @@ const app = createApp({
+ // 公共弹窗部件需要全局注册，供其他弹窗组件内部直接复用。
+ app.component('ModalShell', ModalShell);
+ app.component('ModalHeader', ModalHeader);
+-app.mount('#app');
++app.mount('#app');
+\ No newline at end of file

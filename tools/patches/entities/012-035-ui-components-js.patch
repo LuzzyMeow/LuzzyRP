@@ -1,48 +1,36 @@
 diff --git a/assets/js/ui-components.js b/assets/js/ui-components.js
-index e9a992b..7867867 100644
+index 738b87b0..b9d2c37c 100644
 --- a/assets/js/ui-components.js
 +++ b/assets/js/ui-components.js
-@@ -350,9 +350,10 @@
-                 <div class="h-16 flex items-center border-b border-gray-100/80 bg-white/70 backdrop-blur-xl transition-all duration-300"
-                     :class="collapsed ? 'justify-center px-0' : 'justify-between px-6'">
-                     <div v-show="!collapsed" class="app-logo relative inline-flex items-baseline gap-1.5 pr-1 min-w-0">
--                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.08em] leading-none">RP</span>
--                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.18em] leading-none">HUB</span>
--                        <span class="absolute -bottom-1 left-0 h-[2px] w-11 rounded-full bg-primary-500/60"></span>
-+                        <!-- [LuzzyRP patch 019] 侧栏品牌字样：RP HUB → LuzzyRP（Luzzy 主字 + RP 品牌色，与开屏字标同构） -->
-+                        <span class="text-[21px] font-extrabold text-gray-800 tracking-[0.02em] leading-none">Luzzy</span>
-+                        <span class="text-[16px] font-semibold text-primary-600 tracking-[0.08em] leading-none">RP</span>
-+                        <span class="absolute -bottom-1 left-0 h-[2px] w-14 rounded-full bg-primary-500/60"></span>
-                     </div>
-                     <button @click="$emit('update:collapsed', !collapsed)"
-                         :class="['hidden md:flex items-center justify-center bg-white hover:bg-gray-50 border border-gray-200/80 rounded-xl text-gray-500 hover:text-primary-600 transition-all shadow-sm active:scale-95', collapsed ? 'w-12 h-12 p-0' : 'p-2']"
-@@ -439,11 +440,25 @@
-                         </div>
-                     </div>
+@@ -308,7 +308,13 @@
+         { view: 'presets', label: '预设', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4M6 18a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
+         { view: 'worldinfo', label: '世界书', icon: 'M12 6.25v13m0-13C10.83 5.48 9.25 5 7.5 5S4.17 5.48 3 6.25v13C4.17 18.48 5.75 18 7.5 18s3.33.48 4.5 1.25m0-13C13.17 5.48 14.75 5 16.5 5S19.83 5.48 21 6.25v13C19.83 18.48 18.25 18 16.5 18s-3.33.48-4.5 1.25' },
+         { view: 'regex', label: '正则', title: '正则脚本', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
+-        { view: 'tools', label: '工具', icon: 'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94L14.7 6.3z' }
++        { view: 'tools', label: '工具', icon: 'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94L14.7 6.3z' },
++        // [LuzzyRP patch 014 移植 · 1.9.5 合并] 上游新侧栏（数据驱动）没有「外观」「关于」入口，
++        // 而本仓库这两个独立视图（patch 014，v1.2.0）与对应 currentView 分支仍在 index.html 中保留。
++        // 故按 patch 014 的原顺序补回：外观 → 关于（「设置」由上游放在「常用」组末尾，位置不变）。
++        // 图标取自项目内既有 Heroicons v1 同名形状，与其余条目同风格。
++        { view: 'appearance', label: '外观', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
++        { view: 'about', label: '关于', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }
+     ]);
  
-+                    <!-- [LuzzyRP patch 014] 侧栏底部簇：外观/关于改为独立视图（selectView 带激活态）；
-+                         [LuzzyRP patch 019] 顺序调整：外观 → 设置 → 关于（关于置底） -->
-+                    <button @click="selectView('appearance')" title="外观"
-+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('appearance'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
-+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">外观</span>
-+                    </button>
-+
-                     <button @click="selectView('settings')" title="设置"
-                         :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('settings'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-                         <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
-                         <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">设置</span>
-                     </button>
-+
-+                    <button @click="selectView('about')" title="关于"
-+                        :class="['sidebar-nav-button flex items-center rounded-xl transition-all duration-200 font-medium', itemClass('about'), collapsed ? 'w-12 h-12 mx-auto justify-center p-0' : 'w-full px-3 py-2.5']">
-+                        <svg class="w-5 h-5" :class="collapsed ? 'mr-0' : 'mr-3'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-+                        <span v-show="!collapsed" class="whitespace-nowrap overflow-hidden">关于</span>
-+                    </button>
-                 </div>
- 
-                 <div class="p-3 border-t border-gray-100/80 bg-white/70 backdrop-blur-xl">
-@@ -713,7 +728,8 @@
+     const AppNavigation = {
+@@ -385,7 +391,11 @@
+                         :style="position" role="dialog" aria-modal="true" aria-label="应用导航" tabindex="-1">
+                         <header class="app-navigation-header">
+                             <div class="app-logo app-navigation-brand">
+-                                <span>RP <em>HUB</em></span>
++                                <!-- [LuzzyRP patch 019 移植 · 1.9.5 合并] 上游把侧栏重写为 AppNavigation（数据驱动），
++                                     品牌区从旧的 .app-logo（RP HUB 双段）变为 .app-navigation-brand 单段。
++                                     保持 patch 019 的品牌化意图：LuzzyRP 主字 + RP 品牌色，与开屏字标同构；
++                                     上游的 <em> 强调结构保留为 RP 段，样式沿用上游的 em 规则。 -->
++                                <span>Luzzy<em>RP</em></span>
+                             </div>
+                             <button type="button" class="app-navigation-close" @click="$emit('close')" aria-label="关闭导航">
+                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+@@ -688,7 +698,8 @@
                  panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-lg flex flex-col shadow-2xl transform transition-all scale-100 overflow-hidden relative">
                      <div class="bg-gradient-to-r from-primary-50 to-purple-50 p-4 border-b border-gray-100">
                          <div class="flex items-center gap-3">
@@ -52,7 +40,7 @@ index e9a992b..7867867 100644
                              <span class="bg-primary-100 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-200 transform translate-y-0.5">New</span>
                          </div>
                      </div>
-@@ -724,6 +740,10 @@
+@@ -699,6 +710,10 @@
                          <div v-else class="prose prose-sm prose-gray max-w-none">
                              <div class="markdown-body" v-html="renderMarkdown(update.content, 'assistant', true)"></div>
                          </div>
@@ -63,9 +51,9 @@ index e9a992b..7867867 100644
                          <div class="mt-8 mb-2 flex justify-end">
                              <button @click="close" :disabled="!remoteUpdateId && countdown > 0"
                                  :class="{ 'opacity-50 cursor-not-allowed': !remoteUpdateId && countdown > 0 }"
-@@ -854,6 +874,28 @@
+@@ -908,6 +923,28 @@
+                 }
                  this.draftSlotModels[this.activeSlot] = this.draftSlotModels[this.activeSlot] === modelId ? '' : modelId;
-                 this.draftSlotModels = [...this.draftSlotModels];
                  this.$emit('select-slots', [...this.draftSlotModels]);
 +            },
 +            // [LuzzyRP patch 015] 手动模型 meta 摘要：`1M · 文本+图像` / `128K · 嵌入`
@@ -92,37 +80,55 @@ index e9a992b..7867867 100644
              }
          },
          template: `
-@@ -904,7 +946,28 @@
-                             <div class="space-y-1">
-                                 <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
-                                     class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-colors flex justify-between items-center group border border-transparent hover:border-gray-100 active:bg-gray-100">
--                                    <span class="text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.id }}</span>
-+                                    <!-- [LuzzyRP patch 043] 手动条目显示**用户配置的显示名**（label）——此前只显示裸 id，
-+                                         用户配好的模型在 90+ 条检测结果里认不出来（用户 2026-09-11：「自己配置的
-+                                         模型反而是看不到」）。且必须改**两行式**：单行时供应商徽标(42px)+裸 ID(131px)+
-+                                         meta chip(121px) 已占满行宽 292px，label 被 flex 压到 **0 宽度**（真机实测
-+                                         getBoundingClientRect=0），等于仍然看不见。两行后 label 独占首行
-+                                         （可用 242px ≥ 自然宽 150px），裸 ID 与 chip 落第二行（260px ≤ 292px），
-+                                         三者零截断。检测条目无 label，维持上游单行原状。 -->
-+                                    <span v-if="model.manual === true && model.label" class="min-w-0 flex-1 flex flex-col gap-1 overflow-hidden">
-+                                        <span class="min-w-0 flex items-center gap-2 overflow-hidden">
-+                                            <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
-+                                            <span class="min-w-0 truncate text-gray-800 font-medium group-hover:text-primary-600 transition-colors">{{ model.label }}</span>
-+                                        </span>
-+                                        <span class="min-w-0 flex items-center gap-2 overflow-hidden">
-+                                            <span class="min-w-0 truncate text-[11px] font-mono text-gray-400">{{ model.bareId || model.id }}</span>
-+                                            <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
-+                                            <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
-+                                        </span>
-+                                    </span>
-+                                    <span v-else class="min-w-0 flex items-center gap-2 overflow-hidden">
-+                                        <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
-+                                        <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
-+                                    </span>
-                                     <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
-                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-@@ -1965,10 +2028,6 @@
+@@ -971,16 +1008,37 @@
+                                 </svg>
+                                 未找到可选模型
+                             </div>
+-                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="可选模型">
+-                                <button v-for="model in models" :key="model.id" type="button" @click="chooseModel(model.id)"
+-                                    :aria-label="model.id" :aria-pressed="selectedModel === model.id" :title="model.id"
+-                                    class="flex min-h-[56px] min-w-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+-                                    :class="selectedModel === model.id ? 'border-primary-400 bg-primary-50 text-primary-800' : 'border-gray-200 bg-white text-gray-800 hover:border-primary-200 hover:bg-primary-50/40'">
+-                                    <span class="min-w-0 flex-1 text-sm font-semibold leading-5 [overflow-wrap:anywhere]">{{ model.id }}</span>
+-                                    <svg class="h-5 w-5 shrink-0 text-primary-600" :class="{ invisible: selectedModel !== model.id }"
+-                                        fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="m6 12 4 4 8-8"></path>
+-                                    </svg>
++                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="可选模型">
++                        <!-- [1.9.6 合并] 上游把模型列表重写为网格卡片（aria-label/aria-pressed + 选中态边框）。
++                             本仓库 patch 043（手动条目两行式显示用户配置名）与 patch 015（商名徽标 + meta 摘要）
++                             的意图移植到新结构：卡片内左侧为「显示名 + 裸 ID/meta」两行块，供应商徽标在首行；
++                             检测条目（无 label）仍走单行。原 patch 043 的两行式理由（单行时 label 被压到 0 宽）
++                             在新结构下同样成立，故保留两行式。 -->
++                        <button v-for="model in models" :key="model.id" type="button" @click="chooseModel(model.id)"
++                            :aria-label="model.label || model.id" :aria-pressed="selectedModel === model.id"
++                            :title="model.label || model.id"
++                            class="flex min-h-[56px] min-w-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors"
++                            :class="selectedModel === model.id ? 'border-primary-400 bg-primary-50 text-primary-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'">
++                            <span v-if="model.manual === true && model.label" class="min-w-0 flex-1 flex flex-col gap-1 overflow-hidden">
++                                <span class="min-w-0 flex items-center gap-2 overflow-hidden">
++                                    <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600">{{ model.providerName }}</span>
++                                    <span class="min-w-0 truncate text-sm font-semibold leading-5 text-gray-800 [overflow-wrap:anywhere]">{{ model.label }}</span>
++                                </span>
++                                <span class="min-w-0 flex items-center gap-2 overflow-hidden">
++                                    <span class="min-w-0 truncate text-[11px] font-mono text-gray-400">{{ model.bareId || model.id }}</span>
++                                    <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
++                                </span>
++                            </span>
++                            <span v-else class="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">
++                                <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600">{{ model.providerName }}</span>
++                                <span class="min-w-0 truncate text-sm font-semibold leading-5 [overflow-wrap:anywhere]">{{ model.id }}</span>
++                            </span>
++                            <svg class="h-5 w-5 shrink-0 text-primary-600" :class="{ invisible: selectedModel !== model.id }"
++                                fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
++                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="m6 12 4 4 8-8"></path>
++                            </svg>
++                        </button>
++                    </div>
+                                 </button>
+                             </div>
+                         </div>
+@@ -2020,10 +2078,6 @@
              show: Boolean,
              historyLength: { type: Number, default: 0 },
              filter: { type: String, default: 'all' },
@@ -133,7 +139,7 @@ index e9a992b..7867867 100644
              stats: { type: Object, default: () => ({}) },
              filteredCount: { type: Number, default: 0 },
              records: { type: Array, default: () => [] },
-@@ -1979,13 +2038,38 @@
+@@ -2034,13 +2088,38 @@
              formatCount: { type: Function, required: true },
              formatTime: { type: Function, required: true },
              getTypeLabel: { type: Function, required: true },
@@ -176,7 +182,7 @@ index e9a992b..7867867 100644
              const formatDuration = (value) => {
                  if (!Number.isFinite(value)) return '--';
                  if (value < 1000) return `${Math.round(value)}ms`;
-@@ -1998,6 +2082,7 @@
+@@ -2053,6 +2132,7 @@
                  return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
              };
              return {
@@ -184,7 +190,7 @@ index e9a992b..7867867 100644
                  formatDuration,
                  formatOutputSpeed,
                  formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
-@@ -2026,6 +2111,8 @@
+@@ -2081,6 +2161,8 @@
                      </button>
                  </settings-page-header>
  
@@ -193,7 +199,7 @@ index e9a992b..7867867 100644
                  <div class="mb-4 flex items-center gap-2">
                      <div class="segmented-switch segmented-switch--compact segmented-switch--four min-w-0 flex-1">
                          <div class="segmented-switch__indicator" :class="filterOptions.find(option => option.value === filter)?.position"></div>
-@@ -2033,31 +2120,6 @@
+@@ -2088,31 +2170,6 @@
                              @click="$emit('update:filter', option.value)" class="segmented-switch__option"
                              :class="{ 'is-active': filter === option.value }">{{ option.label }}</button>
                      </div>
@@ -225,7 +231,7 @@ index e9a992b..7867867 100644
                  </div>
  
                  <div class="relative mb-6 flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-@@ -2070,6 +2132,47 @@
+@@ -2125,6 +2182,47 @@
                      <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                  </div>
  
@@ -273,7 +279,7 @@ index e9a992b..7867867 100644
                  <div class="flex items-center justify-between mb-3">
                      <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                      <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
-@@ -2079,7 +2182,7 @@
+@@ -2134,7 +2232,7 @@
                          class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                          <div class="mb-3 min-w-0">
                              <div class="flex min-w-0 items-center justify-between gap-3">
@@ -282,3 +288,10 @@ index e9a992b..7867867 100644
                                   <span class="flex-shrink-0 text-sm font-semibold text-gray-500">{{ getTypeLabel(record.type) }}</span>
                              </div>
                              <div class="mt-1.5 flex min-w-0 items-center justify-between gap-3">
+@@ -2953,4 +3051,4 @@
+         UiTemplatePending,
+         WorldInfoEditorModal
+     };
+-})();
++})();
+\ No newline at end of file

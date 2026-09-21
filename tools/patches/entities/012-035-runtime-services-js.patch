@@ -1,24 +1,29 @@
 diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
-index d2e4729..e465e7f 100644
+index cfc9ccd8..bbf5670d 100644
 --- a/assets/js/runtime-services.js
 +++ b/assets/js/runtime-services.js
-@@ -96,10 +96,13 @@
+@@ -99,10 +99,17 @@
              return modified;
          };
  
--        const renderMarkdown = (text, role = 'assistant', skipRegex = false) => {
-+        // [LuzzyRP patch 032] options.cache=false 旁路 LRU：流式期全文逐 tick 变化，中间串写缓存
-+        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动（v1.3.0 性能；唯一调用方=index.html 流式分支）。
-+        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}) => {
+-        const renderMarkdown = (text, role = 'assistant', skipRegex = false, allowHtml = true) => {
++        // [LuzzyRP patch 032] options.cache=false 旁路 LRU（流式期全文逐 tick 变化，中间串写缓存
++        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动）。
++        // [1.9.6 合并] 上游新增 allowHtml 开关（第 5 参），与本仓库的 options.cache 旁路（第 4 参）
++        // 互不冲突，合并为一个签名：保留 options，追加 allowHtml。
++        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}, allowHtml = true) => {
              if (!text) return '';
-             const cacheKey = `${role}_${skipRegex}_${text}`;
+-            const cacheKey = `${role}_${skipRegex}_${allowHtml}_${text}`;
 -            if (renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
-+            const allowCache = options.cache !== false;
-+            if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
++        // [1.9.6 合并] 缓存键纳入上游新增的 allowHtml 维度（不同渲染选项不可共用缓存），
++        // 同时保留本仓库 patch 032 的 options.cache 旁路。
++        const cacheKey = `${role}_${skipRegex}_${allowHtml}_${text}`;
++        const allowCache = options.cache !== false;
++        if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
  
              let processed = applyDisplayRegex(text, role, skipRegex);
-             const trimmed = processed.trim();
-@@ -125,12 +128,13 @@
+             if (!allowHtml) {
+@@ -132,12 +139,13 @@
                      container.outerHTML,
                      postText.trim() ? sanitizeMarkdown(postText) : ''
                  ].join('');
@@ -34,7 +39,7 @@ index d2e4729..e465e7f 100644
              }
  
              const lowerTrimmed = trimmed.toLowerCase();
-@@ -149,11 +153,14 @@
+@@ -156,11 +164,14 @@
                  const paragraphsChanged = replaceEscapedHtmlParagraphs(documentNode);
                  const panelsChanged = replaceScriptedPanels(documentNode);
                  const modified = codeBlocksChanged || paragraphsChanged || panelsChanged;
@@ -51,7 +56,7 @@ index d2e4729..e465e7f 100644
          };
  
          return { clearCaches, contentUsesHtmlFrame, renderMarkdown };
-@@ -181,38 +188,17 @@
+@@ -188,38 +199,17 @@
          const tokenUsageHistory = ref([]);
          const tokenUsagePage = ref(1);
          const tokenUsageFilter = ref('all');
@@ -96,7 +101,7 @@ index d2e4729..e465e7f 100644
          const getUncachedInputTokens = (record) => {
              if (!Number.isFinite(record?.inputTokens)) return null;
              const cached = Number.isFinite(record.cacheReadTokens) ? record.cacheReadTokens : 0;
-@@ -306,9 +292,16 @@
+@@ -313,9 +303,16 @@
                  type: meta.type || 'chat',
                  model: String(meta.model || ''),
                  apiUrl: String(meta.apiUrl ?? getApiUrl?.() ?? ''),
@@ -113,7 +118,7 @@ index d2e4729..e465e7f 100644
                  ...normalizeApiUsage(usage)
              });
              tokenUsageHistory.value.unshift(record);
-@@ -325,7 +318,7 @@
+@@ -332,7 +329,7 @@
              });
          };
  
@@ -122,7 +127,7 @@ index d2e4729..e465e7f 100644
          watch(tokenUsagePageCount, count => { tokenUsagePage.value = Math.min(tokenUsagePage.value, count); });
  
          return {
-@@ -347,15 +340,11 @@
+@@ -354,15 +351,11 @@
              latestMainTokenUsage,
              recordApiUsage,
              saveTokenUsageHistoryNow,
@@ -139,3 +144,10 @@ index d2e4729..e465e7f 100644
          };
      };
  
+@@ -593,4 +586,4 @@
+     };
+ 
+     window.RPHubComposables = Object.freeze({ useStorageManagement, useTokenUsage });
+-})();
++})();
+\ No newline at end of file

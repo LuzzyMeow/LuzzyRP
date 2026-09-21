@@ -5994,10 +5994,85 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
   **用户决定：全部推迟到「上游 1.9.7 合并完成」之后一次做**——理由：那 23 条 rphub 条目正是上游
   要动的文件，现在写一遍、合并后再重写一遍是纯浪费。**当前 blocked 是索引如实反映「尚未对齐」，
   不是故障**；`aoci.txt` / `.aoci/` 均保持现状不动（AGENTS.md AOCI 区块 §9 允许，且本次未禁写）。
-- **上游分期合并进行中**：台账见 **`docs/PLAN-upstream-merge.md`**（进度 / 每步冲突裁决 / 步长依据 /
-  工具 / 踩坑）。已完成 **1.9.4**（commit `90aa7671`，1 处冲突已裁决并全门禁验证）；
-  **1.9.5 待执行**（24 处冲突已全部定位并归因到 16 个 patch，逐处台账已列）。
-  合并全部完成后接 AOCI 全量维护（上一行的待办）。
+- **上游分期合并「已完成」**：台账见 **`docs/PLAN-upstream-merge.md`**（每步冲突裁决 / 步长依据 /
+  缺陷清单 / 工具 / 踩坑）。四步全部落地：1.9.4（1 冲突，`90aa7671`）→ 1.9.5（24 冲突，`9d79cc7b`）
+  → 1.9.6（18 冲突，`7972eb2b`）→ 1.9.7（**0 冲突**，`07bb4540`）。
+  **工作树基线已与上游 main（`bcec53b`）对齐，上游同步恢复常态化**——后续版本走常规
+  `tools/sync-upstream.ps1`（覆盖 + 重放 patch）即可，不必再走三方合并。
+  > **分期策略得到验证**：冲突数 24 → 18 → 0 递减。前一步把结构对齐做完，后一步就是内容增量。
+- **AOCI 全量维护现在可以做**（上一条的前置条件已满足）：合并前实测差集为
+  孤儿 343 条（已删的 Compose 时代文件）+ 缺条目 23 条（rphub 上游文件）+ 待更新 13 条。
+  合并后 rphub 那批条目已稳定，**这是执行时机**。治理边界与工具路径见上一条。
 - **`HARD_REQUIREMENTS.md` 已不存在**：README 原有的「必读 1」指向它，已改为 AGENTS.md 打头；
   `docs/PLAN-v1.4.0.md` 等历史计划文档也早已删除，README 引用已清理。
 - **`docs/skills/**` 仍不在 AOCI 覆盖内**（沿上轮结论，第三方存档刻意排除）。
+
+---
+
+## 2026-09-21 · 会话 91（续）：上游分期合并全线完成（1.9.3 → 1.9.7）
+
+**目标**：把「上游同步能力复活」从状态变为事实——工作树基线追上上游 main。
+
+### 完成
+
+四步三方合并，全部落地并逐步验证：
+
+| 步 | 上游改动 | 冲突 | commit |
+|---|---|---|---|
+| 1.9.3 → 1.9.4 | 4 文件 +91/−31 | 1 | `90aa7671` |
+| 1.9.4 → 1.9.5 | 8 文件 +8112/−9092 | **24** | `9d79cc7b` |
+| 1.9.5 → 1.9.6 | 11 文件 +1247/−427 | 18 | `7972eb2b` |
+| 1.9.6 → 1.9.7 | 7 文件 +560/−612 | **0** | `07bb4540` |
+
+**工作树基线已与上游 main（`bcec53b`）对齐**；上游同步恢复常态化——后续版本走常规
+`tools/sync-upstream.ps1` 即可。
+
+**分期策略得到验证**：冲突数 24 → 18 → 0 递减。前一步把结构对齐做完，后一步就只是内容增量。
+
+### 两个重大结构变动（1.9.5）
+
+- **记忆系统重构**：段落级「向量分片」机制整体移除，改为总结记忆粒度的「增强记忆」
+  （`selectEnhancedMemories` 余弦召回）。我方 patch 016 的原始痛点被上游从根上解决
+  （改用独立字段 `_enhancedMemoryRecallCount` 标注），patch 017/036 的记忆管理器随上游界面移除。
+- **侧栏重写**：`AppSidebar`（硬编码 DOM）→ `AppNavigation`（数据驱动 sections + SVG 图标）；
+  导航命名 `toggleMobileMenu` → `toggleNavigation`。我方 patch 014/019 的品牌字样与外观/关于入口
+  **移植到新组件**。
+
+### 期间发现并修复的真缺陷（5 处，全部实测抓到）
+
+| # | 缺陷 | 症状 | 根因 |
+|---|---|---|---|
+| 1 | `getCustomApiUrlKey` 被误删 | 运行期 ReferenceError | 上游单槽化删了它，但我方多商体系仍需（且要兼容老用户 custom2 数据） |
+| 2 | HTML 注释插进标签属性中间 | **整页白屏**（Vue 编译 SyntaxError） | 解冲突时注释写在 `<div` 的属性列表内 |
+| 3 | `normalizeApiProviderSettings` 重复定义 | 语法错 | ours 与 theirs 都留了 |
+| 4 | 模型列表 label 契约类名丢失 | 门禁 A7 判 label 宽 0 | 移植时把 `text-gray-800` 换成上游 `text-sm` |
+| 5 | `toggleChatFullscreen` 导出悬空 | **整页白屏**（ReferenceError） | patch 022 已移除该函数，合并时按上游导出表补回 |
+
+> **第 2 条的定位方法值得留档**：整页白屏时控制台只给 `index.html:1436 SyntaxError`（编译后行号，
+> 与源码不对应）。有效办法是**分段编译定位法**——浏览器里用页面自带的 `Vue.compile`，
+> 把模板按 40 行分段累积编译，首个失败段再逐行二分，最终落到真实源码行。
+
+### 门禁随上游更新（3 处，属「门禁跟不上上游」非产品缺陷）
+
+- `page-handoff-test`：侧栏选择器与打开态判据（`.app-sidebar` → `.app-navigation-panel` /
+  `isNavOpen()`）；侧栏时长断言改为上游实际契约。
+- `model-list-test`：弹窗容器 `.max-w-2xl` → 按内容定位（上游改用 ModalShell 组件后该类名不在 DOM）。
+- 顺带记一条环境事实：**`file://` 下外部 CSS 的 `cssRules` 抛 SecurityError**，
+  门禁不能靠扫样式表判断规则存在，须改测运行时特征。
+
+### 验证（每步都做，全部实测非推断）
+
+- `node --check`：10 个 JS 全 OK；无残留冲突标记
+- 页面挂载：无 error；我方多商体系完好（`settings.apiProviders` / `userApiProviders` /
+  `allApiProviders` 均为 true）
+- 五道 JS 门禁全 PASS（prefix-cache / stream-render / page-handoff / model-list / desktop-smoke）
+- `verify-markers`：6 PASS / 0 FAIL
+- `:app:assembleRelease`：BUILD SUCCESSFUL
+
+### 遗留
+
+- **AOCI 全量维护待执行**：合并前实测差集为孤儿 343 条 + 缺条目 23 条 + 待更新 13 条。
+  合并已完成，rphub 条目现已稳定——**这是执行时机**。治理边界与工具路径见上一节。
+- **实体 patch 尚未按新基线重新生成**：`tools/patches/entities/*.patch` 的前像仍是 1.9.3/1.9.5 时代的。
+  下次用 `sync-upstream.ps1` 做常规同步前，需按 `AGENTS.md` §4.1 第 4 步重新生成实体
+  （`git diff <新基线> <工作树>`），否则 `apply-patches.ps1` 会以「前像失配」拒绝重放。

@@ -6,7 +6,7 @@
 
 LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launcher 为 `MainActivity`。
 界面与业务全部在 `app/src/main/assets/rphub`（上游）+ `assets/ext`（扩展层）里跑，原生侧只剩壳。
-上游同步**持续进行**（**当前基线 RP-Hub 1.9.4，目标 1.9.7**；分期台账见
+上游同步**持续进行**（**当前基线 RP-Hub 1.9.7，已与上游 main 对齐**；分期合并台账见
 `docs/PLAN-upstream-merge.md`）；遵循上游协议
 （`LICENSE` / `LICENSE-AGPL-3.0` / `docs/LICENSING.md`）。仅侧载分发，不上架。
 

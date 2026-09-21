@@ -6,7 +6,8 @@
 
 LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launcher 为 `MainActivity`。
 界面与业务全部在 `app/src/main/assets/rphub`（上游）+ `assets/ext`（扩展层）里跑，原生侧只剩壳。
-上游同步**持续进行**（基线 RP-Hub 1.9.3，下一步合并 1.9.7）；遵循上游协议
+上游同步**持续进行**（**当前基线 RP-Hub 1.9.4，目标 1.9.7**；分期台账见
+`docs/PLAN-upstream-merge.md`）；遵循上游协议
 （`LICENSE` / `LICENSE-AGPL-3.0` / `docs/LICENSING.md`）。仅侧载分发，不上架。
 
 > **已放弃的路线（2026-09-20，用户拍板）**：v2.0 的原生 Kotlin 聊天传输层与 v3.0 的
@@ -43,6 +44,7 @@ LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launc
 - 同步流程：`tools/sync-upstream.ps1`（覆盖上游 + 重放 patch + 更新指纹）→ 回归实测 → 构建发布。
 - **`nsfw_rules`（`built-in-content.js` 内）永远不可触碰**（硬性规定 1）。
 - 参考克隆 `rp-hub-reference/`（不入库）是同步的基线来源，改上游前先 `git fetch` 对齐版本。
+- **当前进度与逐处冲突裁决记录**：`docs/PLAN-upstream-merge.md`（分期合并台账）。
 
 ### 4.1 patch 重放失败的处置（上游大改时必读）
 

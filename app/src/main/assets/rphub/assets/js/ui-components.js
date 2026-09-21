@@ -327,8 +327,13 @@
         },
         emits: ['update:current-view', 'close'],
         setup(props, { emit }) {
-            const { ref, watch, nextTick } = Vue;
+            const { ref, watch, nextTick, onMounted, onBeforeUnmount } = Vue;
             window.RPHubUpdateCheck.useUpdateCheck();
+            const isDark = ref(window.RPHubTheme.current === 'dark');
+            const syncTheme = event => { isDark.value = event.detail === 'dark'; };
+            const toggleTheme = event => window.RPHubTheme.set(isDark.value ? 'light' : 'dark', event.currentTarget);
+            onMounted(() => window.addEventListener('rphub-theme-change', syncTheme));
+            onBeforeUnmount(() => window.removeEventListener('rphub-theme-change', syncTheme));
             const panel = ref(null);
             const position = ref({});
             const centered = ref(false);
@@ -375,7 +380,7 @@
                     first?.focus();
                 }
             };
-            return { panel, position, centered, sections, selectView, restoreFocus, trapFocus };
+            return { panel, position, centered, sections, selectView, restoreFocus, trapFocus, isDark, toggleTheme };
         },
         template: `
             <transition name="app-navigation" :duration="{ enter: 380, leave: 250 }" @after-leave="restoreFocus">
@@ -429,7 +434,16 @@
                             <img v-if="user.avatar" :src="user.avatar" alt="">
                             <span v-else class="app-navigation-avatar">{{ (user.name || 'U').charAt(0).toUpperCase() }}</span>
                             <div><strong>{{ user.name }}</strong></div>
-                            <span class="app-navigation-user-mark" aria-hidden="true"></span>
+                            <button type="button" class="appearance-switch" role="switch" :aria-checked="isDark"
+                                aria-label="夜间模式" :title="isDark ? '切换到日间模式' : '切换到夜间模式'" @click="toggleTheme">
+                                <svg v-if="!isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                    <path d="M20.5 13.1A8.5 8.5 0 0110.9 3.5 8.5 8.5 0 1020.5 13.1Z" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="3.5" stroke-width="1.7"></circle>
+                                    <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-width="1.7" stroke-linecap="round"></path>
+                                </svg>
+                            </button>
                         </footer>
                     </section>
                 </div>
@@ -569,7 +583,7 @@
         template: `
             <div :class="['fixed inset-0 flex items-center justify-center', overlayClass]"
                 @click.self="closeOnBackdrop && $emit('close')">
-                <div :class="panelClass"><slot></slot></div>
+                <div class="app-modal-panel" :class="panelClass"><slot></slot></div>
             </div>`
     };
 
@@ -717,31 +731,102 @@
             </modal-shell>`
     };
 
-    const StatusNoticeModal = {
+    const MemoryBackfillModal = {
         props: {
             show: Boolean,
-            title: { type: String, required: true },
-            message: { type: String, required: true },
-            buttonLabel: { type: String, default: '我知道了' }
+            progress: { type: Object, required: true }
         },
-        emits: ['close'],
+        emits: ['close', 'stop', 'retry'],
+        setup(props, { emit }) {
+            const dialog = ref(null);
+            let previousFocus = null;
+            watch(() => props.show, async show => {
+                if (show) {
+                    previousFocus = document.activeElement;
+                    await nextTick();
+                    dialog.value?.focus();
+                } else if (previousFocus?.isConnected) previousFocus.focus();
+            });
+            const onKeydown = event => {
+                if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    emit('close');
+                } else if (event.key === 'Tab') {
+                    const buttons = [...dialog.value.querySelectorAll('button:not(:disabled)')];
+                    const first = buttons[0], last = buttons[buttons.length - 1];
+                    if (event.shiftKey && (event.target === first || event.target === dialog.value)) {
+                        event.preventDefault();
+                        last?.focus();
+                    } else if (!event.shiftKey && event.target === last) {
+                        event.preventDefault();
+                        first?.focus();
+                    }
+                }
+            };
+            const running = computed(() => props.progress.status === 'running');
+            const formatDuration = milliseconds => {
+                const seconds = Math.max(1, Math.ceil(milliseconds / 1000));
+                if (seconds < 60) return seconds + '秒';
+                const minutes = Math.ceil(seconds / 60);
+                return minutes < 60 ? minutes + '分钟' : Math.floor(minutes / 60) + '小时' + (minutes % 60 ? minutes % 60 + '分钟' : '');
+            };
+            const stageTiming = stage => {
+                if (stage.current >= stage.total || !running.value || props.progress.phase !== stage.key) return '';
+                if (!stage.current || !stage.elapsedMs) return '';
+                const remaining = stage.elapsedMs / stage.current * (stage.total - stage.current);
+                return '预计' + formatDuration(remaining);
+            };
+            const stages = computed(() => props.progress.stages.filter(stage => stage.total > 0));
+            const statusLabel = computed(() => ({ running: '正在补录', done: '', stopped: '已停止', error: '未完成' }[props.progress.status] || ''));
+            return { dialog, onKeydown, running, stages, statusLabel, stageTiming };
+        },
         template: `
-            <modal-shell v-if="show" overlay-class="z-[80] bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
-                panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-sm flex flex-col shadow-2xl transform transition-all scale-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-primary-50 to-purple-50 p-6 flex flex-col items-center justify-center text-center border-b border-gray-100">
-                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
-                            <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
+            <modal-shell v-if="show" overlay-class="z-[80] bg-black/50 backdrop-blur-sm p-2 md:p-3 animate-fade-in"
+                panel-class="bg-white rounded-2xl border border-gray-200 w-full max-w-2xl flex flex-col shadow-2xl max-h-[94vh] overflow-hidden">
+                <section ref="dialog" class="flex max-h-[94vh] flex-col outline-none" tabindex="-1"
+                    role="dialog" aria-modal="true" aria-labelledby="memory-backfill-title" @keydown="onKeydown">
+                    <modal-header @close="$emit('close')">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-primary-50 text-primary-600 rounded-lg">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 id="memory-backfill-title" class="text-lg font-bold text-gray-800 leading-tight">补录记忆</h3>
+                                <p v-if="statusLabel" class="text-xs text-gray-500" role="status" aria-live="polite">{{ statusLabel }}</p>
+                            </div>
                         </div>
-                        <h3 class="text-lg font-bold text-gray-900 mb-1">{{ title }}</h3>
-                        <p class="text-sm text-gray-500">{{ message }}</p>
+                    </modal-header>
+                    <div class="flex-1 min-h-0 p-6 space-y-6 bg-gray-50/30 overflow-y-auto custom-scrollbar">
+                        <p v-if="progress.message" class="break-words text-sm leading-relaxed"
+                            :class="progress.status === 'error' ? 'text-red-600' : 'text-gray-500'" role="status">{{ progress.message }}</p>
+                        <div v-if="stages.length" class="space-y-4">
+                            <div v-for="stage in stages" :key="stage.key" class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                                <div class="mb-2 flex items-center justify-between gap-3 text-sm">
+                                    <span class="font-medium text-gray-700">{{ stage.title }}</span>
+                                    <span class="text-xs" :class="stage.current >= stage.total ? 'text-primary-600' : 'text-gray-400'">
+                                        {{ stage.current >= stage.total ? '已完成' : running ? (stageTiming(stage) || '等待中') : '未完成' }}
+                                    </span>
+                                </div>
+                                <div class="h-2 overflow-hidden rounded-full bg-gray-100" role="progressbar"
+                                    :aria-label="stage.title" :aria-valuenow="stage.current" aria-valuemin="0" :aria-valuemax="stage.total">
+                                    <div class="h-full rounded-full bg-primary-600 transition-[width] duration-300 motion-reduce:transition-none"
+                                        :style="{ width: Math.min(100, stage.current / stage.total * 100) + '%' }"></div>
+                                </div>
+                                <div class="mt-2 flex justify-between text-xs tabular-nums text-gray-500">
+                                    <span>{{ stage.current.toLocaleString() }} / {{ stage.total.toLocaleString() }} {{ stage.unit }}</span>
+                                    <span>{{ Math.floor(stage.current / stage.total * 100) }}%</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-gray-50 p-4 flex justify-center border-t border-gray-100">
-                        <button @click="$emit('close')" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all active:scale-95 w-full">
-                            {{ buttonLabel }}
-                        </button>
+                    <div class="p-4 md:p-5 border-t border-gray-100 flex justify-end space-x-3 bg-gray-50/80 backdrop-blur-sm flex-shrink-0">
+                        <button v-if="running" type="button" @click="$emit('stop')" class="modal-secondary-button">停止补录</button>
+                        <button v-else-if="stages.length && progress.status !== 'done'" type="button" @click="$emit('retry')" class="modal-secondary-button">继续补录</button>
+                        <button type="button" @click="$emit('close')" class="modal-primary-button">{{ running ? '后台继续' : '关闭' }}</button>
                     </div>
+                </section>
             </modal-shell>`
     };
 
@@ -813,6 +898,11 @@
                 draftSlotModels: ['', '', '']
             };
         },
+        computed: {
+            selectedModel() {
+                return this.target === 'quickModels' ? this.draftSlotModels[this.activeSlot] : this.currentModel;
+            }
+        },
         watch: {
             show(visible) {
                 if (visible && this.target === 'quickModels') {
@@ -822,13 +912,16 @@
             }
         },
         methods: {
+            selectionClass(active) {
+                return active ? 'border-primary-400 bg-primary-50 text-primary-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
+            },
             chooseModel(modelId) {
                 if (this.target !== 'quickModels') {
                     this.$emit('select', modelId);
                     return;
                 }
                 this.draftSlotModels[this.activeSlot] = this.draftSlotModels[this.activeSlot] === modelId ? '' : modelId;
-                this.draftSlotModels = [...this.draftSlotModels];
                 this.$emit('select-slots', [...this.draftSlotModels]);
             },
             // [LuzzyRP patch 015] 手动模型 meta 摘要：`1M · 文本+图像` / `128K · 嵌入`
@@ -856,82 +949,104 @@
         },
         template: `
             <transition name="fade">
-                <modal-shell v-if="show" overlay-class="z-50 bg-black/50 backdrop-blur-sm p-4"
-                    panel-class="bg-white rounded-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] h-[90vh] flex flex-col shadow-2xl transform transition-all scale-100">
-                        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
-                            <h3 class="text-lg font-bold text-gray-800">{{ target === 'quickModels' ? '聊天模型' : '选择模型' }}</h3>
-                            <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <modal-shell v-if="show" overlay-class="z-50 bg-black/50 backdrop-blur-sm p-3 sm:p-4"
+                    panel-class="model-selector-panel bg-white rounded-2xl border border-gray-200 w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden">
+                    <section class="flex min-h-0 flex-1 flex-col" role="dialog" aria-modal="true" aria-labelledby="model-selector-title"
+                        @keydown.esc.stop="$emit('close')">
+                        <div class="model-selector-heading flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="rounded-xl bg-primary-50 p-2 text-primary-600">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2M7 5h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2zM9 9h6v6H9z"></path>
+                                    </svg>
+                                </div>
+                                <h3 id="model-selector-title" class="text-base font-bold text-gray-900 sm:text-lg">{{ target === 'quickModels' ? '聊天模型' : '选择模型' }}</h3>
+                            </div>
+                            <button type="button" @click="$emit('close')" aria-label="关闭模型选择" class="modal-close-button flex h-10 w-10 shrink-0 items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
                             </button>
                         </div>
-                        <div v-if="target === 'quickModels'" class="grid grid-cols-3 gap-2 p-4 pb-0">
+                        <div v-if="target === 'quickModels'" class="grid shrink-0 grid-cols-3 gap-2 px-4 pt-3 sm:px-5" role="group" aria-label="聊天模型槽位">
                             <button v-for="(_, index) in draftSlotModels" :key="index" type="button"
-                                @click="activeSlot = index"
-                                :class="['min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors', activeSlot === index ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50']">
-                                <span class="block text-xs font-bold mb-1">槽位 {{ index + 1 }}</span>
+                                @click="activeSlot = index" :aria-pressed="activeSlot === index"
+                                class="min-w-0 rounded-xl border p-2.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                                :class="selectionClass(activeSlot === index)">
+                                <span class="mb-1 flex items-center justify-between text-xs font-semibold">槽位 {{ index + 1 }}<span v-if="activeSlot === index" class="h-1.5 w-1.5 rounded-full bg-primary-600" aria-hidden="true"></span></span>
                                 <span class="block truncate text-[11px] font-mono" :title="draftSlotModels[index]">{{ draftSlotModels[index] || '未选择' }}</span>
                             </button>
                         </div>
-                        <div class="p-4 border-b border-gray-100 flex flex-col gap-3">
-                            <input :value="searchQuery" @input="$emit('update:search-query', $event.target.value)" type="text"
-                                :placeholder="target === 'memoryEmbeddingModel' ? '已锁定：embedding' : '检索模型...'"
-                                :readonly="target === 'memoryEmbeddingModel'"
-                                :title="target === 'memoryEmbeddingModel' ? '模型选择已锁定' : ''"
-                                :class="['w-full border rounded-lg px-4 py-2 focus:outline-none transition-all shadow-sm', target === 'memoryEmbeddingModel' ? 'bg-gray-100 border-gray-200 text-gray-400 placeholder-gray-400 cursor-not-allowed shadow-none select-none' : 'bg-gray-50/60 border-gray-300 text-gray-800 focus:ring-2 focus:ring-primary-500 focus:shadow-md']">
-                            <div class="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto custom-scrollbar items-center py-1">
-                                <button v-for="tag in tags" :key="tag.name" @click="$emit('update:active-tag', tag.name)" :class="[
-                                    'flex items-center px-3.5 py-1.5 text-xs font-bold rounded-full transition-all border outline-none active:scale-95 whitespace-nowrap',
-                                    activeTag === tag.name
-                                        ? 'bg-primary-50 text-primary-700 border-primary-300 shadow-sm'
-                                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-300 shadow-sm'
-                                ]">
-                                    <span class="leading-none">{{ tag.name === 'all' ? '全部' : (tag.name === 'other' ? '其他' : tag.name.toUpperCase()) }}</span>
-                                    <span class="ml-1.5 opacity-60 font-mono text-[11px] leading-none">{{ tag.count }}</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="flex-1 overflow-y-auto p-2 min-h-[300px]">
-                            <div v-if="models.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-400">
-                                <svg class="w-12 h-12 mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                        <div class="flex shrink-0 flex-col gap-3 px-4 py-3 sm:px-5">
+                            <div class="relative">
+                                <svg class="pointer-events-none absolute left-3.5 top-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                 </svg>
-                                未找到模型或正在加载...
+                                <input :value="searchQuery" @input="$emit('update:search-query', $event.target.value)" type="text" aria-label="搜索模型"
+                                    autocomplete="off" spellcheck="false" :placeholder="target === 'memoryEmbeddingModel' ? '仅显示向量模型' : '搜索模型名称…'"
+                                    :readonly="target === 'memoryEmbeddingModel'"
+                                    :title="target === 'memoryEmbeddingModel' ? '仅显示 embedding 模型' : ''"
+                                    class="h-11 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-11 pr-11 text-base text-gray-800 placeholder-gray-400 transition-colors focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 sm:text-sm">
+                                <button v-if="searchQuery && target !== 'memoryEmbeddingModel'" type="button" @click="$emit('update:search-query', '')"
+                                    aria-label="清空搜索" class="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2" d="m6 6 12 12M6 18 18 6"></path></svg>
+                                </button>
                             </div>
-                            <div class="space-y-1">
-                                <button v-for="model in models" :key="model.id" @click="chooseModel(model.id)"
-                                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-colors flex justify-between items-center group border border-transparent hover:border-gray-100 active:bg-gray-100">
-                                    <!-- [LuzzyRP patch 043] 手动条目显示**用户配置的显示名**（label）——此前只显示裸 id，
-                                         用户配好的模型在 90+ 条检测结果里认不出来（用户 2026-09-11：「自己配置的
-                                         模型反而是看不到」）。且必须改**两行式**：单行时供应商徽标(42px)+裸 ID(131px)+
-                                         meta chip(121px) 已占满行宽 292px，label 被 flex 压到 **0 宽度**（真机实测
-                                         getBoundingClientRect=0），等于仍然看不见。两行后 label 独占首行
-                                         （可用 242px ≥ 自然宽 150px），裸 ID 与 chip 落第二行（260px ≤ 292px），
-                                         三者零截断。检测条目无 label，维持上游单行原状。 -->
-                                    <span v-if="model.manual === true && model.label" class="min-w-0 flex-1 flex flex-col gap-1 overflow-hidden">
-                                        <span class="min-w-0 flex items-center gap-2 overflow-hidden">
-                                            <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
-                                            <span class="min-w-0 truncate text-gray-800 font-medium group-hover:text-primary-600 transition-colors">{{ model.label }}</span>
-                                        </span>
-                                        <span class="min-w-0 flex items-center gap-2 overflow-hidden">
-                                            <span class="min-w-0 truncate text-[11px] font-mono text-gray-400">{{ model.bareId || model.id }}</span>
-                                            <!-- [LuzzyRP patch 015] 手动模型 meta 摘要（上下文/输出长度 · 模态/类型） -->
-                                            <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
-                                        </span>
-                                    </span>
-                                    <span v-else class="min-w-0 flex items-center gap-2 overflow-hidden">
-                                        <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700 border border-primary-100">{{ model.providerName }}</span>
-                                        <span class="min-w-0 truncate text-gray-700 font-mono font-medium group-hover:text-primary-600 transition-colors">{{ model.bareId || model.id }}</span>
-                                    </span>
-                                    <span v-if="(target === 'quickModels' ? draftSlotModels[activeSlot] : currentModel) === model.id" class="text-primary-600 bg-primary-50 p-1 rounded-full shadow-sm">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                    </span>
+                            <div class="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1" role="group" aria-label="模型分类">
+                                <button v-for="tag in tags" :key="tag.name" type="button" @click="$emit('update:active-tag', tag.name)" :aria-pressed="activeTag === tag.name"
+                                    class="flex h-7 shrink-0 items-center rounded-lg border px-2.5 text-[11px] font-medium transition-colors whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                                    :class="selectionClass(activeTag === tag.name)">
+                                    <span>{{ tag.name === 'all' ? '全部' : (tag.name === 'other' ? '其他' : tag.name.toUpperCase()) }}</span>
+                                    <span class="ml-1.5 text-[10px] tabular-nums">{{ tag.count }}</span>
                                 </button>
                             </div>
                         </div>
+                        <div class="flex shrink-0 items-center justify-between gap-3 border-y border-gray-100 bg-gray-50/60 px-4 py-2 text-xs text-gray-500 sm:px-5">
+                            <span>模型列表 <span class="ml-1 font-semibold tabular-nums text-gray-700">{{ models.length }}</span></span>
+                            <span v-if="target === 'quickModels'">正在设置槽位 {{ activeSlot + 1 }}</span>
+                        </div>
+                        <div class="model-selector-list min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50/40 p-3 custom-scrollbar sm:p-4">
+                            <div v-if="models.length === 0" class="flex min-h-full flex-col items-center justify-center gap-3 py-8 text-sm text-gray-500">
+                                <svg class="h-9 w-9 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                                未找到可选模型
+                            </div>
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="可选模型">
+                        <!-- [1.9.6 合并] 上游把模型列表重写为网格卡片（aria-label/aria-pressed + 选中态边框）。
+                             本仓库 patch 043（手动条目两行式显示用户配置名）与 patch 015（商名徽标 + meta 摘要）
+                             的意图移植到新结构：卡片内左侧为「显示名 + 裸 ID/meta」两行块，供应商徽标在首行；
+                             检测条目（无 label）仍走单行。原 patch 043 的两行式理由（单行时 label 被压到 0 宽）
+                             在新结构下同样成立，故保留两行式。 -->
+                        <button v-for="model in models" :key="model.id" type="button" @click="chooseModel(model.id)"
+                            :aria-label="model.label || model.id" :aria-pressed="selectedModel === model.id"
+                            :title="model.label || model.id"
+                            class="flex min-h-[56px] min-w-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors"
+                            :class="selectedModel === model.id ? 'border-primary-400 bg-primary-50 text-primary-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'">
+                            <span v-if="model.manual === true && model.label" class="min-w-0 flex-1 flex flex-col gap-1 overflow-hidden">
+                                <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                    <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600">{{ model.providerName }}</span>
+                                    <span class="min-w-0 truncate text-sm font-semibold leading-5 text-gray-800 [overflow-wrap:anywhere]">{{ model.label }}</span>
+                                </span>
+                                <span class="min-w-0 flex items-center gap-2 overflow-hidden">
+                                    <span class="min-w-0 truncate text-[11px] font-mono text-gray-400">{{ model.bareId || model.id }}</span>
+                                    <span v-if="modelMetaSummary(model)" class="flex-shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{{ modelMetaSummary(model) }}</span>
+                                </span>
+                            </span>
+                            <span v-else class="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">
+                                <span v-if="model.providerName" class="flex-shrink-0 max-w-[45%] truncate rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-600">{{ model.providerName }}</span>
+                                <span class="min-w-0 truncate text-sm font-semibold leading-5 [overflow-wrap:anywhere]">{{ model.id }}</span>
+                            </span>
+                            <svg class="h-5 w-5 shrink-0 text-primary-600" :class="{ invisible: selectedModel !== model.id }"
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="m6 12 4 4 8-8"></path>
+                            </svg>
+                        </button>
+                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
                 </modal-shell>
             </transition>`
     };
@@ -2930,7 +3045,7 @@
         RetryConfirmModal,
         SettingsHelp,
         SettingsPageHeader,
-        StatusNoticeModal,
+        MemoryBackfillModal,
         StoryBranchModal,
         TokenUsageView,
         UiTemplatesView,

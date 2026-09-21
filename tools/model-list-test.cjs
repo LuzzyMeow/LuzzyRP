@@ -132,7 +132,20 @@ async function main() {
         p.activeModelTag = 'all';
         p.openModelSelector('model');
         await new Promise(r => setTimeout(r, 900));
-        const modal = document.querySelector('.max-w-2xl');
+        // [1.9.6 上游重写] 弹窗改用 ModalShell 组件（panel-class 传类名），
+        // DOM 里不再有可直接 query 的 .max-w-2xl 根节点。改为「按内容定位容器」：
+        // 找同时包含模型行与搜索框的最近祖先，兼容新旧两种弹窗结构。
+        const findModal = () => {
+          const anchor = [...document.querySelectorAll('button')].find(b => /手动专属|detected-only|manual-only/.test(b.textContent));
+          if (!anchor) return null;
+          let el = anchor;
+          for (let i = 0; i < 10 && el.parentElement; i++) {
+            el = el.parentElement;
+            if (el.querySelector('input') && el.querySelectorAll('button').length >= 2) return el;
+          }
+          return anchor.parentElement;
+        };
+        const modal = findModal();
         if (!modal) return { __error: 'modal not rendered' };
         const rows = [...modal.querySelectorAll('button')];
         const findRow = (needle) => rows.find(b => b.textContent.includes(needle));

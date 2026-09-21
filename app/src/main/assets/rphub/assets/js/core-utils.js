@@ -981,6 +981,10 @@ window.RPHubUtils = {
         }),
         apiProviderOptions: Object.freeze([
             Object.freeze({
+                    // [1.9.6 合并 · 2026-09-21] 上游把本内置商（sta1n）的 icon 换了新 CDN
+                    // （picui.ogmua.cn → img.cdn1.vip，旧图床已失效）。本仓库 [LuzzyRP patch 029]
+                    // 已将该内置商从内置列表移除（用户拍板：内置商精简为 DeepSeek），故此处**不恢复条目**；
+                    // 若日后重新启用，请使用上游的新图标 URL：icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp'
                 id: 'deepseek',
                 name: 'DeepSeek',
                 apiUrl: 'https://api.deepseek.com/v1',
@@ -990,7 +994,7 @@ window.RPHubUtils = {
         ]),
         activeTools: window.RPHubBuiltinContent.activeTools,
         uiOptions: Object.freeze({
-            popularModelFamilies: Object.freeze(['claude', 'gemini', 'deepseek', 'llama', 'glm', 'minimax', 'moonshot', 'grok']),
+            popularModelFamilies: Object.freeze(['claude', 'gemini', 'deepseek', 'llama', 'glm', 'moonshot', 'grok']),
             presetRoles: Object.freeze([
                 { value: 'system', label: '系统提示词' },
                 { value: 'user', label: 'User消息' },

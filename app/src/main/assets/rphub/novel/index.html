@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <script src="../assets/js/theme.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>小说生成</title>
     <!-- Vue 3 -->
@@ -196,6 +197,7 @@
             transform: translateY(-20px) scale(0.95);
         }
     </style>
+    <link rel="stylesheet" href="../assets/css/theme.css">
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden selection:bg-stone-300 selection:text-stone-900">
     <div id="app" class="w-full h-full flex relative">
@@ -852,7 +854,7 @@
         </transition>
         <transition name="pop">
             <div v-if="showReviewModal" class="fixed inset-0 z-[80] flex items-center justify-center p-2 md:p-4" @click.self="showReviewModal = false">
-                <div class="bg-[#f5f5f0] rounded-2xl shadow-2xl w-[95%] md:w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden animate-pop-in border border-stone-200">
+                <div class="app-modal-panel bg-[#f5f5f0] rounded-2xl shadow-2xl w-[95%] md:w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden animate-pop-in border border-stone-200">
                     <!-- 弹窗头部 -->
                     <div class="px-4 py-3 border-b border-[#d4d4ce] bg-[#e0e0db] flex justify-between items-center shrink-0">
                         <div class="flex items-center gap-3">
@@ -976,7 +978,7 @@
         </transition>
         <transition name="pop">
             <div v-if="showConfirmModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4" @mousedown.self="cancelConfirm">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-6">
+                <div class="app-modal-panel bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-6">
                     <div class="text-center space-y-2">
                         <div v-if="confirmModalConfig.icon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" :class="confirmModalConfig.iconBg">
                             <svg class="icon w-6 h-6" :class="confirmModalConfig.iconColor" viewBox="0 0 24 24" v-html="confirmModalConfig.icon"></svg>
@@ -998,7 +1000,7 @@
         </transition>
         <transition name="pop">
             <div v-if="showSettings" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="showSettings = false">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg h-[90vh] max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="app-modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-lg h-[90vh] max-h-[90vh] overflow-hidden flex flex-col">
                     <div class="px-6 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
                         <h3 class="text-lg font-bold text-stone-800 flex items-center gap-2">
                             <svg class="icon w-5 h-5" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg> 设置
@@ -1115,7 +1117,7 @@
         </transition>
         <transition name="pop">
             <div v-if="showImportExportModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4" @mousedown.self="showImportExportModal = false">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-xs overflow-hidden p-6 space-y-4 relative">
+                <div class="app-modal-panel bg-white rounded-xl shadow-2xl w-full max-w-xs overflow-hidden p-6 space-y-4 relative">
                     <button @click="showImportExportModal = false" class="absolute top-3 right-3 text-stone-400 hover:text-stone-600 p-1 rounded-full hover:bg-stone-100 transition-colors">
                         <svg class="icon w-5 h-5" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                     </button>
@@ -1203,7 +1205,10 @@
                 // [LuzzyRP patch 029] 内置供应商精简（同步 core-utils）：兜底副本仅保留 DeepSeek
                 // （editable 标志由主页面下发；原 sta1n/openrouter/siliconflow 迁移见 app.js，patch 023 随条目退位）
                 const RPHUB_PROVIDER_DEFINITIONS = [
-                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' }
+                    // [1.9.6 合并 · 2026-09-21] 上游更新了此处内置商（sta1n 等）的图标 URL
+                    // （旧图床 picui.ogmua.cn 失效 → 新 CDN）。本仓库 [LuzzyRP patch 029] 已按用户
+                    // 拍板把本页内置商精简为仅 DeepSeek，故不恢复上游条目；新图标 URL 备查：
+                    // { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp' },
                 ];
 
                 const currentModelTarget = ref('model');
@@ -2305,6 +2310,12 @@
                             syncData = { settings: await readRPHubSettings() };
                         }
                         const rphubSettings = syncData.settings;
+                        if (rphubSettings.apiProviderId === 'custom2') {
+                            rphubSettings.apiProviderId = 'custom';
+                            rphubSettings.customApiUrl = rphubSettings.customApiUrl2 || rphubSettings.apiUrl || '';
+                            rphubSettings.apiProviderKeys = { ...rphubSettings.apiProviderKeys,
+                                custom: rphubSettings.apiKey || rphubSettings.apiProviderKeys?.custom2 || '' };
+                        }
                         const providerKeys = rphubSettings.apiProviderKeys && typeof rphubSettings.apiProviderKeys === 'object'
                             ? rphubSettings.apiProviderKeys
                             : {};
@@ -2313,13 +2324,12 @@
                             || '';
                         const providerDefinitions = syncData.providers || [
                             ...RPHUB_PROVIDER_DEFINITIONS,
-                            { id: 'custom', name: '自定义', apiUrl: rphubSettings.customApiUrl || '' },
-                            { id: 'custom2', name: '自定义 2', apiUrl: rphubSettings.customApiUrl2 || '' }
+                            { id: 'custom', name: '自定义', apiUrl: rphubSettings.customApiUrl || '' }
                         ];
                         const providers = providerDefinitions.map(provider => ({
                             ...provider,
                             apiKey: getProviderKey(provider.id)
-                        })).filter(provider => provider.id !== 'custom' && provider.id !== 'custom2'
+                        })).filter(provider => provider.id !== 'custom'
                             || provider.apiUrl || provider.apiKey || rphubSettings.apiProviderId === provider.id);
 
                         apiProviders.value = providers;
@@ -2854,7 +2864,6 @@ ${charPrompt}
     </script>
 </body>
 </html>
-
 
 
 

@@ -1,0 +1,493 @@
+/* Shared controls and bubble opacity; theme colors and dimming apply only in dark mode. */
+:root[data-app-theme="light"] { color-scheme: light; }
+:root[data-app-theme="dark"] {
+    color-scheme: dark;
+    --night-canvas: #303030;
+    --night-surface: #393939;
+    --night-raised: #464646;
+    --night-field: #323232;
+    --night-border: #494949;
+    --night-text: #e4e4e4;
+    --night-secondary: #c2c2c2;
+    --night-muted: #afafaf;
+    --night-accent: #96baff;
+    --night-tint: #263d60;
+    --night-primary: #426bd8;
+    --night-primary-hover: #5079e4;
+    --night-selected: #2b4b7b;
+    /* DaisyUI tokens keep the workshop's controls, dialogs and feedback in one palette. */
+    --b1: 34.5% 0 0;
+    --b2: 31.5% 0 0;
+    --b3: 38.5% 0 0;
+    --bc: 91% 0 0;
+    --p: 74% 0.13 253;
+    --pc: 19% 0.025 257;
+    --s: 77% 0.09 300;
+    --sc: 20% 0.03 300;
+    --a: 78% 0.07 170;
+    --ac: 20% 0.02 170;
+    --n: 34% 0 0;
+    --nc: 91% 0 0;
+    --in: 74% 0.1 245;
+    --inc: 19% 0.025 257;
+    --su: 77% 0.1 165;
+    --suc: 20% 0.02 165;
+    --wa: 82% 0.1 85;
+    --wac: 23% 0.03 85;
+    --er: 75% 0.11 20;
+    --erc: 23% 0.03 20;
+}
+
+.appearance-switch { display: grid; place-items: center; flex: none; width: 40px; height: 40px; margin-left: auto; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.appearance-switch svg { width: 21px; height: 21px; }
+.appearance-switch:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+/* Reveal the dark snapshot; on exit, shrink that same layer back into the switch. */
+:root[data-theme-transition]::view-transition-group(root),
+:root[data-theme-transition]::view-transition-old(root),
+:root[data-theme-transition]::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+:root[data-theme-transition]::view-transition-old(root),
+:root[data-theme-transition]::view-transition-new(root) { z-index: 1; }
+:root[data-theme-transition="dark"]::view-transition-new(root) { z-index: 2; animation: theme-reveal .52s cubic-bezier(.22,1,.36,1) both; }
+:root[data-theme-transition="light"]::view-transition-old(root) { z-index: 2; animation: theme-reveal .46s cubic-bezier(.64,0,.78,0) both reverse; }
+@keyframes theme-reveal {
+    from { clip-path: circle(0px at var(--theme-x) var(--theme-y)); }
+    to { clip-path: circle(var(--theme-radius) at var(--theme-x) var(--theme-y)); }
+}
+
+:root[data-app-theme="dark"] body,
+:root[data-app-theme="dark"] .app-native-fullscreen,
+:root[data-app-theme="dark"]:fullscreen #app { background: var(--night-canvas); color: var(--night-text); }
+:root[data-app-theme="dark"] ::selection { background: #3b5680; color: #f2f6ff; }
+:root[data-app-theme="dark"] :where(*, *::before, *::after) { border-color: var(--night-border); }
+:root[data-app-theme="dark"] :is(.settings-fields, .settings-field, .memory-compression, .sortable-item-buttons) { border-color: var(--night-border); }
+:root[data-app-theme="dark"] .settings-collapse-trigger[aria-expanded="true"] { background: var(--night-raised) !important; color: var(--night-text) !important; }
+:root[data-app-theme="dark"] .settings-collapse-trigger[aria-expanded="true"] > span > div { background: transparent !important; }
+:root[data-app-theme="dark"] .compact-range { background-color: #344765 !important; accent-color: #719eff; }
+:root[data-app-theme="dark"] .chat-quick-panel .compact-range { background: linear-gradient(#344765, #344765) center / 100% 3px no-repeat !important; }
+:root[data-app-theme="dark"] .compact-range::-webkit-slider-thumb { background: #719eff; }
+:root[data-app-theme="dark"] .compact-range::-moz-range-thumb { background: #719eff; }
+:root[data-app-theme="dark"] .settings-toggle-input:checked + .settings-toggle { background: var(--night-primary); }
+:root[data-app-theme="dark"] :is(.bg-primary-500, .bg-primary-600, .modal-primary-button) { background: var(--night-primary) !important; color: #fff !important; }
+:root[data-app-theme="dark"] :is(.hover\:bg-primary-600, .hover\:bg-primary-700, .modal-primary-button):hover { background: var(--night-primary-hover) !important; }
+:root[data-app-theme="dark"] :is(input, textarea, select) { caret-color: var(--night-accent); }
+:root[data-app-theme="dark"] :is(input, textarea)::placeholder { color: #999999; }
+:root[data-app-theme="dark"] :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+    background-color: var(--night-field); color: var(--night-text); border-color: var(--night-border);
+}
+:root[data-app-theme="dark"] ::-webkit-scrollbar-thumb { background: #464646; }
+:root[data-app-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #606060; }
+
+/* Neutral surfaces with blue accents, rather than pure black. */
+:root[data-app-theme="dark"] .app-navigation-brand > span { color: var(--night-text); }
+:root[data-app-theme="dark"] .app-navigation-brand em { color: #94b4e4; }
+:root[data-app-theme="dark"] :is(.app-navigation-panel, .app-nav-trigger--embedded) {
+    background: linear-gradient(145deg, rgba(80,80,80,.82), rgba(50,50,50,.68) 65%, rgba(68,68,68,.78));
+    border-color: rgba(255,255,255,.16); color: var(--night-text);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.17), inset 0 -1px 0 rgba(255,255,255,.04), 0 24px 64px -18px rgba(0,0,0,.55);
+}
+:root[data-app-theme="dark"] .app-navigation-layer::before { background: rgba(12,12,12,.22); }
+:root[data-app-theme="dark"] :is(.app-nav-trigger, .app-navigation-close, .app-navigation-section h3, .app-navigation-icon) { color: var(--night-muted); }
+:root[data-app-theme="dark"] .app-navigation-item { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.1); }
+:root[data-app-theme="dark"] .app-navigation-item:hover { background: rgba(255,255,255,.12); }
+:root[data-app-theme="dark"] .app-navigation-item.is-current { background: var(--night-selected); color: #f1f6ff; border-color: #5b87cb; }
+:root[data-app-theme="dark"] .app-navigation-item.is-current .app-navigation-icon { color: #a7c6ff; }
+:root[data-app-theme="dark"] .app-navigation-user { background: rgba(178,178,178,.07); border-color: rgba(194,194,194,.14); }
+:root[data-app-theme="dark"] .settings-view { background: radial-gradient(ellipse at 30% 0, #3c3c3c, transparent 65%), var(--night-canvas); }
+:root[data-app-theme="dark"] :is(.settings-card, .settings-toggle-row, .model-setting-row, .settings-card__header) { border-color: var(--night-border); }
+:root[data-app-theme="dark"] :is(.settings-card, .model-setting-row, .settings-action, .settings-model-button, .settings-icon-button, .settings-create-button,
+    .compact-modal-panel, .modal-secondary-button, .pagination-button, .sortable-list-item, .model-selector-heading,
+    .choice-card__icon, .settings-help-trigger, .story-route-modal-body, .story-route-map-panel, .story-route-node,
+    .story-route-enter-button, .story-route-edit-button, .story-route-delete-button, .message-placement) {
+    background: var(--night-surface); border-color: var(--night-border); color: var(--night-text);
+}
+:root[data-app-theme="dark"] .settings-card { background: linear-gradient(145deg, #434343, var(--night-surface)); box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px -16px rgba(0,0,0,.5); }
+:root[data-app-theme="dark"] body :is(.app-modal-panel, .modal-box) {
+    background: linear-gradient(145deg, rgba(77,77,77,.95), rgba(60,60,60,.94)) !important;
+    border-color: rgba(255,255,255,.16) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 24px 72px -16px rgba(0,0,0,.6);
+}
+:root[data-app-theme="dark"] :is(.settings-card__title, .settings-subheading, .sortable-item-heading > h3, .story-route-node-copy strong, .ui-template-pending-title) { color: var(--night-text); }
+:root[data-app-theme="dark"] :is(.settings-label, .tool-call-detail, .story-route-node-copy small) { color: var(--night-secondary); }
+:root[data-app-theme="dark"] .settings-view .settings-control { background: var(--night-field); color: var(--night-text); border-color: var(--night-border); }
+:root[data-app-theme="dark"] .settings-view .settings-control:focus { border-color: #86adf4; box-shadow: 0 0 0 3px rgba(120,166,244,.16); }
+:root[data-app-theme="dark"] :is(.settings-card__title > svg, .settings-help-trigger.is-open, .choice-card:hover, .story-route-node.is-selected) { background: var(--night-tint); color: var(--night-accent); border-color: #4b6b98; }
+:root[data-app-theme="dark"] :is(.settings-action:hover:not(:disabled), .settings-icon-button:hover, .settings-create-button:hover, .modal-secondary-button:hover, .pagination-button:hover:not(:disabled), .sortable-list-handle:hover, .modal-close-button:hover) { background: var(--night-raised); color: var(--night-text); border-color: #707070; }
+:root[data-app-theme="dark"] :is(.segmented-switch, .settings-view .segmented-switch, .choice-card, .story-route-map-scroll, .story-route-canvas) { background-color: var(--night-field); color: var(--night-secondary); border-color: var(--night-border); box-shadow: none; }
+:root[data-app-theme="dark"] .segmented-switch__indicator { background: var(--night-selected); box-shadow: inset 0 0 0 1px #5b87cb; }
+:root[data-app-theme="dark"] .segmented-switch__option { color: var(--night-muted); }
+:root[data-app-theme="dark"] .segmented-switch__option.is-active { color: #f1f6ff; }
+:root[data-app-theme="dark"] .settings-toggle-input:not(:checked) + .settings-toggle { background: #5b5b5b; }
+:root[data-app-theme="dark"] :is(.settings-help-popover, .editor-modal-header, .wi-footer) { background: var(--night-raised) !important; border-color: var(--night-border); color: var(--night-secondary); }
+:root[data-app-theme="dark"] .memory-compression__track { background: var(--night-border); }
+:root[data-app-theme="dark"] .memory-compression__after { color: #9dbaff; }
+:root[data-app-theme="dark"] :is(.memory-compression__before, .story-route-node-type, .modal-close-button, .item-action-button) { color: var(--night-muted); }
+:root[data-app-theme="dark"] .meta-badge { background: var(--badge-bg, #2c333e); color: var(--badge-color, #b8c7dc); border-color: var(--badge-border, #425773); box-shadow: none; }
+:root[data-app-theme="dark"] .meta-badge--system { --badge-bg: #3e2b3b; --badge-color: #f1adb9; --badge-border: #674256; }
+:root[data-app-theme="dark"] :is(.meta-badge--user, .meta-badge--memory) { --badge-bg: #223b38; --badge-color: #9bd7ba; --badge-border: #3e6058; }
+:root[data-app-theme="dark"] .meta-badge--assistant { --badge-bg: #352d48; --badge-color: #c7b2ee; --badge-border: #574771; }
+:root[data-app-theme="dark"] :is(.meta-badge--global, .message-placement.is-selected) { --badge-bg: #253d60; --badge-color: #a5c5ff; --badge-border: #486591; }
+:root[data-app-theme="dark"] .meta-badge--bound { --badge-bg: #3d3528; --badge-color: #e7cb93; --badge-border: #645537; }
+:root[data-app-theme="dark"] .message-placement-check { background: var(--night-field); border-color: #5b7597; }
+:root[data-app-theme="dark"] .message-placement.is-selected .message-placement-check { background: #4073bd; }
+
+/* Chat surfaces and generated-image chrome; covers and generated images are never inverted. */
+:root[data-app-theme="dark"] :is(.msg-bubble-glass, .typing-bubble, .input-island, .desc-panel, .toast-item) { background-color: rgba(57,57,57,.86) !important; border-color: rgba(255,255,255,.13) !important; color: var(--night-text); }
+.msg-bubble-glass[class~="bg-blue-50/85"] { --bubble-rgb: 239,246,255; }
+.msg-bubble-glass[class~="bg-red-50/70"] { --bubble-rgb: 254,242,242; }
+:root[data-app-theme="dark"] .msg-bubble-glass { --bubble-rgb: 57,57,57; }
+:root[data-app-theme="dark"] .msg-bubble-glass[class~="bg-red-50/70"] { --bubble-rgb: 66,44,58; }
+:root[data-app-theme="dark"] .msg-bubble-glass[class~="bg-blue-50/85"] { --bubble-rgb: 72,72,72; background-color: rgba(72,72,72,.86) !important; border-color: rgba(255,255,255,.13) !important; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+:root[data-app-theme] .msg-bubble-glass:not(:has(.ui-template-render, .markdown-body > :is(div, section, article, aside, header, footer, table, iframe))) {
+    background-color: rgba(var(--bubble-rgb, 255,255,255), .9) !important;
+}
+:root[data-app-theme="dark"] :is(.msg-name-tag, .typing-timer-badge, .message-action-bar) { background-color: rgba(57,57,57,.9) !important; border-color: var(--night-border) !important; color: var(--night-secondary); }
+:root[data-app-theme="dark"] :is(.message-action-button, .message-style-filter-button) { color: var(--night-secondary); }
+:root[data-app-theme="dark"] :is(.message-action-button:hover, .message-style-filter-button.is-active) { background: #314661; color: #b5d0ff; }
+:root[data-app-theme="dark"] :is(.cot-ui, .cot-ui.is-open, .cot-header) { background: var(--night-surface); border-color: var(--night-border); color: var(--night-secondary); }
+:root[data-app-theme="dark"] :is(.cot-ui.is-open .cot-header, .cot-header:hover) { background: var(--night-raised); color: var(--night-text); }
+:root[data-app-theme="dark"] :is(.markdown-body code, .markdown-body pre, .markdown-body th) { background: var(--night-field); color: var(--night-secondary); border-color: var(--night-border); }
+:root[data-app-theme="dark"] .markdown-body pre code { background: transparent; color: var(--night-text); }
+:root[data-app-theme="dark"] :is(.markdown-body a, .thinking-summary-dots) { color: var(--night-accent); }
+:root[data-app-theme="dark"] .markdown-body blockquote { color: var(--night-muted); border-color: #587399; }
+:root[data-app-theme="dark"] :is(.markdown-body td, .markdown-body th, .markdown-body hr) { border-color: var(--night-border); }
+:root[data-app-theme="dark"] .response-error-text { color: #f1a2ad; }
+/* Dim self-styled HTML once in dark mode; ordinary prose keeps its normal brightness. */
+:root[data-app-theme="dark"] .entry-transition,
+:root[data-app-theme="dark"] .msg-bubble-glass .markdown-body > :is(div, section, article, aside, header, footer, table, iframe),
+:root[data-app-theme="dark"] :is(.ui-template-render, .ui-template-preview) { filter: brightness(.9); }
+:root[data-app-theme="dark"] .ui-template-pending-card { background: linear-gradient(135deg, var(--night-raised), var(--night-surface)); border-color: var(--night-border); color: var(--night-text); }
+:root[data-app-theme="dark"] :is(.ui-template-pending-icon, .ui-template-pending-icon .live-dots) { background: #364359; color: #9cbfff; }
+:root[data-app-theme="dark"] .character-deck__backdrop { background: #232323; }
+:root[data-app-theme="dark"] .character-deck__backdrop::after { background: linear-gradient(180deg, rgba(24,24,24,.7), rgba(24,24,24,.4) 50%, rgba(24,24,24,.75)); }
+:root[data-app-theme="dark"] .character-deck__arrow { background: rgba(49,49,49,.95); color: var(--night-text); border-color: var(--night-border); }
+
+/* Novel editor keeps its reading character while sharing the same night surfaces. */
+:root[data-app-theme="dark"] :is([class~="bg-[#f5f5f0]"], [class~="bg-[#e8e8e3]"]) { background-color: var(--night-canvas) !important; }
+:root[data-app-theme="dark"] :is([class~="bg-[#e4e4df]"], [class~="bg-[#e0e0db]"]) { background-color: var(--night-raised) !important; }
+:root[data-app-theme="dark"] [class~="border-[#d4d4ce]"] { border-color: var(--night-border) !important; }
+:root[data-app-theme="dark"] :is(.review-prose h3, .review-prose strong) { color: var(--night-text); }
+:root[data-app-theme="dark"] .tab-slider { background: var(--night-accent); }
+:root[data-app-theme="dark"] .bg-stone-800 { background-color: var(--night-raised) !important; color: #fff !important; }
+:root[data-app-theme="dark"] .hover\:bg-stone-700:hover { background-color: #606060 !important; }
+
+/* Match the existing utility palette without changing layout or touching image pixels. */
+:root[data-app-theme="dark"] .from-primary-50 { --tw-gradient-from: var(--night-tint); --tw-gradient-to: transparent; }
+:root[data-app-theme="dark"] :is(.to-blue-50, .to-purple-50) { --tw-gradient-to: var(--night-raised); }
+:root[data-app-theme="dark"] .from-white { --tw-gradient-from: var(--night-surface); --tw-gradient-to: transparent; }
+:root[data-app-theme="dark"] .via-white\/80 { --tw-gradient-stops: var(--tw-gradient-from), rgba(57,57,57,.8), var(--tw-gradient-to); }
+:root[data-app-theme="dark"] [class~="hover:bg-white/10"]:hover { background-color: rgba(57,57,57,.1) !important; }
+:root[data-app-theme="dark"] :is([class~="bg-white/20"], [class~="hover:bg-white/20"]:hover) { background-color: rgba(57,57,57,.2) !important; }
+:root[data-app-theme="dark"] :is([class~="bg-white/40"], [class~="active:bg-white/40"]:active) { background-color: rgba(57,57,57,.4) !important; }
+:root[data-app-theme="dark"] [class~="bg-white/50"] { background-color: rgba(57,57,57,.5) !important; }
+:root[data-app-theme="dark"] :is([class~="bg-white/60"], [class~="hover:bg-white/60"]:hover) { background-color: rgba(57,57,57,.6) !important; }
+
+:root[data-app-theme="dark"] [class~="bg-blue-100"],
+:root[data-app-theme="dark"] [class~="bg-blue-50"],
+:root[data-app-theme="dark"] [class~="bg-blue-50/80"],
+:root[data-app-theme="dark"] [class~="bg-primary-100"],
+:root[data-app-theme="dark"] [class~="bg-primary-50"] {
+    background-color: var(--night-tint) !important;
+}
+
+:root[data-app-theme="dark"] [class~="hover:bg-blue-50"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-primary-100"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-primary-50"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-primary-50/40"]:hover {
+    background-color: var(--night-raised) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-emerald-50/70"],
+:root[data-app-theme="dark"] [class~="bg-green-50"] {
+    background-color: #233e39 !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-gray-100"],
+:root[data-app-theme="dark"] [class~="bg-gray-100/70"],
+:root[data-app-theme="dark"] [class~="bg-stone-100"],
+:root[data-app-theme="dark"] [class~="bg-stone-100/50"],
+:root[data-app-theme="dark"] [class~="hover:bg-gray-100"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-gray-100/50"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-stone-100"]:hover {
+    background-color: var(--night-raised) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-gray-200"],
+:root[data-app-theme="dark"] [class~="bg-stone-200"],
+:root[data-app-theme="dark"] [class~="bg-stone-200/50"],
+:root[data-app-theme="dark"] [class~="hover:bg-gray-200"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-gray-200/50"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-stone-200"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-stone-200/50"]:hover {
+    background-color: #444444 !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-gray-300"],
+:root[data-app-theme="dark"] [class~="bg-stone-300"],
+:root[data-app-theme="dark"] [class~="bg-stone-400"],
+:root[data-app-theme="dark"] [class~="disabled:bg-stone-300"]:disabled,
+:root[data-app-theme="dark"] [class~="hover:bg-stone-300"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-stone-300/50"]:hover {
+    background-color: #5e5e5e !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-gray-50"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/30"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/40"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/50"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/55"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/60"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/70"],
+:root[data-app-theme="dark"] [class~="bg-gray-50/80"],
+:root[data-app-theme="dark"] [class~="bg-stone-50"],
+:root[data-app-theme="dark"] [class~="bg-stone-50/50"],
+:root[data-app-theme="dark"] [class~="disabled:bg-stone-50"]:disabled,
+:root[data-app-theme="dark"] [class~="hover:bg-gray-50"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-stone-50"]:hover {
+    background-color: var(--night-field) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-orange-100"],
+:root[data-app-theme="dark"] [class~="bg-yellow-100"],
+:root[data-app-theme="dark"] [class~="bg-yellow-50"] {
+    background-color: #403828 !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-red-100"],
+:root[data-app-theme="dark"] [class~="bg-red-50"],
+:root[data-app-theme="dark"] [class~="bg-red-50/70"],
+:root[data-app-theme="dark"] [class~="hover:bg-red-100"]:hover,
+:root[data-app-theme="dark"] [class~="hover:bg-red-50"]:hover {
+    background-color: #422c3a !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-white"],
+:root[data-app-theme="dark"] [class~="focus:bg-white"]:focus,
+:root[data-app-theme="dark"] [class~="hover:bg-white"]:hover {
+    background-color: var(--night-surface) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-white/70"] {
+    background-color: rgba(57,57,57,0.7) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-white/80"],
+:root[data-app-theme="dark"] [class~="hover:bg-white/80"]:hover {
+    background-color: rgba(57,57,57,0.8) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-white/90"] {
+    background-color: rgba(57,57,57,0.9) !important;
+}
+
+:root[data-app-theme="dark"] [class~="bg-white/95"] {
+    background-color: rgba(57,57,57,0.95) !important;
+}
+
+:root[data-app-theme="dark"] [class~="border-blue-100"],
+:root[data-app-theme="dark"] [class~="border-blue-200"],
+:root[data-app-theme="dark"] [class~="border-blue-200/50"],
+:root[data-app-theme="dark"] [class~="border-blue-200/60"],
+:root[data-app-theme="dark"] [class~="border-primary-100"],
+:root[data-app-theme="dark"] [class~="border-primary-200"],
+:root[data-app-theme="dark"] [class~="border-primary-200/80"],
+:root[data-app-theme="dark"] [class~="border-primary-300"],
+:root[data-app-theme="dark"] [class~="border-primary-300/50"],
+:root[data-app-theme="dark"] [class~="border-primary-400"],
+:root[data-app-theme="dark"] [class~="border-primary-500"],
+:root[data-app-theme="dark"] [class~="border-primary-600"],
+:root[data-app-theme="dark"] [class~="focus:border-blue-400"]:focus,
+:root[data-app-theme="dark"] [class~="focus:border-primary-400"]:focus,
+:root[data-app-theme="dark"] [class~="focus:border-primary-500"]:focus,
+:root[data-app-theme="dark"] [class~="hover:border-primary-200"]:hover,
+:root[data-app-theme="dark"] [class~="hover:border-primary-300"]:hover,
+:root[data-app-theme="dark"] [class~="hover:border-primary-400"]:hover {
+    border-color: #5b80bc !important;
+}
+
+:root[data-app-theme="dark"] [class~="border-emerald-200"],
+:root[data-app-theme="dark"] [class~="border-green-200"] {
+    border-color: #426c5f !important;
+}
+
+:root[data-app-theme="dark"] [class~="border-gray-100"],
+:root[data-app-theme="dark"] [class~="border-gray-100/60"],
+:root[data-app-theme="dark"] [class~="border-gray-100/80"],
+:root[data-app-theme="dark"] [class~="border-gray-200"],
+:root[data-app-theme="dark"] [class~="border-gray-200/50"],
+:root[data-app-theme="dark"] [class~="border-gray-200/70"],
+:root[data-app-theme="dark"] [class~="border-gray-200/90"],
+:root[data-app-theme="dark"] [class~="border-gray-300"],
+:root[data-app-theme="dark"] [class~="border-gray-300/90"],
+:root[data-app-theme="dark"] [class~="border-gray-400/80"],
+:root[data-app-theme="dark"] [class~="border-stone-100"],
+:root[data-app-theme="dark"] [class~="border-stone-200"],
+:root[data-app-theme="dark"] [class~="border-stone-200/50"],
+:root[data-app-theme="dark"] [class~="border-stone-200/80"],
+:root[data-app-theme="dark"] [class~="border-stone-50"],
+:root[data-app-theme="dark"] [class~="border-white"],
+:root[data-app-theme="dark"] [class~="border-white/10"],
+:root[data-app-theme="dark"] [class~="border-white/20"],
+:root[data-app-theme="dark"] [class~="border-white/30"],
+:root[data-app-theme="dark"] [class~="border-white/40"],
+:root[data-app-theme="dark"] [class~="border-white/50"],
+:root[data-app-theme="dark"] [class~="border-white/80"],
+:root[data-app-theme="dark"] [class~="divide-gray-100"] > :not([hidden]) ~ :not([hidden]),
+:root[data-app-theme="dark"] [class~="focus:border-stone-300"]:focus,
+:root[data-app-theme="dark"] [class~="focus:border-stone-400"]:focus,
+:root[data-app-theme="dark"] .group:hover [class~="group-hover:border-gray-300"],
+:root[data-app-theme="dark"] [class~="hover:border-gray-300"]:hover,
+:root[data-app-theme="dark"] [class~="hover:border-stone-200"]:hover,
+:root[data-app-theme="dark"] [class~="hover:border-stone-400"]:hover {
+    border-color: var(--night-border) !important;
+}
+
+:root[data-app-theme="dark"] [class~="border-orange-200"],
+:root[data-app-theme="dark"] [class~="border-yellow-100"],
+:root[data-app-theme="dark"] [class~="border-yellow-200"] {
+    border-color: #74603c !important;
+}
+
+:root[data-app-theme="dark"] [class~="border-red-100"],
+:root[data-app-theme="dark"] [class~="border-red-200"],
+:root[data-app-theme="dark"] [class~="border-red-200/40"],
+:root[data-app-theme="dark"] [class~="border-red-300"],
+:root[data-app-theme="dark"] [class~="border-red-500"],
+:root[data-app-theme="dark"] [class~="hover:border-red-100"]:hover {
+    border-color: #794856 !important;
+}
+
+:root[data-app-theme="dark"] [class~="disabled:text-stone-400"]:disabled,
+:root[data-app-theme="dark"] .group:hover [class~="group-hover:text-stone-500"],
+:root[data-app-theme="dark"] [class~="placeholder-gray-400"]::placeholder,
+:root[data-app-theme="dark"] [class~="placeholder-stone-300"]::placeholder,
+:root[data-app-theme="dark"] [class~="text-gray-300"],
+:root[data-app-theme="dark"] [class~="text-gray-400"],
+:root[data-app-theme="dark"] [class~="text-gray-500"],
+:root[data-app-theme="dark"] [class~="text-gray-500/80"],
+:root[data-app-theme="dark"] [class~="text-stone-300"],
+:root[data-app-theme="dark"] [class~="text-stone-400"],
+:root[data-app-theme="dark"] [class~="text-stone-500"] {
+    color: var(--night-muted) !important;
+}
+
+:root[data-app-theme="dark"] [class~="focus-visible:ring-primary-500/40"]:focus-visible,
+:root[data-app-theme="dark"] [class~="focus:ring-blue-100"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-100"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-300"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-400"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-500"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-500/10"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-500/20"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-primary-500/30"]:focus,
+:root[data-app-theme="dark"] [class~="ring-primary-500"],
+:root[data-app-theme="dark"] [class~="ring-primary-500/10"] {
+    --tw-ring-color: #485d7c !important;
+}
+
+:root[data-app-theme="dark"] [class~="focus:ring-gray-200"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-gray-300"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-stone-200"]:focus,
+:root[data-app-theme="dark"] [class~="focus:ring-stone-300"]:focus,
+:root[data-app-theme="dark"] [class~="ring-gray-200/80"],
+:root[data-app-theme="dark"] [class~="ring-white"] {
+    --tw-ring-color: var(--night-border) !important;
+}
+
+:root[data-app-theme="dark"] [class~="focus:ring-red-500"]:focus,
+:root[data-app-theme="dark"] [class~="ring-red-500"] {
+    --tw-ring-color: #794856 !important;
+}
+
+:root[data-app-theme="dark"] .group:focus-within [class~="group-focus-within:text-primary-500"],
+:root[data-app-theme="dark"] .group:hover [class~="group-hover:text-primary-500"],
+:root[data-app-theme="dark"] [class~="hover:text-blue-600"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-primary-600"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-primary-700"]:hover,
+:root[data-app-theme="dark"] [class~="text-blue-500"],
+:root[data-app-theme="dark"] [class~="text-blue-500/80"],
+:root[data-app-theme="dark"] [class~="text-blue-600"],
+:root[data-app-theme="dark"] [class~="text-blue-600/80"],
+:root[data-app-theme="dark"] [class~="text-blue-600/90"],
+:root[data-app-theme="dark"] [class~="text-blue-700"],
+:root[data-app-theme="dark"] [class~="text-blue-800"],
+:root[data-app-theme="dark"] [class~="text-blue-900"],
+:root[data-app-theme="dark"] [class~="text-primary-500"],
+:root[data-app-theme="dark"] [class~="text-primary-600"],
+:root[data-app-theme="dark"] [class~="text-primary-700"],
+:root[data-app-theme="dark"] [class~="text-primary-800"],
+:root[data-app-theme="dark"] [class~="text-primary-800/80"],
+:root[data-app-theme="dark"] [class~="text-primary-900"] {
+    color: var(--night-accent) !important;
+}
+
+:root[data-app-theme="dark"] .group:hover [class~="group-hover:text-gray-900"],
+:root[data-app-theme="dark"] .group:hover [class~="group-hover:text-stone-800"],
+:root[data-app-theme="dark"] [class~="hover:text-gray-700"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-gray-800"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-gray-900"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-stone-700"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-stone-800"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-stone-900"]:hover,
+:root[data-app-theme="dark"] [class~="text-gray-700"],
+:root[data-app-theme="dark"] [class~="text-gray-800"],
+:root[data-app-theme="dark"] [class~="text-gray-900"],
+:root[data-app-theme="dark"] [class~="text-stone-700"],
+:root[data-app-theme="dark"] [class~="text-stone-800"],
+:root[data-app-theme="dark"] [class~="text-stone-900"] {
+    color: var(--night-text) !important;
+}
+
+:root[data-app-theme="dark"] .group:hover [class~="group-hover:text-stone-600"],
+:root[data-app-theme="dark"] [class~="hover:text-gray-600"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-stone-600"]:hover,
+:root[data-app-theme="dark"] [class~="text-gray-600"],
+:root[data-app-theme="dark"] [class~="text-stone-600"] {
+    color: var(--night-secondary) !important;
+}
+
+:root[data-app-theme="dark"] [class~="hover:text-amber-500"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-amber-600"]:hover,
+:root[data-app-theme="dark"] [class~="text-amber-500"],
+:root[data-app-theme="dark"] [class~="text-amber-600"],
+:root[data-app-theme="dark"] [class~="text-orange-500"],
+:root[data-app-theme="dark"] [class~="text-orange-600"],
+:root[data-app-theme="dark"] [class~="text-yellow-500"],
+:root[data-app-theme="dark"] [class~="text-yellow-600"],
+:root[data-app-theme="dark"] [class~="text-yellow-700"],
+:root[data-app-theme="dark"] [class~="text-yellow-800"] {
+    color: #e5c586 !important;
+}
+
+:root[data-app-theme="dark"] [class~="hover:text-red-500"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-red-600"]:hover,
+:root[data-app-theme="dark"] [class~="hover:text-red-700"]:hover,
+:root[data-app-theme="dark"] [class~="text-red-500"],
+:root[data-app-theme="dark"] [class~="text-red-600"],
+:root[data-app-theme="dark"] [class~="text-red-700"],
+:root[data-app-theme="dark"] [class~="text-red-800"] {
+    color: #f2a3ae !important;
+}
+
+:root[data-app-theme="dark"] [class~="text-emerald-700"],
+:root[data-app-theme="dark"] [class~="text-green-500"],
+:root[data-app-theme="dark"] [class~="text-green-600"],
+:root[data-app-theme="dark"] [class~="text-green-700"],
+:root[data-app-theme="dark"] [class~="text-green-800"] {
+    color: #9bd6be !important;
+}
+
+/* Selected controls stay distinct from decorative blue-tinted surfaces. */
+:root[data-app-theme="dark"] :is(button.bg-white, .settings-action):is(.text-primary-600, .text-primary-700, .text-blue-600) {
+    color: var(--night-text) !important;
+    border-color: var(--night-border) !important;
+}
+:root[data-app-theme="dark"] [aria-pressed="true"].border-primary-400 {
+    background-color: var(--night-selected) !important;
+    border-color: #7099e1 !important;
+    color: #f1f6ff !important;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root[data-app-theme="dark"] :is(.app-navigation-panel, .app-nav-trigger--embedded) { background: var(--night-raised); }
+}

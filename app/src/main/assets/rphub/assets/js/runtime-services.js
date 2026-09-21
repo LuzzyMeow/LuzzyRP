@@ -56,6 +56,9 @@
         };
 
         const sanitizeMarkdown = (text) => DOMPurify.sanitize(marked.parse(text), cleanConfig);
+        const markdownOnlyRenderer = new marked.Renderer();
+        markdownOnlyRenderer.html = token => String(typeof token === 'string' ? token : token.text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const createIframe = (html) => createExecutableHtmlIframe(html, 'border-t border-gray-200 shadow-sm');
 
         const replaceHtmlCodeBlocks = (documentNode) => {
@@ -96,15 +99,21 @@
             return modified;
         };
 
-        // [LuzzyRP patch 032] options.cache=false 旁路 LRU：流式期全文逐 tick 变化，中间串写缓存
-        // 只会灌满 2000 上限引发内存膨胀与驱逐抖动（v1.3.0 性能；唯一调用方=index.html 流式分支）。
-        const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}) => {
+    // [LuzzyRP patch 032 + 1.9.6 合并] 上游新增 allowHtml 开关（第 5 参），本仓库 patch 032 新增
+    // options.cache 旁路（第 4 参）。两者互不冲突，**合并为一个签名**：保留 options，追加 allowHtml。
+    const renderMarkdown = (text, role = 'assistant', skipRegex = false, options = {}, allowHtml = true) => {
             if (!text) return '';
-            const cacheKey = `${role}_${skipRegex}_${text}`;
-            const allowCache = options.cache !== false;
-            if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
+        // [1.9.6 合并] 缓存键纳入上游新增的 allowHtml 维度（不同渲染选项不可共用缓存），
+        // 同时保留本仓库 patch 032 的 options.cache 旁路。
+        const cacheKey = `${role}_${skipRegex}_${allowHtml}_${text}`;
+        const allowCache = options.cache !== false;
+        if (allowCache && renderedCache.has(cacheKey)) return renderedCache.get(cacheKey);
 
             let processed = applyDisplayRegex(text, role, skipRegex);
+            if (!allowHtml) {
+                const html = DOMPurify.sanitize(marked.parse(processed, { renderer: markdownOnlyRenderer }));
+                return cacheValue(renderedCache, cacheKey, html);
+            }
             const trimmed = processed.trim();
             const htmlMatch = trimmed.match(/(<!doctype html>|<html\b[^>]*>)/i);
 

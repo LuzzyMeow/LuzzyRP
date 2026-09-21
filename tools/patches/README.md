@@ -701,22 +701,35 @@
 #    （2026-09-02 补全审计：001-012 结构性点位 + core-utils/ui-components 补齐；
 #    013-017 实施时自带）。verify-markers.ps1 按本登记表逐项校验。
 # 2. 实体重放：tools/patches/entities/*.patch 为「上游纯净基线 → 当前工作树」
-#    的逐文件完整 diff（含全部标记），覆盖 007/009/012-035/015-032（共 9 枚）。
+#    的逐文件完整 diff（含全部标记），覆盖 007/009/012-035/015-032（**共 8 枚**；
+#    016-035-data-services-js 已随上游 1.9.5 记忆系统重构退场，见下方记录）。
 #    apply-patches.ps1 末段按「前像 blob id 一致才自动 apply」执行。
 #
 #    ★ 生成规程（v1.5.0 修正版，会话 26 定稿——旧规程以「二创工作树」为对生成，
 #      导致 2 枚实体换基线后前像失配，见 `docs/PLAN-v1.5.0-assistant.md` §18.4.1/§18.6）：
 #      ① 落盘「上游纯净基线」：git -C rp-hub-reference show <baseline>:<file>，LF 归一；
 #      ② 落盘「合并后工作树」：app/src/main/assets/rphub/<file>，LF 归一；
-#      ③ 生成：git diff --no-index --ignore-cr-at-eol base.bin work.bin
-#         → 头路径改写为 a/<relpath> … b/<relpath>（去掉临时文件名）；
+#      ③ 生成：git -c core.autocrlf=false diff --no-index base/<rel> ours/<rel>
+#         → 头路径改写为 a/<relpath> … b/<relpath>（去掉临时目录名）；
+#         ⚠ **不要加 `--ignore-cr-at-eol`**（旧规程曾写，见下方 2026-09-21 记录）；
+#         ⚠ 两个输入要放在**同构的 base/ 与 ours/ 镜像目录**下再 diff ——
+#           否则 git 会把 Windows 路径写进头行并加引号，改写失败；
+#         ⚠ 取 diff 输出**必须用 cmd 重定向**（`cmd /c "... > out.patch"`），
+#           走 PowerShell 文本管道会被改写（丢尾部空行/补行尾），与 apply-patches.ps1
+#           里 Get-BaselineSha256LfNormalized 的注释同一个坑。
 #      ④ 双验证（仓库外干净目录，git apply 须在仓库根执行，勿在嵌套目录）：
 #         a. 逆向：纯净基线 → 逐枚 git apply --ignore-whitespace
 #            --directory=app/src/main/assets/rphub → 与工作树 LF 归一逐字节比对（须空 diff）；
-#         b. 端到端：纯净基线全量 → apply-patches.ps1 实跑 → 9 枚全 [OK] 且结果与工作树一致；
+#         b. 端到端：纯净基线全量 → apply-patches.ps1 实跑 → **8 枚全 [OK]** 且结果与工作树一致；
 #      ⑤ 前像 blob id 必须等于「上游纯净基线」的 LF 归一 blob id（脚本按此判定）。
 #    同步新版上游重放失败时：三方合并该文件 → 按上述规程重新生成实体 →
 #    复跑 verify-markers.ps1 全绿。
+#
+#    ★ 生成前先判断「要重做多少」：跑 `tools/apply-patches.ps1 -CheckBaseline <新ref>`
+#      （只读，不写任何文件）→ 输出「可重放 / 需三方合并」清单与退出码（0=全可重放，2=有需合并）。
+#      ⚠ 不要照 AGENTS.md §4.1 旧文写的「比对 git rev-parse <ref>:<file>」——
+#        参考克隆按 core.autocrlf=true 检出，存储 blob 是 CRLF，而实体前像是 LF 归一后的 id，
+#        照那条做会把**可干净重放**的实体全部误判为需三方合并（2026-09-21 实测：8/8 全误判）。
 #
 #    当前基线 RP-Hub 1.9.7（commit bcec53b）· 实体前像 blob id（LF 归一，8 枚全量复核）：
 #      007-character-html         character/index.html          07dc2c0f  (2522 B)
@@ -744,6 +757,18 @@
 #      注意：参考克隆里的基线 blob 是 **CRLF**，而实体头 `index <pre>` 是**LF 归一**后的 blob id
 #      （apply-patches.ps1 的 Get-FileGitBlobIdLfNormalized 同此口径）——故落盘基线必须先 LF 归一。
 #
+#    ★ 2026-09-21（第二次）全量再生成记录 —— 文件尾换行归位后重生成：
+#      背景：上游 21 个文件**全部**以 LF 结尾，而我方有 **11 个**不结尾
+#      （前缀逐字节相同，只差尾部这 1 字节）。后果是「无标记文件与上游逐字节相等」
+#      这条口径实际不成立（13 个里只有 9 个真相等），B 组校验也无从立起来。
+#      处理：按字节给这 11 个补回单个 0x0A（不走文本 API，避免重编码），
+#      随后 8 枚实体**全部按 1.9.7 基线重新生成**（前像不变，仍为上表 8 个 blob id；
+#      后像因尾部补字节而更新）。双验证：逆向 8/8 逐字节等同 + 端到端 21/21 与工作树一致。
+#      新旧实体逐枚比对确认：唯一差异是 `index` 头行 + 覆盖文件尾的那一处 hunk，
+#      **无任何内容漂移**。归位后 13 个无标记文件 13/13 与上游逐字节相等。
+#      ⚠ 改上游层文件后必须重生成实体 —— 否则实体后像与工作树脱节，
+#        verify-markers.ps1 的 A 组会立刻抓住（这正是新增 A 组的价值）。
+#
 #    ★ 2026-09-11 再生成记录（052）：本版新增的 052 恰好落在 **3 枚**实体上
 #      （api-utils.js / runtime-services.js / app.js），故这 3 枚按上述规程**整枚重生成**
 #      （前像 = 4aef0bb 纯净基线的 LF 归一 blob id，逐枚复核与上表一致：
@@ -753,11 +778,90 @@
 #           --directory=app/src/main/assets/rphub → 与工作树 LF 归一**逐字节等同**；
 #        b. 端到端 9/9：纯净基线全量 → tools/apply-patches.ps1 实跑 → 9 枚全 [OK]，
 #           且重放结果 9/9 与工作树 LF 归一逐字节一致。
+#           （此次「9 枚」是当时的历史事实——第 9 枚 data-services 其时尚未退场。）
 #      `index.html` **不在其中** —— 052 未触碰 index.html（0 处 052 标记），实体 012-035-index-html
 #      保持不动。
-# 3. 敏感文件基线校验：built-in-content.js / styles.css 必须与上游指纹逐字节
-#    一致（verify-markers.ps1 的 R1/R2 项）。
+# 3. 敏感文件基线校验：built-in-content.js / styles.css 等**全部 13 个无标记上游文件**
+#    必须与上游基线逐字节一致 —— 由 verify-markers.ps1 的 **B 组**承担（13 项）。
+#    （旧版这里是 R1/R2 两项，按整文件 SHA256 比对指纹表；现已升级为逐文件 blob id
+#     与上游基线比对，并从 2 个文件扩到全部 13 个。）
+#    其中 `built-in-content.js` 额外有 **D1 项**：`<nsfw_rules>…</nsfw_rules>` 块的
+#    SHA-256 固定（硬性规定 1），与整文件校验相互独立 —— 因为整文件受 029 内置商精简
+#    影响本就会变，而红线只关心那一段是否一字未动。
 # 4. 基线参数化（v1.5.0）：apply-patches.ps1 的「纯净基线兜底判定」不再硬编码 commit，
 #    按 -BaselineCommit 参数 > upstream-fingerprints.txt 头部「(commit <sha>)」> FETCH_HEAD 解析。
+#    `-CheckBaseline <ref>` 是同一套判定的**只读模式**（见上 §2 生成前判断）。
+#
+# ============================================================
+# ## Patch 登记总表（live / retired / superseded / never-shipped）
+# ============================================================
+# 用途：替代旧 verify-markers 那 158 项 needle 清单，一眼看清「哪些 patch 还活着、
+#       由谁承载、由谁校验」。**新增 patch 必须同步登记此表。**
+#
+# 状态定义：
+#   live        在用，仍承载功能
+#   retired     已退役（功能下线或目标不复存在），重放块/实体已摘除
+#   superseded  被上游取代（上游自己实现了同等或更好的能力）
+#   never       PLAN 里登记过但从未实施
+#
+# id   状态       承载者                              校验项（verify-markers）
+# ---- ---------- ---------------------------------- ---------------------------------
+# 001  live       实体 012-035-index-html            C001-brand-title
+# 002  live       实体 012-035-index-html            C002-no-update-api
+# 003  retired    并入 027 开屏（字标由开屏 DOM 承载）  无（注释保留）
+# 004  live       实体 012-035-index-html            C004-no-tailwind-cdn / -no-unpkg-vue
+# 005  live       实体 012-035-index-html            C005-mount-theme / -mount-ext
+# 006  live       实体 012-035-index-html            C006-no-google-fonts / -local-fonts
+# 007  live       实体 007-character / 007-029-novel  C007a / C007b（nocdn）+ A 组
+# 008  live       实体 012-035-index-html            无独立项（色板随实体等值覆盖）
+# 009  live       实体 009-035-core-utils             C009-font-luzzy + A 组
+# 010  live       实体 012-036-app                    C010-font-default
+# 011  live       实体 012-036-app                    C011-theme-default
+# 012  live       实体 012-035-index / 012-036-app    C012-resolve-model / -all-providers
+# 013  live       实体 012-035-index                   无独立项
+# 014  live       实体 012-035-index / -ui-components C014-about-view
+# 015  live       实体 012-036-app / 015-032-api-utils C015-gemini-adapter 等
+# 016  retired    无（随上游 1.9.5 记忆系统重构退场）  无 —— 实体已删，文件与上游逐字节相同
+# 017  retired    无（上游 1.9.5 无跨角色记忆管理界面） 无 —— app.js 留历史注释说明
+# 018  live       实体 012-035-index                   无独立项（随实体等值覆盖）
+# 019  live       实体 012-035-ui-components          C019-brand-sidebar
+# 020  retired    无（上游 1.9.5 删除向量检索窗口）     无 —— patch 026/020 的检索 UI 一并退场
+# 021  live       实体 012-035-index                   无独立项
+# 022  live       实体 012-035-index / 012-036-app     无独立项（全屏移除，负向）
+# 023  superseded 无（上游 1.9.7 已换掉失效图床）       无 —— 上游现用 img.cdn1.vip，无 picui
+# 024  live       实体 012-035-index / 012-036-app     无独立项
+# 025  live       实体 012-036-app / 012-035-ui-comp   无独立项（用量图表）
+# 026  live       实体 012-036-app                     无独立项（向量检索修正）
+# 027  live       实体 012-035-index                  C027-mount-splash
+# 028  live       实体 012-035-index / 012-036-app    C028-no-theme-switch
+# 029  live       实体 009-035-core / 012-036-app     C029-default-deepseek / -migrate
+# 030  live       实体 012-035-index / 012-036-app     无独立项（去上游版本插值）
+# 031  live       实体 012-036-app                     无独立项（记忆召回节点）
+# 032  live       实体 012-035-index / -runtime-serv   无独立项（流式渲染降级）
+# 033  live       实体 012-035-index                   无独立项（输入区过渡定向）
+# 034  live       ext/luzzy-theme.css（零 patch）       D2 扩展层存在性
+# 035  live       实体 012-035-index / ui-components   无独立项
+# 036  retired    无（上游 1.9.5 记忆管理器一并移除）    无
+# 037  live       实体 012-035-* / 012-036-app         无独立项
+# 038  live       实体 012-035-ui-components           无独立项
+# 039  live       实体 012-036-app                     无独立项
+# 040  live       实体 012-035-index / 012-036-app     无独立项
+# 041  live       实体 012-035-index / -ui-components  无独立项
+# 042  live       实体 012-036-app + ext/luzzy-stream  无独立项（流式增量）
+# 043  live       实体 012-036-app                     无独立项（模型列表）
+# 044  live       实体 012-036-app + ext/luzzy-stream  C044-live-buffer / -live-commit
+# 045  live       实体 012-035-index / 012-036-app    C044-*（同一活通道体系）
+# 046  live       实体 012-035-index / 012-036-app    C046-input-mirror / -input-hastext
+# 047  live       实体 012-036-app + ext/luzzy-prefix  C047-next-response / -mount-prefix
+# 048  live       实体 015-032-api-utils              C048-anthropic-cache / -cache-control
+# 049  never      无（PLAN-v1.6.0-dsh P2 阶段，未实施）  无
+# 050  retired    无（随「放弃原生 Kotlin + Compose」摘除） 无 —— index.html 留退役注释
+# 051  live       实体 012-036-app / 015-032-api-utils C051-toolcalls-guard / -max-tokens
+# 052  live       实体 012-036-app / -runtime-serv     C052-finish-record / -finish-ref
+#
+# 说明：标「无独立项」的并非无人校验 —— 它们全部落在 **A 组实体后像等值**的覆盖范围内
+#       （实体 patch 编码了该文件的完整二创意图）。A 组 8 项等价覆盖了旧清单里
+#       上百条 needle，且随实体重生成自动更新。真正需要独立 needle 的，只有
+#       「易被误删的跨文件契约」（C 组）与「红线」（D1）。
 # ------------------------------------------------------------
 

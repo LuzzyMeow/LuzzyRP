@@ -153,12 +153,40 @@
 
 ---
 
-## 6. 进度勾选（执行时更新）
+## 6. 进度勾选（2026-09-21 按实测回填）
 
-- [ ] P0 观测层 + 挂载
-- [ ] P1 patch 047 前缀稳定化
-- [ ] P2 patch 049 深度锚 + 压缩时机
-- [ ] P3 patch 048 Anthropic 断点 + 用量页命中率
-- [ ] P4 patch 050 Agent Loop DSH 化
-- [ ] P5 门禁 `tools/prefix-cache-test.cjs`
-- [ ] P6 真机实测 + 全门禁 + 构建 + 文档 + 提交
+> 本段长期留空，与事实脱节。以下为**实测结果**（逐项按工作树证据核对），非回忆。
+
+- [x] **P0 观测层 + 挂载** —— `ext/luzzy-prefix-guard.js` 在位（12,805 B），
+      `index.html` 有挂载点（1 处）。由 `verify-markers.ps1` 的 C047-mount-prefix 守护。
+- [x] **P1 patch 047 前缀稳定化** —— 5 处 `[LuzzyRP patch 047]` 标记；
+      门禁 `tools/prefix-cache-test.cjs` 实测公共前缀 0.9101 → 1.0000。
+- [ ] **P2 patch 049 深度锚 + 压缩时机** —— **未实施**（0 处标记，全仓无 049 记录）。
+      2026-09-21 判定**放弃**：其目标（把「距尾 depth」改成绝对深度锚、压缩只在跨轮触发）
+      在 1.9.5 上游记忆系统重构后已失去落点——上游删除了整套段落级向量分片机制
+      （`buildVectorMemory*` / `scoreVectorMemories` / `vectorMemorySearch*` 全部不存在），
+      改为 `selectEnhancedMemories` 的总结级召回，注入位置不再随对话变长漂移。
+      故本阶段的收益已由上游重构本身实现，不需要我方 patch。
+- [x] **P3 patch 048 Anthropic 断点 + 用量页命中率** —— `api-utils.js` 有
+      `withAnthropicCacheBreakpoint` 与 `cache_control` 断点（2 处标记）。
+      由 C048-anthropic-cache / -cache-control 守护。
+- [x] **P4 patch 050 Agent Loop DSH 化** —— 原实现为「原生 Kotlin 传输层卸载」，
+      随 2026-09-20「放弃原生 Kotlin + Compose 路线」**整体退役**
+      （`app.js` 的卸载分支还原为直接走 JS 路径；`index.html` 留退役注释）。
+      B1（工具轨迹落库回放）/ B2（递归改 while + 可配上限）/ B3（工具定义稳定序列化）
+      **未实施**——它们与 047 的前缀稳定目标相关但独立，尚无排期。
+- [x] **P5 回归门禁** —— `tools/prefix-cache-test.cjs` 在位并在每次同步后复跑。
+- [x] **P6 验收** —— release 包可构建（单 APK，versionCode 17 / v1.5.0）；
+      全门禁 + 文档已跑；真机目视于 2026-09-21 完成（模拟器四图）。
+
+**遗留（本计划未覆盖的独立项）**：P4 的 B1/B2/B3 三项（工具轨迹持久化、循环重构、
+工具定义稳定序列化）尚未实施，且不属本次上游同步加固范围。
+
+---
+
+## 7. 与上游同步的关系（2026-09-21 补记）
+
+本计划的 P1/P3 是**我方 patch**（047/048），在 1.9.3 → 1.9.7 分期合并中经实测确认
+在 1.9.7 下完好（`verify-markers.ps1` 的 C047/C048 组）。P2 的目标被上游重构取代（见上）。
+P0 的观测层 `luzzy-prefix-guard.js` 依赖「请求走全局 fetch」这一前提——若上游将来改用
+其他请求入口，该挂钩点会失效，届时需按 `tools/patches/README.md` 047 条重打。

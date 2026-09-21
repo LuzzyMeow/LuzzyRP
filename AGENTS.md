@@ -42,15 +42,37 @@ LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launc
 
 - **上游文件只允许通过 `tools/patches/` 登记的 patch 修改**；新功能优先落在 `assets/ext/` 独立文件（零冲突）。
 - 同步流程：`tools/sync-upstream.ps1`（覆盖上游 + 重放 patch + 更新指纹）→ 回归实测 → 构建发布。
-- **`nsfw_rules`（`built-in-content.js` 内）永远不可触碰**（硬性规定 1）。
+- **`nsfw_rules`（`built-in-content.js` 内）永远不可触碰**（硬性规定 1）；由 `verify-markers.ps1`
+  的 **D1 项**（块 SHA-256 固定）机器校验。
 - 参考克隆 `rp-hub-reference/`（不入库）是同步的基线来源，改上游前先 `git fetch` 对齐版本。
+  **它的 remote 必须是 SSH 形式**（`git@github.com:STA1N156/RP-Hub.git`）——本机 443 不通，
+  HTTPS 必然 fetch 失败；`sync-upstream.ps1` 会在启动时检查并给出改法。
 - **当前进度与逐处冲突裁决记录**：`docs/PLAN-upstream-merge.md`（分期合并台账）。
+- **patch 登记总表**（live / retired / superseded / never）：`tools/patches/README.md` 文末。
+  新增 patch 必须同步登记——它替代了旧的 158 项 needle 清单。
 
 ### 4.1 patch 重放失败的处置（上游大改时必读）
 
 实体 patch（`tools/patches/entities/*.patch`）带**期望前像**（头部 `index <pre>..<post>`）。
 `apply-patches.ps1` 用「目标文件 LF 归一 blob id == pre」判定能否干净应用；不符则退回
 「与上游纯净基线比对」，两者都不符即 **FAIL**——含义是**上游改了同一片区域**。
+该脚本**有退出码契约**（0 = 通过；1 = 有 FAIL），`sync-upstream.ps1` 依赖它判定同步成败。
+
+**判定「要重做多少」——跑只读预检，不要手工比对**：
+
+```powershell
+git -C rp-hub-reference fetch            # remote 已是 SSH
+git -C rp-hub-reference checkout <新版本 ref>
+powershell tools/apply-patches.ps1 -CheckBaseline <新ref>
+#   退出码 0 = 全部可重放 → 直接跑 tools/sync-upstream.ps1
+#   退出码 2 = 有需三方合并 → 走下面的六步
+```
+
+> ⚠ **不要**按旧文写的「比对实体头 `index <pre>` 与 `git rev-parse <ref>:<file>`」——
+> 参考克隆按 `core.autocrlf=true` 检出，存储 blob 是 **CRLF**，而实体前像是 **LF 归一**后的
+> blob id，两者永不相等。照那条做会把**可干净重放**的实体全部误判为需三方合并
+> （2026-09-21 实测：1.9.3 → 1.9.7 的 8 枚全被误判）。`-CheckBaseline` 内部做的是
+> 「取该 ref 文件字节 → LF 归一 → 算 blob id → 比前像」，这才是正确口径。
 
 **上游改动与 patch 面重叠时，禁止盲目覆盖 + 重放**（会得到破碎树）。正确路线是**三方合并**：
 
@@ -59,21 +81,36 @@ LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launc
    `ours` = 当前工作树、`theirs` = 新版上游；
 3. 逐文件合并：以 `theirs` 为底，把 `ours` 相对 `base` 的**意图**重新落到新结构上
    （不是文本搬运——上游重构后行号与结构都会变）；
-4. **重新生成实体 patch**：`git diff <新基线> <合并后工作树>` 产出实体，头部前像即为新基线 blob；
-5. 更新 `tools/upstream-fingerprints.txt`（表头 `commit <sha>` 必须同步，它是兜底判定依据）；
+4. **重新生成实体 patch**：按 `tools/patches/README.md` §2 生成规程逐枚重生成
+   （注意：不加 `--ignore-cr-at-eol`、用同构 base/ 与 ours/ 目录、diff 输出走 cmd 重定向），
+   头部前像即为新基线 blob；
+5. 更新 `tools/upstream-fingerprints.txt`（表头 `commit <sha>` 必须同步，它是兜底判定依据；
+   正常同步由 `sync-upstream.ps1` 自动写，手工合并后才需自己跑一次）；
 6. 复跑 `tools/verify-markers.ps1` 与 `tools/` 下的 JS 门禁，再做真机目视。
 
-**判定「要重做多少」的快速办法**：比对每枚实体头部的 `index <pre>` 与上游新版的
-`git rev-parse <ref>:<file>`——相等即可直接重放，不等则需三方合并。9 枚全不等即意味着
-上游动了所有 patch 面（**1.9.3 → 1.9.7 就是这种情形**：app.js 改动逾万行、index.html 逾两千行，
-还新增了 `assets/css/theme.css` 与 `assets/js/theme.js`）。
+### 4.2 同步机制的两条硬底线（2026-09-21 加固）
+
+改 `sync-upstream.ps1` 前务必理解这两条——它们各自对应一个**已被修复的真实缺陷**：
+
+1. **清单驱动，绝不整目录删拷**。同步只写「上游 `git ls-files` 列出的文件」、
+   只删「旧清单有而新清单没有的路径」。旧实现是「顶层目录先删后拷」，而
+   `$excludeDirs=@('vendor','fonts')` 在参考克隆顶层**永远匹配不到任何东西**
+   ——于是 `assets/` 被整目录删除，连带吃掉 `assets/fonts/` 下 11 个字体（16.2 MB），
+   且字体没有备份。脚本会在同步后断言「两集之外的文件一字未动」（保护不变式）。
+2. **覆盖必须 LF 归一写入，不能直接 `Copy-Item`**。上游存储 blob 自带 CRLF
+   （该仓库无 `.gitattributes`），直接拷参考克隆工作树会把 CRLF 灌进我方 LF 归一的树，
+   一次污染 21 个文件。文本文件一律「读 → LF 归一 → 写」。
+
+**每次同步后必须复跑**：`verify-markers.ps1`（66 项：实体后像等值 / 上游纯净等值 /
+语义锚点 / 红线与二创资产）+ `tools/` 下 5 个 JS 门禁。任一不过即同步未完成。
+
 
 ## 5. 测试与验收
 
 - **回归门在 `tools/` 下的 JS 门禁**（原生测试座已随 Compose 路线删除）：
   `node tools/prefix-cache-test.cjs`（前缀缓存）/ `stream-render-test.cjs`（流式渲染）/
   `page-handoff-test.cjs`（转场）/ `model-list-test.cjs`（模型列表）/ `desktop-smoke.cjs`（冒烟）；
-  `powershell tools/verify-markers.ps1` 校验扩展层完整性与 patch 标记。
+  `powershell tools/verify-markers.ps1` 校验二创标记与上游完整性（66 项，见 §4.2）。
 - **真机只装 release 包做人工目视**，严禁安装测试件。
 - **insets 只信真窗口截图**：`adb shell screencap -p` + `adb pull` 逐页看图——
   「顶栏被状态栏压住 / 文案出屏 / 底部按钮贴导航栏」这类缺陷只有真窗口截图看得见。

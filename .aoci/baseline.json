@@ -1,0 +1,2323 @@
+{
+  "version": 1,
+  "created_at": "2026-09-20T07:20:03Z",
+  "updated_at": "2026-09-21T07:54:28Z",
+  "files": {
+    ".gitattributes": {
+      "role": "index",
+      "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
+      "size": 291,
+      "normalized_sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476"
+    },
+    ".gitignore": {
+      "sha256": "b2ccbdd6df534486edeec6680cf6ff6ca8a96d80aaf0f9052f89408711be587d",
+      "size": 2024,
+      "normalized_sha256": "b2ccbdd6df534486edeec6680cf6ff6ca8a96d80aaf0f9052f89408711be587d"
+    },
+    "AGENTS.md": {
+      "sha256": "9d7f9b9031eed4c9480844e07edb9aca1ab60b84b756c574ed0812ce7f2eafc8",
+      "size": 17683,
+      "normalized_sha256": "60e1ad47f007079c2d7abe6614db64714ba76ebe535dd8ff60807e6ace41bcc4"
+    },
+    "CHANGELOG.md": {
+      "sha256": "1c30a676605c8a9ded1e4ef7b7024e4006791bdcda37e861d17c754f71e53e05",
+      "size": 178096,
+      "normalized_sha256": "dc2b59f79c857650b44f33c22f1d08b4b309797f79d47594e2478682f4df1dfb"
+    },
+    "DESIGN.md": {
+      "sha256": "716db6832e9559f20853a5384c5afcbe17389f7f2974a2a6160661150c9d4b9e",
+      "size": 42670,
+      "normalized_sha256": "716db6832e9559f20853a5384c5afcbe17389f7f2974a2a6160661150c9d4b9e"
+    },
+    "LICENSE": {
+      "sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0",
+      "size": 19347,
+      "normalized_sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0"
+    },
+    "LICENSE-AGPL-3.0": {
+      "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+      "size": 34523,
+      "normalized_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+    },
+    "README.md": {
+      "sha256": "4836371306c7ced633f50e8ca0c7e99f83bca9ea0760996ee9c53eeedd4c24b1",
+      "size": 21696,
+      "normalized_sha256": "6c7f60dbcf70d6ef1f803264f1c034aaf77c280b7f2cbc93ee17c2967368050d"
+    },
+    "aoci.code.txt": {
+      "role": "index",
+      "sha256": "9ba384061e2f39b5fcb48497cc5c7372ccf8ad9914fea19e16d35b9ceef7812a",
+      "size": 167433,
+      "normalized_sha256": "9ba384061e2f39b5fcb48497cc5c7372ccf8ad9914fea19e16d35b9ceef7812a"
+    },
+    "aoci.meta.txt": {
+      "role": "index",
+      "sha256": "60ffea0527ae0e1e2b5bf822c119cd3141118cdd33479dec063ee5f9c2114126",
+      "size": 1900,
+      "normalized_sha256": "60ffea0527ae0e1e2b5bf822c119cd3141118cdd33479dec063ee5f9c2114126"
+    },
+    "aoci.txt": {
+      "role": "index",
+      "sha256": "b4acb835eb48661926423f08cf98243812f9ac1b15019a9412bb1b89fd62a4de",
+      "size": 296,
+      "normalized_sha256": "b4acb835eb48661926423f08cf98243812f9ac1b15019a9412bb1b89fd62a4de"
+    },
+    "app/build.gradle.kts": {
+      "sha256": "7729affd96c937431eb5fa77216d69ea337f234c891073f6b6248ba50d1a2672",
+      "size": 12607,
+      "normalized_sha256": "7729affd96c937431eb5fa77216d69ea337f234c891073f6b6248ba50d1a2672"
+    },
+    "app/proguard-rules.pro": {
+      "sha256": "db32451d4a199bedc10c988f9116d195fb9e2fad2fa231497c0583ff88a61ef8",
+      "size": 330,
+      "normalized_sha256": "bfab97985ce46ecf92280e9e0a7c8801d11f4f8c91dcd855ea1d0dbd7ef1ec31"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/data/preset/PresetRepositoryTest.kt": {
+      "sha256": "9f5d746836a8c29dd65b4d8f63e5ca4d12c534ec691950192326fcd449676446",
+      "size": 4183,
+      "normalized_sha256": "9f5d746836a8c29dd65b4d8f63e5ca4d12c534ec691950192326fcd449676446"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/data/settings/SettingsStoreTest.kt": {
+      "sha256": "a047ea865fb814affb5e19ed90b1aff28c63a14d34be945ff56a7a7fbd7a8343",
+      "size": 8994,
+      "normalized_sha256": "a047ea865fb814affb5e19ed90b1aff28c63a14d34be945ff56a7a7fbd7a8343"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/data/store/LuzzyStoreTest.kt": {
+      "sha256": "19c2bd6558ca6a2afc31030443ce5354e50d3f78aeaba8ecffd49c1dc2446104",
+      "size": 13751,
+      "normalized_sha256": "19c2bd6558ca6a2afc31030443ce5354e50d3f78aeaba8ecffd49c1dc2446104"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/data/store/PerfProfileTest.kt": {
+      "sha256": "4ec31e089ee26a3309bc0259367b8c4eb6204ae4946f914411dcbbf9c9521b78",
+      "size": 7601,
+      "normalized_sha256": "4ec31e089ee26a3309bc0259367b8c4eb6204ae4946f914411dcbbf9c9521b78"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/data/world/WorldBookRepositoryTest.kt": {
+      "sha256": "f501db2615019fe5b7eb52b0424d71170a78d4761809eb7ac3d8272129efe486",
+      "size": 9201,
+      "normalized_sha256": "f501db2615019fe5b7eb52b0424d71170a78d4761809eb7ac3d8272129efe486"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/testing/Await.kt": {
+      "sha256": "da75edca66df155e51d09f30c07f667d9f56169063fe3774d14eb08aa59b40db",
+      "size": 5794,
+      "normalized_sha256": "da75edca66df155e51d09f30c07f667d9f56169063fe3774d14eb08aa59b40db"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/testing/Capture.kt": {
+      "sha256": "a5d327f533e152fff69c9d62331e5beda1208d72c6f3c1dd96878b7ee3971dd9",
+      "size": 3978,
+      "normalized_sha256": "a5d327f533e152fff69c9d62331e5beda1208d72c6f3c1dd96878b7ee3971dd9"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/testing/FakeTransport.kt": {
+      "sha256": "8eef29ba53b5e79d549772b904660ff93b54a0b2a45eb0fd9bb3ff3bb8cd37ed",
+      "size": 892,
+      "normalized_sha256": "8eef29ba53b5e79d549772b904660ff93b54a0b2a45eb0fd9bb3ff3bb8cd37ed"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/testing/SampleLegacyExport.kt": {
+      "sha256": "a6797cd319b7b1d6ce52ded4332b96db9914dd421128b78404fd675404e1ea5a",
+      "size": 4356,
+      "normalized_sha256": "a6797cd319b7b1d6ce52ded4332b96db9914dd421128b78404fd675404e1ea5a"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/testing/TestStoreFixture.kt": {
+      "sha256": "dcef530f1590603d8c09a953a9616f1f35d41590e12329a9b65497ca2933af8b",
+      "size": 3503,
+      "normalized_sha256": "3da11ef0e8d4a8cd3acb11f0a318bd07d2039d752e4be3e44514fd2c2b457316"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/markdown/MessageBodyUiTest.kt": {
+      "sha256": "69326fd416158788ac315df023a2387ae9bc859f872b08b2de343e1f7799b88f",
+      "size": 9270,
+      "normalized_sha256": "69326fd416158788ac315df023a2387ae9bc859f872b08b2de343e1f7799b88f"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/CharactersPageTest.kt": {
+      "sha256": "1d1f938db260c0f8d6e8689751556d93926e2773f8203614811d2ba3234910e4",
+      "size": 18850,
+      "normalized_sha256": "1d1f938db260c0f8d6e8689751556d93926e2773f8203614811d2ba3234910e4"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/DarkModeVisualCaptureTest.kt": {
+      "sha256": "e57f082229de5a7d8171fa6e24f8bfb0e6fe8cb41ce97b4de0c49b0b19daf960",
+      "size": 14234,
+      "normalized_sha256": "e57f082229de5a7d8171fa6e24f8bfb0e6fe8cb41ce97b4de0c49b0b19daf960"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/LargeFontUiCaptureTest.kt": {
+      "sha256": "5ab51464030c6ebe7e55503f8b263d236efd5a778f4031c57cddebf979998767",
+      "size": 8019,
+      "normalized_sha256": "5ab51464030c6ebe7e55503f8b263d236efd5a778f4031c57cddebf979998767"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/LoomGalleryVisualCaptureTest.kt": {
+      "sha256": "3654c7ff3f8bcf0a67c2782f428546033070d1a1f4c36f55878a00974e6a77a5",
+      "size": 9545,
+      "normalized_sha256": "3654c7ff3f8bcf0a67c2782f428546033070d1a1f4c36f55878a00974e6a77a5"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/MemoryVisualCaptureTest.kt": {
+      "sha256": "8870ab986ea89b81d07154f5cabdb99347ce612948d567202c4740bb009a5488",
+      "size": 12976,
+      "normalized_sha256": "8870ab986ea89b81d07154f5cabdb99347ce612948d567202c4740bb009a5488"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/MigrationReportUiTest.kt": {
+      "sha256": "322ec981f99f3eac72cd97996ce5424d168cd76754e60ab1520dcb21ea461d4a",
+      "size": 4309,
+      "normalized_sha256": "322ec981f99f3eac72cd97996ce5424d168cd76754e60ab1520dcb21ea461d4a"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/OtherPagesVisualCaptureTest.kt": {
+      "sha256": "a1f6be6f332f9607e182f04c21e2afaa63c741a9b1839056573b7742efa2f360",
+      "size": 9884,
+      "normalized_sha256": "a1f6be6f332f9607e182f04c21e2afaa63c741a9b1839056573b7742efa2f360"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/PageDataUiTest.kt": {
+      "sha256": "d3067e15041b3703969ffcb0ec0611137517be112ba3104afba360e6039e432f",
+      "size": 20860,
+      "normalized_sha256": "d3067e15041b3703969ffcb0ec0611137517be112ba3104afba360e6039e432f"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/PresetsPageTest.kt": {
+      "sha256": "f8410687e5f0c414090945026e31e4ffae8fbed4279b35f8f15004f3926dfc33",
+      "size": 6783,
+      "normalized_sha256": "f8410687e5f0c414090945026e31e4ffae8fbed4279b35f8f15004f3926dfc33"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/ReachabilityUiTest.kt": {
+      "sha256": "5742eb6ea2574183abbef3858742498c98acd2f6c171bcbbd9099f5d29c42290",
+      "size": 13522,
+      "normalized_sha256": "04eb23e5eecb6f553f6254580a1226c786b2d8fa682cde3e57c1a801969ccbbe"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/ReachabilityVisualCaptureTest.kt": {
+      "sha256": "577b60b1efbae8145f978d25a25b1311b1a30cec62363fac7fb041f1a1810177",
+      "size": 7273,
+      "normalized_sha256": "577b60b1efbae8145f978d25a25b1311b1a30cec62363fac7fb041f1a1810177"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/SessionsPageTest.kt": {
+      "sha256": "542c9081a13b98b87f89133992d644c129a561c69326a779fdbc6f582543f849",
+      "size": 5134,
+      "normalized_sha256": "542c9081a13b98b87f89133992d644c129a561c69326a779fdbc6f582543f849"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/ThemeContrastTest.kt": {
+      "sha256": "c4b387c59db071804f6dfd44420f2e5d1f155dd5402b74f846ea0457b8ea8706",
+      "size": 4984,
+      "normalized_sha256": "c4b387c59db071804f6dfd44420f2e5d1f155dd5402b74f846ea0457b8ea8706"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/UsageVisualCaptureTest.kt": {
+      "sha256": "d8beeae16fe91ba2ee17ae5301584476507d91c8884f82074cee2ee41deff17c",
+      "size": 6139,
+      "normalized_sha256": "d8beeae16fe91ba2ee17ae5301584476507d91c8884f82074cee2ee41deff17c"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/WorldInfoPageTest.kt": {
+      "sha256": "f9213c2b7d4602239f03b65ec1bc1bf5048a84ed74287b0629aab263e27cd82b",
+      "size": 14258,
+      "normalized_sha256": "8112f7c2536d7935f90451a1e6c684f16880331dc82974b6319c35b1f60cbe03"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/chat/AttachmentStoreTest.kt": {
+      "sha256": "c8ca83e5ef545c0eea069b20ae4b5c2ea874c8c46fa35a4d462a17dfe956d0ed",
+      "size": 3716,
+      "normalized_sha256": "c8ca83e5ef545c0eea069b20ae4b5c2ea874c8c46fa35a4d462a17dfe956d0ed"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatPersistenceTest.kt": {
+      "sha256": "63e3a7dfd56ff8264906b036e95944ef6b4bd5d8ab68566afbec4f619dde33e0",
+      "size": 22176,
+      "normalized_sha256": "568c614711f6fd266687b26c3956413f1ba467afba15fa8aa2d42d37a38ecf38"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatUiTest.kt": {
+      "sha256": "b71d5074d4189ac0e09e03ea664894edefe45ce80f84c035d6dcd8713c090e9d",
+      "size": 13353,
+      "normalized_sha256": "b71d5074d4189ac0e09e03ea664894edefe45ce80f84c035d6dcd8713c090e9d"
+    },
+    "app/src/androidTest/java/com/luzzymeow/luzzyrp/ui/theme/FontScaleUiTest.kt": {
+      "sha256": "b1153ccaa2057561b505dbf7ce527294e9fe809c6113d65ad90986daea50462c",
+      "size": 2884,
+      "normalized_sha256": "b1153ccaa2057561b505dbf7ce527294e9fe809c6113d65ad90986daea50462c"
+    },
+    "app/src/debug/AndroidManifest.xml": {
+      "sha256": "225f57cd522423536c15038e52e33bee7b83cbfc31d63825c2272a7028b84c1c",
+      "size": 693,
+      "normalized_sha256": "225f57cd522423536c15038e52e33bee7b83cbfc31d63825c2272a7028b84c1c"
+    },
+    "app/src/debug/java/com/luzzymeow/luzzyrp/DevInputReceiver.kt": {
+      "role": "index",
+      "sha256": "06e9259f01af31e3d3290b1c6b7250261242fcfa293dcf5eb2d803aadd1fa872",
+      "size": 1080,
+      "normalized_sha256": "06e9259f01af31e3d3290b1c6b7250261242fcfa293dcf5eb2d803aadd1fa872"
+    },
+    "app/src/main/AndroidManifest.xml": {
+      "sha256": "3b7d88cb1e2171949692653d3e5c904a2315b707258a9a565c50ba1bf1641f4c",
+      "size": 1921,
+      "normalized_sha256": "3b7d88cb1e2171949692653d3e5c904a2315b707258a9a565c50ba1bf1641f4c"
+    },
+    "app/src/main/assets/ext/luzzy-bridge.js": {
+      "role": "index",
+      "sha256": "ec0b77dfcdd7bb90142f0a4a6577b9b07b3ff738d404d734a64674fb2df56e68",
+      "size": 7607,
+      "normalized_sha256": "ec0b77dfcdd7bb90142f0a4a6577b9b07b3ff738d404d734a64674fb2df56e68"
+    },
+    "app/src/main/assets/ext/luzzy-changelog.js": {
+      "sha256": "c181a966e36a2bf008e190c48fcc7a5c9198e54d8e14bb08bbbb24c341398561",
+      "size": 180654,
+      "normalized_sha256": "1a33f5157ae1f797752fcfb4321daef4322d1a008f10df64962afca5e6b8e683"
+    },
+    "app/src/main/assets/ext/luzzy-chat-native.js": {
+      "sha256": "80cab628a575b5d2295dc688a2319ca168c270781a3a382d6e0484bdfb94a958",
+      "size": 7407,
+      "normalized_sha256": "80cab628a575b5d2295dc688a2319ca168c270781a3a382d6e0484bdfb94a958"
+    },
+    "app/src/main/assets/ext/luzzy-chat-offload.js": {
+      "sha256": "c3765b986516839d38d220220e4cba81d7f24e0d37daf9c4c518adf69f65b7fa",
+      "size": 15051,
+      "normalized_sha256": "c3765b986516839d38d220220e4cba81d7f24e0d37daf9c4c518adf69f65b7fa"
+    },
+    "app/src/main/assets/ext/luzzy-ext.js": {
+      "sha256": "ae8d9e8f075b4a9600220bf6c66980a224223024e3756c91942d21300231cc5f",
+      "size": 15306,
+      "normalized_sha256": "ae8d9e8f075b4a9600220bf6c66980a224223024e3756c91942d21300231cc5f"
+    },
+    "app/src/main/assets/ext/luzzy-migrate.html": {
+      "sha256": "4e993c5782983dc92a9e62851ce6501865c0e65446f91811731a14027f315cd6",
+      "size": 9617,
+      "normalized_sha256": "4e993c5782983dc92a9e62851ce6501865c0e65446f91811731a14027f315cd6"
+    },
+    "app/src/main/assets/ext/luzzy-prefix-guard.js": {
+      "sha256": "c14579a77e658f6f4951f2106b89ea09284a7cf133692a7f22055f9958ed2a70",
+      "size": 12805,
+      "normalized_sha256": "c14579a77e658f6f4951f2106b89ea09284a7cf133692a7f22055f9958ed2a70"
+    },
+    "app/src/main/assets/ext/luzzy-splash.js": {
+      "sha256": "aec101a5b4d74a0644530d7a837f79435ab563995944994bbe37b6f77b7f51a9",
+      "size": 1929,
+      "normalized_sha256": "aec101a5b4d74a0644530d7a837f79435ab563995944994bbe37b6f77b7f51a9"
+    },
+    "app/src/main/assets/ext/luzzy-stream.js": {
+      "sha256": "b639eb2987cb0cc58306a6adf6a2e68084877911f4af2ee5de8820d01daaf70c",
+      "size": 17892,
+      "normalized_sha256": "b639eb2987cb0cc58306a6adf6a2e68084877911f4af2ee5de8820d01daaf70c"
+    },
+    "app/src/main/assets/ext/luzzy-theme.css": {
+      "sha256": "dcf94309ab614302b741c9573c1e06d17e4081b223f5689dbe7e3c8d4c335d09",
+      "size": 55292,
+      "normalized_sha256": "10a1a8f290ae18db14dfa0f5e97e6f3fc104e7f7c5c4801d97d08f3fab60b353"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/AgentLoop.kt": {
+      "sha256": "4161158b81e34a103a9a9096226d0fc834d704c31d22401366f7723f7d16697f",
+      "size": 26526,
+      "normalized_sha256": "4161158b81e34a103a9a9096226d0fc834d704c31d22401366f7723f7d16697f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/BranchModel.kt": {
+      "sha256": "220906798da4661f068d9942646f98e1fbcfdc97425caa80f6e5d7a86efb9a2d",
+      "size": 5661,
+      "normalized_sha256": "220906798da4661f068d9942646f98e1fbcfdc97425caa80f6e5d7a86efb9a2d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/CacheObserver.kt": {
+      "sha256": "05757078a051ac96546f735e2490c736a323e8822b787eb2d62d1310bcb9335a",
+      "size": 11783,
+      "normalized_sha256": "05757078a051ac96546f735e2490c736a323e8822b787eb2d62d1310bcb9335a"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/CharacterCards.kt": {
+      "sha256": "784ad0dc4a9dd5285248ae945b7c0af383f89dfa26ce69289f8fb74ef54ce32d",
+      "size": 8376,
+      "normalized_sha256": "784ad0dc4a9dd5285248ae945b7c0af383f89dfa26ce69289f8fb74ef54ce32d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/ChatJobs.kt": {
+      "sha256": "6dbff6acb2ec6502c4d3c6b1274688183665f278e45bc18ed99c31995417e8f6",
+      "size": 10817,
+      "normalized_sha256": "6dbff6acb2ec6502c4d3c6b1274688183665f278e45bc18ed99c31995417e8f6"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/ChatPlan.kt": {
+      "sha256": "6a4c6112a2e735326f8a33e5b5894e8ead1c8255afb50dedf896dd4c2e95c586",
+      "size": 4799,
+      "normalized_sha256": "6a4c6112a2e735326f8a33e5b5894e8ead1c8255afb50dedf896dd4c2e95c586"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/ChatRequest.kt": {
+      "sha256": "8d9756e17763154c0aec31c47833e21268bbbcfd4f33679606a616212a2518f7",
+      "size": 1522,
+      "normalized_sha256": "8d9756e17763154c0aec31c47833e21268bbbcfd4f33679606a616212a2518f7"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/Compaction.kt": {
+      "sha256": "876c2056e3d9efadfb1c90c9c6619ed79b9d94253e74c4a7314bd394293f801d",
+      "size": 10230,
+      "normalized_sha256": "876c2056e3d9efadfb1c90c9c6619ed79b9d94253e74c4a7314bd394293f801d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/CotParser.kt": {
+      "sha256": "597575d5572a4678b860affc2a57760524746958d67e677bc7d66797e2811586",
+      "size": 9353,
+      "normalized_sha256": "597575d5572a4678b860affc2a57760524746958d67e677bc7d66797e2811586"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/JsCall.kt": {
+      "sha256": "cf41c423209f5745895f8dd738bc299cb6c32467cab86497daf7f5b86a2539ba",
+      "size": 1791,
+      "normalized_sha256": "cf41c423209f5745895f8dd738bc299cb6c32467cab86497daf7f5b86a2539ba"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/MemoryBrowser.kt": {
+      "sha256": "002c09b97908958f5540ee67150714523292dbf0eb96bfb90162de9bdd07b4f2",
+      "size": 8820,
+      "normalized_sha256": "002c09b97908958f5540ee67150714523292dbf0eb96bfb90162de9bdd07b4f2"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/MemorySummarizer.kt": {
+      "sha256": "da51e7a126c4bce3a13567eeb9484264478a00240e3f231748f4de0f039ef1f4",
+      "size": 7680,
+      "normalized_sha256": "da51e7a126c4bce3a13567eeb9484264478a00240e3f231748f4de0f039ef1f4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/ModelCatalog.kt": {
+      "sha256": "31a75f22ba1d281437bb9b9b379e8faadfb2eaf094aed31430bb75d29e398eac",
+      "size": 3534,
+      "normalized_sha256": "31a75f22ba1d281437bb9b9b379e8faadfb2eaf094aed31430bb75d29e398eac"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/PageAggregates.kt": {
+      "sha256": "79bef7f2975a3047a3de2c0991806d6c935c78eaf109ad34c83d6fb2a8aa814e",
+      "size": 14770,
+      "normalized_sha256": "79bef7f2975a3047a3de2c0991806d6c935c78eaf109ad34c83d6fb2a8aa814e"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/PageDataSource.kt": {
+      "sha256": "9e43056b07597c48e3964b6311913e4184a43cd5d15112e5165f2c502ff71f09",
+      "size": 23285,
+      "normalized_sha256": "9e43056b07597c48e3964b6311913e4184a43cd5d15112e5165f2c502ff71f09"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/Placeholders.kt": {
+      "sha256": "1dcc8026d862ce48a736a282e915ec6d23906441f73822e6d7b6a99bd3c4014d",
+      "size": 1874,
+      "normalized_sha256": "1dcc8026d862ce48a736a282e915ec6d23906441f73822e6d7b6a99bd3c4014d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/PromptAssembler.kt": {
+      "sha256": "d28830ec8aff29b69caab221c471a4e15f0953e85e473adbdcb3778b8ba9eeb3",
+      "size": 21015,
+      "normalized_sha256": "87c9a4246953fddd2b3019f97c2f2b9ff0c53f783b93361917546cc3e69a3cbf"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/PromptInputSource.kt": {
+      "sha256": "fc68bfe34b9085d5b72802da30821d7e4dd979c338b232c3e2ceaa86224bcfcf",
+      "size": 12560,
+      "normalized_sha256": "fc68bfe34b9085d5b72802da30821d7e4dd979c338b232c3e2ceaa86224bcfcf"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/PromptSections.kt": {
+      "sha256": "73a109365d6ad40593a1ba9d66645523f672fb3be07775a589e3645c5611293c",
+      "size": 10689,
+      "normalized_sha256": "73a109365d6ad40593a1ba9d66645523f672fb3be07775a589e3645c5611293c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/RecallEngine.kt": {
+      "sha256": "a40f8419f2ad65f600890c88d90485eef0c4a5d085f4eadfe5cdfa60fba37c5d",
+      "size": 6122,
+      "normalized_sha256": "a40f8419f2ad65f600890c88d90485eef0c4a5d085f4eadfe5cdfa60fba37c5d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/RecallOptions.kt": {
+      "sha256": "8a2aad2f786b614a490e01da3f9587e6331975599406f0de863fd8bbaedeca85",
+      "size": 5073,
+      "normalized_sha256": "8a2aad2f786b614a490e01da3f9587e6331975599406f0de863fd8bbaedeca85"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/RegexScripts.kt": {
+      "sha256": "71969b1f339a844af9abcf7336303e28b60bf484e13672bc47d428b06f10507a",
+      "size": 29216,
+      "normalized_sha256": "71969b1f339a844af9abcf7336303e28b60bf484e13672bc47d428b06f10507a"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/RetryPolicy.kt": {
+      "sha256": "121519a18542d921975a967adaa0d29fb82cd2d39feedeca4e4a86f366789b72",
+      "size": 2887,
+      "normalized_sha256": "121519a18542d921975a967adaa0d29fb82cd2d39feedeca4e4a86f366789b72"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/RuntimeSnapshots.kt": {
+      "sha256": "1487460bd5a3c55ea9fd7691f72d56c80f1e029e036fffb27e7bc4a50d766d78",
+      "size": 3892,
+      "normalized_sha256": "1487460bd5a3c55ea9fd7691f72d56c80f1e029e036fffb27e7bc4a50d766d78"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/StyleFilter.kt": {
+      "sha256": "ddf519e87df8581f8514ed35f23b65ddea3f4d07bd497217000cadfcdc3188f7",
+      "size": 13040,
+      "normalized_sha256": "ddf519e87df8581f8514ed35f23b65ddea3f4d07bd497217000cadfcdc3188f7"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/TimedEffects.kt": {
+      "sha256": "992df8af53a19cc6734f17953a6637811f330518e38fe5412a127e867583ad82",
+      "size": 8878,
+      "normalized_sha256": "992df8af53a19cc6734f17953a6637811f330518e38fe5412a127e867583ad82"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/ToolMarkupFilter.kt": {
+      "sha256": "abb5c9628b5e7b5be5454e4beec72c5817a185939faeb2c196040c61c8a0a4ce",
+      "size": 6556,
+      "normalized_sha256": "abb5c9628b5e7b5be5454e4beec72c5817a185939faeb2c196040c61c8a0a4ce"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/ToolTrail.kt": {
+      "sha256": "1776d15f5b92d86ee29ef5788c604d40eb01c2e4ccdf684644a3d1b5d2f12642",
+      "size": 4355,
+      "normalized_sha256": "1776d15f5b92d86ee29ef5788c604d40eb01c2e4ccdf684644a3d1b5d2f12642"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/TransportConfig.kt": {
+      "sha256": "a173f8cca16250f38acc015bfd3e76ac3a2193adedefe4bca4a47d5c7e1cee98",
+      "size": 7069,
+      "normalized_sha256": "3c0fae560af9a61c4ce04da30cbbfe9b3f2ccafadc485255624301638979ed67"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/UiTemplateUpdates.kt": {
+      "sha256": "c62dafb1e1a20065f76e358b3106ca3809bd10a1ce7cffaa34830fc702a2e70c",
+      "size": 11988,
+      "normalized_sha256": "c62dafb1e1a20065f76e358b3106ca3809bd10a1ce7cffaa34830fc702a2e70c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/UsageChart.kt": {
+      "sha256": "ce955cd75e70e68d5f497567b843a364a090b118eb4a342e1d229b312231264d",
+      "size": 13313,
+      "normalized_sha256": "ce955cd75e70e68d5f497567b843a364a090b118eb4a342e1d229b312231264d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/UsageInfo.kt": {
+      "sha256": "b2877f85af2c932f288644af7fe2eeb7353c4f460680d7a5e5a018f153a035cb",
+      "size": 3918,
+      "normalized_sha256": "b2877f85af2c932f288644af7fe2eeb7353c4f460680d7a5e5a018f153a035cb"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/VanioCard.kt": {
+      "sha256": "b11b91f163f9b9bb7d5ba77e241c1bfa0fb611d8819c857ee5cdcb2dc0407cbb",
+      "size": 3333,
+      "normalized_sha256": "b11b91f163f9b9bb7d5ba77e241c1bfa0fb611d8819c857ee5cdcb2dc0407cbb"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/WorldBookActivator.kt": {
+      "sha256": "85db8966b94c96e02e305b17f09fae586cf9f9c967da03500e6e3f0e1eec1e04",
+      "size": 11035,
+      "normalized_sha256": "85db8966b94c96e02e305b17f09fae586cf9f9c967da03500e6e3f0e1eec1e04"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/WorldBookTool.kt": {
+      "sha256": "b333ff11c9c8c191e3648322ee60a41a8203074bccf64f147888b49ce64246fd",
+      "size": 7097,
+      "normalized_sha256": "b333ff11c9c8c191e3648322ee60a41a8203074bccf64f147888b49ce64246fd"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/AnthropicTransport.kt": {
+      "sha256": "133196f79d2dd77fb41bacca0feac43507959c2b69940939b5cd1f91d1a1b94d",
+      "size": 3187,
+      "normalized_sha256": "133196f79d2dd77fb41bacca0feac43507959c2b69940939b5cd1f91d1a1b94d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/AnthropicWire.kt": {
+      "sha256": "73cd38b596488c89efd291371f683e345e358f8b3a4e01b8a0b158fc3f80dec8",
+      "size": 11959,
+      "normalized_sha256": "73cd38b596488c89efd291371f683e345e358f8b3a4e01b8a0b158fc3f80dec8"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/BudgetGuard.kt": {
+      "sha256": "a39ba004ef23b8068d71e839011fd80959b8311f499f13572b0955a039260da3",
+      "size": 3988,
+      "normalized_sha256": "a39ba004ef23b8068d71e839011fd80959b8311f499f13572b0955a039260da3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/GeminiTransport.kt": {
+      "sha256": "f45b83f5ddb0c8a6aef113deabf16e39ab7dece9b9356ac93349a98dda901750",
+      "size": 3221,
+      "normalized_sha256": "f45b83f5ddb0c8a6aef113deabf16e39ab7dece9b9356ac93349a98dda901750"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/GeminiWire.kt": {
+      "sha256": "422e76e4279e31f19bccc71a2d848b048186016170e06c5f8ebcf81470203266",
+      "size": 10167,
+      "normalized_sha256": "422e76e4279e31f19bccc71a2d848b048186016170e06c5f8ebcf81470203266"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/JsonLenient.kt": {
+      "sha256": "9a4863bd94ecc8a3fb5dd5dc2b08d0ba80eaa00c4ea6c2b8ed1e10d038c66700",
+      "size": 1788,
+      "normalized_sha256": "9a4863bd94ecc8a3fb5dd5dc2b08d0ba80eaa00c4ea6c2b8ed1e10d038c66700"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/LlmTransport.kt": {
+      "sha256": "37cb7b00f79eb7b7d68cb3c464646cda01f134fe733c2db0a02da911d78260b5",
+      "size": 14340,
+      "normalized_sha256": "37cb7b00f79eb7b7d68cb3c464646cda01f134fe733c2db0a02da911d78260b5"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/OpenAiTransport.kt": {
+      "sha256": "4a29c17429e9b1b5165a3f599a5a3160e057e81914bee711852050e29d098070",
+      "size": 3305,
+      "normalized_sha256": "4a29c17429e9b1b5165a3f599a5a3160e057e81914bee711852050e29d098070"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/OpenAiWire.kt": {
+      "sha256": "7c065dd7c9dc86127d8f58d80925291906e46a58a0d2a862e018859ac202e05c",
+      "size": 9610,
+      "normalized_sha256": "7c065dd7c9dc86127d8f58d80925291906e46a58a0d2a862e018859ac202e05c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/RoutingTransport.kt": {
+      "sha256": "daa95f01fd221e2b0b6f9a33a1d0cbda376c5c0f9af18dd7fa0b95a4786ec003",
+      "size": 1999,
+      "normalized_sha256": "daa95f01fd221e2b0b6f9a33a1d0cbda376c5c0f9af18dd7fa0b95a4786ec003"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/SseClient.kt": {
+      "sha256": "e251eb61d5849cdede09e98851af3205d30e99937513949bce9087e96e5c1e3c",
+      "size": 7748,
+      "normalized_sha256": "e251eb61d5849cdede09e98851af3205d30e99937513949bce9087e96e5c1e3c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/chat/llm/SseFrames.kt": {
+      "sha256": "efd5c86ee0deb41b3776a622ef0420d3409871f6d21187aabc5676654dc1d8e3",
+      "size": 4081,
+      "normalized_sha256": "efd5c86ee0deb41b3776a622ef0420d3409871f6d21187aabc5676654dc1d8e3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/chat/ChatSessionRepository.kt": {
+      "sha256": "97410a631143c32d81a5b49e31579a3d3643c1cbdc2070502fed90461b75e009",
+      "size": 39869,
+      "normalized_sha256": "4725bf10edadb905dd05b035731ea1668b1ebc31d825e75feed509e3669b6188"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/LegacyExportFormat.kt": {
+      "sha256": "ebc3c2b6b613dd2dcde3b080271c6bee5562f56b782209a1117b2d6e77eb705c",
+      "size": 7684,
+      "normalized_sha256": "ebc3c2b6b613dd2dcde3b080271c6bee5562f56b782209a1117b2d6e77eb705c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/LegacyKeys.kt": {
+      "sha256": "445a32442c620aac1193d649f4a87c05a82b439044935c96e089b0093f536657",
+      "size": 3698,
+      "normalized_sha256": "445a32442c620aac1193d649f4a87c05a82b439044935c96e089b0093f536657"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/LegacyMigrator.kt": {
+      "sha256": "83acc950f72643b173afa96af34f08d1cb0ab3537daec5f6f694700283a36cd1",
+      "size": 31309,
+      "normalized_sha256": "83acc950f72643b173afa96af34f08d1cb0ab3537daec5f6f694700283a36cd1"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/MigratedData.kt": {
+      "sha256": "73f5a01f6d260d455f928ea7adab2c026bb7da2a39a2b14eef8fafe64b7df403",
+      "size": 7419,
+      "normalized_sha256": "73f5a01f6d260d455f928ea7adab2c026bb7da2a39a2b14eef8fafe64b7df403"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/MigrationCoordinator.kt": {
+      "sha256": "586a057fd7ee89e663d489eddcc3ce82ef68427cad9a2095746c0f10130ed4df",
+      "size": 4117,
+      "normalized_sha256": "586a057fd7ee89e663d489eddcc3ce82ef68427cad9a2095746c0f10130ed4df"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/MigrationInbox.kt": {
+      "sha256": "c6b7f5c2ee012f89cfb603e95708d85dc5edd0770929c9d3b9ae73171665dda7",
+      "size": 6087,
+      "normalized_sha256": "c6b7f5c2ee012f89cfb603e95708d85dc5edd0770929c9d3b9ae73171665dda7"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/MigrationReport.kt": {
+      "sha256": "e4f3c36065799fe4a05c6aa4db4df71c7827354e51b094dcfaa6e82011fd7789",
+      "size": 3185,
+      "normalized_sha256": "e4f3c36065799fe4a05c6aa4db4df71c7827354e51b094dcfaa6e82011fd7789"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/legacy/MigrationRunner.kt": {
+      "sha256": "a8bb6caaa54314523f534ff1358787e3baa24f71b116432bc3f9bed91675657d",
+      "size": 7597,
+      "normalized_sha256": "a8bb6caaa54314523f534ff1358787e3baa24f71b116432bc3f9bed91675657d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/preset/PresetEntry.kt": {
+      "sha256": "6014964140434e6c57f834e53f05e46038dc901afe9e72292c531006acd060c3",
+      "size": 3226,
+      "normalized_sha256": "6014964140434e6c57f834e53f05e46038dc901afe9e72292c531006acd060c3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/preset/PresetOps.kt": {
+      "sha256": "aeaf400de5ea80f015d5c2a66d66dd6d69ead492fb93dbf1ea683161eccc09d3",
+      "size": 2301,
+      "normalized_sha256": "aeaf400de5ea80f015d5c2a66d66dd6d69ead492fb93dbf1ea683161eccc09d3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/preset/PresetRepository.kt": {
+      "sha256": "8df6cce5fcc4a68097ae4dc5ee343a5ecafdbea2caf4c83af227358c6c388094",
+      "size": 1899,
+      "normalized_sha256": "8df6cce5fcc4a68097ae4dc5ee343a5ecafdbea2caf4c83af227358c6c388094"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/settings/AppSettings.kt": {
+      "sha256": "949323aba9ae0d7f052ed8d73986b6c49a2c914f15e6e9ab7ac38f810a29cfdf",
+      "size": 6591,
+      "normalized_sha256": "949323aba9ae0d7f052ed8d73986b6c49a2c914f15e6e9ab7ac38f810a29cfdf"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/settings/SettingsBootstrap.kt": {
+      "sha256": "c463af5354c73d9581c685dbd713de9f143284c63c16be834432350486ebc722",
+      "size": 8617,
+      "normalized_sha256": "c463af5354c73d9581c685dbd713de9f143284c63c16be834432350486ebc722"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/settings/SettingsStore.kt": {
+      "sha256": "39936d9f121e81c31b598dca28866560371a46c0cd626486f2b2ad5f13855ecb",
+      "size": 2630,
+      "normalized_sha256": "39936d9f121e81c31b598dca28866560371a46c0cd626486f2b2ad5f13855ecb"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/store/DatabaseProvider.kt": {
+      "sha256": "e36dde02cc7ff2897a0739a7778773590f1a3aab032164fe67d52d7bde46d0f4",
+      "size": 2667,
+      "normalized_sha256": "e36dde02cc7ff2897a0739a7778773590f1a3aab032164fe67d52d7bde46d0f4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/store/LuzzyDao.kt": {
+      "sha256": "b6ceb40a04127640cf15ecff1b26b0366d9714b7086f1cbd4104b004696379d0",
+      "size": 11631,
+      "normalized_sha256": "b6ceb40a04127640cf15ecff1b26b0366d9714b7086f1cbd4104b004696379d0"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/store/LuzzyEntities.kt": {
+      "sha256": "d7e0d84780916f136be36debf3e9af760d6f9f38e27ed7920ef614ee36cd83de",
+      "size": 5503,
+      "normalized_sha256": "d7e0d84780916f136be36debf3e9af760d6f9f38e27ed7920ef614ee36cd83de"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/store/LuzzyStore.kt": {
+      "sha256": "9b1304a1fb200fae735899715c337ea33d91b39a9186e39b2b198075c1974b85",
+      "size": 14565,
+      "normalized_sha256": "1b69447e1d3f5ae8502e42c051c797172b39cf899895d289853f6c8937d499f0"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/store/MigrationWriter.kt": {
+      "sha256": "b38044b7838c2c1c47d0348b148662d0af3a2befc43e0ebe3fd6e815b33e2e08",
+      "size": 11459,
+      "normalized_sha256": "b38044b7838c2c1c47d0348b148662d0af3a2befc43e0ebe3fd6e815b33e2e08"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/transfer/TransferFormat.kt": {
+      "sha256": "0d991c6d3198d11d493c260d3ced895eaa05a2f346ea404259ec64edef4d14d1",
+      "size": 4644,
+      "normalized_sha256": "0d991c6d3198d11d493c260d3ced895eaa05a2f346ea404259ec64edef4d14d1"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/transfer/TransferStore.kt": {
+      "sha256": "1ef39247ec2e47f1fa76579f4182aac1989dac801cb2777cf21930bd54e1f7c4",
+      "size": 4466,
+      "normalized_sha256": "16ce7514d76faa5e7643b047bc3549601f108bd9e0aac39a798f4e0718393790"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/LoreBook.kt": {
+      "sha256": "b58e8ccf9f35b4463b250a235810da51139ff2f342ee7bdf27729150a621767c",
+      "size": 5134,
+      "normalized_sha256": "9d2504d5db581999c9c575c7f63cef81e92de312d004fd90b9d28db138c4ad52"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/LoreBookRepository.kt": {
+      "sha256": "15075b6d03fac3119f331840bef8a4f650b3c28c891532b990a35257314bfd3f",
+      "size": 18076,
+      "normalized_sha256": "15075b6d03fac3119f331840bef8a4f650b3c28c891532b990a35257314bfd3f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/WorldBookFormats.kt": {
+      "sha256": "7ca7d2a4bf140bb72da7f7a7e840446e0fc27037d32d9bc315b53c8bdcc41dcd",
+      "size": 3924,
+      "normalized_sha256": "7ca7d2a4bf140bb72da7f7a7e840446e0fc27037d32d9bc315b53c8bdcc41dcd"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/WorldBookMigration.kt": {
+      "sha256": "bfa88917fbf9eb450119f6ffc6bf474e813318105930e87c81f404a19b682b81",
+      "size": 3530,
+      "normalized_sha256": "bfa88917fbf9eb450119f6ffc6bf474e813318105930e87c81f404a19b682b81"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/WorldBookOps.kt": {
+      "sha256": "7754011e723142e42195a13b020b012032e1070a7ed223563a8236ba89b88bfb",
+      "size": 6737,
+      "normalized_sha256": "7754011e723142e42195a13b020b012032e1070a7ed223563a8236ba89b88bfb"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/WorldBookRepository.kt": {
+      "sha256": "f09cbf16a60d1dc6bbc6bb9a185072b4722c297de4f4a33ff1832def6445bb77",
+      "size": 6835,
+      "normalized_sha256": "f09cbf16a60d1dc6bbc6bb9a185072b4722c297de4f4a33ff1832def6445bb77"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/WorldEntry.kt": {
+      "sha256": "7a4ae7d360642aa46489a4a4f2210ce52b74eae0e28905f3fef13389fe6fd03c",
+      "size": 17746,
+      "normalized_sha256": "7a4ae7d360642aa46489a4a4f2210ce52b74eae0e28905f3fef13389fe6fd03c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/data/world/WorldInfoSettings.kt": {
+      "role": "index",
+      "sha256": "f8fbd3548901ed9598b1f4c94a091d640b05ec7859325a145c2b69a48acb4482",
+      "size": 1798,
+      "normalized_sha256": "f8fbd3548901ed9598b1f4c94a091d640b05ec7859325a145c2b69a48acb4482"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/ComposeActivity.kt": {
+      "sha256": "a00130a15ccf0a6c70914986bb4ddc8b7c29befc486f7f44b2d410c53cc56484",
+      "size": 15041,
+      "normalized_sha256": "a00130a15ccf0a6c70914986bb4ddc8b7c29befc486f7f44b2d410c53cc56484"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/DevHooks.kt": {
+      "sha256": "8a80e934c7339a795919567ec15836ee420360f07f38b261f972766105005e9b",
+      "size": 876,
+      "normalized_sha256": "8a80e934c7339a795919567ec15836ee420360f07f38b261f972766105005e9b"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/MotionSettings.kt": {
+      "sha256": "16004a5e1d01de4fd0521f0b897453a98b26a9d154970ee8259794388edd52d6",
+      "size": 6264,
+      "normalized_sha256": "16004a5e1d01de4fd0521f0b897453a98b26a9d154970ee8259794388edd52d6"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/icons/LuzzyIcons.kt": {
+      "sha256": "c05fcf1f18554d0e039e7cde9aa9b45b0b97679d7f265f9cb15902b30dcaa9b4",
+      "size": 3161,
+      "normalized_sha256": "c05fcf1f18554d0e039e7cde9aa9b45b0b97679d7f265f9cb15902b30dcaa9b4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/HtmlBlocks.kt": {
+      "sha256": "c45505d2a4c5db3622a4e40197be0e71bf54f737e2373fce7e1e282ea6bcca70",
+      "size": 8635,
+      "normalized_sha256": "c45505d2a4c5db3622a4e40197be0e71bf54f737e2373fce7e1e282ea6bcca70"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/HtmlCard.kt": {
+      "sha256": "cbd06176f962e9d0de27cb71c35220c9436580b698e0c114cd5946c0384a5b3d",
+      "size": 5981,
+      "normalized_sha256": "cbd06176f962e9d0de27cb71c35220c9436580b698e0c114cd5946c0384a5b3d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/HtmlSanitizer.kt": {
+      "sha256": "1210e2c650b054bb19a7cb989860c3d5dc0d4cd798dcf53e5af1221513c73177",
+      "size": 11309,
+      "normalized_sha256": "1210e2c650b054bb19a7cb989860c3d5dc0d4cd798dcf53e5af1221513c73177"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/InlineHtml.kt": {
+      "sha256": "491b81f4ae4954e54cd277aa7aa325a3785d64633e2dd16327568b9a1ccca0b3",
+      "size": 23601,
+      "normalized_sha256": "491b81f4ae4954e54cd277aa7aa325a3785d64633e2dd16327568b9a1ccca0b3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownMemo.kt": {
+      "sha256": "8aad1d7c536a19fbff7eb8c6daa8128bb03c9ac346cd8605ecfdf2588d68dc30",
+      "size": 2156,
+      "normalized_sha256": "8aad1d7c536a19fbff7eb8c6daa8128bb03c9ac346cd8605ecfdf2588d68dc30"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownParser.kt": {
+      "sha256": "6fe960b92a600def1e1e292b511ef83635ff21af4edf5c216ae8e143424e5eac",
+      "size": 13383,
+      "normalized_sha256": "6fe960b92a600def1e1e292b511ef83635ff21af4edf5c216ae8e143424e5eac"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownStyle.kt": {
+      "sha256": "a30f255b302824f139076ff39a9831a931ceaf41b6a422a0e3d39549d308d00c",
+      "size": 2689,
+      "normalized_sha256": "a30f255b302824f139076ff39a9831a931ceaf41b6a422a0e3d39549d308d00c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownText.kt": {
+      "sha256": "efded5b896b1d6cad38d4d125172d812e013238c3ac6ee48cf3d0c1252e2bc97",
+      "size": 22109,
+      "normalized_sha256": "efded5b896b1d6cad38d4d125172d812e013238c3ac6ee48cf3d0c1252e2bc97"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/MdModel.kt": {
+      "sha256": "5ccfd45c9f7ff0f10490c64306742d1d614bc93eef4b2e649d4fcca1816aff46",
+      "size": 3319,
+      "normalized_sha256": "5ccfd45c9f7ff0f10490c64306742d1d614bc93eef4b2e649d4fcca1816aff46"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/markdown/MessageBody.kt": {
+      "sha256": "2876a2bc5bb8ddc0ff2aada2ecd85ca6c97f7e979a9ffb0cd445e6a11af475b1",
+      "size": 7698,
+      "normalized_sha256": "2876a2bc5bb8ddc0ff2aada2ecd85ca6c97f7e979a9ffb0cd445e6a11af475b1"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/nav/LuzzyNavShell.kt": {
+      "sha256": "844aca2d5f5264d931fda1fd5bab63e73ad91f28162c941c0adb0fe04df5f2c0",
+      "size": 14429,
+      "normalized_sha256": "844aca2d5f5264d931fda1fd5bab63e73ad91f28162c941c0adb0fe04df5f2c0"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/AvatarImage.kt": {
+      "sha256": "6a1d77a39d128ea5dc880b05fbe25b91c92b7c4aa9e8680c30eeb63c45c2fe07",
+      "size": 8216,
+      "normalized_sha256": "6a1d77a39d128ea5dc880b05fbe25b91c92b7c4aa9e8680c30eeb63c45c2fe07"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/SessionsPage.kt": {
+      "sha256": "c004ebd1f79d1d910b54a499831a3850b385d4bd09de73e55f646e071ce65cf7",
+      "size": 14858,
+      "normalized_sha256": "975f0a3a9658b81bf8f48b86ec6355a38f780a9040b1a49df032ee1df0dea085"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/StaticPages.kt": {
+      "sha256": "958bc9a53a5117a47275f2e5006c02cfeab4e50f2e7fe024b5b48df8bd3700cb",
+      "size": 29572,
+      "normalized_sha256": "958bc9a53a5117a47275f2e5006c02cfeab4e50f2e7fe024b5b48df8bd3700cb"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/characters/CharacterEditor.kt": {
+      "sha256": "0b6d3bc649860d870d7895ff5734fd8d000fff71fee4f1845392c9bfbeea1ea4",
+      "size": 15645,
+      "normalized_sha256": "0b6d3bc649860d870d7895ff5734fd8d000fff71fee4f1845392c9bfbeea1ea4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/characters/CharactersPage.kt": {
+      "sha256": "4123bd266906769cde31dea46344a604f7a1a79a1399dc2a1a287d417ab0821c",
+      "size": 25272,
+      "normalized_sha256": "4123bd266906769cde31dea46344a604f7a1a79a1399dc2a1a287d417ab0821c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/AttachmentStore.kt": {
+      "sha256": "93ba22b7824a473bbc00b21a557d34a014fae21fe5c36d46fee18e3db2131d2e",
+      "size": 6068,
+      "normalized_sha256": "93ba22b7824a473bbc00b21a557d34a014fae21fe5c36d46fee18e3db2131d2e"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/BranchListSheet.kt": {
+      "sha256": "59087a85fb05a971c205ed30f25c75de33dd601d70ed7c8f2734fa9b89934be5",
+      "size": 11845,
+      "normalized_sha256": "59087a85fb05a971c205ed30f25c75de33dd601d70ed7c8f2734fa9b89934be5"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatAttachment.kt": {
+      "sha256": "59751d76eba421a2335d2214d0a030e32c3be0b92f5a990138947b916382c57f",
+      "size": 6121,
+      "normalized_sha256": "59751d76eba421a2335d2214d0a030e32c3be0b92f5a990138947b916382c57f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatComponents.kt": {
+      "sha256": "069598ede2c39db03f45832181851db5e666a6e3bff50273ae17207faec76f55",
+      "size": 36974,
+      "normalized_sha256": "069598ede2c39db03f45832181851db5e666a6e3bff50273ae17207faec76f55"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatErrorCards.kt": {
+      "sha256": "d54dca86322e9d484ad04c45e1b2e6fba547586d5e10b04268d96011ffec824e",
+      "size": 6231,
+      "normalized_sha256": "d54dca86322e9d484ad04c45e1b2e6fba547586d5e10b04268d96011ffec824e"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatPage.kt": {
+      "sha256": "18ea35ef6a5161c8d60d44be69a5f7c3290e9431861e476460f570c60007949d",
+      "size": 101719,
+      "normalized_sha256": "18ea35ef6a5161c8d60d44be69a5f7c3290e9431861e476460f570c60007949d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatPalette.kt": {
+      "sha256": "2dee8ad5b20f80586c81d84f0b7cba5338817e79956bddba4a03e6bbce258795",
+      "size": 3202,
+      "normalized_sha256": "2dee8ad5b20f80586c81d84f0b7cba5338817e79956bddba4a03e6bbce258795"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatThinking.kt": {
+      "sha256": "df84be55463600a57fb8f720bedbb24dd6b0db335de93df6c30b22bf45b1aca4",
+      "size": 28640,
+      "normalized_sha256": "df84be55463600a57fb8f720bedbb24dd6b0db335de93df6c30b22bf45b1aca4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatTurnState.kt": {
+      "sha256": "be5e7815fa02633336c5749afedd4dbd83ff14004a154269ff51f18696da6dd3",
+      "size": 10536,
+      "normalized_sha256": "21dd61b65fc951b32f411c710734fab03fd25caf176212f06e4a38fdf1833252"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/InputIslandSheets.kt": {
+      "sha256": "d5f016f5f0d018eab68aea7eb7816517fe09ae3ab74de659980b9d80fb0843a2",
+      "size": 23851,
+      "normalized_sha256": "d5f016f5f0d018eab68aea7eb7816517fe09ae3ab74de659980b9d80fb0843a2"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/MeshGradientBackground.kt": {
+      "sha256": "b431d3c3225ce6de7aa6a66b5056508a611589af4c41cc57ca65269db08c24e3",
+      "size": 5174,
+      "normalized_sha256": "b431d3c3225ce6de7aa6a66b5056508a611589af4c41cc57ca65269db08c24e3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/chat/RequestBuilder.kt": {
+      "sha256": "99842797c987c21976224184cd76b695a13f9bdc4901d21c6b83eee972d00425",
+      "size": 13958,
+      "normalized_sha256": "99842797c987c21976224184cd76b695a13f9bdc4901d21c6b83eee972d00425"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/common/BandCard.kt": {
+      "sha256": "9e7a4f49d6cce19962d0e9502efda5934ad1c4e4b3cc67cc447d1ce11580a9ab",
+      "size": 2306,
+      "normalized_sha256": "9e7a4f49d6cce19962d0e9502efda5934ad1c4e4b3cc67cc447d1ce11580a9ab"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/common/EditorKit.kt": {
+      "sha256": "19627a95651d456f5777368f2a1612f0759ac26f8f358ecd58399559f69a8f23",
+      "size": 12585,
+      "normalized_sha256": "f286fe40f8ea7cdc1b53a313e43dd6a2bdee15dc6491f3ffee77e8be6a660763"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/common/LoomKit.kt": {
+      "sha256": "34cda2b0a2a3cdf7ee4b2c5922add5f4f6ac3e36123e09b680fe85641e628dc1",
+      "size": 43684,
+      "normalized_sha256": "92f4718fb26e6162eddc0502844dcee062c903b926ed3b6cd7e1e183d2b7dab8"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/common/PageKit.kt": {
+      "sha256": "f0e8de29a8dd540b8e6dc21ed736a55c2ae8c74a9f958f3ecafd166ec7efd17e",
+      "size": 13781,
+      "normalized_sha256": "f0e8de29a8dd540b8e6dc21ed736a55c2ae8c74a9f958f3ecafd166ec7efd17e"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/memory/MemoryPages.kt": {
+      "sha256": "e5dca611c0d7d2be03404a634282e80431669a646b1004beb75f674aa11ca55d",
+      "size": 40467,
+      "normalized_sha256": "e5dca611c0d7d2be03404a634282e80431669a646b1004beb75f674aa11ca55d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/preset/PresetsPage.kt": {
+      "sha256": "2f35e163546c41cea85bb2acdc79c7c6cc754b2b4a829ae88045ff9c2e198b8d",
+      "size": 22408,
+      "normalized_sha256": "2f35e163546c41cea85bb2acdc79c7c6cc754b2b4a829ae88045ff9c2e198b8d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/usage/UsagePages.kt": {
+      "sha256": "121db4e40a2a1b189b9e1edcddc92d789f82f50858caf0f660400da5c3d5c83a",
+      "size": 37962,
+      "normalized_sha256": "121db4e40a2a1b189b9e1edcddc92d789f82f50858caf0f660400da5c3d5c83a"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/pages/world/LoreBookPages.kt": {
+      "sha256": "41d52d23787006ab3c6f005e194522092b1ec1ad4cea193386c2d6ed926d4ce8",
+      "size": 64737,
+      "normalized_sha256": "41d52d23787006ab3c6f005e194522092b1ec1ad4cea193386c2d6ed926d4ce8"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/LoomMotion.kt": {
+      "sha256": "901b3a82960b87d732339240ea8890be1af1141d06aabf124f14f3cac54e11ec",
+      "size": 6294,
+      "normalized_sha256": "901b3a82960b87d732339240ea8890be1af1141d06aabf124f14f3cac54e11ec"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/LoomTokens.kt": {
+      "sha256": "561df870d4fe8c1fcd5db6163abad27042dd39be14f6376f7baf184b41a7aae8",
+      "size": 4925,
+      "normalized_sha256": "561df870d4fe8c1fcd5db6163abad27042dd39be14f6376f7baf184b41a7aae8"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/LuzzyFonts.kt": {
+      "sha256": "c264ff9e569ef593b5ea90fbabd6733054da1fd893c529ecad4911c763387207",
+      "size": 5977,
+      "normalized_sha256": "c264ff9e569ef593b5ea90fbabd6733054da1fd893c529ecad4911c763387207"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/LuzzyTheme.kt": {
+      "sha256": "d6836a145db106f7d0748a36c30844f52288c3fe276eba93f60edf50a00b29ec",
+      "size": 9106,
+      "normalized_sha256": "d6836a145db106f7d0748a36c30844f52288c3fe276eba93f60edf50a00b29ec"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/LuzzyThemeEntry.kt": {
+      "sha256": "22c70e156037a0e1f8f8aebbacbefc78b0543d83979be7a1bf0178d577c2431a",
+      "size": 2770,
+      "normalized_sha256": "22c70e156037a0e1f8f8aebbacbefc78b0543d83979be7a1bf0178d577c2431a"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/LICENSE": {
+      "sha256": "82e0721d3cb1c2e8ba9fab5d279e05923748fe975fba552e7b5a3cfb4b00a1ec",
+      "size": 10755,
+      "normalized_sha256": "82e0721d3cb1c2e8ba9fab5d279e05923748fe975fba552e7b5a3cfb4b00a1ec"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/NOTICE-mcu.md": {
+      "sha256": "8ddfebb9a61d1724620af5ec34d40983cf48b00959e496b20cafcb41dbd9678d",
+      "size": 4408,
+      "normalized_sha256": "8ddfebb9a61d1724620af5ec34d40983cf48b00959e496b20cafcb41dbd9678d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/NOTICE.md": {
+      "sha256": "4cd70e83862a6637db19cf43525940559f4c2d987f82a83d13cac306ea74ecba",
+      "size": 914,
+      "normalized_sha256": "4cd70e83862a6637db19cf43525940559f4c2d987f82a83d13cac306ea74ecba"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/blend/Blend.kt": {
+      "sha256": "795a14494b4a605ba69914c900a5caac71ee3c62db35c649dc189762a18278a7",
+      "size": 3129,
+      "normalized_sha256": "795a14494b4a605ba69914c900a5caac71ee3c62db35c649dc189762a18278a7"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/contrast/Contrast.kt": {
+      "sha256": "b8939612ccf522d3fd0d4a565c792294d37876eb076109597e24c7adb37c5dd7",
+      "size": 8909,
+      "normalized_sha256": "b8939612ccf522d3fd0d4a565c792294d37876eb076109597e24c7adb37c5dd7"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dislike/DislikeAnalyzer.kt": {
+      "sha256": "f45c8be7b0aadab0cfff5af55a1e42c03b6e80609e04176cbb5f895a5ea24b0f",
+      "size": 1641,
+      "normalized_sha256": "f45c8be7b0aadab0cfff5af55a1e42c03b6e80609e04176cbb5f895a5ea24b0f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ColorSpec.kt": {
+      "sha256": "2a474dfc07f222340a6df766f7b3c11247538a465e85a8c6b5e09efbd1165f23",
+      "size": 6212,
+      "normalized_sha256": "2a474dfc07f222340a6df766f7b3c11247538a465e85a8c6b5e09efbd1165f23"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ColorSpec2021.kt": {
+      "sha256": "03feaa8c35377eaf1a51903da8c189ff4a902bee395eedb1aead2b742c038024",
+      "size": 44439,
+      "normalized_sha256": "03feaa8c35377eaf1a51903da8c189ff4a902bee395eedb1aead2b742c038024"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ColorSpec2025.kt": {
+      "sha256": "2e1da2431e62b4f4e3f5567e37360dd18979a7be526a5c8502d8d8417bf662c4",
+      "size": 68361,
+      "normalized_sha256": "2e1da2431e62b4f4e3f5567e37360dd18979a7be526a5c8502d8d8417bf662c4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ColorSpec2026.kt": {
+      "sha256": "3a4684454bb41ee0603d7471e4ad42bdbf7d5261f17dd7d1f0f07ea3542cfd94",
+      "size": 26972,
+      "normalized_sha256": "3a4684454bb41ee0603d7471e4ad42bdbf7d5261f17dd7d1f0f07ea3542cfd94"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ColorSpecs.kt": {
+      "sha256": "b62194c183721c7bcc69addc906e731ac085e32cebf54c434af36283744a5bb5",
+      "size": 1343,
+      "normalized_sha256": "b62194c183721c7bcc69addc906e731ac085e32cebf54c434af36283744a5bb5"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ContrastCurve.kt": {
+      "sha256": "5a760db62cfc7495e81a36266ceaeab5f7d7be9e09fc1e524875aff8cd8786fa",
+      "size": 1836,
+      "normalized_sha256": "5a760db62cfc7495e81a36266ceaeab5f7d7be9e09fc1e524875aff8cd8786fa"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/DynamicColor.kt": {
+      "sha256": "06e1baa95d25cc7f42e605fe213e113a7514f92c111d900cfff65ec5d67b750a",
+      "size": 11365,
+      "normalized_sha256": "06e1baa95d25cc7f42e605fe213e113a7514f92c111d900cfff65ec5d67b750a"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/DynamicScheme.kt": {
+      "sha256": "8e437c98e5daf4ab24955b3f2996fbc64eb55b1546836e974e5ae6e0607aef2d",
+      "size": 12603,
+      "normalized_sha256": "8e437c98e5daf4ab24955b3f2996fbc64eb55b1546836e974e5ae6e0607aef2d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/MaterialDynamicColors.kt": {
+      "sha256": "fa35f696e4ba0c8e77daa264315b1ab1c7b3c3e5b65cc378744d25738c7f248e",
+      "size": 8740,
+      "normalized_sha256": "fa35f696e4ba0c8e77daa264315b1ab1c7b3c3e5b65cc378744d25738c7f248e"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/ToneDeltaPair.kt": {
+      "sha256": "14e1e61b62af182dbf854cc09d362e211b210a084e46cd5d26eeb682e0a58998",
+      "size": 3330,
+      "normalized_sha256": "14e1e61b62af182dbf854cc09d362e211b210a084e46cd5d26eeb682e0a58998"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/dynamiccolor/Variant.kt": {
+      "sha256": "57c6f702d99beeb02b7a2fb88dc14421011c36ffe1b7874f682c0d858f92f127",
+      "size": 793,
+      "normalized_sha256": "57c6f702d99beeb02b7a2fb88dc14421011c36ffe1b7874f682c0d858f92f127"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/hct/Cam16.kt": {
+      "sha256": "5112f90310b2a35dbe0bbeb5cc296a9558efa2facca301d9a0cb86efccc8bb06",
+      "size": 13789,
+      "normalized_sha256": "5112f90310b2a35dbe0bbeb5cc296a9558efa2facca301d9a0cb86efccc8bb06"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/hct/Hct.kt": {
+      "sha256": "a2953d608d2e41b64f95b9968fa43fec1b1fd30255226551f177b44b14c7f409",
+      "size": 5593,
+      "normalized_sha256": "a2953d608d2e41b64f95b9968fa43fec1b1fd30255226551f177b44b14c7f409"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/hct/HctSolver.kt": {
+      "role": "index",
+      "sha256": "afb0d0cd970f1dfa9a30af53e889bff1a4435e4deeab994e12e4ed8b051b3f5f",
+      "size": 20804,
+      "normalized_sha256": "afb0d0cd970f1dfa9a30af53e889bff1a4435e4deeab994e12e4ed8b051b3f5f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/hct/ViewingConditions.kt": {
+      "role": "index",
+      "sha256": "1e1aa7f0cd93d24bdf090dfe2f03216b2f91a7e44ee695d7fd587a3bbd47ccbe",
+      "size": 6154,
+      "normalized_sha256": "1e1aa7f0cd93d24bdf090dfe2f03216b2f91a7e44ee695d7fd587a3bbd47ccbe"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/palettes/CorePalettes.kt": {
+      "sha256": "0f1832ec1d41cdec127f3ae45a475025f1551dba4a3839aa01605dc5aa754c22",
+      "size": 995,
+      "normalized_sha256": "0f1832ec1d41cdec127f3ae45a475025f1551dba4a3839aa01605dc5aa754c22"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/palettes/TonalPalette.kt": {
+      "sha256": "2194fb890dac02785ae49f95a33adba0a6abb368e452a484e716f6451685a205",
+      "size": 6092,
+      "normalized_sha256": "2194fb890dac02785ae49f95a33adba0a6abb368e452a484e716f6451685a205"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/PointProvider.kt": {
+      "sha256": "fadcebab2557d6d336e4eca7bab35aa0b8bc7b7edf2fed3c6b0bac3bfd93ed20",
+      "size": 1111,
+      "normalized_sha256": "fadcebab2557d6d336e4eca7bab35aa0b8bc7b7edf2fed3c6b0bac3bfd93ed20"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/PointProviderLab.kt": {
+      "sha256": "d175a727c25403f1f31a0b41ecb4a446c5a0490362e029196f9b72eef6b3a0d5",
+      "size": 1843,
+      "normalized_sha256": "d175a727c25403f1f31a0b41ecb4a446c5a0490362e029196f9b72eef6b3a0d5"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/Quantizer.kt": {
+      "sha256": "1c95179c65b8cab628ee26094e70a8e7aed4b9e017c7977ab540e0c62ae69d3e",
+      "size": 712,
+      "normalized_sha256": "1c95179c65b8cab628ee26094e70a8e7aed4b9e017c7977ab540e0c62ae69d3e"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/QuantizerCelebi.kt": {
+      "sha256": "3c69d5b7a8a970dcb0764c2a6bcc0d978a407983d8e5912a59c6d0a71f289f3c",
+      "size": 2071,
+      "normalized_sha256": "3c69d5b7a8a970dcb0764c2a6bcc0d978a407983d8e5912a59c6d0a71f289f3c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/QuantizerMap.kt": {
+      "sha256": "39b7a645ce40f7d75e7a4c91dbcb11124bf2cd8c339b05e80d9bc4ea25d9ce84",
+      "size": 1255,
+      "normalized_sha256": "39b7a645ce40f7d75e7a4c91dbcb11124bf2cd8c339b05e80d9bc4ea25d9ce84"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/QuantizerResult.kt": {
+      "sha256": "d942e192295f3a93680bda20341ed753a130a5ea7fc466651634e16aca0e55ad",
+      "size": 717,
+      "normalized_sha256": "d942e192295f3a93680bda20341ed753a130a5ea7fc466651634e16aca0e55ad"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/QuantizerWsmeans.kt": {
+      "sha256": "f152b49eb20491cb39a6115885fa2bd6c157e754ee5cc52ea6b23ef7cfa4fcc8",
+      "size": 7310,
+      "normalized_sha256": "f152b49eb20491cb39a6115885fa2bd6c157e754ee5cc52ea6b23ef7cfa4fcc8"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/quantize/QuantizerWu.kt": {
+      "sha256": "212f3fafefc8910b933efe74900a094caaa0bf1953215905347f979c41df75b7",
+      "size": 12485,
+      "normalized_sha256": "212f3fafefc8910b933efe74900a094caaa0bf1953215905347f979c41df75b7"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeCmf.kt": {
+      "sha256": "197f3b51ef01fd86375a9e939c275de2842afc6d52d991b797460dbf17d60e4b",
+      "size": 4036,
+      "normalized_sha256": "197f3b51ef01fd86375a9e939c275de2842afc6d52d991b797460dbf17d60e4b"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeContent.kt": {
+      "sha256": "0aa7d92c4659139c9831062fb6aa75ec94e564a9c8253cf9b258ddbd0fd6c43d",
+      "size": 3008,
+      "normalized_sha256": "0aa7d92c4659139c9831062fb6aa75ec94e564a9c8253cf9b258ddbd0fd6c43d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeExpressive.kt": {
+      "sha256": "793b782536bf359cac36e5ae00e2f760701171645056b31aa6780256d1ec2ff3",
+      "size": 2573,
+      "normalized_sha256": "793b782536bf359cac36e5ae00e2f760701171645056b31aa6780256d1ec2ff3"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeFidelity.kt": {
+      "sha256": "ae6b4cc24874e333c6a320cd11e8379336109bb2b80cda49659f3ce72ef9bfad",
+      "size": 2899,
+      "normalized_sha256": "ae6b4cc24874e333c6a320cd11e8379336109bb2b80cda49659f3ce72ef9bfad"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeFruitSalad.kt": {
+      "sha256": "b12a32a3f28af2f4021e22baf87debf156b664613aba924d551dd19a8ed8bd3f",
+      "size": 2580,
+      "normalized_sha256": "b12a32a3f28af2f4021e22baf87debf156b664613aba924d551dd19a8ed8bd3f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeMonochrome.kt": {
+      "sha256": "d21a2dbcff062c150660d1c6cf51c10d2748242f00cb5531bef82769e9a9ca36",
+      "size": 2562,
+      "normalized_sha256": "d21a2dbcff062c150660d1c6cf51c10d2748242f00cb5531bef82769e9a9ca36"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeNeutral.kt": {
+      "sha256": "008635204e46344045e306ffdf93d8b9b56839f7907f79e6de3bfee8273e79ca",
+      "size": 2523,
+      "normalized_sha256": "008635204e46344045e306ffdf93d8b9b56839f7907f79e6de3bfee8273e79ca"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeRainbow.kt": {
+      "sha256": "8800efa49dd0a97122993e305c64819f36a605a7a0eea8a2378cb7c8239681e5",
+      "size": 2500,
+      "normalized_sha256": "8800efa49dd0a97122993e305c64819f36a605a7a0eea8a2378cb7c8239681e5"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeTonalSpot.kt": {
+      "sha256": "33c8c8c1acd9092a4fdb1b70403bfedc30e2a51726b43c44ec348146a3eb36b4",
+      "size": 2566,
+      "normalized_sha256": "33c8c8c1acd9092a4fdb1b70403bfedc30e2a51726b43c44ec348146a3eb36b4"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/scheme/SchemeVibrant.kt": {
+      "sha256": "fd4799280177894bf52050027f8ee76fb75fcc8089d768f75c2c18ffd1dc9f1c",
+      "size": 2510,
+      "normalized_sha256": "fd4799280177894bf52050027f8ee76fb75fcc8089d768f75c2c18ffd1dc9f1c"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/score/Score.kt": {
+      "sha256": "d82b4138789d0d661cedea1b02364a5920587ad8aa2386699e1b826734d99004",
+      "size": 6048,
+      "normalized_sha256": "d82b4138789d0d661cedea1b02364a5920587ad8aa2386699e1b826734d99004"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/temperature/TemperatureCache.kt": {
+      "sha256": "ddc0b0ea224440482fb34a71380589d0448e5fbfb7f6a78e79a017b6d4f6ac4b",
+      "size": 10738,
+      "normalized_sha256": "ddc0b0ea224440482fb34a71380589d0448e5fbfb7f6a78e79a017b6d4f6ac4b"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/utils/ColorUtils.kt": {
+      "sha256": "efbdbea0df80708ac5a3caabc8b66b6c8c5bfc396b96db6103c7fc7f1d01e420",
+      "size": 7984,
+      "normalized_sha256": "efbdbea0df80708ac5a3caabc8b66b6c8c5bfc396b96db6103c7fc7f1d01e420"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/utils/MathUtils.kt": {
+      "sha256": "1cb8d309ad4f36278405901514bfe7daba94a3ce9445739cca32fde5a6435580",
+      "size": 3267,
+      "normalized_sha256": "1cb8d309ad4f36278405901514bfe7daba94a3ce9445739cca32fde5a6435580"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/ui/theme/mcu/utils/StringUtils.kt": {
+      "sha256": "4edd99be8166e56e559e2af7e6285c721e17b05696f77751dbd3c86a0fae094d",
+      "size": 1064,
+      "normalized_sha256": "4edd99be8166e56e559e2af7e6285c721e17b05696f77751dbd3c86a0fae094d"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/util/AssetExtractor.kt": {
+      "sha256": "73eb54bfe1d782948063371699f3f5a6649c3d616c32f02feb00c800e87d305f",
+      "size": 4628,
+      "normalized_sha256": "73eb54bfe1d782948063371699f3f5a6649c3d616c32f02feb00c800e87d305f"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/web/LuzzyBridge.kt": {
+      "sha256": "dc95cde426fe996d60d69cabe5ef1a3ca033aa1078c7d244b37382dc6c8c2739",
+      "size": 11456,
+      "normalized_sha256": "dc95cde426fe996d60d69cabe5ef1a3ca033aa1078c7d244b37382dc6c8c2739"
+    },
+    "app/src/main/java/com/luzzymeow/luzzyrp/web/WebViewSetup.kt": {
+      "sha256": "932a536aa46ff2b6b5e79de7416668faf938d9a55ad0a0296fc306b744741090",
+      "size": 2473,
+      "normalized_sha256": "1a731d90ff4db2090540893c1c32e85a4a8528f7342aeb9acebaf979556fd44a"
+    },
+    "app/src/main/res/drawable/ic_lobe_android.xml": {
+      "sha256": "8539ac73c66b389048d5c0cae4a4b143b2a685237913f48cd52dfb26c2f1d588",
+      "size": 898,
+      "normalized_sha256": "2eba39f209edc106bb2d8fa9d02f12cb24a3a3e47b537fcee6e0f4fed1dcabc1"
+    },
+    "app/src/main/res/drawable/ic_lobe_apple.xml": {
+      "sha256": "d86e1ac5b0193d4123d6915aa8f8c03f640300d5d914928cb8f524013fcb7195",
+      "size": 1061,
+      "normalized_sha256": "e10694a9cee1531618113390029a6692dfebdd47c31e0ba40ff48f0b0d3105c1"
+    },
+    "app/src/main/res/drawable/ic_lobe_appstore.xml": {
+      "sha256": "279cde855a753ac9e1378986d90a2bf33546648f5da652fcb1727dd4cfd18bd7",
+      "size": 1234,
+      "normalized_sha256": "9d18ea6fa88ada18c0e5ff26dc44fe2ea97bec944bcb8d0dd2a76c32a55ef105"
+    },
+    "app/src/main/res/drawable/ic_lobe_bot_prompt.xml": {
+      "sha256": "2dde8406a7b3ae050b241b2094017794fa308f0e955fece96376dd64fc625b63",
+      "size": 728,
+      "normalized_sha256": "b0247cc2f1a97dd0eb40c091ef18088e39c59cd04c67c98a5618d50b85eba70e"
+    },
+    "app/src/main/res/drawable/ic_lobe_brain_off.xml": {
+      "sha256": "5039f7d43462d0c57c4dd39b59d019b8d12855d5b9b6269e3b9948074062ed8a",
+      "size": 3202,
+      "normalized_sha256": "d784e50b71b7f9b1e39dd436f8b14b02f84f762221ef44c4661993d0c2982e8a"
+    },
+    "app/src/main/res/drawable/ic_lobe_chrome.xml": {
+      "sha256": "299aeff04a9325fc4fe8178649ac10061c1320588f9cfc0643570e0e3ae530c6",
+      "size": 852,
+      "normalized_sha256": "f02f785e38643986f01662f6f06540f7b775fe8dfb67d17402bf20cbcac8e42e"
+    },
+    "app/src/main/res/drawable/ic_lobe_codepen.xml": {
+      "sha256": "60a0cef90b5ab474b9facf92dddd5fb9b906195a7f8189e77996ff7d13a0ab5e",
+      "size": 728,
+      "normalized_sha256": "eb1fff1f1b0279ec3500a8fbc5dba0e69556cc25463a645544befb4c9439f96d"
+    },
+    "app/src/main/res/drawable/ic_lobe_codesandbox.xml": {
+      "sha256": "f222b8130b13bf5f6e9f003adc8520f3f786aacd8452217943c92e864e53bb15",
+      "size": 1277,
+      "normalized_sha256": "53180440a4824ec3bdfe242b0785bd9beba3377ffae027072fc40eb9e6f1fcb4"
+    },
+    "app/src/main/res/drawable/ic_lobe_create_bot.xml": {
+      "sha256": "e9829c7b3e011c92f0b63e103fccfdc0eb4ea4ca0231bac87ec10feb1377afa3",
+      "size": 1154,
+      "normalized_sha256": "ad9dd7a0a28d66db5e0593684b488eba66e877fd19e13d5658c4cab8c974472e"
+    },
+    "app/src/main/res/drawable/ic_lobe_discord.xml": {
+      "sha256": "9abdcab5a610e23dc7b1af38a878e2809090373360b6e44d4c2d284e8b179677",
+      "size": 3235,
+      "normalized_sha256": "59ce55c88cd0dab5cc5d089bbe7babec855bde6fe5027f5c6688e1b57e641b5b"
+    },
+    "app/src/main/res/drawable/ic_lobe_facebook.xml": {
+      "sha256": "0dc0ee7893696be67ef2bdd51467911b151b1c8343b20b51b14087f13d6c295b",
+      "size": 773,
+      "normalized_sha256": "243bd8354a06ad9b3025c25ba81d29c9cb28d5caf9a5471593899e35467a6a29"
+    },
+    "app/src/main/res/drawable/ic_lobe_figma.xml": {
+      "sha256": "a40cf08eb994ad8499c2212744a675151124ac6389aa8435b49cb978af0da9e8",
+      "size": 2214,
+      "normalized_sha256": "554e954fe6ee3dbbdc4974c4d60b73bdb6348c823c30436984f41c4e72b815ec"
+    },
+    "app/src/main/res/drawable/ic_lobe_framer.xml": {
+      "sha256": "f291618ee1d2e1ab8f08b6d9211746cb4fa9c9e4af5c778f429e1a48ae8b6737",
+      "size": 622,
+      "normalized_sha256": "e72291dcfd60bacad537340200d738fc64eada4e52040a1456bc08722b7b1fa4"
+    },
+    "app/src/main/res/drawable/ic_lobe_github.xml": {
+      "sha256": "81af7239fa2b821ee41cc513180b06066f56e885f1083cb70d13490047169277",
+      "size": 927,
+      "normalized_sha256": "3befb0b8c3c83804d09ee291d69c874cdb6f63121d22ec9b926573615d79f9d6"
+    },
+    "app/src/main/res/drawable/ic_lobe_gitlab.xml": {
+      "sha256": "6f9669fe4148b8e7a17f6654d8093523cf5be462988b34304026acc44401f4d9",
+      "size": 1156,
+      "normalized_sha256": "7e57688c5885a1060baa2812135373986f74199cdda985259e965937dea35313"
+    },
+    "app/src/main/res/drawable/ic_lobe_globe_off.xml": {
+      "sha256": "17f4eb9f73d7f40e56609ed185233e297764c4bed6e193f4fe56c911a717bfd7",
+      "size": 1491,
+      "normalized_sha256": "1124e0518c661a56326a43b2aebf611ce24e03650c2fe6048e22f5e24cb7646b"
+    },
+    "app/src/main/res/drawable/ic_lobe_google_play.xml": {
+      "sha256": "4c2e73ed074ef4e6bf16cdbc51e99014b20d07ffe5a7333e806ab00bc245f526",
+      "size": 1093,
+      "normalized_sha256": "c3e568f04a5267cf3402addf7f7a6706b1927fee415d23a4aad89b21e3b63045"
+    },
+    "app/src/main/res/drawable/ic_lobe_group_bot.xml": {
+      "sha256": "af77564a781ac480f8f199ff714a09f1dc27ce18fbb448e25674cf4f44620572",
+      "size": 1384,
+      "normalized_sha256": "9c89eab3c08a85973a9824e1805a6be7312637f7d9cdec164932b75fa747782b"
+    },
+    "app/src/main/res/drawable/ic_lobe_group_bot_square.xml": {
+      "sha256": "4130a384d1a59b49ada51b110c8090a63d56f516f1cbe434a131d3bf75bc271c",
+      "size": 1365,
+      "normalized_sha256": "63fd4ee815243d80774988ab04b1d0af9c860b96613fc60c9ec420fe08ab7e6f"
+    },
+    "app/src/main/res/drawable/ic_lobe_instagram.xml": {
+      "sha256": "787294e4c1a624afb419d2447405e21b451d0f95e7ffa95def0fc8a1015f48ae",
+      "size": 1183,
+      "normalized_sha256": "9e4f11f98cdfac1202c256050304bdc7ebc6802e56e086b93bb718732aeb41f2"
+    },
+    "app/src/main/res/drawable/ic_lobe_left_click.xml": {
+      "sha256": "0de943102c66eacd8c82a31ead1d40db4572da5ad5475adb096844153d980ad7",
+      "size": 1546,
+      "normalized_sha256": "4d8c34fa8e6ed3e82280069f2c9acf57448f063a0c51e74e4e7335bd4620a7b5"
+    },
+    "app/src/main/res/drawable/ic_lobe_left_double_click.xml": {
+      "sha256": "2ba16ff7d3a1b6e33e129ed2449fd7ded33cb6c7b4bad70590ab59c3865c796e",
+      "size": 1170,
+      "normalized_sha256": "d278d3f49198db43dc5a8d91b881d3fe7b50d34e68fda88e97759acbf27622f2"
+    },
+    "app/src/main/res/drawable/ic_lobe_linkedin.xml": {
+      "sha256": "63bcd6cd52d195e681b41bca2a761cbdad7cd25806e674b2cea0b6e5df33e0cf",
+      "size": 961,
+      "normalized_sha256": "eea2db502f03e3d20f4cf1b07b4bcb8d91dbb30ec21f46526385ef5ae6215fa8"
+    },
+    "app/src/main/res/drawable/ic_lobe_mcp.xml": {
+      "sha256": "b1a2a19a59e795ad8d3ed84ba0f8980af441dfeabaa810b9d4be8e2e8dbb572b",
+      "size": 1281,
+      "normalized_sha256": "3dbf6706a792bb23464394226f7516a063e011eba1696ebc204c5c3bab13fd44"
+    },
+    "app/src/main/res/drawable/ic_lobe_notion.xml": {
+      "sha256": "685fdf9b17dd34f7af585872d1aa5ae24fa75e0e374a7ece48c098e1134d4b2a",
+      "size": 1540,
+      "normalized_sha256": "d78a5c6ba3237639d1403d26bcdaa73f0d39ef3eef4aa18fab6c5290135461d7"
+    },
+    "app/src/main/res/drawable/ic_lobe_pocket.xml": {
+      "sha256": "df49565373faf85a8d592a8e12df18e4388c88ca544f6a4f6e878ca45c9da69f",
+      "size": 951,
+      "normalized_sha256": "c1cf91f8f33e52efadb9499be37ebc9935edd8aff4caf0dadbd5bc101b24a7d1"
+    },
+    "app/src/main/res/drawable/ic_lobe_provider.xml": {
+      "sha256": "bad100553494605f02d393ce20bb075381884884aa030682f31f682a55db9cdb",
+      "size": 3126,
+      "normalized_sha256": "07bebb253c5fc7aa71c8eaed44d2484a1ea519ffd59d5a4506e9f8dd5b0da5c7"
+    },
+    "app/src/main/res/drawable/ic_lobe_rail_symbol.xml": {
+      "sha256": "c25d37a22d77accb722182621adeeb5559b0b5aad66466d300974c6c180d47f2",
+      "size": 613,
+      "normalized_sha256": "263d672d3a1d0e3a13dcfccf3027731c4a30e2ddf055f711cfbaa2702db92368"
+    },
+    "app/src/main/res/drawable/ic_lobe_reddit.xml": {
+      "sha256": "8c12a2b765fe13ac84a5fbf4eb87a90c70a6d1c60a8817c99a69766dc244e44a",
+      "size": 2383,
+      "normalized_sha256": "fcb9b56f6a986310f97bbb75ecac4210f40cf734665c11bae04a1ad75e7b3b46"
+    },
+    "app/src/main/res/drawable/ic_lobe_right_click.xml": {
+      "sha256": "683ae749d02c3c8f824c7a51c96ba5b798e6a5120bda7cbee83e45d74259cb10",
+      "size": 1551,
+      "normalized_sha256": "55b7ccbd4038e55e5f00d222e80167d24b0f4599d1f3da33dce4a9d1d7babb91"
+    },
+    "app/src/main/res/drawable/ic_lobe_right_double_click.xml": {
+      "sha256": "4a3b393ffe52cb00a6ad787b7eeddc99b2506cca3628c5b79967d136ae7ee986",
+      "size": 1390,
+      "normalized_sha256": "808526d14f3c20e3f291b3f27ef0f42a1d951f03785700fac7dd97e4667b5ece"
+    },
+    "app/src/main/res/drawable/ic_lobe_shapes_upload.xml": {
+      "sha256": "9d7087fed192ceb16ba0206e69fdd3ed377b457b76b97f7df016e8c0fd637c43",
+      "size": 1300,
+      "normalized_sha256": "e0d646aea09016def70310b887598aac4bb2de77917ad034a2d4b99b148783f1"
+    },
+    "app/src/main/res/drawable/ic_lobe_skills.xml": {
+      "sha256": "1a90f4b01ec281c02330df09b115f7835a5015ece0ef2b566e50dc3b74bea631",
+      "size": 1293,
+      "normalized_sha256": "0b30aa76e6f5bf403837816db7b6f3da5bfea6b958b22f17d6a84e39bceeced6"
+    },
+    "app/src/main/res/drawable/ic_lobe_slack.xml": {
+      "sha256": "335108814d43cd9f355254d0d7a4e50dc9dcbed9f688f35a5a1ede31e8a04161",
+      "size": 2286,
+      "normalized_sha256": "74139d9bec429e2ffe8b2bc18b19a7f198ab5099543d58bf5dc9c9f7cb52e518"
+    },
+    "app/src/main/res/drawable/ic_lobe_think.xml": {
+      "sha256": "103ca105cdfbb48bb6559e7c5603f964d257043ccd32156fbc8087bb536186ec",
+      "size": 1296,
+      "normalized_sha256": "daa291404001b486339f1b9ecc08a522d75211fd3a869dceabee82c4d84f3903"
+    },
+    "app/src/main/res/drawable/ic_lobe_tree_down_right.xml": {
+      "sha256": "6ab0ea2345c9fa93a48d50d759f49c6c09fd649ef403f56e2ef4a0816d3de601",
+      "size": 660,
+      "normalized_sha256": "f879737b0ccc5f8181d2b022441b8a657e33f6aed104ead62225a6d48bdd77e6"
+    },
+    "app/src/main/res/drawable/ic_lobe_tree_up_down_right.xml": {
+      "sha256": "41de8db847f77da926650bd40fda2e33338087aab4d3d833a26899533493afa2",
+      "size": 655,
+      "normalized_sha256": "fc0e16a70e6b0fb633bf8deb35363ee7a465772f32300bdb88cc32d121a5dd5d"
+    },
+    "app/src/main/res/drawable/ic_lz_assistants.xml": {
+      "sha256": "c814385373c7238c0b9f79bd2305167dc5425cadc7d9111612e1378049636cbb",
+      "size": 768,
+      "normalized_sha256": "c814385373c7238c0b9f79bd2305167dc5425cadc7d9111612e1378049636cbb"
+    },
+    "app/src/main/res/drawable/ic_lz_book_open.xml": {
+      "sha256": "77024cddedb14f7dcd9429e0015a46eb046703fe3475a31182e1a42ffb1ab64c",
+      "size": 910,
+      "normalized_sha256": "77024cddedb14f7dcd9429e0015a46eb046703fe3475a31182e1a42ffb1ab64c"
+    },
+    "app/src/main/res/drawable/ic_lz_branch.xml": {
+      "sha256": "284f5f3f5be04d9bb7dd9919dbc7b4c29825c9e5cc08dc656e86128caea12fb4",
+      "size": 1116,
+      "normalized_sha256": "284f5f3f5be04d9bb7dd9919dbc7b4c29825c9e5cc08dc656e86128caea12fb4"
+    },
+    "app/src/main/res/drawable/ic_lz_cards.xml": {
+      "sha256": "4d4a2a898ab969ea77c4b006ff9b3c9ba9a3c76ec07ac0998ed7e7754c838fac",
+      "size": 682,
+      "normalized_sha256": "4d4a2a898ab969ea77c4b006ff9b3c9ba9a3c76ec07ac0998ed7e7754c838fac"
+    },
+    "app/src/main/res/drawable/ic_lz_chart_bar.xml": {
+      "sha256": "3d9c53edf48f05cb861c562624cfd734bca5edd1e488a1b4a5f08afff84e7f4f",
+      "size": 704,
+      "normalized_sha256": "3d9c53edf48f05cb861c562624cfd734bca5edd1e488a1b4a5f08afff84e7f4f"
+    },
+    "app/src/main/res/drawable/ic_lz_check.xml": {
+      "sha256": "b55becfe93d9cf842e3c311ae055a7027a624bc073b3acc69f27662b6a9c1174",
+      "size": 435,
+      "normalized_sha256": "b55becfe93d9cf842e3c311ae055a7027a624bc073b3acc69f27662b6a9c1174"
+    },
+    "app/src/main/res/drawable/ic_lz_chevron_down.xml": {
+      "sha256": "f86e03aeae5a19b8332c4d9a3b14c7825117209fc95c69df1f19ba8c0cf0ae8e",
+      "size": 452,
+      "normalized_sha256": "422400abbd928628cc5342acd3a89e585ff26bcbf06826505e5167469d02afb7"
+    },
+    "app/src/main/res/drawable/ic_lz_chevron_left.xml": {
+      "sha256": "d06a0fda90fed625278570aa8a5ef3aae0c3979ea94aec525c42bbd37098af62",
+      "size": 440,
+      "normalized_sha256": "d06a0fda90fed625278570aa8a5ef3aae0c3979ea94aec525c42bbd37098af62"
+    },
+    "app/src/main/res/drawable/ic_lz_chevron_right.xml": {
+      "sha256": "20b18dbee47ef90bd204c61337b1f76eb83eb4bacbca4bbe65cd7fd7c64f80bd",
+      "size": 701,
+      "normalized_sha256": "20b18dbee47ef90bd204c61337b1f76eb83eb4bacbca4bbe65cd7fd7c64f80bd"
+    },
+    "app/src/main/res/drawable/ic_lz_chip.xml": {
+      "sha256": "ad80c9e4344c0b8750d828448036c9d2d96080be977355ab56741bb7a1be59d9",
+      "size": 917,
+      "normalized_sha256": "ad80c9e4344c0b8750d828448036c9d2d96080be977355ab56741bb7a1be59d9"
+    },
+    "app/src/main/res/drawable/ic_lz_close.xml": {
+      "sha256": "6e24fc78a0f6b9495bf542fccdde09189633d230fb91eba70b6b36b7baab2f9f",
+      "size": 447,
+      "normalized_sha256": "6e24fc78a0f6b9495bf542fccdde09189633d230fb91eba70b6b36b7baab2f9f"
+    },
+    "app/src/main/res/drawable/ic_lz_conversation.xml": {
+      "sha256": "06ab8a767c7f2635ab200ae5d4ec9a1a74c6823587f42659479d227983bae0b8",
+      "size": 587,
+      "normalized_sha256": "06ab8a767c7f2635ab200ae5d4ec9a1a74c6823587f42659479d227983bae0b8"
+    },
+    "app/src/main/res/drawable/ic_lz_copy.xml": {
+      "sha256": "da31b1a319a31eee1c9e0e93abb07def1146adc783e8e13982b4df65e9a7efd1",
+      "size": 831,
+      "normalized_sha256": "da31b1a319a31eee1c9e0e93abb07def1146adc783e8e13982b4df65e9a7efd1"
+    },
+    "app/src/main/res/drawable/ic_lz_dots_horizontal.xml": {
+      "sha256": "129f56149d671ae092d8b83ec9007d4491a26893b7f48156295ac0b74c23f37c",
+      "size": 779,
+      "normalized_sha256": "129f56149d671ae092d8b83ec9007d4491a26893b7f48156295ac0b74c23f37c"
+    },
+    "app/src/main/res/drawable/ic_lz_download.xml": {
+      "sha256": "008b92b1fa994346e974bdab7517f4d53f5b3dcebaa9d357fb554e465fb8b23a",
+      "size": 514,
+      "normalized_sha256": "008b92b1fa994346e974bdab7517f4d53f5b3dcebaa9d357fb554e465fb8b23a"
+    },
+    "app/src/main/res/drawable/ic_lz_edit.xml": {
+      "sha256": "cf631ba4a8fc6246a377e6afb626e2331e68b8a2b9e6d81c534adb04b3268f05",
+      "size": 820,
+      "normalized_sha256": "cf631ba4a8fc6246a377e6afb626e2331e68b8a2b9e6d81c534adb04b3268f05"
+    },
+    "app/src/main/res/drawable/ic_lz_external_link.xml": {
+      "sha256": "c450c601fdf4e8f32ae7020fb5299fa0c01f9948897c863107284e6bd5c0d62a",
+      "size": 534,
+      "normalized_sha256": "c450c601fdf4e8f32ae7020fb5299fa0c01f9948897c863107284e6bd5c0d62a"
+    },
+    "app/src/main/res/drawable/ic_lz_grid.xml": {
+      "sha256": "d2158bbde767a16a6cef8be7a40a59cef3063d388713d85f0df111b2f48b334e",
+      "size": 682,
+      "normalized_sha256": "d2158bbde767a16a6cef8be7a40a59cef3063d388713d85f0df111b2f48b334e"
+    },
+    "app/src/main/res/drawable/ic_lz_info.xml": {
+      "sha256": "518f00bab7ca6df461eba525def476722965a1cf8eb63604d30b075a2bb75565",
+      "size": 499,
+      "normalized_sha256": "518f00bab7ca6df461eba525def476722965a1cf8eb63604d30b075a2bb75565"
+    },
+    "app/src/main/res/drawable/ic_lz_mcp.xml": {
+      "sha256": "4ce46287a01806ec1f714261b68cb3837b35471159b2bb7b7d76c9789d09157c",
+      "size": 595,
+      "normalized_sha256": "4ce46287a01806ec1f714261b68cb3837b35471159b2bb7b7d76c9789d09157c"
+    },
+    "app/src/main/res/drawable/ic_lz_memory.xml": {
+      "sha256": "940519c6d54d5d6384badbadc47859dac964b1397b1253954f9333f97b56793b",
+      "size": 689,
+      "normalized_sha256": "940519c6d54d5d6384badbadc47859dac964b1397b1253954f9333f97b56793b"
+    },
+    "app/src/main/res/drawable/ic_lz_menu.xml": {
+      "sha256": "8698e254548b067e46f07126d543a440afa3794d58114092d2fe884d9fe4e532",
+      "size": 537,
+      "normalized_sha256": "28a30c99dc9c4b6c5f4e5d818c0519268f2e233e09780002e4f7a8518cad99d5"
+    },
+    "app/src/main/res/drawable/ic_lz_moon.xml": {
+      "sha256": "00f5daafc82818e507da9025c00c104ea1038c979c37433fd1df2d48e51d792b",
+      "size": 746,
+      "normalized_sha256": "00f5daafc82818e507da9025c00c104ea1038c979c37433fd1df2d48e51d792b"
+    },
+    "app/src/main/res/drawable/ic_lz_plus.xml": {
+      "sha256": "14d5b76b98c7da4fe6dff5e44f0b4e722f56355632e1fecd20269977cdfce52a",
+      "size": 455,
+      "normalized_sha256": "ccf7d83fd15c29633662dcb4e6427dd8bd3ac916c697ee56340d949121442b85"
+    },
+    "app/src/main/res/drawable/ic_lz_refresh.xml": {
+      "sha256": "851cd631ae10fcfc3b073f617763682873a0a16dfd903b1754f0534db3315d97",
+      "size": 561,
+      "normalized_sha256": "851cd631ae10fcfc3b073f617763682873a0a16dfd903b1754f0534db3315d97"
+    },
+    "app/src/main/res/drawable/ic_lz_search.xml": {
+      "sha256": "1d4660050f31b0b6ee9c1e537abe89412e9756f6541728ac1810a8aae1d58aeb",
+      "size": 478,
+      "normalized_sha256": "1d4660050f31b0b6ee9c1e537abe89412e9756f6541728ac1810a8aae1d58aeb"
+    },
+    "app/src/main/res/drawable/ic_lz_send.xml": {
+      "sha256": "524b0b418086d77e63f823aa0fe8b6bf5ab8b4facb12a08f47da0ea20e155db2",
+      "size": 680,
+      "normalized_sha256": "626529c3c8cbf50ab679df0c80b63c318ec4241ff21936cd3d129902c47e21fc"
+    },
+    "app/src/main/res/drawable/ic_lz_settings.xml": {
+      "sha256": "909aba09c7b2fb83c6bf643e5ac9176d100c06c0d44952eb72d7f83f1ca40d88",
+      "size": 1253,
+      "normalized_sha256": "909aba09c7b2fb83c6bf643e5ac9176d100c06c0d44952eb72d7f83f1ca40d88"
+    },
+    "app/src/main/res/drawable/ic_lz_skills.xml": {
+      "sha256": "a9e8eab2b4e5af7e668ac1c36f8e1bf878a0685de2531faff10b1d92cddf1b22",
+      "size": 696,
+      "normalized_sha256": "a9e8eab2b4e5af7e668ac1c36f8e1bf878a0685de2531faff10b1d92cddf1b22"
+    },
+    "app/src/main/res/drawable/ic_lz_sliders.xml": {
+      "sha256": "ee350b0c6096ba2008b528b0c4e9ba548c8b96cb59b9a494664c7ce4562f2b18",
+      "size": 628,
+      "normalized_sha256": "ee350b0c6096ba2008b528b0c4e9ba548c8b96cb59b9a494664c7ce4562f2b18"
+    },
+    "app/src/main/res/drawable/ic_lz_star.xml": {
+      "sha256": "4a03641797825db9465d8183bb9f5a40e51bca4964b58521c5684f62be310db8",
+      "size": 780,
+      "normalized_sha256": "4a03641797825db9465d8183bb9f5a40e51bca4964b58521c5684f62be310db8"
+    },
+    "app/src/main/res/drawable/ic_lz_sun.xml": {
+      "sha256": "3b5eb4bc543cd031129c3dbfd4b5d0645b6d8a727c678dd6f9eb8380d040a543",
+      "size": 964,
+      "normalized_sha256": "3b5eb4bc543cd031129c3dbfd4b5d0645b6d8a727c678dd6f9eb8380d040a543"
+    },
+    "app/src/main/res/drawable/ic_lz_terminal.xml": {
+      "sha256": "bff5a240b1acd6e7fb0a13a7f62fce491d731389d511d2d87adaa52497a225da",
+      "size": 472,
+      "normalized_sha256": "bff5a240b1acd6e7fb0a13a7f62fce491d731389d511d2d87adaa52497a225da"
+    },
+    "app/src/main/res/drawable/ic_lz_trash.xml": {
+      "sha256": "eb2b27f0c8582ddfea97dc91a999aa03895933683a0d6baf203714bfdabefb54",
+      "size": 595,
+      "normalized_sha256": "eb2b27f0c8582ddfea97dc91a999aa03895933683a0d6baf203714bfdabefb54"
+    },
+    "app/src/main/res/drawable/ic_lz_warning.xml": {
+      "sha256": "fb380402821c60ab02b905fd40bbf8a033142310d928f5db47c59f6b38720fe4",
+      "size": 581,
+      "normalized_sha256": "fb380402821c60ab02b905fd40bbf8a033142310d928f5db47c59f6b38720fe4"
+    },
+    "app/src/main/res/drawable/ic_lz_workspace.xml": {
+      "sha256": "87528f278c0bd4c7bb831b803a4630e5e8b64e9ecc3324303364c150afb9579f",
+      "size": 453,
+      "normalized_sha256": "87528f278c0bd4c7bb831b803a4630e5e8b64e9ecc3324303364c150afb9579f"
+    },
+    "app/src/main/res/drawable/window_bg_gradient.xml": {
+      "sha256": "739eff2475658c028c823f7b0f2d7b0ea6708274b350b92be2dbc9fb7e66af6b",
+      "size": 1292,
+      "normalized_sha256": "739eff2475658c028c823f7b0f2d7b0ea6708274b350b92be2dbc9fb7e66af6b"
+    },
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": {
+      "sha256": "17de17d5ab2bbc338e0d2f1c7e6a9d16a49f222ee6206d11ba4467cdaf19bbd4",
+      "size": 273,
+      "normalized_sha256": "5056b7226b3f58e65a61739e8ab6f5c52099fccee3ae9aad0e8856f31709e3fa"
+    },
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": {
+      "sha256": "17de17d5ab2bbc338e0d2f1c7e6a9d16a49f222ee6206d11ba4467cdaf19bbd4",
+      "size": 273,
+      "normalized_sha256": "5056b7226b3f58e65a61739e8ab6f5c52099fccee3ae9aad0e8856f31709e3fa"
+    },
+    "app/src/main/res/values/colors.xml": {
+      "sha256": "9f8a6f7f53859928d91e4744b0b5a954261e898de529f68ad06e8495b2c38fd8",
+      "size": 564,
+      "normalized_sha256": "9f8a6f7f53859928d91e4744b0b5a954261e898de529f68ad06e8495b2c38fd8"
+    },
+    "app/src/main/res/values/strings.xml": {
+      "sha256": "d65130327d7b007eb215c1723f963267a1137b6b2c0fa4c5a291cf5a07500c74",
+      "size": 191,
+      "normalized_sha256": "d65130327d7b007eb215c1723f963267a1137b6b2c0fa4c5a291cf5a07500c74"
+    },
+    "app/src/main/res/values/themes.xml": {
+      "sha256": "8f8139196702057a234ed1132ac98cd19dc3e4f5fbeca80d89e11e98268fd755",
+      "size": 1133,
+      "normalized_sha256": "605c3dd31f81c53df4c3bbccb33fe5694e98d94756f47e05099f3f6a90ab98bb"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/AgentLoopCompactionTest.kt": {
+      "role": "index",
+      "sha256": "a9a481dd1787774efcfe03ccbf9d78cc3d5608ce0eb128f796b34852d2b9acf4",
+      "size": 13521,
+      "normalized_sha256": "a9a481dd1787774efcfe03ccbf9d78cc3d5608ce0eb128f796b34852d2b9acf4"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/AgentLoopTest.kt": {
+      "role": "index",
+      "sha256": "ae906ea441552affab9b74c4a75393515fb9a7a80031da0ce839a3e6441629f7",
+      "size": 18275,
+      "normalized_sha256": "ae906ea441552affab9b74c4a75393515fb9a7a80031da0ce839a3e6441629f7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/BranchModelTest.kt": {
+      "sha256": "5d0d3bbd178d5953d5ac53c592854b26b11677227d17dcceccb2f02c1e3bf4d0",
+      "size": 3901,
+      "normalized_sha256": "5d0d3bbd178d5953d5ac53c592854b26b11677227d17dcceccb2f02c1e3bf4d0"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/CacheObserverTest.kt": {
+      "sha256": "b9759c30eedc9d87ec90da186451692926b6d89380341ac20778ef7ceedcfdf7",
+      "size": 10025,
+      "normalized_sha256": "b9759c30eedc9d87ec90da186451692926b6d89380341ac20778ef7ceedcfdf7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/CharacterCardsTest.kt": {
+      "sha256": "fb32ed2ace23e794b241b4925e6ba2bbd89e39fa3fa813cc28a73eaa49afdae0",
+      "size": 8694,
+      "normalized_sha256": "fb32ed2ace23e794b241b4925e6ba2bbd89e39fa3fa813cc28a73eaa49afdae0"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/ChatJobsTest.kt": {
+      "sha256": "cb5f508be4ed60516ab34c800f5ff55b73e6a5552da88c37c9a814ab75c53b20",
+      "size": 18039,
+      "normalized_sha256": "cb5f508be4ed60516ab34c800f5ff55b73e6a5552da88c37c9a814ab75c53b20"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/ChatPlanTest.kt": {
+      "role": "index",
+      "sha256": "701be198416c1bd7d960ca228ec0b655af74d8da914268ab15f4fd810cb313ac",
+      "size": 8546,
+      "normalized_sha256": "701be198416c1bd7d960ca228ec0b655af74d8da914268ab15f4fd810cb313ac"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/CompactionTest.kt": {
+      "role": "index",
+      "sha256": "f811c5e1cd569fb83a339504157a97b055007d3515c3ff450a6ec7067872e36b",
+      "size": 11972,
+      "normalized_sha256": "f811c5e1cd569fb83a339504157a97b055007d3515c3ff450a6ec7067872e36b"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/CotParserTest.kt": {
+      "role": "index",
+      "sha256": "5cf62e6ad733bab9f91d8a733567b1fa3eb8598b663d10f2534d0eed236597aa",
+      "size": 16849,
+      "normalized_sha256": "5cf62e6ad733bab9f91d8a733567b1fa3eb8598b663d10f2534d0eed236597aa"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/JsCallTest.kt": {
+      "role": "index",
+      "sha256": "02d834b5628c15ffccecf8e5bd27f2697512e147b0792a1aa844398534fb2c43",
+      "size": 2631,
+      "normalized_sha256": "02d834b5628c15ffccecf8e5bd27f2697512e147b0792a1aa844398534fb2c43"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/MemoryBrowserTest.kt": {
+      "sha256": "2551bc5267600a62c20cfee36da146f070c81c0af12d962e8cdbd38fd6e2eb78",
+      "size": 7573,
+      "normalized_sha256": "2551bc5267600a62c20cfee36da146f070c81c0af12d962e8cdbd38fd6e2eb78"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/MemorySummarizerTest.kt": {
+      "role": "index",
+      "sha256": "6c68408db5ea4841c5f1393532b03d7e4064350e9b4b2e66846e07a2367eebdd",
+      "size": 2496,
+      "normalized_sha256": "6c68408db5ea4841c5f1393532b03d7e4064350e9b4b2e66846e07a2367eebdd"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/ModelCatalogTest.kt": {
+      "role": "index",
+      "sha256": "f349022231a4f65ade3d26ab17b6acaa909eea8b961119f816ed796c586ae16c",
+      "size": 2290,
+      "normalized_sha256": "f349022231a4f65ade3d26ab17b6acaa909eea8b961119f816ed796c586ae16c"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/PageAggregatesTest.kt": {
+      "sha256": "9f51a15168e43702b790ad1f087b8005033c9ff63cc1e51d3c802c14e7fe97a7",
+      "size": 17440,
+      "normalized_sha256": "9f51a15168e43702b790ad1f087b8005033c9ff63cc1e51d3c802c14e7fe97a7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/PlaceholdersTest.kt": {
+      "sha256": "8e9f08512501a26470590117529aaf623c93cb678af24d4361ac219c1f4199e7",
+      "size": 2222,
+      "normalized_sha256": "8e9f08512501a26470590117529aaf623c93cb678af24d4361ac219c1f4199e7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/PromptSectionsTest.kt": {
+      "sha256": "75bc9beee1871af14c71ce3a267d24d3e14087277644031efd4b302f6764523c",
+      "size": 21683,
+      "normalized_sha256": "7c7f4f4a6ba9826aa36eadfc08d53b27eaa5674b4135943dce92770928759b8c"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/RecallEngineTest.kt": {
+      "sha256": "7abcacd734e088f342016540cc70e07c937b8701d317593eac8f26b1d36e38bc",
+      "size": 2585,
+      "normalized_sha256": "7abcacd734e088f342016540cc70e07c937b8701d317593eac8f26b1d36e38bc"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/RecallOptionsTest.kt": {
+      "sha256": "5c8f31a39feaa66a744fd27c8dcd48c54a1d67fcbc6477fd1a0c75999ee03f0f",
+      "size": 5534,
+      "normalized_sha256": "5c8f31a39feaa66a744fd27c8dcd48c54a1d67fcbc6477fd1a0c75999ee03f0f"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/RegexScriptsTest.kt": {
+      "sha256": "e9c2733754b0593db84ca9304148fd9aa79f48bf7698d84446abcfd155e40916",
+      "size": 12488,
+      "normalized_sha256": "e9c2733754b0593db84ca9304148fd9aa79f48bf7698d84446abcfd155e40916"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/RetryPolicyTest.kt": {
+      "role": "index",
+      "sha256": "ea114222f8058fdcdc9a6780717770e0c3c1bc40da1d1466ee5f35466462b929",
+      "size": 4328,
+      "normalized_sha256": "ea114222f8058fdcdc9a6780717770e0c3c1bc40da1d1466ee5f35466462b929"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/StyleFilterTest.kt": {
+      "sha256": "2f9e0568c53a2937c24fd01a960a1012e2f8cb5b53c673c01b458203ca4a5dcc",
+      "size": 14665,
+      "normalized_sha256": "2f9e0568c53a2937c24fd01a960a1012e2f8cb5b53c673c01b458203ca4a5dcc"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/ToolMarkupFilterTest.kt": {
+      "role": "index",
+      "sha256": "5d3e6b9020e4f1b48b0f71b2b46292f015fbd5a12cc29c9179f349b81d834025",
+      "size": 3558,
+      "normalized_sha256": "5d3e6b9020e4f1b48b0f71b2b46292f015fbd5a12cc29c9179f349b81d834025"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/ToolTrailTest.kt": {
+      "sha256": "a7d07f73c31f991d6a25b99a6a4fab00edeaf7e2a76e70f4f014820f7ef4cd1e",
+      "size": 5871,
+      "normalized_sha256": "a7d07f73c31f991d6a25b99a6a4fab00edeaf7e2a76e70f4f014820f7ef4cd1e"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/TransportConfigParsingTest.kt": {
+      "role": "index",
+      "sha256": "8a0092419dd0e9602d65bd8a550bde93b35a1599bf3a074fb4f77d2e2d7ec0f8",
+      "size": 2373,
+      "normalized_sha256": "8a0092419dd0e9602d65bd8a550bde93b35a1599bf3a074fb4f77d2e2d7ec0f8"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/UiTemplateUpdatesTest.kt": {
+      "role": "index",
+      "sha256": "66749ef8d4ad18cc2346c7724fe2210cbe6f7f9272a804eb076c60117466cbb5",
+      "size": 16716,
+      "normalized_sha256": "66749ef8d4ad18cc2346c7724fe2210cbe6f7f9272a804eb076c60117466cbb5"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/UsageChartTest.kt": {
+      "sha256": "1ea9401e6f0f4e7e5c6c2bdf5f5b3c52cc13eba33d68dfa016730c79af65acc1",
+      "size": 12364,
+      "normalized_sha256": "1ea9401e6f0f4e7e5c6c2bdf5f5b3c52cc13eba33d68dfa016730c79af65acc1"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/UsageFormatTest.kt": {
+      "role": "index",
+      "sha256": "44d71a3e49cb5460beeb93f738ce87c968ebbecaf59c9d57cc65987cfc0501e3",
+      "size": 3669,
+      "normalized_sha256": "44d71a3e49cb5460beeb93f738ce87c968ebbecaf59c9d57cc65987cfc0501e3"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/WorldBookActivatorTest.kt": {
+      "role": "index",
+      "sha256": "346ab0f74249dd3018dc77100deea797f6918129359cbdefd729107a28be789d",
+      "size": 10813,
+      "normalized_sha256": "346ab0f74249dd3018dc77100deea797f6918129359cbdefd729107a28be789d"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/WorldBookActivatorV31Test.kt": {
+      "role": "index",
+      "sha256": "3600f2e1dbbc5001ee3cf82758291c302f6ff64b15d2d626dbe0348d4fda4446",
+      "size": 15677,
+      "normalized_sha256": "3600f2e1dbbc5001ee3cf82758291c302f6ff64b15d2d626dbe0348d4fda4446"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/WorldBookToolTest.kt": {
+      "sha256": "af27249e983071189ce259cc8f29331df52a0461e2a3a3b67f69d6b6b651f542",
+      "size": 4719,
+      "normalized_sha256": "c436343c538de3418601491f87e06faa16050f519bfeca97bb72e904c8cac5b7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/WorldEntryInjectionCountTest.kt": {
+      "sha256": "919e9b115cd657ea354032f8ce71e93a970e811b391f8c89084926eeea5699c1",
+      "size": 3887,
+      "normalized_sha256": "3304a833af8dc709b145ee440f2f0436c53408f4713b6f85d008490220b1096f"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/AnthropicTransportTest.kt": {
+      "sha256": "4bf123e4d223ac140c02d6659173d21b4a698f2b773850c4168449c027f27fd6",
+      "size": 6914,
+      "normalized_sha256": "4bf123e4d223ac140c02d6659173d21b4a698f2b773850c4168449c027f27fd6"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/AnthropicWireTest.kt": {
+      "sha256": "8446fd3f154168a88670ea4a2003049bd6506f6477cddfe591a2743e9ad11837",
+      "size": 15499,
+      "normalized_sha256": "8446fd3f154168a88670ea4a2003049bd6506f6477cddfe591a2743e9ad11837"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/AttachmentWireTest.kt": {
+      "sha256": "0b5e58d76d74f7d7048c726ca091bed0e5f2f7603553824073c27e6aba8d593f",
+      "size": 3167,
+      "normalized_sha256": "0b5e58d76d74f7d7048c726ca091bed0e5f2f7603553824073c27e6aba8d593f"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/BudgetGuardTest.kt": {
+      "sha256": "8cc14daa91415e5d68f7531c46e16653246e531512c68959c6859c418a22ba16",
+      "size": 3320,
+      "normalized_sha256": "8cc14daa91415e5d68f7531c46e16653246e531512c68959c6859c418a22ba16"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/GeminiTransportTest.kt": {
+      "sha256": "76af5e06ff332700d0a27aac1b1c370b29b76fb1158576053d232a2da3ffb517",
+      "size": 6488,
+      "normalized_sha256": "76af5e06ff332700d0a27aac1b1c370b29b76fb1158576053d232a2da3ffb517"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/GeminiWireTest.kt": {
+      "sha256": "a7b2e46afc4f6be55a5e4434a396be08cd93de51f15640905bb5583fbb99ff6f",
+      "size": 12938,
+      "normalized_sha256": "a7b2e46afc4f6be55a5e4434a396be08cd93de51f15640905bb5583fbb99ff6f"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/JsonLenientTest.kt": {
+      "sha256": "78cd2261bc6441439031f85785bb4b5062a6ff49cf5f05865223ddeecb0f9d93",
+      "size": 1738,
+      "normalized_sha256": "78cd2261bc6441439031f85785bb4b5062a6ff49cf5f05865223ddeecb0f9d93"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/OpenAiTransportTest.kt": {
+      "sha256": "f6a30b6c7a7c0889c76a43a493b94ca78550ef754080a865f7ca519499ffe571",
+      "size": 11622,
+      "normalized_sha256": "f6a30b6c7a7c0889c76a43a493b94ca78550ef754080a865f7ca519499ffe571"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/OpenAiWireTest.kt": {
+      "sha256": "14f05cf1a989def47c6a6a8ee18bb7a6f73ee5d9d7d4e31f00bddb3131273b28",
+      "size": 15653,
+      "normalized_sha256": "14f05cf1a989def47c6a6a8ee18bb7a6f73ee5d9d7d4e31f00bddb3131273b28"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/RawSseServer.kt": {
+      "sha256": "adf4818635fe2c30f91f48210861a441e270fbfcee62779f4a0dda3b0f21e61d",
+      "size": 5601,
+      "normalized_sha256": "adf4818635fe2c30f91f48210861a441e270fbfcee62779f4a0dda3b0f21e61d"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/SseFramesTest.kt": {
+      "sha256": "b5961153a3cf0d7f617ccd65a3f0e9fe435b2be549a7f87404b44510ae363e0c",
+      "size": 3227,
+      "normalized_sha256": "b5961153a3cf0d7f617ccd65a3f0e9fe435b2be549a7f87404b44510ae363e0c"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/ToolCallAccumulatorTest.kt": {
+      "sha256": "244fb70520cfe7c0457ada295c87b10d941a6b27431c3ebae18fed99e3052e1a",
+      "size": 4408,
+      "normalized_sha256": "244fb70520cfe7c0457ada295c87b10d941a6b27431c3ebae18fed99e3052e1a"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/chat/llm/WireFidelityTest.kt": {
+      "sha256": "719878d797bac9f5186e86bd14e03ff6cdd1e722001957662f9da28526cc2ba7",
+      "size": 14154,
+      "normalized_sha256": "719878d797bac9f5186e86bd14e03ff6cdd1e722001957662f9da28526cc2ba7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/chat/ChatMessageCodecTest.kt": {
+      "sha256": "314cf9228f6eb8adaff5e39525fefa75b051064ba048ddc6985f1b40b5bcdcae",
+      "size": 18447,
+      "normalized_sha256": "314cf9228f6eb8adaff5e39525fefa75b051064ba048ddc6985f1b40b5bcdcae"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/legacy/LegacyMigratorTest.kt": {
+      "sha256": "f42bfa3f4ea53c59633f527404d714f49642d93f8d2864e206714a9039671959",
+      "size": 25004,
+      "normalized_sha256": "f42bfa3f4ea53c59633f527404d714f49642d93f8d2864e206714a9039671959"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/legacy/MigrationInboxTest.kt": {
+      "sha256": "4eab5b541030032d8624e6c11ed590726be78fbda6594bd906f3c1dc4032f4b5",
+      "size": 4275,
+      "normalized_sha256": "4eab5b541030032d8624e6c11ed590726be78fbda6594bd906f3c1dc4032f4b5"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/legacy/MigrationReportTest.kt": {
+      "sha256": "48a4316e89b7160c443e3c265fba042ee5c7782022681a366a94a0a0a2c107e2",
+      "size": 2637,
+      "normalized_sha256": "48a4316e89b7160c443e3c265fba042ee5c7782022681a366a94a0a0a2c107e2"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/preset/PresetEntryTest.kt": {
+      "sha256": "9b1b455ed8ebaf522698a53e8e99b96096ad518e2446065db68c61284ac12c8c",
+      "size": 6429,
+      "normalized_sha256": "9b1b455ed8ebaf522698a53e8e99b96096ad518e2446065db68c61284ac12c8c"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/settings/LegacySettingsReaderTest.kt": {
+      "sha256": "f497865caa4f59285baee6b4b5452631759cd5383dc79a67c71dfa585b0be7d7",
+      "size": 6392,
+      "normalized_sha256": "f497865caa4f59285baee6b4b5452631759cd5383dc79a67c71dfa585b0be7d7"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/settings/SettingsBootstrapPlanTest.kt": {
+      "sha256": "b44cc4f91b9ab36de0fd29fdffee25626ac9270c28002646a483453eed2f4c64",
+      "size": 7485,
+      "normalized_sha256": "b44cc4f91b9ab36de0fd29fdffee25626ac9270c28002646a483453eed2f4c64"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/transfer/TransferFormatTest.kt": {
+      "sha256": "312819f07d5bcc79c865913df626c9e68680136782347b323a3c25c7ad20d2a4",
+      "size": 5122,
+      "normalized_sha256": "312819f07d5bcc79c865913df626c9e68680136782347b323a3c25c7ad20d2a4"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/world/WorldBookMigrationTest.kt": {
+      "sha256": "6d0a40649ac2433b049cc19a3f2fdf67cfba267f224152d61511d3ac90dfa323",
+      "size": 11156,
+      "normalized_sha256": "6d0a40649ac2433b049cc19a3f2fdf67cfba267f224152d61511d3ac90dfa323"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/world/WorldEntryKeyIdentityTest.kt": {
+      "sha256": "bc1126ff990b89b4aae1e58df70544d2cf4f5657ce12cb32efb087bde85395a4",
+      "size": 2486,
+      "normalized_sha256": "6aa14fbdf2f60bf71b2120ec5697bae8613d90f0d5396e5395e7e93fb4bbdc99"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/data/world/WorldEntryTest.kt": {
+      "sha256": "66096080ab165506ebdef040b2dd26d54f72b0f585e9fabe507c1a6324a00c95",
+      "size": 13103,
+      "normalized_sha256": "66096080ab165506ebdef040b2dd26d54f72b0f585e9fabe507c1a6324a00c95"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/MotionSettingsTest.kt": {
+      "sha256": "5960af1dfb1fdd669f13d68bd35f6c8c40c634405fe6f4572c3d845895c1cd65",
+      "size": 2779,
+      "normalized_sha256": "5960af1dfb1fdd669f13d68bd35f6c8c40c634405fe6f4572c3d845895c1cd65"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/HtmlBlocksTest.kt": {
+      "sha256": "80fb9f2ec15c63b40247695a08550eb9298125339e8f327220dba4a8deb04088",
+      "size": 5733,
+      "normalized_sha256": "80fb9f2ec15c63b40247695a08550eb9298125339e8f327220dba4a8deb04088"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/HtmlSanitizerTest.kt": {
+      "sha256": "92ff0f6333b33766156c901096699303657dfe9e7eeda971cdc5e01e66ad3f6f",
+      "size": 8364,
+      "normalized_sha256": "92ff0f6333b33766156c901096699303657dfe9e7eeda971cdc5e01e66ad3f6f"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/InlineHtmlTest.kt": {
+      "sha256": "21a5c3decdfbec063b2f0aa3ac6f98f9e885172cacf9eaa38595812f7c57aab3",
+      "size": 9443,
+      "normalized_sha256": "21a5c3decdfbec063b2f0aa3ac6f98f9e885172cacf9eaa38595812f7c57aab3"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownMemoTest.kt": {
+      "sha256": "b4b4c643465dcb45dcebf6dc2c64581e9e8b5bce292a9d3e900a1739955bbe4b",
+      "size": 1756,
+      "normalized_sha256": "b4b4c643465dcb45dcebf6dc2c64581e9e8b5bce292a9d3e900a1739955bbe4b"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownParserTest.kt": {
+      "sha256": "21002037a5d2749bd7c89091c47e49c1720bf34f41f4ce197174a5947b54a3e9",
+      "size": 7254,
+      "normalized_sha256": "21002037a5d2749bd7c89091c47e49c1720bf34f41f4ce197174a5947b54a3e9"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/MarkdownTokensScaleTest.kt": {
+      "sha256": "42973dbba492c6cf575ea74383eae02a3335eb9495c8f3dbbb628889bd8b4509",
+      "size": 1587,
+      "normalized_sha256": "42973dbba492c6cf575ea74383eae02a3335eb9495c8f3dbbb628889bd8b4509"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/markdown/TableWeightsTest.kt": {
+      "sha256": "cd7f6f19e593bf2e20d0ec81a6f3e8224c52595a2b461609266708134f3cacab",
+      "size": 3919,
+      "normalized_sha256": "cd7f6f19e593bf2e20d0ec81a6f3e8224c52595a2b461609266708134f3cacab"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/pages/chat/BatchACacheAcceptanceTest.kt": {
+      "sha256": "7c28e301a88850fa4c392c2f8a43ccfa67ab7a45ba05bbbacf8e05d62599c667",
+      "size": 8885,
+      "normalized_sha256": "7c28e301a88850fa4c392c2f8a43ccfa67ab7a45ba05bbbacf8e05d62599c667"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatAttachmentTest.kt": {
+      "sha256": "6c0f0751930b3e1167c5750328b352dfcdb39e93f22fd3e7e6df819c61461a80",
+      "size": 6250,
+      "normalized_sha256": "6c0f0751930b3e1167c5750328b352dfcdb39e93f22fd3e7e6df819c61461a80"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatMessageTest.kt": {
+      "sha256": "881f93e6c4fbdf567f5e731c4fc859814fbe0926caabe9a005c0603c6a637c16",
+      "size": 5911,
+      "normalized_sha256": "9fb86199a45b82dea6a2d95718021acf59854caf9c7d8a3a493508d772a278f9"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/pages/chat/ChatTurnStateTest.kt": {
+      "sha256": "f9b98acd3a7e791369aba03d3ae278f24174485ebb935d2e8853bb1fcddb72c0",
+      "size": 7942,
+      "normalized_sha256": "f9b98acd3a7e791369aba03d3ae278f24174485ebb935d2e8853bb1fcddb72c0"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/pages/chat/RequestBuilderTest.kt": {
+      "sha256": "39d7dc77aabcb1f0987bdd31a5fa47cf9984de28c4cbc403b414d1836232ac1e",
+      "size": 40956,
+      "normalized_sha256": "39d7dc77aabcb1f0987bdd31a5fa47cf9984de28c4cbc403b414d1836232ac1e"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/theme/LuzzyPaletteSnapshotTest.kt": {
+      "sha256": "af781540a9460f38519b258a79b0a75c48c68eeb38ef19621313fb618f4b5783",
+      "size": 3938,
+      "normalized_sha256": "af781540a9460f38519b258a79b0a75c48c68eeb38ef19621313fb618f4b5783"
+    },
+    "app/src/test/java/com/luzzymeow/luzzyrp/ui/theme/LuzzyTypographyScaleTest.kt": {
+      "sha256": "5cd0c484eeaee3beece412c77a041558d95170bafd0ad21418888ddd428aab41",
+      "size": 1740,
+      "normalized_sha256": "5cd0c484eeaee3beece412c77a041558d95170bafd0ad21418888ddd428aab41"
+    },
+    "app/src/test/js/chat-native.test.cjs": {
+      "sha256": "8e1a98ae9d2c4e29f21f211248493a32661e0a26f8b3692a13e268ffbf0e285a",
+      "size": 9265,
+      "normalized_sha256": "8e1a98ae9d2c4e29f21f211248493a32661e0a26f8b3692a13e268ffbf0e285a"
+    },
+    "app/src/test/resources/legacy/webview-db-fixture.json": {
+      "sha256": "f6abf29d2698edcc93f508c78edfc25c5f8c6b0ee78cdce71c292c62cce9dac0",
+      "size": 139883,
+      "normalized_sha256": "f6abf29d2698edcc93f508c78edfc25c5f8c6b0ee78cdce71c292c62cce9dac0"
+    },
+    "build.gradle.kts": {
+      "sha256": "b29e20872ba50afab51648c7a8be40ba47ec4878ca6d415cf28c41ce7196a52a",
+      "size": 143,
+      "normalized_sha256": "b29e20872ba50afab51648c7a8be40ba47ec4878ca6d415cf28c41ce7196a52a"
+    },
+    "docs/CHAT-REGRESSION.md": {
+      "sha256": "a3da5c390d784ea7535239233dcba49217525d6a6a853a1283ce7e274c85b466",
+      "size": 7117,
+      "normalized_sha256": "a3da5c390d784ea7535239233dcba49217525d6a6a853a1283ce7e274c85b466"
+    },
+    "docs/DESIGN-compose.md": {
+      "sha256": "f1aaaa67ebd8d38eaf41b0610f59617d3003ed4bf4bfe5511d7008f8552ee824",
+      "size": 139099,
+      "normalized_sha256": "7e269e9de594700c301a1cff5dc1c5ac6e8f42ccecc8ecba5c70bc720457f469"
+    },
+    "docs/DESIGN-migration.md": {
+      "sha256": "081c57571dac245484a5bd368288f4466bccda8c97003685cbc8d3e9c443624f",
+      "size": 35421,
+      "normalized_sha256": "081c57571dac245484a5bd368288f4466bccda8c97003685cbc8d3e9c443624f"
+    },
+    "docs/DESIGN-ui-v4.md": {
+      "sha256": "b2c8e8f9347ecb4d042724b30ad30611f7e0bf79eedbee417767ab845b5dcbef",
+      "size": 6852,
+      "normalized_sha256": "7b6e999fae69ecf8ac1d2b0173caf041e1938f99ad50f9d496360830f97f6d38"
+    },
+    "docs/HANDOFF-release-acceptance.md": {
+      "sha256": "15da14e599e1052751305f21c42aad6cc69a58824e7463ceced57c1d1f4debd6",
+      "size": 8713,
+      "normalized_sha256": "15da14e599e1052751305f21c42aad6cc69a58824e7463ceced57c1d1f4debd6"
+    },
+    "docs/LICENSING.md": {
+      "role": "index",
+      "sha256": "77df11a20fde665468496f2c78f7dd6df2d2f014082dac8481fa6a5c6d44d9c8",
+      "size": 5762,
+      "normalized_sha256": "77df11a20fde665468496f2c78f7dd6df2d2f014082dac8481fa6a5c6d44d9c8"
+    },
+    "docs/PLAN-v1.6.0-dsh.md": {
+      "sha256": "195d4945c8966d8e33b9eec571b897ea757aef56846a59bede33d47280d344f1",
+      "size": 9292,
+      "normalized_sha256": "195d4945c8966d8e33b9eec571b897ea757aef56846a59bede33d47280d344f1"
+    },
+    "docs/PLAN-v2.0.md": {
+      "sha256": "9fb7b6e83817b1f3bd90aff0872f30e372506cd4036e60221869c7feed32b1bd",
+      "size": 21159,
+      "normalized_sha256": "9fb7b6e83817b1f3bd90aff0872f30e372506cd4036e60221869c7feed32b1bd"
+    },
+    "docs/PLAN-v3.0-compose.md": {
+      "sha256": "2d69e7fb5d582fc5e8805a18fddd7cc876285faf2f8badffc26f35d3e84fb787",
+      "size": 23082,
+      "normalized_sha256": "2d69e7fb5d582fc5e8805a18fddd7cc876285faf2f8badffc26f35d3e84fb787"
+    },
+    "docs/PLAN-v3.0-p5-agent-loop.md": {
+      "sha256": "b901efdfc166d49d3c7d0b31b1b9c70b610e79ae4e0a21a07c3a639101ed5391",
+      "size": 36403,
+      "normalized_sha256": "b901efdfc166d49d3c7d0b31b1b9c70b610e79ae4e0a21a07c3a639101ed5391"
+    },
+    "docs/PLAN-v3.0-presets-worldbook.md": {
+      "sha256": "3c433a3e3dca944ac4da842a55e0b8756020c3ae47c6e0d46ca6a156c65a0fd9",
+      "size": 33176,
+      "normalized_sha256": "3c433a3e3dca944ac4da842a55e0b8756020c3ae47c6e0d46ca6a156c65a0fd9"
+    },
+    "docs/PLAN-worldbook-v3.1.md": {
+      "sha256": "6e5f0c0f6e6b8aef334e74ae707f322a02879f15f48bd12cbe803cc387382094",
+      "size": 13133,
+      "normalized_sha256": "6e5f0c0f6e6b8aef334e74ae707f322a02879f15f48bd12cbe803cc387382094"
+    },
+    "docs/RESEARCH-v2.0-kotlin-transport.md": {
+      "sha256": "8c65524565d6d82dae12cfe44f9d8e30ac2de9e2edbec425164ac5687c1a654d",
+      "size": 21196,
+      "normalized_sha256": "8c65524565d6d82dae12cfe44f9d8e30ac2de9e2edbec425164ac5687c1a654d"
+    },
+    "docs/RESEARCH-v3-rikkahub-design.md": {
+      "sha256": "39ab1257bf27c7600509a2314832c459a7a4fe3195e8b59447a18f2a136329ce",
+      "size": 9248,
+      "normalized_sha256": "39ab1257bf27c7600509a2314832c459a7a4fe3195e8b59447a18f2a136329ce"
+    },
+    "docs/RESEARCH-worldbook-sillytavern.md": {
+      "sha256": "17d03de010d36c136788fbe61144d6fc4d6576f5cde1469964cbd33aefcdd4ab",
+      "size": 13250,
+      "normalized_sha256": "17d03de010d36c136788fbe61144d6fc4d6576f5cde1469964cbd33aefcdd4ab"
+    },
+    "docs/WORKLOG.md": {
+      "sha256": "8e6afd4b464157d16867f6e55ade506c923e4013d85c304b89238ac2be79017c",
+      "size": 453835,
+      "normalized_sha256": "8e6afd4b464157d16867f6e55ade506c923e4013d85c304b89238ac2be79017c"
+    },
+    "docs/design/boards-v7/direction-approved-v3.2-reachability.md": {
+      "sha256": "0758d3e28c7fc5ce8db78ceea122f4c93236d9075cfb08637835cb53ef1fb394",
+      "size": 1944,
+      "normalized_sha256": "6849aebec334bfd075cc0a309efea6936c0f55d15a757394728dafcc43c7ab48"
+    },
+    "docs/design/boards-v7/direction-approved-v7.md": {
+      "sha256": "5a6e9bb03f93e0df1d55594f6ab7d4ea6affc8a48aa6855d49b72439ae2cb2e4",
+      "size": 1814,
+      "normalized_sha256": "5a6e9bb03f93e0df1d55594f6ab7d4ea6affc8a48aa6855d49b72439ae2cb2e4"
+    },
+    "docs/design/icon-v2-directions.md": {
+      "role": "index",
+      "sha256": "1092f5fe3dac0df8a9bc4682bdeb059dc3fdce1e391874bd3016e4a9154e9a05",
+      "size": 5637,
+      "normalized_sha256": "1092f5fe3dac0df8a9bc4682bdeb059dc3fdce1e391874bd3016e4a9154e9a05"
+    },
+    "docs/design/upstream-vs-loom/README.md": {
+      "sha256": "260adb413586c4d2c173c11d7f4c4edaea5b7b767f88113a191318aa995616d5",
+      "size": 4613,
+      "normalized_sha256": "260adb413586c4d2c173c11d7f4c4edaea5b7b767f88113a191318aa995616d5"
+    },
+    "gradle.properties": {
+      "sha256": "266db30b2a3f1f97fc4b07de9bbb755debf183184b42e8a098d5f552f40627f4",
+      "size": 289,
+      "normalized_sha256": "2a6cfb8629fb665e0fb7668fae4dde8d37b8f5b130c6131ca59058431b68d9ee"
+    },
+    "gradle/libs.versions.toml": {
+      "sha256": "2689e62de688e1b5c72190531b424ef5398e098cde03d07d930288410dc91a84",
+      "size": 5773,
+      "normalized_sha256": "2689e62de688e1b5c72190531b424ef5398e098cde03d07d930288410dc91a84"
+    },
+    "gradle/wrapper/gradle-wrapper.properties": {
+      "role": "index",
+      "sha256": "8057fa859e4b61d1fe28b9d40381934567fd2ca7b700eed2c0917a3ee664a08a",
+      "size": 335,
+      "normalized_sha256": "8057fa859e4b61d1fe28b9d40381934567fd2ca7b700eed2c0917a3ee664a08a"
+    },
+    "gradlew": {
+      "sha256": "63135287117a1e6d12c84580f1f49c61d1ba02218ecd28660605e97f976e7d65",
+      "size": 5766,
+      "normalized_sha256": "63135287117a1e6d12c84580f1f49c61d1ba02218ecd28660605e97f976e7d65"
+    },
+    "gradlew.bat": {
+      "sha256": "c46a27c79007746de5922b17abb6230d64ad8b1ba3ad1585ee5c6543c2a9b129",
+      "size": 2674,
+      "normalized_sha256": "c46a27c79007746de5922b17abb6230d64ad8b1ba3ad1585ee5c6543c2a9b129"
+    },
+    "settings.gradle.kts": {
+      "sha256": "06ce6d99fd44ab67d8553000f9c7d73cd5742ff76e957db03c085e3cc08f575a",
+      "size": 678,
+      "normalized_sha256": "06ce6d99fd44ab67d8553000f9c7d73cd5742ff76e957db03c085e3cc08f575a"
+    },
+    "tools/apply-patches.ps1": {
+      "sha256": "79574bddfbc1698ffeef91d18b95ffca8e12baa79dbadb3dc5e950a9fc11076b",
+      "size": 32014,
+      "normalized_sha256": "79574bddfbc1698ffeef91d18b95ffca8e12baa79dbadb3dc5e950a9fc11076b"
+    },
+    "tools/cdp-eval.mjs": {
+      "role": "index",
+      "sha256": "35b0e0b2545e0175164176d710659e2f8b708ab40e650ace24d348024ba6a3a5",
+      "size": 2227,
+      "normalized_sha256": "35b0e0b2545e0175164176d710659e2f8b708ab40e650ace24d348024ba6a3a5"
+    },
+    "tools/desktop-smoke.cjs": {
+      "sha256": "de6341acdd4a824d3583b89969eda996817e38b3a16c31e4c576bf08cf09ab83",
+      "size": 6344,
+      "normalized_sha256": "de6341acdd4a824d3583b89969eda996817e38b3a16c31e4c576bf08cf09ab83"
+    },
+    "tools/gen-changelog.mjs": {
+      "sha256": "3a51d24c306b6db7a829448f9ee950d29d5386c6666be0d2de1742c0c11e1b21",
+      "size": 4399,
+      "normalized_sha256": "0e0aed7181f0645bdb70869e313e99ae6882b159acc72ebf273f501fd85e7c07"
+    },
+    "tools/gen_keystore.sh": {
+      "sha256": "ae28ecf2ad0acc24104fb2336a97173bbff0ec3bd189c96b4d21a59fd4921352",
+      "size": 366,
+      "normalized_sha256": "ae28ecf2ad0acc24104fb2336a97173bbff0ec3bd189c96b4d21a59fd4921352"
+    },
+    "tools/icon_pipeline.py": {
+      "sha256": "e6ec0b386f798d6bae0950bddfeaea62ea0f7a53f09185ca10720ca4ff32c563",
+      "size": 24929,
+      "normalized_sha256": "dbc9e3145c9094f7dacac9f5be87c516da0e08064dee4498b793d751f65d7678"
+    },
+    "tools/mig-fixture/README.md": {
+      "sha256": "8700b715e27585cea3a575b546bae44440dea909ab4965b38e7ead07e72efa68",
+      "size": 7427,
+      "normalized_sha256": "8700b715e27585cea3a575b546bae44440dea909ab4965b38e7ead07e72efa68"
+    },
+    "tools/mig-fixture/dump.js": {
+      "sha256": "bbe52a9ca469be86b5ade9b560a48c47670712a5dbfd47b2625c5f37960d8497",
+      "size": 2001,
+      "normalized_sha256": "bbe52a9ca469be86b5ade9b560a48c47670712a5dbfd47b2625c5f37960d8497"
+    },
+    "tools/mig-fixture/gen1-identity.js": {
+      "sha256": "b9f8bf387b6822c454df559b28637c03ddc00e7027e87c9fcfc592cf4e2bf4d5",
+      "size": 3005,
+      "normalized_sha256": "b9f8bf387b6822c454df559b28637c03ddc00e7027e87c9fcfc592cf4e2bf4d5"
+    },
+    "tools/mig-fixture/gen2-character.js": {
+      "sha256": "1b4f42d39bac034bb61a3e46a452da7dc2ae5ab0225f3785bc4b1ac3e6159fab",
+      "size": 4151,
+      "normalized_sha256": "1b4f42d39bac034bb61a3e46a452da7dc2ae5ab0225f3785bc4b1ac3e6159fab"
+    },
+    "tools/mig-fixture/gen3-chat.js": {
+      "sha256": "c8057d52c999a40cab05c841d4651dc71a958b87f8ff350016034842af2121b9",
+      "size": 2963,
+      "normalized_sha256": "c8057d52c999a40cab05c841d4651dc71a958b87f8ff350016034842af2121b9"
+    },
+    "tools/mig-fixture/gen4-branch-memory.js": {
+      "sha256": "dbe118e44812bc89dcd73f114a9907163da0714436d8793dc93b74aa411a5577",
+      "size": 3432,
+      "normalized_sha256": "dbe118e44812bc89dcd73f114a9907163da0714436d8793dc93b74aa411a5577"
+    },
+    "tools/mig-fixture/gen6-vector-sta1n.js": {
+      "sha256": "9e068485f30edbd854baabb61ce3b1857baab6d4d7f41e9a2f371aa3fdceadb3",
+      "size": 4489,
+      "normalized_sha256": "9e068485f30edbd854baabb61ce3b1857baab6d4d7f41e9a2f371aa3fdceadb3"
+    },
+    "tools/mig-fixture/gen7-branch-vector.js": {
+      "sha256": "a22b2b8aebda69260733ef096b65b4de017fbf29c97d24f81b7526c7ce508343",
+      "size": 2460,
+      "normalized_sha256": "a22b2b8aebda69260733ef096b65b4de017fbf29c97d24f81b7526c7ce508343"
+    },
+    "tools/mig-fixture/gen8-extras-legacy.js": {
+      "sha256": "e0abd912e5b56b4c33fc4834bfc3dd8cf5f9a96ced6222974ffe820c0a432b36",
+      "size": 6903,
+      "normalized_sha256": "e0abd912e5b56b4c33fc4834bfc3dd8cf5f9a96ced6222974ffe820c0a432b36"
+    },
+    "tools/mig-fixture/gen8c-legacy.js": {
+      "sha256": "b363f700bd6c2dfbd577cd5625779dfbf87a1bb47acbee6500958df01ff1a718",
+      "size": 5531,
+      "normalized_sha256": "b363f700bd6c2dfbd577cd5625779dfbf87a1bb47acbee6500958df01ff1a718"
+    },
+    "tools/mig-fixture/luzzy-origin-probe.html": {
+      "sha256": "60caa7c5e25a514347e499f80f5d7e9151b9f7eb919a4a51f9fdd64d3900b083",
+      "size": 3690,
+      "normalized_sha256": "60caa7c5e25a514347e499f80f5d7e9151b9f7eb919a4a51f9fdd64d3900b083"
+    },
+    "tools/mig-fixture/probe-origin.mjs": {
+      "sha256": "41243f93ebee9d5d3edfe62a413c9f3505893a960a82474f632555adada18f55",
+      "size": 3762,
+      "normalized_sha256": "41243f93ebee9d5d3edfe62a413c9f3505893a960a82474f632555adada18f55"
+    },
+    "tools/mig-fixture/reload.mjs": {
+      "sha256": "344fde18f4bb69427b4411cda89b0dbcd46c57ea32a6ca27d79f00bbcc719b09",
+      "size": 1667,
+      "normalized_sha256": "344fde18f4bb69427b4411cda89b0dbcd46c57ea32a6ca27d79f00bbcc719b09"
+    },
+    "tools/mig-fixture/run-exporter.mjs": {
+      "sha256": "44ccbf86e5f907472e77bce98a7583619d4c6842fed87292effe67408d59d833",
+      "size": 4178,
+      "normalized_sha256": "44ccbf86e5f907472e77bce98a7583619d4c6842fed87292effe67408d59d833"
+    },
+    "tools/mig-fixture/run.mjs": {
+      "sha256": "2eeb6cf7eebf36fbd4ff8cd4a110158d5be6096fe4756ecfa80d2663ece00caf",
+      "size": 4082,
+      "normalized_sha256": "2eeb6cf7eebf36fbd4ff8cd4a110158d5be6096fe4756ecfa80d2663ece00caf"
+    },
+    "tools/mig-fixture/scrub.mjs": {
+      "sha256": "8861a4705e0b0a96889e6ab1c22fc10205cb982200b501d072dd770223550035",
+      "size": 3322,
+      "normalized_sha256": "8861a4705e0b0a96889e6ab1c22fc10205cb982200b501d072dd770223550035"
+    },
+    "tools/model-list-test.cjs": {
+      "sha256": "d1d14d66e05753ea9e2a245feccd964533550b019e3e0c7e5a8a04b7893d332a",
+      "size": 10581,
+      "normalized_sha256": "d1d14d66e05753ea9e2a245feccd964533550b019e3e0c7e5a8a04b7893d332a"
+    },
+    "tools/page-handoff-test.cjs": {
+      "sha256": "1da9f3966fc59449ac331a567efc2a7a43d86af431f0ef597cb7812de9766a9d",
+      "size": 22751,
+      "normalized_sha256": "1da9f3966fc59449ac331a567efc2a7a43d86af431f0ef597cb7812de9766a9d"
+    },
+    "tools/patches/README.md": {
+      "sha256": "41d9faaa447adc951ca90a47e623140dab3a713e571abbf7d8ec3a7167e0037d",
+      "size": 68943,
+      "normalized_sha256": "06153e51d307bad294211f1e7d09a4d503edd8a87f271549a3a3abfad7369f53"
+    },
+    "tools/patches/entities/007-029-novel-html.patch": {
+      "sha256": "acfa0a7328501b0ed7b1bea85b7beba6dcdd7b491eb44096930b5ae49614f8ac",
+      "size": 2645,
+      "normalized_sha256": "acfa0a7328501b0ed7b1bea85b7beba6dcdd7b491eb44096930b5ae49614f8ac"
+    },
+    "tools/patches/entities/007-character-html.patch": {
+      "sha256": "4c04a826d66d1577cda9a58a626ee3def0f13d9790f74118470d7da3d8c8e31d",
+      "size": 2487,
+      "normalized_sha256": "4c04a826d66d1577cda9a58a626ee3def0f13d9790f74118470d7da3d8c8e31d"
+    },
+    "tools/patches/entities/009-035-core-utils-js.patch": {
+      "sha256": "b00fde05c7ab7c8f8e1fe55931802a5da8e6771ef12a5afdc550dd754cbaf98a",
+      "size": 5390,
+      "normalized_sha256": "b00fde05c7ab7c8f8e1fe55931802a5da8e6771ef12a5afdc550dd754cbaf98a"
+    },
+    "tools/patches/entities/012-035-index-html.patch": {
+      "sha256": "44b38c26cd623082941d3cab45d236ab6f24ac49494fc1bc949cdaa8c58b1003",
+      "size": 115116,
+      "normalized_sha256": "44b38c26cd623082941d3cab45d236ab6f24ac49494fc1bc949cdaa8c58b1003"
+    },
+    "tools/patches/entities/012-035-runtime-services-js.patch": {
+      "sha256": "41b1969395203591be77ce0d63643aa40f16ddaadf6710a845a452ef5742c141",
+      "size": 7646,
+      "normalized_sha256": "41b1969395203591be77ce0d63643aa40f16ddaadf6710a845a452ef5742c141"
+    },
+    "tools/patches/entities/012-035-ui-components-js.patch": {
+      "sha256": "34e466dfc1cd985de29c6cd400c74fec27b18f43e6f0263b84e75d5c2be94082",
+      "size": 26061,
+      "normalized_sha256": "34e466dfc1cd985de29c6cd400c74fec27b18f43e6f0263b84e75d5c2be94082"
+    },
+    "tools/patches/entities/012-036-app-js.patch": {
+      "sha256": "de0d46a4cecf7964a4b7cc4abe306a1e1f16a229923ab9ceb69e99342b0492a6",
+      "size": 205042,
+      "normalized_sha256": "de0d46a4cecf7964a4b7cc4abe306a1e1f16a229923ab9ceb69e99342b0492a6"
+    },
+    "tools/patches/entities/015-032-api-utils-js.patch": {
+      "sha256": "bd57fc480c295ba22b69129e716529b4dd21cf4b51380b77db2c4e9965411cfe",
+      "size": 28177,
+      "normalized_sha256": "bd57fc480c295ba22b69129e716529b4dd21cf4b51380b77db2c4e9965411cfe"
+    },
+    "tools/patches/entities/016-035-data-services-js.patch": {
+      "sha256": "cea3dbdb08065a4420952aa955f2226ae827f7ad08fc4f70e41901ad2129da03",
+      "size": 740,
+      "normalized_sha256": "cea3dbdb08065a4420952aa955f2226ae827f7ad08fc4f70e41901ad2129da03"
+    },
+    "tools/prefix-cache-test.cjs": {
+      "sha256": "2da2211066a72c915f4a88c4040455c90c5211368325a84d2e8897758eb2c501",
+      "size": 18335,
+      "normalized_sha256": "2da2211066a72c915f4a88c4040455c90c5211368325a84d2e8897758eb2c501"
+    },
+    "tools/stream-render-test.cjs": {
+      "sha256": "87ddd7f1bade6b931e56cdc6bbbb500d3b012dcf717a9d4c164d6d24ca59c93c",
+      "size": 21834,
+      "normalized_sha256": "87ddd7f1bade6b931e56cdc6bbbb500d3b012dcf717a9d4c164d6d24ca59c93c"
+    },
+    "tools/sync-upstream.ps1": {
+      "sha256": "d6d61e4bf899285ae092471b1aeebadd68896d174668c5eee0cbba9e11315714",
+      "size": 8314,
+      "normalized_sha256": "d6d61e4bf899285ae092471b1aeebadd68896d174668c5eee0cbba9e11315714"
+    },
+    "tools/upstream-fingerprints.txt": {
+      "sha256": "64ebdf2ae6ea4ef751366f8406dd9c23ec63d61d4dfb42cea29f1fff1a0ccec4",
+      "size": 1902,
+      "normalized_sha256": "64ebdf2ae6ea4ef751366f8406dd9c23ec63d61d4dfb42cea29f1fff1a0ccec4"
+    },
+    "tools/verify-markers.ps1": {
+      "sha256": "2d765620888787e163db05343047e68adc46d835a1045eb5f2c853941beb412e",
+      "size": 3141,
+      "normalized_sha256": "2d765620888787e163db05343047e68adc46d835a1045eb5f2c853941beb412e"
+    }
+  },
+  "managed_scope": {
+    "version": "managed-scope-baseline/v1",
+    "policy_identity": "24c04f4caacaf6d0fabf4f625dac6c8722e665683b76d00b90dd109ac7fb321a",
+    "observe_change_policy": "review_required",
+    "budget_policy_identity": "15e9b37a6c57e9bf03c9df3d0d049eb5b9a7f5540f9d34960408114e2538a32d",
+    "budget_policy": {
+      "version": "cognition-budget-policy/v1",
+      "mode": "enforce",
+      "whole_index": {
+        "target_tokens": 200000,
+        "warning_tokens": 300000,
+        "max_tokens": 400000
+      },
+      "r": [
+        {
+          "min_c": 1,
+          "max_c": 4,
+          "target_tokens": 25,
+          "max_tokens": 50
+        },
+        {
+          "min_c": 5,
+          "max_c": 7,
+          "target_tokens": 45,
+          "max_tokens": 90
+        },
+        {
+          "min_c": 8,
+          "max_c": 8,
+          "target_tokens": 70,
+          "max_tokens": 140
+        },
+        {
+          "min_c": 9,
+          "max_c": 9,
+          "target_tokens": 90,
+          "max_tokens": 180
+        }
+      ],
+      "s": [
+        {
+          "min_c": 1,
+          "max_c": 4,
+          "target_tokens": 20,
+          "max_tokens": 40
+        },
+        {
+          "min_c": 5,
+          "max_c": 7,
+          "target_tokens": 40,
+          "max_tokens": 80
+        },
+        {
+          "min_c": 8,
+          "max_c": 8,
+          "target_tokens": 70,
+          "max_tokens": 140
+        },
+        {
+          "min_c": 9,
+          "max_c": 9,
+          "target_tokens": 100,
+          "max_tokens": 200
+        }
+      ]
+    },
+    "apply_authorization_mode": "auto"
+  }
+}

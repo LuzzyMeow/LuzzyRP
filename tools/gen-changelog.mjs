@@ -82,4 +82,26 @@ if (latestVersion && existsSync(readmePath)) {
         writeFileSync(readmePath, readme, 'utf8');
         console.log(`[gen-changelog] README 已同步至 ${latestVersion}（当前版本行 + Status 徽章${inDevelopment ? '，开发中' : ''}）`);
     }
+
+    // [v1.5.0] Upstream 徽章同步（2026-10-01 新增）：
+    // 该徽章此前**从不自动更新**，1.9.3 → 1.9.8 一路漂移了五个版本才发现
+    // （本仓库 README 的「二创声明」段基线串会手工改，而顶部徽章没人记得）。
+    // 口径：取最新版本章节标题里的「上游基线 RP-Hub X.Y.Z」——标题是版本记录的一部分，
+    // 写它的人必须同时写对基线，故比另设一个常量更不容易漂。
+    const upstreamVer = changelogText
+        .slice(changelogText.indexOf('### ' + latestVersion))
+        .match(/上游基线 RP-Hub ([\d.]+)/)?.[1];
+    if (upstreamVer) {
+        let readme2 = readFileSync(readmePath, 'utf8');
+        const upstreamBadge = `![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%20${upstreamVer}-4FC08D?logo=vue.js&logoColor=white)`;
+        if (/!\[Upstream\]\(https:\/\/img\.shields\.io\/badge\/Upstream-[^)]*\)/.test(readme2)) {
+            readme2 = readme2.replace(/!\[Upstream\]\(https:\/\/img\.shields\.io\/badge\/Upstream-[^)]*\)/, upstreamBadge);
+            writeFileSync(readmePath, readme2, 'utf8');
+            console.log(`[gen-changelog] README 已同步 Upstream 徽章至 ${upstreamVer}`);
+        } else {
+            console.warn('[gen-changelog] README 缺少 Upstream 徽章行，跳过同步');
+        }
+    } else {
+        console.warn('[gen-changelog] 未能从 CHANGELOG 最新章节标题解析上游基线版本，跳过 Upstream 徽章同步');
+    }
 }

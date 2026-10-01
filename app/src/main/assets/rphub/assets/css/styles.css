@@ -609,18 +609,6 @@
             transform: translateX(calc(100% + 0.125rem));
         }
 
-        .segmented-switch--three .segmented-switch__indicator {
-            width: calc(33.333% - 0.166rem);
-        }
-
-        .segmented-switch--three .segmented-switch__indicator.is-position-2 {
-            transform: translateX(100%);
-        }
-
-        .segmented-switch--three .segmented-switch__indicator.is-position-3 {
-            transform: translateX(200%);
-        }
-
         .segmented-switch--four .segmented-switch__indicator {
             width: calc(25% - 0.125rem);
         }
@@ -1251,10 +1239,6 @@
         .memory-compression__marker-before { right: -1px; background: #94a3b8; }
         .memory-compression__marker-after { left: var(--summary-retained); background: #637ce0; transform: translateX(-50%); }
 
-        .settings-view {
-            background: linear-gradient(180deg, #f4f8ff, #fff 360px);
-        }
-
         .settings-stack {
             display: grid;
             gap: 1.5rem;
@@ -1374,8 +1358,6 @@
             gap: 0.75rem;
             min-height: 3.5rem;
             padding: 0.75rem 1rem;
-            border: 1px solid #e6edf7;
-            border-radius: 0.75rem;
             cursor: pointer;
         }
 

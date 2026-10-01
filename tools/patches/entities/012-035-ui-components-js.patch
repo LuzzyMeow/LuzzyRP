@@ -1,5 +1,5 @@
 diff --git a/assets/js/ui-components.js b/assets/js/ui-components.js
-index 738b87b..5e30c24 100644
+index 3a7defb..9b6a254 100644
 --- a/assets/js/ui-components.js
 +++ b/assets/js/ui-components.js
 @@ -308,7 +308,13 @@
@@ -128,7 +128,7 @@ index 738b87b..5e30c24 100644
                                  </button>
                              </div>
                          </div>
-@@ -2020,10 +2078,6 @@
+@@ -2022,10 +2080,6 @@
              show: Boolean,
              historyLength: { type: Number, default: 0 },
              filter: { type: String, default: 'all' },
@@ -139,7 +139,7 @@ index 738b87b..5e30c24 100644
              stats: { type: Object, default: () => ({}) },
              filteredCount: { type: Number, default: 0 },
              records: { type: Array, default: () => [] },
-@@ -2034,13 +2088,38 @@
+@@ -2036,13 +2090,38 @@
              formatCount: { type: Function, required: true },
              formatTime: { type: Function, required: true },
              getTypeLabel: { type: Function, required: true },
@@ -182,7 +182,7 @@ index 738b87b..5e30c24 100644
              const formatDuration = (value) => {
                  if (!Number.isFinite(value)) return '--';
                  if (value < 1000) return `${Math.round(value)}ms`;
-@@ -2053,6 +2132,7 @@
+@@ -2055,6 +2134,7 @@
                  return `${Math.round(record.outputCharacters * 1000 / record.durationMs)}字/s`;
              };
              return {
@@ -190,7 +190,7 @@ index 738b87b..5e30c24 100644
                  formatDuration,
                  formatOutputSpeed,
                  formatQuota: quota => `¥${(Math.trunc(quota / 500000 * 10000) / 10000).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
-@@ -2081,6 +2161,8 @@
+@@ -2083,6 +2163,8 @@
                      </button>
                  </settings-page-header>
  
@@ -199,7 +199,7 @@ index 738b87b..5e30c24 100644
                  <div class="mb-4 flex items-center gap-2">
                      <div class="segmented-switch segmented-switch--compact segmented-switch--four min-w-0 flex-1">
                          <div class="segmented-switch__indicator" :class="filterOptions.find(option => option.value === filter)?.position"></div>
-@@ -2088,31 +2170,6 @@
+@@ -2090,31 +2172,6 @@
                              @click="$emit('update:filter', option.value)" class="segmented-switch__option"
                              :class="{ 'is-active': filter === option.value }">{{ option.label }}</button>
                      </div>
@@ -231,7 +231,7 @@ index 738b87b..5e30c24 100644
                  </div>
  
                  <div class="relative mb-6 flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-@@ -2125,6 +2182,47 @@
+@@ -2127,6 +2184,47 @@
                      <div class="flex-shrink-0 whitespace-nowrap font-mono text-xl font-bold tabular-nums text-gray-900">{{ formatAggregate(stats.inputTokens + stats.cacheReadTokens + stats.outputTokens, stats.inputTokensReports + stats.cacheReadTokensReports + stats.outputTokensReports) }}</div>
                  </div>
  
@@ -279,7 +279,7 @@ index 738b87b..5e30c24 100644
                  <div class="flex items-center justify-between mb-3">
                      <h3 class="text-sm font-bold text-gray-700">请求日志</h3>
                      <span class="text-[11px] text-gray-400">共 {{ filteredCount }} 条</span>
-@@ -2134,7 +2232,7 @@
+@@ -2136,7 +2234,7 @@
                          class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300">
                          <div class="mb-3 min-w-0">
                              <div class="flex min-w-0 items-center justify-between gap-3">

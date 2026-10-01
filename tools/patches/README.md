@@ -731,15 +731,60 @@
 #        参考克隆按 core.autocrlf=true 检出，存储 blob 是 CRLF，而实体前像是 LF 归一后的 id，
 #        照那条做会把**可干净重放**的实体全部误判为需三方合并（2026-09-21 实测：8/8 全误判）。
 #
-#    当前基线 RP-Hub 1.9.7（commit bcec53b）· 实体前像 blob id（LF 归一，8 枚全量复核）：
-#      007-character-html         character/index.html          07dc2c0f  (2522 B)
-#      007-029-novel-html         novel/index.html              d0b623b7  (3106 B)
-#      009-035-core-utils-js      assets/js/core-utils.js       5a3f0e4e  (5980 B)
-#      012-035-index-html         index.html                    64334905  (108397 B)
-#      012-036-app-js             assets/js/app.js              94bc79b7  (185773 B)
-#      012-035-ui-components-js   assets/js/ui-components.js    738b87b0  (26339 B)
-#      012-035-runtime-services-js assets/js/runtime-services.js cfc9ccd8  (8074 B)
-#      015-032-api-utils-js       assets/js/api-utils.js        0b89044d  (28686 B)
+#    当前基线 RP-Hub 1.9.8（commit 53a8d80）· 实体前像 blob id（LF 归一，8 枚全量复核）：
+#      007-character-html         character/index.html          740bf206
+#      007-029-novel-html         novel/index.html              fe7bc522
+#      009-035-core-utils-js      assets/js/core-utils.js       5a3f0e4e
+#      012-035-index-html         index.html                    0fea2f15
+#      012-036-app-js             assets/js/app.js              46631778
+#      012-035-ui-components-js   assets/js/ui-components.js    3a7defbd
+#      012-035-runtime-services-js assets/js/runtime-services.js 0fbf940b
+#      015-032-api-utils-js       assets/js/api-utils.js        0b89044d
+#
+#    ★ 2026-10-01 全量再生成记录（v1.5.0 上游 1.9.7 → 1.9.8 合并完成后）：
+#      1.9.8 改动了 8 枚实体中的 **6 枚**所在的文件。只读预检实测：
+#        可重放 2 枚（core-utils / api-utils —— 上游未触碰其 patch 面），
+#        需三方合并 6 枚（character / novel / index.html / app.js / ui-components / runtime-services）。
+#      三方合并按 AGENTS.md §4.1 六步执行（base = bcec53b 的 1.9.7，ours = 工作树，theirs = 53a8d80）。
+#      合并结果经**端到端复核**：把合并树写回工作树 → 重放 8 枚实体 → 与合并结果
+#      **逐字节完全相同**（6/6 blob id 一致），证明实体确实编码了全部二创意图。
+#      ⚠ 顺序要点（本轮踩到）：**必须先重生成实体、再跑 sync-upstream.ps1**。
+#        sync 的第 2 步会用上游文件覆盖工作树——若此时实体前像还是旧基线的，
+#        第 3 步重放会全 FAIL，把刚合并好的工作树覆盖掉（本轮实测 6 FAIL）。
+#        合并后的工作树在重生成之前只存在于临时区，丢失即需重做。
+#
+#      上游 1.9.8 的改动与裁决（逐处）：
+#        · character/index.html：上游**删除了 generateExtra（额外生成）开关**整条链
+#          （选项持久化 / 截断重试的 generateExtra 分支 / 加权进度的 generateExtra 分支 /
+#           提示词里的 generateExtra 三元包裹 / setup 导出的 hasPreviewContent、
+#           exportWorldInfo、exportRegex），并把 IMAGE_GEN_BASE_URL 改读 window.RPHubConfig。
+#          → 零冲突自动合并；本仓库该文件唯一 patch 面（007 CDN 本地化）不受影响。
+#          核验：合并后无 generateExtra 残留、上游受管层无悬空引用（实测 0 处）。
+#        · novel/index.html：上游删除本页**本地副本** RPHUB_PROVIDER_DEFINITIONS，
+#          改读 window.RPHubConfig.apiProviderOptions。该页第 15 行本就加载 core-utils.js，
+#          故可解析；而 patch 029（内置商精简为仅 DeepSeek）正落在该 apiProviderOptions 上
+#          —— 上游删除与 029 意图同向，本页不再持有第二份内置商副本（单一真源收敛）。
+#        · index.html：上游仅删掉两行已废弃注释（GitHub Pages rebuild marker / 注释掉的 favicon）。
+#          head 区因 patch 001/004/006/018/027 与上游整段重叠 → 一处冲突，裁决=保留我方 head
+#          （含全部 patch 意图），去掉上游已删的两行注释。
+#        · app.js：四处冲突，逐处裁决——
+#          ① 用量解构：保留 patch 037（时间范围整链下线，上游删 saveTokenUsageHistoryNow 不冲突）；
+#          ②、③ 模型列表：采纳上游新增的 selectableModels（为 quickModels/memoryClassicModel
+#             过滤 embedding 模型）与不可变排序 [\...result]（selectableModels 是 computed，
+#             就地 sort 会改其底层数组），保留 patch 012 的 bareId 归一 + patch 043 的
+#             label/供应商名检索与「手动条目同商排最前」；
+#          ④ UI 模板副模型调用：保留 patch 015/025 的多商路由 + provider 透传，
+#             temperature 采纳上游 1.9.8 的 0.4（原 0.2）。
+#          另：上游删除 normalizeUiTemplateUpdates 局部助手改直调 normalizeUiTemplateUpdateList、
+#          随机数工具扩展为「随机生成」（新增 choices 候选名分支）、新增 BUILTIN_PRESETS.lifelike
+#          同步、偏好 watch 去掉 deep —— 均为零冲突自动合并。
+#        · ui-components.js：上游重写 Tavily API Key 区块（去卡片外框 + 新增「获取密钥」外链）
+#          → 零冲突；本仓库 patch 037/038/041/043 面不受影响。
+#        · runtime-services.js：上游仅删 saveTokenUsageHistoryNow 一处 →
+#          保留 patch 037 的「showTokenUsageTimeFilter 等已移除」现状。
+#        · 其余无标记上游文件（styles.css / theme.css / built-in-content.js / README.md /
+#          presence-server/README.md 等）由 sync 直接覆盖为 1.9.8；上游**新增 README.en.md**，
+#          由 sync 首次落盘（B 组校验项因此 13 → 14 项，校验门总数 66 → 67）。
 #
 #    ★ 2026-09-21 全量再生成记录（v1.5.0 分期合并 1.9.3 → 1.9.7 完成后）：
 #      8 枚**全部按 1.9.7 新基线重新生成**（前像 = bcec53b 纯净基线的 LF 归一 blob id）。

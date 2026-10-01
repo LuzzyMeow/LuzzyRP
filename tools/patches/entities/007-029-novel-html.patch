@@ -1,5 +1,5 @@
 diff --git a/novel/index.html b/novel/index.html
-index d0b623b..6df4f73 100644
+index fe7bc52..e38b21b 100644
 --- a/novel/index.html
 +++ b/novel/index.html
 @@ -6,18 +6,16 @@
@@ -25,25 +25,20 @@ index d0b623b..6df4f73 100644
      
      <style>
          :root {
-@@ -1204,11 +1202,13 @@
+@@ -1204,6 +1202,12 @@
                  const apiProviders = ref([]);
                  const isSyncingRPHub = ref(false);
                  const showApiProviderSelect = ref(false);
-+                // [LuzzyRP patch 029] 内置供应商精简（同步 core-utils）：兜底副本仅保留 DeepSeek
-+                // （editable 标志由主页面下发；原 sta1n/openrouter/siliconflow 迁移见 app.js，patch 023 随条目退位）
-                 const RPHUB_PROVIDER_DEFINITIONS = [
--                    { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp' },
--                    { id: 'deepseek', name: 'DeepSeek', apiUrl: 'https://api.deepseek.com/v1', icon: 'https://www.deepseek.com/favicon.ico' },
--                    { id: 'openrouter', name: 'OpenRouter', apiUrl: 'https://openrouter.ai/api/v1', icon: 'https://openrouter.ai/favicon.ico' },
--                    { id: 'siliconflow', name: 'SiliconFlow', apiUrl: 'https://api.siliconflow.cn/v1', icon: 'https://siliconflow.cn/favicon.ico' }
-+                    // [1.9.6 合并 · 2026-09-21] 上游更新了此处内置商（sta1n 等）的图标 URL
-+                    // （旧图床 picui.ogmua.cn 失效 → 新 CDN）。本仓库 [LuzzyRP patch 029] 已按用户
-+                    // 拍板把本页内置商精简为仅 DeepSeek，故不恢复上游条目；新图标 URL 备查：
-+                    // { id: 'sta1n', name: 'STA1N API', apiUrl: 'https://cdn.sta1n.cn/v1', icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp' },
-                 ];
++                // [1.9.8 合并 · 2026-10-01] 上游删除了本页的本地副本 RPHUB_PROVIDER_DEFINITIONS
++                // （base 版含 sta1n/openrouter/siliconflow 四条），改用 window.RPHubConfig.apiProviderOptions。
++                // 本页在第 15 行已加载 ../assets/js/core-utils.js，window.RPHubConfig 由该文件定义，故可解析；
++                // 而 patch 029（内置商精简为仅 DeepSeek）正落在该 RPHubConfig.apiProviderOptions 上 ——
++                // 上游删除恰好与 029 的意图同向：本页不再持有第二份内置商副本，单一真源收敛到 core-utils。
++
  
                  const currentModelTarget = ref('model');
-@@ -2867,4 +2867,3 @@ ${charPrompt}
+                 const modelTargets = [
+@@ -2859,4 +2863,3 @@ ${charPrompt}
  
  
  

@@ -6282,3 +6282,105 @@ VR 设备（`PA921BMGL3190210G`，Pico sparrow）上 `screencap` 返回**纯黑�
 | `Report-Pass/Fail` 计数不回传 | 计数恒 0 | 用 `$script:` 作用域 |
 | 保护不变式误报 6 个上游文件 | 指纹表只列 21 个中的 15 个，LICENSE/README/presence-server 被误判「我方独有」 | 判定集合改为「旧清单 ∪ 新清单」之外（充要） |
 | `git checkout -- <path>` 抹掉未提交改动 | 为撤销被污染文件而 checkout，**连阶段 A 的 11 个字节修复一起还原** | 重做 A1（幂等），并吸取教训：**未提交的改动不要用 checkout 撤销** |
+
+## 2026-10-01 · 会话 92：上游同步 1.9.7 → 1.9.8 + v1.5.0 正式发布 + 全门禁与模拟器验收
+
+**用户本轮要求（五条目标）**：① 同步上游更新 ② 全权决策、不澄清提问 ③ 模拟器跑通全流程
+④ 通过 GitHub 所有代码校验 ⑤ 推送远程仓库并推送最新 release 包。
+
+### 一、上游确有新版本：1.9.7 → 1.9.8
+
+上一会话体检结论是「上游已是最新（1.9.7 == main）」；本轮 `git fetch` 实测 **上游已推进到
+1.9.8**（tag `1.9.8` == `origin/main` == `53a8d80951e594e717b8081873b2f77eb809d0fc`），
+12 文件 +294/−191。**同步目标成立。**
+
+### 二、三方合并（AGENTS §4.1 六步）——6 枚实体需合并
+
+`apply-patches.ps1 -CheckBaseline origin/main` 只读预检：**2 枚可重放 / 6 枚需三方合并**
+（character、novel、index.html、app.js、ui-components、runtime-services）。
+
+三方取法（全部 LF 归一后算 blob id，逐枚核验与实体前像一致）：
+
+- `base` = 参考克隆 `show 1.9.7:<file>` → LF 归一（6/6 blob id 与实体头 `index <pre>` 相符）
+- `ours` = 当前工作树
+- `theirs` = `git worktree add` 检出的 1.9.8 工作树 → LF 归一
+
+`git merge-file` 得 **7 处冲突**（novel 1 / index.html 1 / app.js 4 / runtime-services 1），
+character 与 ui-components 零冲突自动合并。**逐处裁决**：
+
+| 处 | 上游做了什么 | 裁决 |
+|---|---|---|
+| novel#1 | 删除本页 `RPHUB_PROVIDER_DEFINITIONS`，改读 `window.RPHubConfig.apiProviderOptions` | **采纳上游**。该页第 15 行本就加载 `core-utils.js`（`RPHubConfig` 定义处），可解析；而 patch 029 正落在该 `apiProviderOptions` 上——上游删除与 029 意图同向，本页不再持有第二份内置商副本 |
+| html#1 | 仅删两行废弃注释（GitHub Pages rebuild marker / 注释掉的 favicon） | **保留我方 head**（含 001/004/006/018/027 全部 patch 意图），去掉上游已删的两行 |
+| app#1 | 删 `saveTokenUsageHistoryNow` 解构 | 保留 patch 037（时间范围整链下线），两者不冲突 |
+| app#2/#3 | 新增 `selectableModels`（为快捷槽位/记忆模型过滤 embedding）+ 不可变排序 `[...result]` | **采纳上游结构**，保留 patch 012 的 `bareId` 归一 + patch 043 的 label/供应商名检索与「手动条目同商排最前」 |
+| app#4 | UI 模板副模型温度 0.2 → 0.4 | **保留 patch 015/025 多商路由 + provider 透传**，温度采纳上游 0.4 |
+| rt#1 | 删 `saveTokenUsageHistoryNow` 导出 | 保留 patch 037 现状 |
+
+零冲突自动合并的上游改动（核验后采纳）：character 删除「额外生成」整链（含选项持久化、
+截断重试分支、加权进度分支、提示词三元包裹、setup 导出三项）并把 `IMAGE_GEN_BASE_URL`
+改读 `RPHubConfig`；app.js 删 `normalizeUiTemplateUpdates` 局部助手改直调、随机数工具扩展为
+「随机生成」（新增 `choices` 候选名分支）、新增 `BUILTIN_PRESETS.lifelike` 同步、偏好 watch
+去 `deep`；ui-components 重写 Tavily Key 区块（去卡片外框 + 新增「获取密钥」外链）。
+
+### 三、⚠ 本轮最重要的一课：重生成实体必须在跑 sync 之前
+
+**踩到并已修正**：合并完直接跑 `tools/sync-upstream.ps1` → 第 2 步用上游文件**覆盖工作树**
+（合并结果当场丢失）→ 第 3 步重放 6 FAIL（实体前像还是 1.9.7 基线的）→ 同步退出码 1。
+
+正确顺序（已写进 `tools/patches/README.md`）：
+
+```
+① 三方合并 → 落盘工作树
+② 按新基线重生成 8 枚实体（gen-entities）
+③ 更新指纹表（commit + 22 行哈希）
+④ 跑 sync-upstream.ps1（覆盖 → 重放 8 枚 → 指纹）——此时才安全
+```
+
+好在合并结果在临时区有副本，恢复后重生成即通过。**端到端复核**：把合并树写回工作树 →
+重放 8 枚实体 → 与合并结果 **逐字节完全相同（6/6 blob id 一致）**——证明实体确实编码了
+全部二创意图，不是「碰巧能应用」。
+
+### 四、验证总表（本轮实测）
+
+| 判据 | 结果 |
+|---|---|
+| 只读预检 | 2 可重放 / 6 需合并（退出码 2）→ 合并后 `-CheckBaseline` 8 枚全可重放 |
+| 重放 vs 合并 | 6 文件 blob id 逐字节相同（0 差异） |
+| `verify-markers.ps1` | **67 PASS / 0 FAIL**（66 → 67：上游新增 README.en.md 进 B 组） |
+| JS 门禁 | prefix-cache / stream-render / page-handoff / model-list 全 PASS |
+| `desktop-smoke.cjs` | **A1–A5 全 PASS**（本轮补齐真断言，见下） |
+| `gen-changelog --check` | EXIT 0（应用内 CHANGELOG 与 CHANGELOG.md 一致） |
+| Gradle `:app:check` + `:app:lintRelease` | 修掉 1 处 NewApi 后 **BUILD SUCCESSFUL** |
+| `assembleRelease` | 17.39 MB，versionCode **18** / v1.5.0，签名 `ed78235d…ffb1` **未变** |
+| 模拟器全流程 | 开屏 → 更新公告（RP-Hub 1.9.8 内容）→ 新手引导 → 主界面 → 侧栏 → 关于页（品牌卡 + CHANGELOG v1.5.0）→ 外观页 → 设置页，**七图过目无破版**；WebView 零 console 错误 |
+
+### 五、上一会话遗留项的处置
+
+1. **`desktop-smoke.cjs` 从诊断脚本升级为真门禁**（上一会话列为「可选改进」）——
+   补 5 条断言（A1 无未捕获异常 / A2 挂载健康 / A3 品牌卡（含「不含版本号」负向断言）/
+   A4 供应商管理器 / A5 patch 035 编辑器），**修掉三处失效判据**：
+   - 旧实现不点开屏就直接断言 → 开屏 `.luzzy-splash` 覆盖全屏且等待用户点击，于是
+     **每一项都找不到元素、却全部静默通过**（这正是它「没有 pass/fail 标志」的根因）；
+   - 旧实现按文本找叶子节点切页 → 上游 1.9.5 起侧栏是 `AppNavigation` 抽屉
+     （`.app-nav-trigger` 开抽屉 + `.app-navigation-item` 点目标），旧选择器在任何页面都找不到；
+   - 旧实现断言品牌卡「必须有版本号」→ 与 patch 030（刻意去版本号防同步漂移）**直接抵触**，
+     是永远不可能为真的过期判据；改为「含『基于 RP-Hub』且不含版本号」。
+2. **推送**：上一会话 3 个提交在本轮开头已确认推送到位（`origin/main == 15898111`）。
+3. **`LuzzyBridge.UPSTREAM_VERSION` 1.9.7 → 1.9.8**；README 二创声明基线与 Upstream 徽章同步。
+
+### 六、本轮改进的工具链
+
+- **`tools/gen-changelog.mjs` 新增 Upstream 徽章自动同步**：该徽章此前**从不自动更新**，
+  1.9.3 → 1.9.8 一路漂移五个版本才发现（README 的基线串有人手改，顶部徽章没人记得）。
+  口径 = 取 CHANGELOG 最新章节标题里的「上游基线 RP-Hub X.Y.Z」——写标题的人必须同时写对基线。
+- **`app/src/main/res/values-v27/themes.xml`**：`android:windowLightNavigationBar` 需 API 27
+  而 minSdk 是 26，此前放在基础 `values/` 里导致 `:app:check` 常年红（1 error）。
+  移入 v27 覆盖层后静态检查归零，API 26 行为不变（该属性本就无效）。
+
+### 七、遗留（未完成）
+
+- **AOCI 全量维护仍待执行**：受管对象本轮发生大量变化（上游层 22 文件、实体 8 枚、
+  工具链与文档），收尾前需跑一次 `aoci_maintain`。上一会话已列为遗留，本轮同样未做。
+- 模拟器侧未做**真实 AI 对话**（无 API Key）——对话链路的功能性验证由
+  `prefix-cache-test` / `stream-render-test` 在 headless Chrome 内以罐头数据完成。

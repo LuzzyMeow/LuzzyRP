@@ -81,8 +81,7 @@
 :root[data-app-theme="dark"] .app-navigation-item.is-current { background: var(--night-selected); color: #f1f6ff; border-color: #5b87cb; }
 :root[data-app-theme="dark"] .app-navigation-item.is-current .app-navigation-icon { color: #a7c6ff; }
 :root[data-app-theme="dark"] .app-navigation-user { background: rgba(186,186,186,.07); border-color: rgba(202,202,202,.14); }
-:root[data-app-theme="dark"] .settings-view { background: radial-gradient(ellipse at 30% 0, #232323, transparent 65%), var(--night-canvas); }
-:root[data-app-theme="dark"] :is(.settings-card, .settings-toggle-row, .model-setting-row, .settings-card__header) { border-color: var(--night-border); }
+:root[data-app-theme="dark"] :is(.settings-card, .model-setting-row, .settings-card__header) { border-color: var(--night-border); }
 :root[data-app-theme="dark"] :is(.settings-card, .model-setting-row, .settings-action, .settings-model-button, .settings-icon-button, .settings-create-button,
     .compact-modal-panel, .modal-secondary-button, .pagination-button, .sortable-list-item, .model-selector-heading,
     .choice-card__icon, .settings-help-trigger, .story-route-modal-body, .story-route-map-panel, .story-route-node,

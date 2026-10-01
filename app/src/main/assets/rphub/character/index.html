@@ -1741,7 +1741,6 @@
                     activeModelType.value = type;
                     api.model = options.customModels[type];
                     api.stream = true;
-                    // Force inform sync if needed (though watch handles it)
                 };
 
                 const getActiveModelTypeFromMainSettings = (mainSettings) => {
@@ -1764,7 +1763,7 @@
                     document.documentElement.dataset.appFont = normalizeFontFamily(value);
                 };
                 applyFontFamily('modern');
-                const IMAGE_GEN_BASE_URL = 'https://nai.sta1n.cn';
+                const IMAGE_GEN_BASE_URL = window.RPHubConfig.imageGenBaseUrl;
 
                 // Main Settings Sync Listener
                 const setupSyncListener = () => {
@@ -1814,10 +1813,8 @@
                 // Call sync setup
                 setupSyncListener();
 
-                // Options with persistence
-                const savedOptions = localStorage.getItem('ai_chargen_options');
-                const defaultOptions = {
-                    generateExtra: true, // Default to true as requested
+                // Settings are supplied by the main page, not persisted a second time.
+                const options = reactive({
                     imageGenKey: '',
                     imageModel: 'nai-diffusion-4-5-full',
                     imageArtists: cardUtils.getImageStyleArtists('vertical'),
@@ -1826,20 +1823,7 @@
                         balanced: '',
                         fast: ''
                     }
-                };
-                const savedOptionValues = savedOptions ? JSON.parse(savedOptions) : {};
-                const options = reactive({
-                    ...defaultOptions,
-                    ...savedOptionValues,
-                    customModels: { ...defaultOptions.customModels }
                 });
-                // Ensure generateExtra is always true if loaded from old save where it might be false
-                options.generateExtra = true;
-
-                watch(options, (newVal) => {
-                    const { customModels, imageGenKey, imageModel, imageArtists, avatarStyle, ...persistentOptions } = newVal;
-                    localStorage.setItem('ai_chargen_options', JSON.stringify(persistentOptions));
-                }, { deep: true });
 
                 localStorage.removeItem('ai_chargen_api');
                 const api = reactive({
@@ -2457,8 +2441,6 @@
                     if (previewOriginalOverride.value === null) return null;
                     return renderPreview(previewOriginalOverride.value);
                 });
-
-                const hasPreviewContent = computed(() => !!previewHTML.value);
 
                 const tabs = computed(() => [
                     { id: 'basic', name: '基本' },
@@ -3434,7 +3416,7 @@ ${FIRST_MESSAGE_FINAL_CHECKS}
 (作者注释，必填，使用简单的#+关键词的标签形式说明人物卡的内容，每个关键词之间隔一个空格，例如#纯爱 #校园，如有大量色情内容请在最前面添加#R18标签，如没有过多关于性或者色情的内容请不要随意添加#R18标签)
 ### Avatar Prompt（前面的内容结束后）
 (头像提示词，请使用英文描写，格式必须为: <image>image###生成的提示词###</image> ，仅一段符合角色卡的生图提示词，novelai格式；如果是同人/已有作品角色，生成的提示词最前面必须先写官方英文名或常用角色Tag，再写外貌、服装、动作等Tag；有nsfw内容请添加nsfw标签，若同时是同人角色，角色名放第一位，nsfw紧跟其后)
-${options.generateExtra ? `### World Info
+### World Info
 (世界书条目，用来加强设定、补充详细内容、规范输出格式并增强 AI 记忆能力，必须是合法的 JSON 数组格式。条目数量不固定，但应根据角色卡复杂程度充分拆分，不要为了省事只生成少量笼统条目。包含字段：
 - keys (字符串数组): 触发词
 - content (字符串): 内容（必须详细，尤其有关剧情内容/角色设定/美化页面的，禁止省略）
@@ -3470,7 +3452,7 @@ ${REGEX_SCRIPT_PROMPT_RULES}
 **世界书 (World Info) 生成规范**：
 - **样式规范与心理对话格式（必填 & 常驻）**：必须生成一条名为 "样式规范" 的条目，position="after_char"、constant=true。内容需明确指示：“在回复中必须包含丰富细腻的心理活动或心理对话，且心理活动必须使用圆括号（）包裹；说出口的每段对话必须使用『』包裹，禁止使用“”、""、「」或裸写对白；动作、环境和普通叙述不得放入圆括号。请严格遵守此格式输出，以便系统进行高亮渲染。”
 ${WORLD_INFO_PROMPT_RULES}
-` : ''}
+
 
 ${FIRST_MESSAGE_FINAL_CHECKS}
 
@@ -3500,19 +3482,13 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                                 onContent: content => { fullContent = content; parseBuffer(content); }
                             });
 
-                            // Check for truncation (missing avatar prompt or missing regex scripts when requested)
+                            // Check for truncation: both the avatar prompt and parsed regex scripts are required.
                             const hasAvatarPrompt = /<image>[\s\S]*?<\/image>/i.test(fullContent);
-
-                            // 严格检测：开启额外生成时，不仅要包含正则脚本标题，还必须确认解析后的正则脚本数组非空
-                            let hasValidRegex = true;
-                            if (options.generateExtra) {
-                                const hasRegexHeader = /### Regex Scripts/i.test(fullContent);
-                                const hasParsedRegex = currentCharacter.value.regexScripts && currentCharacter.value.regexScripts.length > 0;
-                                hasValidRegex = hasRegexHeader && hasParsedRegex;
-                            }
+                            const hasValidRegex = /### Regex Scripts/i.test(fullContent)
+                                && currentCharacter.value.regexScripts?.length > 0;
 
                             if ((!hasAvatarPrompt || !hasValidRegex) && !isRetry) {
-                                console.warn(`检测到内容截断: Avatar=${hasAvatarPrompt}, ValidRegex=${hasValidRegex}, Extra=${options.generateExtra}`);
+                                console.warn(`检测到内容截断: Avatar=${hasAvatarPrompt}, ValidRegex=${hasValidRegex}`);
                                 showToast('检测到内容截断，正在进行兼容模式重试…', 'warning');
                                 await performGeneration(true);
                                 return;
@@ -3691,41 +3667,18 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                             // To be safer, we only notify once per section key)
                             if (!generatedSections.has(section.key) && content.length > 0) {
                                 generatedSections.add(section.key);
-                                // showToast(`${section.label} 生成中...`, 'success'); // Remove toast to reduce noise
-
                                 // Update Status
                                 generationStatus.value = `正在生成: ${section.label}`;
 
-                                // Calculate Progress with Weights
-                                let currentProgress = 0;
                                 let completedBaseCount = 0;
-                                let completedRegex = false;
 
                                 generatedSections.forEach(key => {
                                     if (baseSectionKeys.has(key)) completedBaseCount++;
-                                    if (key === 'Regex Scripts') completedRegex = true;
                                 });
 
-                                if (options.generateExtra) {
-                                    // 有额外内容：基础部分占 60%，世界书占 20%，正则占 20%
-                                    // 基础部分 7 个字段，每个占 60/7
-                                    const baseProgress = (completedBaseCount / 7) * 60;
-
-                                    // 世界书部分：检测到 World Info 时不立即加满，而是等待下一个阶段
-                                    // 只有当检测到 Regex Scripts 时，才认为世界书部分已完成（+20%）
-                                    const worldProgress = generatedSections.has('Regex Scripts') ? 20 : 0;
-
-                                    // 正则部分：正在生成正则时，不增加进度，保持在 80%
-                                    // 直到整个生成过程结束（performGeneration 函数末尾）才会设为 100%
-                                    const regexProgress = 0;
-
-                                    currentProgress = baseProgress + worldProgress + regexProgress;
-                                } else {
-                                    // 无额外内容：基础占 100%
-                                    currentProgress = (completedBaseCount / 7) * 100;
-                                }
-
-                                // Ensure progress doesn't exceed 99% until fully done, and is integer
+                                // 基础内容占 60%，开始正则时世界书记入 20%；全部完成后再设为 100%。
+                                const currentProgress = completedBaseCount / baseSectionKeys.size * 60
+                                    + (generatedSections.has('Regex Scripts') ? 20 : 0);
                                 generationProgress.value = Math.floor(Math.min(currentProgress, 99));
                             }
 
@@ -3922,9 +3875,6 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     showToast(`已导出 ${selectedItems.length} 个${config.title}`, 'success');
                 };
 
-                const exportWorldInfo = () => openSelectiveExport('world');
-                const exportRegex = () => openSelectiveExport('regex');
-
                 return {
                     showSettings,
                     isSidebarOpen,
@@ -3933,7 +3883,6 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     previewHTML,
                     originalPreviewHTML,
                     mobilePreviewMode,
-                    hasPreviewContent,
                     activeTab,
                     isGenerating,
                     isEmbedded,
@@ -3977,8 +3926,6 @@ JSON 字段（世界书/正则脚本）必须输出为合法的 JSON 数组，**
                     openSelectiveExport,
                     toggleExportPickerAll,
                     confirmSelectiveExport,
-                    exportWorldInfo,
-                    exportRegex,
                     tabElements,
                     gliderStyle,
                     toasts,

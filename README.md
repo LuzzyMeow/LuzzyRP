@@ -13,7 +13,7 @@
 > [!IMPORTANT]
 > ## 📖 二创声明（Attribution）
 >
-> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.7**。
+> 本项目基于开源项目 **[RP-Hub](https://github.com/STA1N156/RP-Hub)（作者：STA1N156）** 二次开发，上游基线版本 **1.9.8**。
 >
 > - **遵循上游开源协议**：上游 `assets/rphub/**`（含本项目 patch 修改）沿用上游 **CC BY-NC 4.0（署名-非商业性使用 4.0 国际）**，上游 LICENSE 原样保留于仓库内；
 > - **自有代码以 AGPL-3.0 分发**：Kotlin 壳、`assets/ext/**` 扩展层、`tools/**`、`docs/**`，均以 **GNU AGPL-3.0** 分发（并存结构详见 [docs/LICENSING.md](docs/LICENSING.md) 与下方[许可证与合规](#许可证与合规)）；
@@ -22,10 +22,10 @@
 > - **会修改前端或后端代码**：本项目的改动**不限于前端**——前端（上游 `index.html` / `assets/` 内的 Vue 应用）与原生侧（Kotlin 壳工程、JSBridge 原生能力）均可能按需求修改，上游 `presence-server` 亦不承诺保持原样；
 > - **同步不等于逐字节一致**：仓库内 `tools/upstream-fingerprints.txt` 仅记录"未登记改动为零"的敏感文件指纹；凡属本项目功能的改动一律登记在案，可追溯、可重放。
 
-![Status](https://img.shields.io/badge/Status-v1.5.0--开发中·未发布-D4A017)
+![Status](https://img.shields.io/badge/Status-v1.5.0--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?logo=kotlin&logoColor=white)
-![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.3-4FC08D?logo=vue.js&logoColor=white)
+![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.8-4FC08D?logo=vue.js&logoColor=white)
 ![License](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20CC%20BY--NC%204.0-3E6389)
 
 > [!NOTE]
@@ -56,7 +56,7 @@ LuzzyRP 是一款安卓端 AI 角色扮演应用。它不是一个从零开始�
 
 选择这条路的理由很直接：**开箱即玩**。RP-Hub 本身已经具备角色卡、世界书、正则脚本、剧情分支、双轨记忆、自动生图等完整能力，套壳后直接获得成熟可玩的 RP 体验，不再需要从零验证核心玩法链路。
 
-与上游的关系是「**同一协议的二次开发，而非镜像**」：我们遵循上游的 CC BY-NC 4.0 协议（上游基线 1.9.7），LuzzyRP 拥有自己的功能路线——界面与业务始终跑在 WebView 内的上游 Vue 应用上，本项目只在扩展层与登记 patch 里叠加自己的改动，因此上游更新可以长期跟随。
+与上游的关系是「**同一协议的二次开发，而非镜像**」：我们遵循上游的 CC BY-NC 4.0 协议（上游基线 1.9.8），LuzzyRP 拥有自己的功能路线——界面与业务始终跑在 WebView 内的上游 Vue 应用上，本项目只在扩展层与登记 patch 里叠加自己的改动，因此上游更新可以长期跟随。
 
 ### 设计理念
 
@@ -267,16 +267,16 @@ LuzzyRP/
 **当前版本**：[v1.5.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
 
 > [!IMPORTANT]
-> **v1.5.0 为「开发中」版本**：撤回 v2.0/v3.0 的原生化方向（原生 Kotlin 传输层与
+> **v1.5.0 已发布**：撤回 v2.0/v3.0 的原生化方向（原生 Kotlin 传输层与
 > Jetpack Compose 界面已整体移除），项目回到「WebView 壳 + 上游 RP-Hub + 扩展层」形态，
-> 上游同步能力随之复活。**尚未发布**；**最新可下载版本仍是 [v1.4.0](https://github.com/LuzzyMeow/LuzzyRP/releases/tag/v1.4.0)**。
-> 顶部 Status 徽章与上面这行版本号由 `tools/gen-changelog.mjs` 自动同步（取 CHANGELOG 顶部
-> 版本与状态），**是否已发版以 [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases) 为准**。
+> 上游同步能力随之复活——**本版已把上游基线从 1.9.3 推进到 RP-Hub 1.9.8**（五步分期合并全部完成）。
+> 顶部 Status / Upstream 徽章与上面这行版本号由 `tools/gen-changelog.mjs` 自动同步（取 CHANGELOG 顶部
+> 版本、状态与上游基线），**是否已发版以 [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases) 为准**。
 
 > [!TIP]
 > 本页不再逐版维护版本说明——历史版本一律看 [CHANGELOG](CHANGELOG.md) 与
 > [Releases](https://github.com/LuzzyMeow/LuzzyRP/releases)。发版时运行
-> `node tools/gen-changelog.mjs` 会自动同步上面一行当前版本与顶部 Status 徽章。
+> `node tools/gen-changelog.mjs` 会自动同步上面一行当前版本与顶部 Status / Upstream 徽章。
 
 **后续规划（候选，随上游节奏迭代）**：styles.css 低频硬编码蓝收编 ·
 向量阈值滑杆 · 「荧光笔落笔」招牌动效 · 深链 · 自建更新检查 · Gemini/Anthropic 图像模型接生图流

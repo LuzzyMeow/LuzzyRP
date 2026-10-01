@@ -1263,7 +1263,7 @@ const app = createApp({
             }
 
             syncSettingsToGenerator();
-        }, { deep: true });
+        });
 
         // Watch image gen and model settings for sync
         watch(() => [settings.imageGenKey, settings.imageModel, settings.imageStyle, settings.customImageArtists, settings.imageGenCount, settings.qualityModel, settings.balancedModel, settings.fastModel, settings.uiTemplateModel, settings.fontFamily, settings.fontFamilyVersion], () => {
@@ -1778,6 +1778,7 @@ const app = createApp({
             saveTokenUsageHistoryNow,
             // [LuzzyRP patch 037] 用量页时间范围整链下线（v1.4.0）：原 showTokenUsageTimeFilter /
             // tokenUsageTimeFilter / tokenUsageTimeFilterLabel / tokenUsageTimeFilterOptions 解构移除
+
             tokenUsageFilter,
             tokenUsageHistory,
             tokenUsagePage,
@@ -3775,12 +3776,17 @@ const app = createApp({
                 : 0;
         });
 
+        const selectableModels = computed(() => ['quickModels', 'memoryClassicModel'].includes(modelSelectionTarget.value)
+            ? availableModels.value.filter(model => !/embedding/i.test(model.id))
+            : availableModels.value);
+
         const modelTags = computed(() => {
-            const counts = { all: availableModels.value.length, other: 0 };
+            const counts = { all: selectableModels.value.length, other: 0 };
             const tags = new Set();
 
-            availableModels.value.forEach(m => {
+            selectableModels.value.forEach(m => {
                 const id = String(m.bareId || m.id).toLowerCase();
+
                 let found = false;
                 for (const family of popularModelFamilies) {
                     if (id.includes(family)) {
@@ -3801,7 +3807,7 @@ const app = createApp({
         });
 
         const filteredModels = computed(() => {
-            let result = availableModels.value;
+            let result = selectableModels.value;
 
             if (activeModelTag.value && activeModelTag.value !== 'all') {
                 if (activeModelTag.value === 'other') {
@@ -3828,14 +3834,17 @@ const app = createApp({
 
             // [LuzzyRP patch 043] 同一供应商内**手动条目排最前**（跨供应商仍按原来的分组顺序）：
             // 检测结果动辄数十条，用户自定义的模型不该被淹没在字母序里
-            return result.sort((a, b) => {
+            // [1.9.8 合并 · 2026-10-01] 排序改为不可变（上游 1.9.8 同处改用 [...result]）——
+            // selectableModels 是 computed，就地 sort 会改动其底层数组
+            return [...result].sort((a, b) => {
                 const byProvider = String(a.providerId || '').localeCompare(String(b.providerId || ''));
                 if (byProvider !== 0) return byProvider;
                 const am = a.manual === true ? 0 : 1;
                 const bm = b.manual === true ? 0 : 1;
                 if (am !== bm) return am - bm;
                 return a.id.localeCompare(b.id);
-            });
+            })
+
         });
 
         const getCharacterWICount = (char) => {
@@ -5515,10 +5524,6 @@ const app = createApp({
                 const failedTemplateIds = new Set();
                 const pendingTemplateUpdates = [];
 
-                const normalizeUiTemplateUpdates = (parsed, template) => {
-                    return normalizeUiTemplateUpdateList(parsed, [template]);
-                };
-
                 const applyTemplateUpdates = (template, updates, model) => {
                     updates.forEach(update => {
                         const result = applyUiTemplateUpdateListToTemplate(template, [update], { model, turn });
@@ -5538,11 +5543,13 @@ const app = createApp({
                             // [LuzzyRP patch 015/025] 多商路由 + provider 透传
                             url: buildApiEndpoint(uiTemplateResolved.url, 'chat/completions'),
                             apiKey: uiTemplateResolved.apiKey,
-                            model, temperature: 0.2, stream: false,
+                            // [1.9.8 合并 · 2026-10-01] temperature 采纳上游 1.9.8 的 0.4（原 0.2）
+                            model, temperature: 0.4, stream: false,
                             protocol: uiTemplateResolved.protocol,
                             maxTokens: uiTemplateResolved.modelMeta?.maxOutput || null,
                             extraBody: uiTemplateResolved.extraBody,
                             provider: uiTemplateResolved.providerId || '',
+
                             messages: [
                                 {
                                     role: 'system',
@@ -5571,7 +5578,7 @@ const app = createApp({
                         console.info('[UI模板][副模型] 最新一次变量输出：', latestUiTemplateAnalysis);
                         const updateBlock = findUiTemplateUpdateBlock(content);
                         const parsed = parseUiTemplateUpdates(updateBlock ? updateBlock[1] : content, [template]);
-                        const updates = normalizeUiTemplateUpdates(parsed, template);
+                        const updates = normalizeUiTemplateUpdateList(parsed, [template]);
                         pendingTemplateUpdates.push({ template, updates, model });
                     } catch (e) {
                         if (updateRun.signal.aborted || !isCurrentRun()) return;
@@ -5848,9 +5855,9 @@ const app = createApp({
                     properties: {
                         min: { type: 'integer', minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER, description: '随机整数的下限，包含该值。' },
                         max: { type: 'integer', minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER, description: '随机整数的上限，包含该值，不小于 min。' },
+                        choices: { type: 'array', items: { type: 'string', minLength: 1 }, minItems: 1, description: '自定义候选名称，从中等概率抽取一项；与 min、max 二选一，不可同时传入。' },
                         reason: { type: 'string', description: '可选，一句话说明随机判定的用途。' }
                     },
-                    required: ['min', 'max'],
                     additionalProperties: false
                 } : {
                     type: 'object',
@@ -7617,8 +7624,8 @@ const app = createApp({
             return size;
         };
 
-        const generateRandomNumberForTool = (min, max) => {
-            const size = getRandomToolRangeSize(min, max);
+        const generateRandomResultForTool = ({ min, max, choices }) => {
+            const size = choices ? choices.length : getRandomToolRangeSize(min, max);
             // 丢弃不能均分到范围内的尾部，避免取余后某些数字更容易出现。
             const sampleSpace = 2 ** 53;
             const limit = sampleSpace - (sampleSpace % size);
@@ -7628,7 +7635,9 @@ const app = createApp({
                 crypto.getRandomValues(words);
                 sample = (words[0] & 0x1fffff) * 2 ** 32 + words[1];
             } while (sample >= limit);
-            return { min, max, value: min + sample % size };
+            return choices
+                ? { choices, value: choices[sample % size] }
+                : { min, max, value: min + sample % size };
         };
 
         const parseNativeActiveToolCall = (call, tools) => {
@@ -7642,11 +7651,24 @@ const app = createApp({
                     throw new Error('工具参数必须为 JSON 对象，reason 为可选字符串');
                 }
                 if (tool.type === ACTIVE_TOOL_RANDOM_TYPE) {
-                    if (Object.keys(args).some(key => !['min', 'max', 'reason'].includes(key))) {
-                        throw new Error('随机数工具仅接受 min、max 和可选的 reason');
+                    if (Object.keys(args).some(key => !['min', 'max', 'choices', 'reason'].includes(key))) {
+                        throw new Error('随机生成仅接受 min、max 或 choices，以及可选的 reason');
                     }
-                    getRandomToolRangeSize(args.min, args.max);
-                    Object.assign(parsed, { min: args.min, max: args.max, query: `${args.min} ～ ${args.max}`, reason: (args.reason || '').trim() });
+                    if (args.choices !== undefined) {
+                        if (args.min !== undefined || args.max !== undefined) {
+                            throw new Error('choices 与 min、max 只能选择一种方式');
+                        }
+                        if (!Array.isArray(args.choices) || !args.choices.length
+                            || args.choices.some(item => typeof item !== 'string' || !item.trim())) {
+                            throw new Error('choices 必须是至少包含一个非空名称的数组');
+                        }
+                        parsed.choices = [...new Set(args.choices.map(item => item.trim()))];
+                        parsed.query = parsed.choices.join('、');
+                    } else {
+                        getRandomToolRangeSize(args.min, args.max);
+                        Object.assign(parsed, { min: args.min, max: args.max, query: `${args.min} ～ ${args.max}` });
+                    }
+                    parsed.reason = (args.reason || '').trim();
                 } else {
                     if (Object.keys(args).some(key => !['query', 'reason'].includes(key))
                         || typeof args.query !== 'string' || !args.query.trim()) {
@@ -7728,7 +7750,7 @@ const app = createApp({
             const groupKey = getActiveToolUiGroupKey(toolCall);
             if (groupKey === ACTIVE_TOOL_WEB_TYPE) return 'Tavily 联网搜索';
             if (groupKey === ACTIVE_TOOL_KEYWORD_TYPE) return '关键词检索';
-            if (groupKey === ACTIVE_TOOL_RANDOM_TYPE) return '随机数生成';
+            if (groupKey === ACTIVE_TOOL_RANDOM_TYPE) return '随机生成';
             return toolCall?.name || '工具调用';
         };
 
@@ -7744,7 +7766,7 @@ const app = createApp({
             if (groupKey === ACTIVE_TOOL_KEYWORD_TYPE) {
                 return '关键词检索';
             }
-            if (groupKey === ACTIVE_TOOL_RANDOM_TYPE) return '生成随机数';
+            if (groupKey === ACTIVE_TOOL_RANDOM_TYPE) return '随机生成';
             return '工具调用';
         };
 
@@ -7928,7 +7950,7 @@ const app = createApp({
                         toolUi.status = 'running';
                         const isRandom = toolCall.tool.type === ACTIVE_TOOL_RANDOM_TYPE;
                         const results = isRandom
-                            ? [generateRandomNumberForTool(toolCall.min, toolCall.max)]
+                            ? [generateRandomResultForTool(toolCall)]
                             : isWebActiveTool(toolCall.tool)
                                 ? await searchWebByTavilyForTool(toolCall.query, toolCall.tool, toolAbort.signal)
                                 : searchDialogueByKeywordForTool(toolCall.query, toolCall.tool.resultCount, { excludeMessageId: assistantMessage.id });
@@ -9711,6 +9733,7 @@ const app = createApp({
             // 1.7.5 Enforce Default Preset (文风（抗八股）)
             syncBuiltinPreset(BUILTIN_PRESETS.writingStyle);
             syncBuiltinPreset(BUILTIN_PRESETS.storyPanels);
+            syncBuiltinPreset(BUILTIN_PRESETS.lifelike);
 
             // 1.7.5.1 固定 NSFW增强在文风预设之后
             syncBuiltinPreset(BUILTIN_PRESETS.nsfw);

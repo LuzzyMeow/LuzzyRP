@@ -351,6 +351,7 @@
             latestMainTokenUsage,
             recordApiUsage,
             saveTokenUsageHistoryNow,
+
             tokenUsageFilter,
             tokenUsageHistory,
             tokenUsagePage,

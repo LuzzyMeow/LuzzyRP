@@ -1220,12 +1220,14 @@
                                 :min="minResultCount" :max="maxResultCount" step="1"
                                 class="compact-range w-full h-1.5 bg-primary-100 rounded-lg appearance-none cursor-pointer accent-primary-500">
                         </div>
-                        <div v-if="webTool" class="max-w-2xl mx-auto bg-white border border-gray-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-5">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tavily API Key</label>
-                                <input :value="tool.tavilyApiKey" @input="$emit('update:tavily-api-key', $event.target.value.trim())" type="password"
-                                    class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:outline-none transition-all" placeholder="tvly-...">
+                        <div v-if="webTool" class="max-w-2xl mx-auto">
+                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                <label for="tavily-api-key" class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tavily API Key</label>
+                                <a href="https://www.tavily.com/" target="_blank" rel="noopener noreferrer"
+                                    class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer transition-colors text-xs normal-case font-medium shrink-0">获取密钥</a>
                             </div>
+                            <input id="tavily-api-key" :value="tool.tavilyApiKey" @input="$emit('update:tavily-api-key', $event.target.value.trim())" type="password"
+                                class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:outline-none transition-all" placeholder="tvly-...">
                         </div>
                     </div>
                     <div class="p-4 md:p-5 border-t border-gray-100 flex justify-end space-x-3 bg-gray-50/80 backdrop-blur-sm flex-shrink-0">

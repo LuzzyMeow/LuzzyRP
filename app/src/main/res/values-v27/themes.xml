@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- [2026-10-01] API 27+ 覆盖层：仅承载 windowLightNavigationBar。
+         该属性 API 27 才存在，而 minSdk = 26；放在基础 values/themes.xml 里会触发
+         lint NewApi（:app:check 因此红），放在本目录即可既保留原行为、又让静态检查通过。
+         API 26 设备不加载本文件，其导航栏图标维持系统默认——与改前行为一致。 -->
+    <style name="Theme.LuzzyRP" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

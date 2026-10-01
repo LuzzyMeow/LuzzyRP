@@ -11,6 +11,8 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <!-- 顶部渐变中灰底 → 状态栏图标用白色；底部白底 → 导航栏图标深色 -->
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <!-- [2026-10-01] windowLightNavigationBar 需 API 27，minSdk 是 26 —— 故本属性
+             不在基础 values/ 里声明，改由 values-v27/themes.xml 覆盖（lint NewApi 归零）。
+             API 26 设备上该属性本就无效（忽略），行为与改前一致。 -->
     </style>
 </resources>

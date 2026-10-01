@@ -6,8 +6,8 @@
 
 LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launcher 为 `MainActivity`。
 界面与业务全部在 `app/src/main/assets/rphub`（上游）+ `assets/ext`（扩展层）里跑，原生侧只剩壳。
-上游同步**持续进行**（**当前基线 RP-Hub 1.9.7，已与上游 main 对齐**；分期合并台账见
-`docs/PLAN-upstream-merge.md`）；遵循上游协议
+上游同步**持续进行**（**当前基线 RP-Hub 1.9.8，已与上游 main 对齐**；1.9.3→1.9.8 的
+合并台账见 `docs/PLAN-upstream-merge.md`）；遵循上游协议
 （`LICENSE` / `LICENSE-AGPL-3.0` / `docs/LICENSING.md`）。仅侧载分发，不上架。
 
 > **已放弃的路线（2026-09-20，用户拍板）**：v2.0 的原生 Kotlin 聊天传输层与 v3.0 的
@@ -101,7 +101,7 @@ powershell tools/apply-patches.ps1 -CheckBaseline <新ref>
    （该仓库无 `.gitattributes`），直接拷参考克隆工作树会把 CRLF 灌进我方 LF 归一的树，
    一次污染 21 个文件。文本文件一律「读 → LF 归一 → 写」。
 
-**每次同步后必须复跑**：`verify-markers.ps1`（66 项：实体后像等值 / 上游纯净等值 /
+**每次同步后必须复跑**：`verify-markers.ps1`（67 项：实体后像等值 / 上游纯净等值 /
 语义锚点 / 红线与二创资产）+ `tools/` 下 5 个 JS 门禁。任一不过即同步未完成。
 
 
@@ -110,7 +110,7 @@ powershell tools/apply-patches.ps1 -CheckBaseline <新ref>
 - **回归门在 `tools/` 下的 JS 门禁**（原生测试座已随 Compose 路线删除）：
   `node tools/prefix-cache-test.cjs`（前缀缓存）/ `stream-render-test.cjs`（流式渲染）/
   `page-handoff-test.cjs`（转场）/ `model-list-test.cjs`（模型列表）/ `desktop-smoke.cjs`（冒烟）；
-  `powershell tools/verify-markers.ps1` 校验二创标记与上游完整性（66 项，见 §4.2）。
+  `powershell tools/verify-markers.ps1` 校验二创标记与上游完整性（67 项，见 §4.2）。
 - **真机只装 release 包做人工目视**，严禁安装测试件。
 - **insets 只信真窗口截图**：`adb shell screencap -p` + `adb pull` 逐页看图——
   「顶栏被状态栏压住 / 文案出屏 / 底部按钮贴导航栏」这类缺陷只有真窗口截图看得见。

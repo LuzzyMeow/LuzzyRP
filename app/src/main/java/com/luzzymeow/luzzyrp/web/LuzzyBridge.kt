@@ -115,8 +115,8 @@ class LuzzyBridge(private val context: Context) {
         /**
          * 上游基线版本；每次同步上游后更新。
          * 前端经 `Luzzy.getVersion().upstream` 读取并在「关于」页展示，**不同步更新会让版本串撒谎**。
-         * 当前：v1.5.0 分期合并至 1.9.7（commit bcec53b，与上游 main 对齐）。
+         * 当前：v1.5.0 合并至 1.9.8（commit 53a8d80，与上游 main 对齐）。
          */
-        const val UPSTREAM_VERSION = "1.9.7"
+        const val UPSTREAM_VERSION = "1.9.8"
     }
 }

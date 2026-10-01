@@ -1,5 +1,5 @@
 diff --git a/assets/js/runtime-services.js b/assets/js/runtime-services.js
-index cfc9ccd..e4461ff 100644
+index 0fbf940..28d63ea 100644
 --- a/assets/js/runtime-services.js
 +++ b/assets/js/runtime-services.js
 @@ -99,10 +99,17 @@
@@ -127,11 +127,13 @@ index cfc9ccd..e4461ff 100644
          watch(tokenUsagePageCount, count => { tokenUsagePage.value = Math.min(tokenUsagePage.value, count); });
  
          return {
-@@ -354,15 +351,11 @@
+@@ -353,15 +350,13 @@
+             getUncachedInputTokens,
              latestMainTokenUsage,
              recordApiUsage,
-             saveTokenUsageHistoryNow,
 -            showTokenUsageTimeFilter,
++            saveTokenUsageHistoryNow,
++
              tokenUsageFilter,
              tokenUsageHistory,
              tokenUsagePage,

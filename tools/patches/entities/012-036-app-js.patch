@@ -1,5 +1,5 @@
 diff --git a/assets/js/app.js b/assets/js/app.js
-index 94bc79b..057d75e 100644
+index 4663177..39e453f 100644
 --- a/assets/js/app.js
 +++ b/assets/js/app.js
 @@ -39,6 +39,8 @@ const {
@@ -627,13 +627,15 @@ index 94bc79b..057d75e 100644
          const estimatedGenerationTime = computed(() => {
              if (recentGenerationTimes.value.length === 0) return null;
              const total = recentGenerationTimes.value.reduce((sum, item) => {
-@@ -1352,15 +1776,13 @@ const app = createApp({
+@@ -1351,15 +1775,15 @@ const app = createApp({
+             getTokenUsageTypeLabel,
              getUncachedInputTokens,
              recordApiUsage,
-             saveTokenUsageHistoryNow,
 -            showTokenUsageTimeFilter,
++            saveTokenUsageHistoryNow,
 +            // [LuzzyRP patch 037] 用量页时间范围整链下线（v1.4.0）：原 showTokenUsageTimeFilter /
 +            // tokenUsageTimeFilter / tokenUsageTimeFilterLabel / tokenUsageTimeFilterOptions 解构移除
++
              tokenUsageFilter,
              tokenUsageHistory,
              tokenUsagePage,
@@ -645,7 +647,7 @@ index 94bc79b..057d75e 100644
              latestMainTokenUsage
          } = useTokenUsage({
              pageSize: LIST_PAGE_SIZE,
-@@ -1376,11 +1798,20 @@ const app = createApp({
+@@ -1375,11 +1799,20 @@ const app = createApp({
              saveStoredValue: setStoredValue,
              toast: (...args) => showToast(...args)
          });
@@ -669,7 +671,7 @@ index 94bc79b..057d75e 100644
              }) });
          };
          const {
-@@ -1406,6 +1837,173 @@ const app = createApp({
+@@ -1405,6 +1838,173 @@ const app = createApp({
              scopedStorageNames: CHARACTER_SCOPED_STORAGE_NAMES,
              toast: (...args) => showToast(...args)
          });
@@ -843,7 +845,7 @@ index 94bc79b..057d75e 100644
          // Export Modal State
          const showExportModal = ref(false);
          const exportType = ref(null); // 'presets', 'regex', 'worldinfo', 'uitemplates'
-@@ -1744,6 +2342,11 @@ const app = createApp({
+@@ -1743,6 +2343,11 @@ const app = createApp({
                              settings[key] = savedSettings[key];
                          }
                      });
@@ -855,7 +857,7 @@ index 94bc79b..057d75e 100644
                      if (!Object.prototype.hasOwnProperty.call(savedSettings, 'apiProviderId')) {
                          const legacyProvider = getApiProviderByUrl(savedSettings.apiUrl);
                          settings.apiProviderId = legacyProvider?.id || (savedSettings.apiUrl ? 'custom' : DEFAULT_API_PROVIDER_ID);
-@@ -1958,6 +2561,88 @@ const app = createApp({
+@@ -1957,6 +2562,88 @@ const app = createApp({
              return payload;
          };
  
@@ -944,7 +946,7 @@ index 94bc79b..057d75e 100644
          const renderGeneratedImageJob = (card, task, job) => {
              if (!card?.isConnected) return task.cards.delete(card);
              task.job = job;
-@@ -1975,15 +2660,21 @@ const app = createApp({
+@@ -1974,15 +2661,21 @@ const app = createApp({
                  return;
              }
              if (job.status === 'running') {
@@ -972,7 +974,7 @@ index 94bc79b..057d75e 100644
              if (!imageUrl) {
                  card.classList.remove('is-generating');
                  card.classList.add('is-generation-error');
-@@ -2064,7 +2755,10 @@ const app = createApp({
+@@ -2063,7 +2756,10 @@ const app = createApp({
              card.querySelector('.generated-image-spinner-path')?.style.setProperty('animation-delay', `-${animationTime % 1500}ms`);
              const label = card.querySelector('.generated-image-progress-label');
              const bar = card.querySelector('.generated-image-progress-bar');
@@ -984,7 +986,7 @@ index 94bc79b..057d75e 100644
              if (!task.job) {
              if (label) label.textContent = '等待生成';
                  if (bar) bar.style.width = '0%';
-@@ -2074,7 +2768,9 @@ const app = createApp({
+@@ -2073,7 +2769,9 @@ const app = createApp({
              card.dataset.imageJobState = 'loading';
              card.classList.add('is-generating');
              card.classList.remove('is-generation-error');
@@ -995,7 +997,7 @@ index 94bc79b..057d75e 100644
              card.style.aspectRatio = size === '横图' ? '1216 / 832' : size === '方图' ? '1' : '832 / 1216';
              if (task.job) renderGeneratedImageJob(card, task, task.job);
              return task.promise;
-@@ -2134,9 +2830,22 @@ const app = createApp({
+@@ -2133,9 +2831,22 @@ const app = createApp({
                  + sourceText.slice(imageMatch.index + imageMatch[0].length);
              const sourceUrl = card.dataset.imageRequest || card.querySelector('img')?.getAttribute('src');
              if (!sourceUrl) return;
@@ -1021,7 +1023,7 @@ index 94bc79b..057d75e 100644
  
              const originalContent = message.content;
              const finishLoading = () => {
-@@ -2146,7 +2855,7 @@ const app = createApp({
+@@ -2145,7 +2856,7 @@ const app = createApp({
              card.classList.add('is-rerolling');
              button.disabled = true;
  
@@ -1030,7 +1032,7 @@ index 94bc79b..057d75e 100644
              if (job.status === 'done') {
                  if (chatHistory.value[messageIndex] !== message || message.content !== originalContent) {
                      finishLoading();
-@@ -2248,6 +2957,16 @@ const app = createApp({
+@@ -2247,6 +2958,16 @@ const app = createApp({
              }
          }, { flush: 'sync' });
  
@@ -1047,16 +1049,17 @@ index 94bc79b..057d75e 100644
          watch(() => settings.imageSize, () => {
              const messages = updateImageGenRegexState({ enableRegex: isAutoImageGenEnabled.value });
              if (isAutoImageGenEnabled.value && messages && messages.length > 0) {
-@@ -3061,7 +3780,7 @@ const app = createApp({
+@@ -3064,7 +3785,8 @@ const app = createApp({
              const tags = new Set();
  
-             availableModels.value.forEach(m => {
+             selectableModels.value.forEach(m => {
 -                const id = m.id.toLowerCase();
 +                const id = String(m.bareId || m.id).toLowerCase();
++
                  let found = false;
                  for (const family of popularModelFamilies) {
                      if (id.includes(family)) {
-@@ -3087,21 +3806,36 @@ const app = createApp({
+@@ -3090,21 +3812,39 @@ const app = createApp({
              if (activeModelTag.value && activeModelTag.value !== 'all') {
                  if (activeModelTag.value === 'other') {
                      result = result.filter(m => {
@@ -1075,8 +1078,6 @@ index 94bc79b..057d75e 100644
                  const query = searchQuery.toLowerCase();
 -                result = result.filter(m => m.id.toLowerCase().includes(query));
 -            }
--
--            return result.sort((a, b) => a.id.localeCompare(b.id));
 +                result = result.filter(m => (
 +                    String(m.bareId || m.id).toLowerCase().includes(query)
 +                    || String(m.providerName || '').toLowerCase().includes(query)
@@ -1088,18 +1089,22 @@ index 94bc79b..057d75e 100644
 +
 +            // [LuzzyRP patch 043] 同一供应商内**手动条目排最前**（跨供应商仍按原来的分组顺序）：
 +            // 检测结果动辄数十条，用户自定义的模型不该被淹没在字母序里
-+            return result.sort((a, b) => {
++            // [1.9.8 合并 · 2026-10-01] 排序改为不可变（上游 1.9.8 同处改用 [...result]）——
++            // selectableModels 是 computed，就地 sort 会改动其底层数组
++            return [...result].sort((a, b) => {
 +                const byProvider = String(a.providerId || '').localeCompare(String(b.providerId || ''));
 +                if (byProvider !== 0) return byProvider;
 +                const am = a.manual === true ? 0 : 1;
 +                const bm = b.manual === true ? 0 : 1;
 +                if (am !== bm) return am - bm;
 +                return a.id.localeCompare(b.id);
-+            });
++            })
+ 
+-            return [...result].sort((a, b) => a.id.localeCompare(b.id));
          });
  
          const getCharacterWICount = (char) => {
-@@ -3273,6 +4007,138 @@ const app = createApp({
+@@ -3276,6 +4016,138 @@ const app = createApp({
              clearMessageRenderCaches();
          }, { deep: true });
  
@@ -1238,7 +1243,7 @@ index 94bc79b..057d75e 100644
          const messageUsesHtmlFrame = (msg) => {
              if (!msg || !msg.content) return false;
              if (msg.isTriggered) return msg.showRaw && contentUsesHtmlFrame(msg.content, msg.role);
-@@ -3329,21 +4195,133 @@ const app = createApp({
+@@ -3332,21 +4204,133 @@ const app = createApp({
          };
  
          // API & Models
@@ -1384,7 +1389,7 @@ index 94bc79b..057d75e 100644
              }
          };
  
-@@ -3355,9 +4333,572 @@ const app = createApp({
+@@ -3358,9 +4342,572 @@ const app = createApp({
              } else if (modelSearchQuery.value === 'embedding') {
                  modelSearchQuery.value = '';
              }
@@ -1957,7 +1962,7 @@ index 94bc79b..057d75e 100644
          const selectQuickModels = (models) => {
              const previousModel = settings.model;
              const [qualityModel, balancedModel, fastModel] = models;
-@@ -3425,8 +4966,26 @@ const app = createApp({
+@@ -3428,8 +4975,26 @@ const app = createApp({
                  apiStatus.value = 'error';
                  return;
              }
@@ -1985,7 +1990,7 @@ index 94bc79b..057d75e 100644
              ), () => true);
          };
  
-@@ -3503,13 +5062,66 @@ const app = createApp({
+@@ -3506,13 +5071,66 @@ const app = createApp({
          };
  
          const MAX_CHAT_IMAGES = 3;
@@ -2055,7 +2060,7 @@ index 94bc79b..057d75e 100644
                  .filter(Boolean);
              if (descriptions.length === 0) return '';
              return [
-@@ -3539,9 +5151,17 @@ const app = createApp({
+@@ -3542,9 +5160,17 @@ const app = createApp({
              reader.readAsDataURL(file);
          });
          const recognizeChatImage = async (image) => {
@@ -2074,7 +2079,7 @@ index 94bc79b..057d75e 100644
                      temperature: 0.2,
                      stream: false,
                      messages: [{
-@@ -3576,7 +5196,8 @@ const app = createApp({
+@@ -3579,7 +5205,8 @@ const app = createApp({
              }
          };
          const requestChatImageSelection = (input) => {
@@ -2084,7 +2089,7 @@ index 94bc79b..057d75e 100644
                  showToast('请先在设置中配置识图模型', 'warning');
                  return;
              }
-@@ -3616,6 +5237,11 @@ const app = createApp({
+@@ -3619,6 +5246,11 @@ const app = createApp({
                  slotsTransferred = true;
                  if (selectionEpoch !== chatImageSelectionEpoch) return;
                  pendingChatImages.value.push(...images);
@@ -2096,7 +2101,7 @@ index 94bc79b..057d75e 100644
                  const results = await Promise.all(images.map(recognizeChatImage));
                  if (results.some(result => !result)) showToast('部分图片识别失败，请移除后重新选择', 'error');
              } catch (error) {
-@@ -3627,6 +5253,7 @@ const app = createApp({
+@@ -3630,6 +5262,7 @@ const app = createApp({
          };
  
          const sendMessage = async () => {
@@ -2104,7 +2109,7 @@ index 94bc79b..057d75e 100644
              if ((!userInput.value.trim() && pendingChatImages.value.length === 0 && !pendingCardInteraction.value) || isConversationBusy.value || isRecognizingImages.value) return;
              if (pendingChatImages.value.some(image => image.status !== 'ready')) {
                  showToast('请先移除识别失败的图片', 'warning');
-@@ -3699,43 +5326,10 @@ const app = createApp({
+@@ -3702,43 +5335,10 @@ const app = createApp({
              });
          };
  
@@ -2152,7 +2157,7 @@ index 94bc79b..057d75e 100644
  
          const copyMessage = (content) => {
              navigator.clipboard.writeText(stripUiTemplateUpdateBlock(content)).then(() => {
-@@ -3903,7 +5497,9 @@ const app = createApp({
+@@ -3906,7 +5506,9 @@ const app = createApp({
                  }));
              const recentMessages = sourceMessages.slice(-normalizedUiTemplateAnalysisDepth);
  
@@ -2163,22 +2168,24 @@ index 94bc79b..057d75e 100644
              if (!fallbackModel) {
                  markUiTemplateStatus('skipped', '未选模型');
                  return false;
-@@ -3939,7 +5535,14 @@ const app = createApp({
+@@ -3938,7 +5540,16 @@ const app = createApp({
                          const currentVariableJson = JSON.stringify(template.variableState || {}, null, 2);
                          const variableSchemaText = stringifyUiSchema(template.variableSchema).trim();
                          const result = await requestTrackedChatCompletion({
 +                            // [LuzzyRP patch 015/025] 多商路由 + provider 透传
 +                            url: buildApiEndpoint(uiTemplateResolved.url, 'chat/completions'),
 +                            apiKey: uiTemplateResolved.apiKey,
-                             model, temperature: 0.2, stream: false,
++                            // [1.9.8 合并 · 2026-10-01] temperature 采纳上游 1.9.8 的 0.4（原 0.2）
+                             model, temperature: 0.4, stream: false,
 +                            protocol: uiTemplateResolved.protocol,
 +                            maxTokens: uiTemplateResolved.modelMeta?.maxOutput || null,
 +                            extraBody: uiTemplateResolved.extraBody,
 +                            provider: uiTemplateResolved.providerId || '',
++
                              messages: [
                                  {
                                      role: 'system',
-@@ -4270,7 +5873,7 @@ const app = createApp({
+@@ -4269,7 +5880,7 @@ const app = createApp({
                  maxRounds: ACTIVE_TOOL_MAX_AUTO_CONTINUE
              });
          };
@@ -2187,7 +2194,7 @@ index 94bc79b..057d75e 100644
          const getMessageThinkingText = (message, includeNativeReasoning = true) => {
              const parts = includeNativeReasoning ? [String(message?.reasoning || '').trim()] : [];
              parts.push(parseCot(message?.content || '').rawCot);
-@@ -4279,15 +5882,12 @@ const app = createApp({
+@@ -4278,15 +5889,12 @@ const app = createApp({
          const wrapAnalysis = (tag, text) => text
              ? `<${tag}>\n${text.replace(/<\s*\/?\s*(?:thinking|think|cot)\s*>/gi, '')}\n</${tag}>\n`
              : '';
@@ -2209,7 +2216,7 @@ index 94bc79b..057d75e 100644
                  autoImageGenEnabled: isAutoImageGenEnabled.value,
                  cotEnabled,
                  imageGenCount: settings.imageGenCount,
-@@ -4296,10 +5896,29 @@ const app = createApp({
+@@ -4295,10 +5903,29 @@ const app = createApp({
                  writingStylePrompt,
                  storyPanelsEnabled: isStoryPanelsEnabled.value,
                  uiTemplateEnabled: isUiTemplateAnalysisEnabled()
@@ -2243,7 +2250,7 @@ index 94bc79b..057d75e 100644
          };
          const usedGeminiPromptNonces = new Set();
          const generateResponse = async (startTime = null, options = {}) => {
-@@ -4308,7 +5927,15 @@ const app = createApp({
+@@ -4307,7 +5934,15 @@ const app = createApp({
              const activeToolDepth = Number(options.activeToolDepth) || 0;
              const continueAssistantMessageId = options.continueAssistantMessageId || null;
              const continuationToolCallId = options.continuationToolCallId || null;
@@ -2260,7 +2267,7 @@ index 94bc79b..057d75e 100644
              const requestTools = activeToolDepth < ACTIVE_TOOL_MAX_AUTO_CONTINUE ? getEnabledActiveTools() : [];
  
              if (!currentCharacter.value) {
-@@ -4441,6 +6068,30 @@ const app = createApp({
+@@ -4440,6 +6075,30 @@ const app = createApp({
                  systemPromptParts.push(cotPresets.map(p => p.content).join('\n\n---\n\n'));
              }
  
@@ -2291,7 +2298,7 @@ index 94bc79b..057d75e 100644
              const systemPrompt = systemPromptParts.join('\n\n');
              const systemWorldInfo = [
                  ...wiGroups.system_top,
-@@ -4635,7 +6286,7 @@ const app = createApp({
+@@ -4634,7 +6293,7 @@ const app = createApp({
                      return {
                          role: m.role === 'user' ? 'user' : 'assistant',
                          name: m.name || (m.role === 'user' ? user.name : currentCharacter.value.name),
@@ -2300,7 +2307,7 @@ index 94bc79b..057d75e 100644
                          _sourceIndexes: sourceIndexes,
                          _contextFloor: m._contextFloor,
                          _preventContextMerge: m._preventContextMerge === true
-@@ -4644,16 +6295,19 @@ const app = createApp({
+@@ -4643,16 +6302,19 @@ const app = createApp({
                  .filter(m => String(m.content || '').trim())
              );
              appendPendingUiTemplateCorrection(messages);
@@ -2330,7 +2337,7 @@ index 94bc79b..057d75e 100644
  
              // 世界书与其他提示处理完成后，再把召回附在最新用户消息末尾。
              messages = injectContextMessages({
-@@ -4661,7 +6315,16 @@ const app = createApp({
+@@ -4660,7 +6322,16 @@ const app = createApp({
                  worldInfoGroups: wiGroups,
                  safeTargetLimit
              });
@@ -2348,7 +2355,7 @@ index 94bc79b..057d75e 100644
              messages = postprocessContextMessages(messages).map((message, index, array) => ({
                  ...message,
                  content: processRegex(message.content || '', {
-@@ -4740,6 +6403,36 @@ const app = createApp({
+@@ -4739,6 +6410,36 @@ const app = createApp({
                  isReasoningAutoCollapsed: false
              });
  
@@ -2385,7 +2392,7 @@ index 94bc79b..057d75e 100644
              const ensureAssistantMessage = (content = '', reasoning = '') => {
                  if (assistantMessage) return assistantMessage;
                  if (continuingAssistantMessage) {
-@@ -4751,12 +6444,92 @@ const app = createApp({
+@@ -4750,12 +6451,92 @@ const app = createApp({
                  }
  
                  assistantMessage = createAssistantMessage(content, reasoning);
@@ -2478,7 +2485,7 @@ index 94bc79b..057d75e 100644
                  // 召回与主请求共用取消处理，避免停止时遗漏状态和计时器的清理。
                  if (memorySettings.enabled && memorySettings.mode === MEMORY_MODE_ENHANCED) {
                      const recalled = await selectEnhancedMemories(requestSignal);
-@@ -4788,7 +6561,14 @@ const app = createApp({
+@@ -4787,7 +6568,14 @@ const app = createApp({
                      ...(extra_content ? { extra_content } : {})
                  }));
                  const responseResult = await requestTrackedChatCompletion({
@@ -2493,7 +2500,7 @@ index 94bc79b..057d75e 100644
                      messages: apiMessages,
                      logResponse: true,
                      replyInTool: isTruncationEnabled.value,
-@@ -4816,22 +6596,29 @@ const app = createApp({
+@@ -4815,22 +6603,29 @@ const app = createApp({
                                  collapseNativeReasoning(assistantMessage);
                              }
                              await nextTick();
@@ -2529,7 +2536,7 @@ index 94bc79b..057d75e 100644
                      throw new Error('工具调用完成，但 API 未返回正文，请重新尝试。');
                  }
                  if (!responseResult.isStream) {
-@@ -4851,7 +6638,8 @@ const app = createApp({
+@@ -4850,7 +6645,8 @@ const app = createApp({
                          }
                      }
                  }
@@ -2539,7 +2546,7 @@ index 94bc79b..057d75e 100644
                      assistantMessage = ensureAssistantMessage();
                      syncNativeActiveToolUis(assistantMessage, responseResult.toolCalls, requestToolUis, requestTools, true);
                      toolResponse = responseResult;
-@@ -4859,6 +6647,19 @@ const app = createApp({
+@@ -4858,6 +6654,19 @@ const app = createApp({
                  }
                  const duration = Date.now() - generationStartTime;
  
@@ -2559,7 +2566,7 @@ index 94bc79b..057d75e 100644
                  if (assistantMessage) {
                      generatedAssistantMessageId = assistantMessage.id;
                      if (!toolResponse && settings.uiTemplateEnabled && settings.uiTemplateMainModelAnalysis) {
-@@ -4891,6 +6692,10 @@ const app = createApp({
+@@ -4890,6 +6699,10 @@ const app = createApp({
                      chatHistory.value.push({ role: 'system', name: currentCharacter.value.name, content: errorMessage, skipReveal: true });
                  }
              } finally {
@@ -2570,7 +2577,7 @@ index 94bc79b..057d75e 100644
                  if (assistantMessage?.content) {
                      const styleFilterHits = [];
                      assistantMessage.content = filterBlockedStyleText(assistantMessage.content, {
-@@ -5039,12 +6844,22 @@ const app = createApp({
+@@ -5038,12 +6851,22 @@ const app = createApp({
          };
  
          const requestClassicMemoryCompletion = async (requestMessages, signal) => {
@@ -2596,7 +2603,7 @@ index 94bc79b..057d75e 100644
              }, 'summary');
              const summary = parseCot(result.content).main
                  .replace(/^```(?:text|markdown)?\s*/i, '')
-@@ -5364,19 +7179,59 @@ const app = createApp({
+@@ -5363,19 +7186,59 @@ const app = createApp({
              if (normalizedInputs.some(input => !input)) throw new Error('嵌入内容不能为空');
  
              const requestStartedAt = Date.now();
@@ -2669,7 +2676,7 @@ index 94bc79b..057d75e 100644
  
              if (signal?.aborted) {
                  const abortError = new Error('Aborted');
-@@ -5387,6 +7242,18 @@ const app = createApp({
+@@ -5386,6 +7249,18 @@ const app = createApp({
                  throw new Error('嵌入接口返回的数据不完整');
              }
  
@@ -2688,7 +2695,7 @@ index 94bc79b..057d75e 100644
              return vectors;
          };
  
-@@ -5476,6 +7343,9 @@ const app = createApp({
+@@ -5475,6 +7350,9 @@ const app = createApp({
                          await yieldToUi();
                          if (!isCurrent()) return [];
                      }
@@ -2698,7 +2705,7 @@ index 94bc79b..057d75e 100644
                  }
                  return selected.sort((a, b) => b.score - a.score || a.turn - b.turn)
                      .slice(0, SUMMARY_RECALL_LIMIT).sort((a, b) => a.turn - b.turn);
-@@ -5489,6 +7359,8 @@ const app = createApp({
+@@ -5488,6 +7366,8 @@ const app = createApp({
              }
          };
  
@@ -2707,7 +2714,7 @@ index 94bc79b..057d75e 100644
          const extractKeywordToolTerms = (query) => {
              const cleanQuery = trimMemoryText(query, 300);
              if (!cleanQuery) return [];
-@@ -5539,7 +7411,7 @@ const app = createApp({
+@@ -5538,7 +7418,7 @@ const app = createApp({
                  if (!message || message.role === 'system') return;
                  if (options.excludeMessageId && message.id === options.excludeMessageId) return;
                  const text = getKeywordToolMessageText(message);
@@ -2716,7 +2723,7 @@ index 94bc79b..057d75e 100644
  
                  const lowerText = text.toLowerCase();
                  const matchedTerms = terms.filter((term, termIndex) => lowerText.includes(lowerTerms[termIndex]));
-@@ -5968,6 +7840,18 @@ const app = createApp({
+@@ -5982,6 +7862,18 @@ const app = createApp({
              const isGeneratingMessage = isLastMessage && (isGenerating.value || isRemoteGenerating.value);
              const cotInfo = parseCot(message.content || '');
  
@@ -2735,7 +2742,7 @@ index 94bc79b..057d75e 100644
              // 1. 初始原生思考
              const reasoningText = String(getAssistantReasoningText(message) || '').trim();
              if (reasoningText) {
-@@ -6691,7 +8575,10 @@ const app = createApp({
+@@ -6705,7 +8597,10 @@ const app = createApp({
              const targetArtists = cardUtils.getImageStyleArtists(settings.imageStyle, settings.customImageArtists);
  
              const encodedTargetArtists = encodeURIComponent(targetArtists);
@@ -2747,7 +2754,7 @@ index 94bc79b..057d75e 100644
              const imageGenRegexContent = {
                  name: imageGenRegexName,
                  regex: getImageTagRegex().toString(),
-@@ -7753,10 +9640,13 @@ const app = createApp({
+@@ -7767,10 +9662,13 @@ const app = createApp({
  
          // Lifecycle
          onMounted(async () => {
@@ -2763,7 +2770,7 @@ index 94bc79b..057d75e 100644
              fetchQuota(); // Fetch quota after saved settings are loaded
  
              updateModalRef.value?.check(); // 必须在 loadData 之后检查，否则同步存储尚未加载
-@@ -7957,7 +9847,11 @@ const app = createApp({
+@@ -7972,7 +9870,11 @@ const app = createApp({
                  selectCharacter(0);
              }
  
@@ -2776,7 +2783,7 @@ index 94bc79b..057d75e 100644
  
              // Initial Status Check
              checkAllStatuses();
-@@ -7978,9 +9872,7 @@ const app = createApp({
+@@ -7993,9 +9895,7 @@ const app = createApp({
                      && !e.target.closest('.settings-help-popover')) {
                      settingsHelpTopic.value = '';
                  }
@@ -2787,7 +2794,7 @@ index 94bc79b..057d75e 100644
                  if (showProfileDropdown.value && !e.target.closest('.profile-dropdown-container')) {
                      showProfileDropdown.value = false;
                  }
-@@ -7995,8 +9887,9 @@ const app = createApp({
+@@ -8010,8 +9910,9 @@ const app = createApp({
              generatedImageObserver?.disconnect();
              generatedImageTasks.clear();
              closeNavigation();
@@ -2799,7 +2806,7 @@ index 94bc79b..057d75e 100644
              if (window.visualViewport) {
                  window.visualViewport.removeEventListener('resize', handleMobileViewportResize);
                  window.visualViewport.removeEventListener('scroll', handleMobileViewportResize);
-@@ -8182,6 +10075,7 @@ const app = createApp({
+@@ -8197,6 +10098,7 @@ const app = createApp({
              switchProfile, createNewProfile, deleteProfile, userProfiles, activeProfileId, showProfileDropdown,
              processMainContent, replaceUserNamePlaceholder,
              currentView, showDescriptionPanel, showModelSelector, modelSelectionTarget, openModelSelector, showChatModelSelector, showCharacterEditor, showAddCharacterMenu, showPresetEditor, showUiTemplateEditor,
@@ -2807,7 +2814,7 @@ index 94bc79b..057d75e 100644
              showActiveToolEditor,
              showExportModal, exportItems, selectedExportIndices, // Export Modal
              showContextViewerModal, lastContextMessages, lastTriggeredWorldInfos,
-@@ -8194,9 +10088,8 @@ const app = createApp({
+@@ -8209,9 +10111,8 @@ const app = createApp({
              createStoryBranch, deleteSelectedStoryBranch,
              selectStoryBranchNode, switchStoryBranch, handleStoryRouteNodeClick,
              startStoryRouteDrag, moveStoryRouteDrag, endStoryRouteDrag,
@@ -2819,7 +2826,7 @@ index 94bc79b..057d75e 100644
              latestMainTokenUsage, formatLatestTokenCount, formatLatestUsageCost,
              getUncachedInputTokens, formatTokenCount, formatTokenAggregate, formatTokenUsageTime, getTokenUsageTypeLabel, clearTokenUsageHistory,
              storageStats, refreshStorageStats, cleanupUnusedStorage, formatStorageSize,
-@@ -8205,11 +10098,15 @@ const app = createApp({
+@@ -8220,11 +10121,15 @@ const app = createApp({
              showConfirmModal, confirmMessage, modelMode, isGeminiModel, isTruncationEnabled, isPresetEnabled, chatModelSlots, selectChatModelSlot, reasoningEffortSlider, reasoningEffortLabel, // Export for template
              isGenerating, isRemoteGenerating, remoteEstimatedTime, isReceiving, isThinking, hasActiveToolInlineWork, isConversationBusy, activeToolContinuationMessageId, activeToolContinuationHasResponse, userInput, pendingCardInteraction, clearPendingCardInteraction, pendingChatImages, pendingChatImageReadCount, isRecognizingImages, requestChatImageSelection, handleChatImageSelection, removePendingChatImage, modelSearchQuery, activeModelTag, modelTags, characterSearchQuery, filteredModels, filteredCharacters,
              user, settings, apiProviderOptions, selectedApiProvider, isCustomApiProvider, customApiProviderOptions, showApiProviderSelector, selectApiProvider, characters, currentCharacter, currentCharacterIndex, switchingCharacterIndex, chatHistory, displayedChatMessages, handleChatScroll, presets, presetRoleOptions, fontFamilyOptions, fontSizeOptions, availableImageStyleOptions, imageModelOptions, imageSizeOptions, imageGenCountOptions, scopeOptions, uiTemplatePlacementOptions, worldInfoPositionOptions, getPresetRoleLabel, getPresetRoleDisplayLabel, getPresetRoleBadgeClass, getSortableItemKey, regexScripts, worldInfo,
@@ -2836,7 +2843,7 @@ index 94bc79b..057d75e 100644
              isGeneratorLoading, generatorUrl, onGeneratorLoad, // Generator exports
              isSquareLoading, squareUrl, onSquareLoad, // Square exports
              isNovelLoading, novelUrl, onNovelLoad, // Novel exports
-@@ -8224,6 +10121,9 @@ const app = createApp({
+@@ -8239,6 +10144,9 @@ const app = createApp({
              showMemoryBackfillModal, memoryBackfillProgress,
              startBatchMemoryExtraction, abortBatchExtraction: abortClassicBatchExtraction,
              activeKeepFloors, keepFloorsSlider, keepFloorsSliderMin, keepFloorsSliderMax,
@@ -2846,7 +2853,7 @@ index 94bc79b..057d75e 100644
              // 滑块值映射：4-10 为变量分析消息层数。
              uiTemplateAnalysisDepthSlider: computed({
                  get: () => Math.max(4, Math.min(10, Number(settings.uiTemplateAnalysisDepth) || 4)),
-@@ -8240,7 +10140,13 @@ const app = createApp({
+@@ -8255,7 +10163,13 @@ const app = createApp({
                  });
              },
              toggleNavigation, closeNavigation,

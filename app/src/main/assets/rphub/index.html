@@ -6,10 +6,8 @@
     <script src="assets/js/theme.js"></script>
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <!-- [LuzzyRP patch 001] 品牌标题（上游: <title>RP Hub</title>） -->
     <title>LuzzyRP</title>
-<!-- [LuzzyRP patch 001] 品牌标题（上游: <title>RP Hub</title>） -->
-    <!-- GitHub Pages rebuild marker for CSS-only animation update. -->
-    <!-- <link rel="icon" href="logo.jpg" type="image/jpeg"> -->
 <!-- [LuzzyRP patch 006] Lora 本地字体（上游: Google Fonts CDN 引用） -->
     <link rel="stylesheet" href="assets/css/local-fonts.css">
 <!-- [LuzzyRP patch 004] CDN 本地化 → vendor/（上游: Tailwind/Vue/marked 等 CDN script 引用） -->
@@ -18,6 +16,7 @@
     <script src="vendor/marked.min.js"></script>
     <script src="vendor/purify.min.js"></script>
     <script src="vendor/Sortable.min.js"></script>
+
     <script>
 <!-- [LuzzyRP patch 008] 色板 var() 化 v4：gray/primary/blue/indigo → rgb(var(--tw-*) / <alpha-value>)，变量由 ext/luzzy-theme.css 提供 -->
         tailwind.config = {
@@ -1864,8 +1863,7 @@
                                         </div>
 
                                         <!-- Image Style（仅 STA1N 需要，画师串是 NAI 概念） -->
-                                        <div
-                <div class="min-w-0" v-if="settings.imageModelSource !== 'custom'">
+                                        <div class="min-w-0" v-if="settings.imageModelSource !== 'custom'">
                     <!-- [1.9.6 合并] 上游把 generation-setting-card 换成 min-w-0（设置页控件类名统一）；
                          本仓库该 v-if 条件（自定义生图源时隐藏）保留 —— 两条改动互不冲突。 -->
                                             <label

@@ -6384,3 +6384,124 @@ character 与 ui-components 零冲突自动合并。**逐处裁决**：
   工具链与文档），收尾前需跑一次 `aoci_maintain`。上一会话已列为遗留，本轮同样未做。
 - 模拟器侧未做**真实 AI 对话**（无 API Key）——对话链路的功能性验证由
   `prefix-cache-test` / `stream-render-test` 在 headless Chrome 内以罐头数据完成。
+
+## 2026-10-01 · 会话 93：全量静态 + 动态检查 → 抓出并修复 2 处真缺陷 + 1 处返回键缺口 → v1.5.1
+
+**用户本轮要求**：全量静态代码检查 + 当前能做到的动态检查，做 bug 检查与修复，确认开发路径。
+
+### 一、静态检查做了什么（含两处工具缺陷的澄清）
+
+| 检查 | 规模 | 结果 |
+|---|---|---|
+| A1 外部 JS 语法（`node --check`） | 31 文件（上游 10 + ext 7 + tools 14） | 全通过 |
+| A2 HTML 内联 `<script>` 语法 | 8 段（3 个页面） | 全通过 |
+| B Vue 模板编译（真实浏览器 `Vue.compile`） | 3 个页面模板 | 全通过 |
+| E ESLint bug 类规则集（33 条：no-undef / no-dupe-* / no-unreachable / no-unsafe-* / no-self-* / no-constant-* …） | 24 文件 | **修复前 10 条 ERROR → 修复后 0** |
+| C Gradle `:app:lintRelease` + `:app:check` | 全工程 | BUILD SUCCESSFUL |
+| D 门禁 | verify-markers + 5 JS 门禁 | 69 PASS / 0 FAIL；5/5 PASS |
+
+**两处「工具缺陷」而非代码缺陷（已澄清并修正工具）**：
+
+1. **A2 曾把 HTML 注释判成语法错** —— 内联脚本被写成 `.mjs` 做 `node --check`，于是
+   HTML 注释触发 `HTML comments are not allowed in modules`。但内联 `<script>` 是
+   **经典脚本**，HTML 注释在其中**合法**。用 Edge headless `--dump-dom` 实测确认：
+   含 HTML 注释的脚本照常执行。→ 改回 `.js` 后 8/8 通过。
+2. **B 曾在 Node 里加载 Vue 判成 3/3 FAIL** —— `vendor/vue.global.prod.js` 是**运行时编译器**，
+   构建 render 函数时要 `document.createElement`，Node 无 DOM 必失败。→ 改为经 CDP 在真实浏览器里
+   调页面自带的 `Vue.compile`（本仓库真踩过「注释插进标签属性 → 白屏」，这条检查必须真有效）。
+
+**两项检查都补了负控并实测会响**：A2 注入未闭合括号 → 1 失败；B 注入非法插值
+`:class="{{ broken syntax ]["` → 该文件 FAIL（`Unexpected token '{'`）。
+
+### 二、抓出的真缺陷（均为运行期必现，非理论问题）
+
+#### 缺陷 1 ★ 流式结尾丢字 —— `commitLiveDelta` 在 `finally` 中恒抛 ReferenceError
+
+`try {` 之内的 `const commitLiveDelta` 在 `finally` 里被调用。**`const` 是块级作用域，
+try 块内的声明在 finally 中不可见** —— 已用最小复现证实：
+
+```
+try { const foo = () => 'ok'; } finally { foo; }   →  ReferenceError: foo is not defined
+```
+
+那行调用被自身的 `try/catch` 吞掉（注释写着「绝不阻断收尾」），于是**静默失败**。
+后果：流式收尾不再把活通道缓冲追平，**最后一段正文丢失**（尾部截断），无任何报错可循。
+
+**修复**：把活通道状态（`LIVE_COMMIT_INTERVAL` / `livePending` / `liveFeedApi` / `commitLiveDelta` …）
+整段提到 `try` 之外的 `generateResponse` 函数体作用域。
+**负控实测**：声明改名后，5 帧流式只落库首帧「动态」；修复后完整落库
+「动态检查：活通道收尾追平验收句。」。
+
+#### 缺陷 2 ★ 增强记忆嵌入整链不可用 —— `embeddingResolved` 被引用 9 次却从未声明
+
+`requestMemoryEmbeddings` 里 `embeddingResolved.protocol/.url/.apiKey/.providerId` 用了 9 处，
+**全文件无任何声明**（`git log -S` 定位：1.9.4→1.9.5 三方合并时该声明整段丢失）。
+每次嵌入调用都在首行抛 `ReferenceError` → **分片补录 / 手动向量检索 / 查询向量现算全链路必然失败**，
+且根因被 patch 020 的「向量检索失败」toast 掩盖（用户只看到检索不出结果）。
+
+**修复**：按 `requestClassicMemoryCompletion` 的既有口径补回 `resolveModelRequest(model)` 解析。
+
+#### 缺陷 3 返回键语义缺口 —— 任意非对话页按返回直接退出应用
+
+`MainActivity` 的返回键只有 `webView.canGoBack()` 一条判据。而上游 RP-Hub 是
+**不用 History API 的单页应用**（全仓无 `pushState`/`popstate`/`hashchange`，实测 0 命中），
+页面切换只改响应式 `currentView` → **`canGoBack()` 恒为 false** →
+在设置/关于/外观/记忆等任意页面按返回键都会**直接退出应用**。
+与本项目既有语义「非对话页 → 回对话页；否则退出」不符（WORKLOG 助手侧记录同款三级优先级）。
+
+**修复（patch 053，扩展层零上游逻辑改动）**：新增 `ext/luzzy-back.js` 提供
+`window.__luzzyHandleBack()`；MainActivity 改为「先问页面是否消费 → 再走 WebView 历史 → 最后退出」；
+接管链由内到外：弹窗（模型编辑器 z-[70] → 供应商编辑器 z-[60] → 供应商管理器 → 其它）
+→ AppNavigation 抽屉 → 回对话页。另在 manifest 显式开启 `android:enableOnBackInvokedCallback`
+（Android 13+ 默认走另一条通道，未开启时系统会打印告警并可能绕过 dispatcher）。
+
+### 三、动态检查（模拟器实测，含负控）
+
+| # | 操作 | 修复前（负控 APK） | 修复后（v1.5.1） |
+|---|---|---|---|
+| 1 | 设置页按返回 | → **回到桌面**（缺陷复现） | → **回到对话页**，应用存活 |
+| 2 | 抽屉打开时按返回 | — | → 只关抽屉，不切页不退出 |
+| 3 | 对话页按返回 | → 桌面 | → 桌面（预期） |
+
+- 负控 APK 的构造：摘掉 `luzzy-back.js` 挂载行后重新构建安装 —— 实测复现「设置页按返回直接退出」。
+- 设备侧 logcat：**零未捕获 JS 异常**（ReferenceError / TypeError / Uncaught 全 0 命中）；
+  版本自证 `[LuzzyRP] v1.5.1 (code 19) · upstream RP-Hub 1.9.8`。
+
+### 四、验收总表
+
+| 判据 | 结果 |
+|---|---|
+| ESLint（bug 规则集） | 修复前 10 ERROR → **修复后 0**（24 文件） |
+| 全量语法 A1+A2 | 31 + 8，**0 失败** |
+| Vue 模板编译（真实浏览器） | 3/3 PASS，负控会响 |
+| `verify-markers.ps1` | **69 PASS / 0 FAIL**（67 → 69：新增 C053-mount-back + D2 luzzy-back.js） |
+| 5 个 JS 门禁 | 全 PASS（另有动态检查 D2-tail-flushed / D3-no-exceptions） |
+| `:app:check` + `:app:lintRelease` | BUILD SUCCESSFUL |
+| `assembleRelease` | versionCode **19** / v1.5.1，签名 `ed78235d…ffb1` **未变** |
+| 实体 patch | 3 枚按 1.9.8 基线重生成（app.js / api-utils.js / index.html），前像后像自洽 |
+| 模拟器 | 返回键三级链实测通过 |
+
+### 五、本轮踩到的坑（写进注释备查）
+
+| 坑 | 现象 | 处置 |
+|---|---|---|
+| **PowerShell `>` 重定向写 UTF-16** | ESLint `--format json > out.json` 产出带 BOM 的 UTF-16，`JSON.parse` 报错 | 一律 `cmd /c "... > file"` 取原始字节 |
+| **flat config 的 `files` 相对于配置文件目录** | 配置放子目录时写 `../app/...` 不匹配 → **静默空规则集**，探针也「通过」 | 配置移到仓库根；并**先用探针确认规则真的生效**（`no-undef` 能命中才继续） |
+| ESLint 规则集重叠覆盖 `sourceType` | presence-server 是 Node ESM，被后一条 browser 规则覆盖回 `script` → 解析错 | 在 browser 那条加 `ignores` 排除，而非靠声明顺序 |
+| `no-unmodified-loop-condition` 两处误报 | 闭包内改写（`done`）、AbortController 外部状态（`batchController`）、模块级变量 | **逐处核实为健全模式后**局部豁免并写明理由，不全局关规则 |
+| PowerShell 单引号正则含竖线被当管道 | `Select-String -Pattern 'PASS\|FAIL'` 报 `Unexpected token` | 用双引号，或改用 Node 脚本 |
+| 一次性脚本改文件时「只插不删」 | 插入提升段却忘了删原段 → 重复声明（语法合法但语义混乱） | 改为**一次 remove+insert**，且先断言切片边界 |
+| 「找 try 行」的启发式不可靠 | 同文件多处同缩进 `try {`，命中了另一个函数的 try → 结构写坏 | 改为**锚定唯一注释串**再向上取紧邻 try |
+
+### 六、开发路径确认
+
+- **路线不变**：原生 Kotlin 壳 + WebView 承载上游 RP-Hub（1.9.8）+ 扩展层。
+  v2.0 原生传输层 / v3.0 Compose 界面**已放弃且不重启**（AGENTS §1）。
+- **改动全部落在既有分层纪律内**：
+  - 上游文件修改 → 只有 patch 053 一处挂载行，已登记 `tools/patches/README.md`（含 live 总表行）
+  - 新功能/修复优先扩展层 → `ext/luzzy-back.js` 是独立文件，零上游逻辑改动
+  - 原生侧 → 仅 MainActivity 返回键一处转发 + manifest 一个属性
+- **每次改动后跑的门禁不变**：`verify-markers.ps1` + 5 个 JS 门禁 + `:app:check`；
+  上游层文件改动后必须重生成对应实体（本轮重生成 3 枚）。
+- **临时检查工具不留在仓库**：本轮新增的 ESLint 配置与一次性脚本均在 `.static-check/`，
+  收尾时整体删除（检查结论已固化进本记录与门禁）。

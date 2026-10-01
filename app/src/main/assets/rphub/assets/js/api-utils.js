@@ -384,12 +384,18 @@
                 const interval = setInterval(flush, STREAM_RENDER_INTERVAL); // [LuzzyRP patch 032] 流式渲染降载：60→120ms
                 try {
                     if (reader) {
+                        /* eslint-disable no-unmodified-loop-condition -- 误报（2026-10-01 静态检查核实）：
+                           done 是 readLine 闭包内的状态，由 feed() → readLine() 在**循环体内**改写
+                           （SSE 收到 [DONE] 或 message_stop 时置位）。规则只看循环体内的字面量赋值，
+                           看不见闭包写入。循环本身以 chunk.done / done 双重收口，无死循环风险；
+                           规则对真实死循环有价值，故只在此处豁免、不全局关闭。 */
                         while (!done) {
                             const chunk = await reader.read();
                             touch();
                             if (chunk.done) break;
                             feed(decoder.decode(chunk.value, { stream: true }));
                         }
+                        /* eslint-enable no-unmodified-loop-condition */
                         feed(decoder.decode());
                     } else feed(rawText);
                     // 兼容缺失最后换行的完整 JSON；损坏 JSON 必须报错，不能伪装成功。

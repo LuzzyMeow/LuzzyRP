@@ -95,17 +95,45 @@ class MainActivity : ComponentActivity() {
             insets
         }
 
-        // 8) 返回键：WebView 可回退则回退，否则退出应用
+        // 8) 返回键：先问页面是否消费（弹窗 → 抽屉 → 非对话页回对话页），
+        //    页面无事可做时才走 WebView 历史，最后才退出。
+        //
+        //    为何需要「问页面」这一步（2026-10-01 静态检查发现）：
+        //    上游 RP-Hub 是**不用 History API 的单页应用**（全仓无 pushState/popstate/hashchange），
+        //    页面切换只改响应式 currentView —— 于是 webView.canGoBack() 恒为 false，
+        //    旧实现下「在设置/关于/外观等任意页面按返回键」都会直接退出应用。
+        //    接管实现见扩展层 ext/luzzy-back.js（零上游改动）。
+        //    异步回调中若用户已离开本 Activity，直接丢弃结果，不触碰已销毁的 WebView。
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
+                askPageToHandleBack { handled ->
+                    if (isFinishing || isDestroyed) return@askPageToHandleBack
+                    if (handled) return@askPageToHandleBack
+                    if (webView.canGoBack()) {
+                        webView.goBack()
+                    } else {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
                 }
             }
         })
+    }
+
+    /**
+     * 询问 WebView 内的页面是否要消费本次返回。
+     * 扩展层提供 `window.__luzzyHandleBack()`；不可用时回调 false（等价于改前行为）。
+     */
+    private fun askPageToHandleBack(onResult: (Boolean) -> Unit) {
+        val js = "(function(){try{return typeof window.__luzzyHandleBack==='function'?!!window.__luzzyHandleBack():false;}catch(e){return false;}})()"
+        try {
+            webView.evaluateJavascript(js) { value ->
+                onResult(value != null && value.trim().trim('"') == "true")
+            }
+        } catch (e: Exception) {
+            // 扩展层缺失或 WebView 状态异常：退回原行为，绝不阻断返回键
+            onResult(false)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

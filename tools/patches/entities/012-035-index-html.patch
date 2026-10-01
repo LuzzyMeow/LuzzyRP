@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index 0fea2f1..af45f6d 100644
+index 0fea2f1..1d9053a 100644
 --- a/index.html
 +++ b/index.html
 @@ -6,17 +6,19 @@
@@ -1173,7 +1173,7 @@ index 0fea2f1..af45f6d 100644
          <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
          <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"
              @close="showExportModal = false" @select-all="selectAllExportItems"
-@@ -2721,6 +3206,26 @@
+@@ -2721,6 +3206,33 @@
          document.write('<script src="assets/js/ui-components.js?v=' + new Date().getTime() + '"><\/script>');
          document.write('<script src="assets/js/app.js?v=' + new Date().getTime() + '"><\/script>');
      </script>
@@ -1193,6 +1193,13 @@ index 0fea2f1..af45f6d 100644
 +         只读旁路、失败静默降级。api-utils.js 三处请求都走全局 fetch（全仓无提前捕获），
 +         故这是唯一「不改上游」的挂钩点。必须**早于**任何生成请求发起，故与 stream 同批挂载。 -->
 +    <script src="../ext/luzzy-prefix-guard.js"></script>
++    <!-- [LuzzyRP patch 053] 系统返回键接管（v1.5.0 修复）：
++         上游 RP-Hub 是**不用 History API 的单页应用**（全仓无 pushState/popstate/hashchange），
++         webView.canGoBack() 恒为 false —— 旧实现下在任意非对话页按返回键都会直接退出应用。
++         本文件提供 window.__luzzyHandleBack()，由 MainActivity 在返回键时同步询问；
++         接管链：弹窗（模型编辑器→供应商编辑器→供应商管理器→其它）→ 抽屉 → 回对话页。
++         必须晚于 Vue 应用挂载（它要读根组件代理），故置于扩展层挂载块末尾。 -->
++    <script src="../ext/luzzy-back.js"></script>
 +    <!-- [LuzzyRP patch 050 退役 · 2026-09-20「放弃原生 Kotlin + Compose 路线」]
 +         原 v2.0 原生 Kotlin 聊天传输层挂载点（ext/luzzy-chat-native.js +
 +         ext/luzzy-chat-offload.js）已随该路线一并摘除；app.js 的卸载分支同步

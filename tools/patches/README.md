@@ -674,6 +674,24 @@
 #   - 预期冲突点：上游改生成收尾的 toolCalls 读取方式、`withUsageMetrics` 返回结构、
 #     或 `extractApiErrorMessage` 的错误信封判定时需重打
 #
+# 053-return-key-takeover.patch（2026-10-01，静态检查修复：系统返回键语义）
+#   - index.html: 扩展层挂载块末尾新增 `<script src="../ext/luzzy-back.js"></script>`
+#   - ext/luzzy-back.js（扩展层，零上游逻辑改动）: 提供 window.__luzzyHandleBack()，
+#     接管链由内到外：① 弹窗（showModelEditor → showProviderEditor → showProviderManager
+#     → showUiTemplateSettings → showAddCharacterMenu → showExportModal）
+#     ② AppNavigation 抽屉（isNavigationOpen / closeNavigation）
+#     ③ 非对话页 → currentView='chat'
+#     无事可做返回 false，交回原生退出
+#   - MainActivity.kt: 返回键改为「先经 evaluateJavascript 问页面是否消费，
+#     未消费再 webView.canGoBack()，最后才退出」；回调用 isFinishing/isDestroyed 守卫
+#   - 对应：本仓库既有返回语义「非对话页 → 回对话页；否则退出」（docs/WORKLOG.md 助手侧
+#     记录，CHANGELOG v3.0 段同款三级优先级）在 WebView 路线回归后**未被重新接线**形成的缺口
+#   - 缺陷实测：上游 RP-Hub **不用 History API**（全仓无 pushState/popstate/hashchange），
+#     页面切换只改响应式 currentView → webView.canGoBack() 恒为 false →
+#     在设置/关于/外观/记忆等任意页面按返回键**直接退出应用**
+#   - 预期冲突点：上游改 setup 暴露列表（closeNavigation / currentView / isNavigationOpen）、
+#     或改弹窗 flag 命名时需重打；上游若引入 History API，本 patch 可整体退役
+#
 # 052-finish-reason-visible.patch（2026-09-11，结束原因 finish_reason 可见化）
 #   - **背景**：三协议里**只有 OpenAI 路径捕获了 `finish_reason`** —— Anthropic
 #     （`message_delta.stop_reason`）与 Gemini（`candidates[0].finishReason`）**从未读取**，
@@ -903,6 +921,7 @@
 # 050  retired    无（随「放弃原生 Kotlin + Compose」摘除） 无 —— index.html 留退役注释
 # 051  live       实体 012-036-app / 015-032-api-utils C051-toolcalls-guard / -max-tokens
 # 052  live       实体 012-036-app / -runtime-serv     C052-finish-record / -finish-ref
+# 053  live       实体 012-035-index + ext/luzzy-back  C053-mount-back / D2
 #
 # 说明：标「无独立项」的并非无人校验 —— 它们全部落在 **A 组实体后像等值**的覆盖范围内
 #       （实体 patch 编码了该文件的完整二创意图）。A 组 8 项等价覆盖了旧清单里

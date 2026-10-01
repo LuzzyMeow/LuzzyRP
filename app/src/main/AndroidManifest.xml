@@ -23,9 +23,15 @@
         android:theme="@style/Theme.LuzzyRP"
         tools:targetApi="37">
 
+        <!-- [2026-10-01] enableOnBackInvokedCallback：Android 13+ 默认走 OnBackInvokedCallback
+             通道，而本 Activity 用的是 AndroidX onBackPressedDispatcher；显式开启后两者统一，
+             返回键（含手势返回）才会稳定经 MainActivity 的返回处理链（patch 053）。
+             未开启时系统会打印 "OnBackInvokedCallback is not enabled for the application"，
+             并在部分版本上绕过 dispatcher 直接走默认行为。 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:enableOnBackInvokedCallback="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale">
             <intent-filter>

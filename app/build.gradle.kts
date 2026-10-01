@@ -57,8 +57,8 @@ android {
 
         // 资产签名（见 assetSignature）：资产变更即触发设备侧重新解压
         buildConfigField("String", "ASSET_SIGNATURE", """"$assetSignature"""")
-        versionCode = 18
-        versionName = "1.5.0"
+        versionCode = 19
+        versionName = "1.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -6459,61 +6459,62 @@ const app = createApp({
                 return assistantMessage;
             };
 
-            try {
-                // [LuzzyRP patch 044] 流式正文「活通道」节流（v1.5.0 性能；实测数据见 ext/luzzy-stream.js 头注）：
-                //   真机实测（会话 59）：流式期间每 tick 的 230–340ms **全部**来自「根级响应式变更 →
-                //   重渲染 + diff 整个界面」（≈1040 vnode），与渲染器无关（指令自身仅 ≈1.4ms；
-                //   换成空实现后同样的 tick 循环仍是 233ms，消息 1200 字 vs 5300 字也无差别）。
-                //   故流式期间**不再每 tick 写响应式状态**：delta 先进非响应式缓冲，渲染后交给
-                //   扩展层 Luzzy.streamRender.feed() 直接上屏；响应式 content/reasoning 按
-                //   LIVE_COMMIT_INTERVAL 低频提交，流结束（finally）强制追平。
-                //   降级：扩展层不可用时缓冲每 tick 立即提交 —— 等价于改前行为。
-                // [LuzzyRP patch 045] 思考也接活通道：真机实测「思考面板」每次提交要重建整条思考内容
-                //   （11 万字思考时单次 270–390ms），是 patch 044 之后**残余占用的主要来源**。
-                //   故 reasoning 也走带外通道（ext 的 reasoning 通道以 skipRegex=true 渲染，与模板原调用一致），
-                //   响应式 reasoning 用更长的 LIVE_REASONING_COMMIT_INTERVAL 提交；
-                //   正文开始提交时强制把思考一次性追平（面板定稿后再显示正文）。
-                const LIVE_COMMIT_INTERVAL = 1200;
-                const LIVE_REASONING_COMMIT_INTERVAL = 6000;
-                let liveCommitAt = 0;
-                let liveReasoningAt = 0;
-                const livePending = { content: '', reasoning: '' };
-                const liveFeedApi = () => {
-                    const lz = window.Luzzy;
-                    const api = lz && lz.streamRender;
-                    return api && typeof api.feed === 'function' ? api : null;
-                };
-                const commitLiveDelta = (force) => {
-                    const now = Date.now();
-                    const api = liveFeedApi();
-                    const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
-                    // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
-                    // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
-                    const needContainer = !!livePending.content && !(st && st.hasEl);
-                    const contentDue = force || needContainer || now - liveCommitAt >= LIVE_COMMIT_INTERVAL;
-                    const reasoningDue = force || now - liveReasoningAt >= LIVE_REASONING_COMMIT_INTERVAL
-                        || (contentDue && !!livePending.content);   // 正文要出现前，先把思考定稿
-                    if (!contentDue && !reasoningDue) return false;
-                    // 先取走再清空：即便下面抛错也不会重复追加（硬性规定 3：扩展层不得阻断主流程）
-                    const reasoningDelta = reasoningDue ? livePending.reasoning : '';
-                    const contentDelta = contentDue ? livePending.content : '';
-                    if (reasoningDue) { livePending.reasoning = ''; liveReasoningAt = now; }
-                    if (contentDue) { livePending.content = ''; liveCommitAt = now; }
-                    try {
-                        if (reasoningDelta) {
-                            if (!contentDelta) isThinking.value = true;
-                            appendAssistantText(assistantMessage, 'reasoning', reasoningDelta);
-                        }
-                        if (contentDelta) {
-                            appendAssistantText(assistantMessage, 'content', contentDelta);
-                            isThinking.value = false;
-                            collapseNativeReasoning(assistantMessage);
-                        }
-                    } catch (e) {
-                        /* 活通道只负责「上屏节流」，任何异常都不允许影响生成主流程与收尾 */
+            // [LuzzyRP patch 044] 流式正文「活通道」节流（v1.5.0 性能；实测数据见 ext/luzzy-stream.js 头注）：
+            //   真机实测（会话 59）：流式期间每 tick 的 230–340ms **全部**来自「根级响应式变更 →
+            //   重渲染 + diff 整个界面」（≈1040 vnode），与渲染器无关（指令自身仅 ≈1.4ms；
+            //   换成空实现后同样的 tick 循环仍是 233ms，消息 1200 字 vs 5300 字也无差别）。
+            //   故流式期间**不再每 tick 写响应式状态**：delta 先进非响应式缓冲，渲染后交给
+            //   扩展层 Luzzy.streamRender.feed() 直接上屏；响应式 content/reasoning 按
+            //   LIVE_COMMIT_INTERVAL 低频提交，流结束（finally）强制追平。
+            //   降级：扩展层不可用时缓冲每 tick 立即提交 —— 等价于改前行为。
+            // [LuzzyRP patch 045] 思考也接活通道：真机实测「思考面板」每次提交要重建整条思考内容
+            //   （11 万字思考时单次 270–390ms），是 patch 044 之后**残余占用的主要来源**。
+            //   故 reasoning 也走带外通道（ext 的 reasoning 通道以 skipRegex=true 渲染，与模板原调用一致），
+            //   响应式 reasoning 用更长的 LIVE_REASONING_COMMIT_INTERVAL 提交；
+            //   正文开始提交时强制把思考一次性追平（面板定稿后再显示正文）。
+            const LIVE_COMMIT_INTERVAL = 1200;
+            const LIVE_REASONING_COMMIT_INTERVAL = 6000;
+            let liveCommitAt = 0;
+            let liveReasoningAt = 0;
+            const livePending = { content: '', reasoning: '' };
+            const liveFeedApi = () => {
+                const lz = window.Luzzy;
+                const api = lz && lz.streamRender;
+                return api && typeof api.feed === 'function' ? api : null;
+            };
+            const commitLiveDelta = (force) => {
+                const now = Date.now();
+                const api = liveFeedApi();
+                const st = api && typeof api.liveState === 'function' ? api.liveState() : null;
+                // 正文容器尚未挂上（流式分支的 v-if 依赖 content）→ 必须先把 content 提交出来，
+                // 否则开头这段正文没有落点（活通道只能写到已挂载的元素上）。
+                const needContainer = !!livePending.content && !(st && st.hasEl);
+                const contentDue = force || needContainer || now - liveCommitAt >= LIVE_COMMIT_INTERVAL;
+                const reasoningDue = force || now - liveReasoningAt >= LIVE_REASONING_COMMIT_INTERVAL
+                    || (contentDue && !!livePending.content);   // 正文要出现前，先把思考定稿
+                if (!contentDue && !reasoningDue) return false;
+                // 先取走再清空：即便下面抛错也不会重复追加（硬性规定 3：扩展层不得阻断主流程）
+                const reasoningDelta = reasoningDue ? livePending.reasoning : '';
+                const contentDelta = contentDue ? livePending.content : '';
+                if (reasoningDue) { livePending.reasoning = ''; liveReasoningAt = now; }
+                if (contentDue) { livePending.content = ''; liveCommitAt = now; }
+                try {
+                    if (reasoningDelta) {
+                        if (!contentDelta) isThinking.value = true;
+                        appendAssistantText(assistantMessage, 'reasoning', reasoningDelta);
                     }
-                    return true;
-                };
+                    if (contentDelta) {
+                        appendAssistantText(assistantMessage, 'content', contentDelta);
+                        isThinking.value = false;
+                        collapseNativeReasoning(assistantMessage);
+                    }
+                } catch (e) {
+                    /* 活通道只负责「上屏节流」，任何异常都不允许影响生成主流程与收尾 */
+                }
+                return true;
+            };
+
+            try {
                 // 渲染走应用自己的 processMainContent/parseCot（与模板绑定同源），再交扩展层上屏；
                 // 思考面板直接投喂 step.text 同源的纯文本（渲染由 ext 以 skipRegex=true 完成）
                 const feedLivePreview = () => {
@@ -7179,7 +7180,16 @@ const app = createApp({
         };
 
         const requestMemoryEmbeddings = async (inputs, signal, model = getMemoryEmbeddingModel()) => {
-            if (!settings.apiUrl || !settings.apiKey) throw new Error('请先配置 API 地址和 Key');
+            // [LuzzyRP patch 015/026] 嵌入请求的多商路由解析（1.9.5 合并时该声明整段丢失，
+            // 2026-10-01 静态检查抓出）：`embeddingResolved` 在函数体里被用了 9 处，
+            // 但从未声明 —— 每次嵌入调用都会在首行抛 `ReferenceError: embeddingResolved is not defined`。
+            // 后果：分片补录 / 手动向量检索 / 查询向量现算 **全链路必然失败**，
+            // 且失败只以「向量检索失败」toast 呈现（patch 020 外化），根因不可见。
+            // 口径与 requestClassicMemoryCompletion 的 classicResolved 一致：
+            // 经 resolveModelRequest 解析出该引用所属的 url / apiKey / 裸模型 id / protocol / providerId。
+            const embeddingResolved = resolveModelRequest(model);
+            if (!embeddingResolved.url || !embeddingResolved.apiKey) throw new Error('请先配置 API 地址和 Key');
+            model = embeddingResolved.model;
             if (!model) throw new Error('请先选择向量模型');
 
             const normalizedInputs = inputs.map(input => String(input || '').trim());
@@ -8090,6 +8100,14 @@ const app = createApp({
             };
 
             try {
+                /* eslint-disable no-unmodified-loop-condition -- 误报（2026-10-01 静态检查核实）：
+                   两个条件都不是「循环体内字面量赋值」型状态——
+                   · batchController 由外层每轮新建（L8078）并在本轮内保持不变，其 .signal.aborted
+                     是 AbortController 的**外部可变状态**，由 stopClassicBatchExtract 触发 abort 改变；
+                   · _classicBatchExtractAbort 是模块级可变变量，同样由外部（L8042 abort 后置 null）
+                     改写，循环体内只读它做「本轮是否仍是当前批次」的判据。
+                   规则看不见跨函数/跨帧写入。循环另有 L8136/8139/8176/8183 多处 break 收口，
+                   且每次迭代都 await，不会空转。规则对真实死循环有价值，故只在此处豁免。 */
                 while (_classicBatchExtractAbort === batchController && !batchController.signal.aborted) {
                     _classicBatchRescanRequested = false;
                     const snapshot = await ensureConversationMessageIds();
@@ -8183,6 +8201,7 @@ const app = createApp({
                     if (_classicBatchRescanRequested || finalTurnCount !== currentTurnCount) continue;
                     break;
                 }
+                /* eslint-enable no-unmodified-loop-condition */
 
                 if (_classicBatchExtractAbort === batchController) {
                     const incomplete = progress.stages.some(stage => stage.current < stage.total);

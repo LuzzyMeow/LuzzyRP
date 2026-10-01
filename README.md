@@ -22,7 +22,7 @@
 > - **会修改前端或后端代码**：本项目的改动**不限于前端**——前端（上游 `index.html` / `assets/` 内的 Vue 应用）与原生侧（Kotlin 壳工程、JSBridge 原生能力）均可能按需求修改，上游 `presence-server` 亦不承诺保持原样；
 > - **同步不等于逐字节一致**：仓库内 `tools/upstream-fingerprints.txt` 仅记录"未登记改动为零"的敏感文件指纹；凡属本项目功能的改动一律登记在案，可追溯、可重放。
 
-![Status](https://img.shields.io/badge/Status-v1.5.0--正式版·可游玩-10B981)
+![Status](https://img.shields.io/badge/Status-v1.5.1--正式版·可游玩-10B981)
 ![Android](https://img.shields.io/badge/Android-Native%20WebView-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?logo=kotlin&logoColor=white)
 ![Upstream](https://img.shields.io/badge/Upstream-RP--Hub%201.9.8-4FC08D?logo=vue.js&logoColor=white)
@@ -264,7 +264,7 @@ LuzzyRP/
 
 ## 版本规划
 
-**当前版本**：[v1.5.0](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
+**当前版本**：[v1.5.1](https://github.com/LuzzyMeow/LuzzyRP/releases/latest) —— 版本历史与各版说明以 [CHANGELOG.md](CHANGELOG.md) 为准（应用内「关于」页同源自动同步）
 
 > [!IMPORTANT]
 > **v1.5.0 已发布**：撤回 v2.0/v3.0 的原生化方向（原生 Kotlin 传输层与

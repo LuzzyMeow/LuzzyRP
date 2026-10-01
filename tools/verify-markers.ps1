@@ -196,6 +196,9 @@ $Anchors = @(
     @{ Id = 'C005-mount-ext';        File = 'index.html';             Pat = '\.\./ext/luzzy-ext\.js';                     Min = 1 },
     @{ Id = 'C027-mount-splash';     File = 'index.html';             Pat = '\.\./ext/luzzy-splash\.js';                  Min = 1 },
     @{ Id = 'C047-mount-prefix';     File = 'index.html';             Pat = '\.\./ext/luzzy-prefix-guard\.js';            Min = 1 },
+    # patch 053：返回键接管（挂载 + 扩展层入口契约；上游是 SPA 不用 History API，
+    # 故这条链必须有 —— 缺挂载或缺 window.__luzzyHandleBack 都会退回「任意页按返回键直接退出」）
+    @{ Id = 'C053-mount-back';       File = 'index.html';             Pat = '\.\./ext/luzzy-back\.js';                    Min = 1 },
     # 主题/字体单轨（009/010/011/028）
     @{ Id = 'C009-font-luzzy';       File = 'assets/js/core-utils.js'; Pat = "value: 'luzzy'";                            Min = 1 },
     @{ Id = 'C010-font-default';     File = 'assets/js/app.js';        Pat = "fontFamily: 'luzzy'";                       Min = 1 },
@@ -265,14 +268,15 @@ if (Test-Path $biPath) {
     }
 } else { Report-Fail "D1-nsfw-block: built-in-content.js 缺失" }
 
-# D2. 扩展层 6 文件
+# D2. 扩展层 7 文件
 $ExtManifest = @(
     @{ File = 'luzzy-ext.js';          Purpose = '扩展层主入口（主题快照/宏/胶水）' },
     @{ File = 'luzzy-stream.js';       Purpose = 'SSE 流式旁路（content/reasoning 双通道）' },
     @{ File = 'luzzy-bridge.js';       Purpose = '原生桥 JS 侧接口' },
     @{ File = 'luzzy-prefix-guard.js'; Purpose = 'prompt 前缀纯追加守卫' },
     @{ File = 'luzzy-splash.js';       Purpose = '开屏动画' },
-    @{ File = 'luzzy-changelog.js';    Purpose = '应用内更新公告数据源' }
+    @{ File = 'luzzy-changelog.js';    Purpose = '应用内更新公告数据源' },
+    @{ File = 'luzzy-back.js';         Purpose = '系统返回键接管（patch 053：弹窗→抽屉→回对话页）' }
 )
 foreach ($item in $ExtManifest) {
     $path = Join-Path $ExtDir $item.File

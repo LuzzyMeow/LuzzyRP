@@ -1,5 +1,5 @@
 diff --git a/assets/js/api-utils.js b/assets/js/api-utils.js
-index 0b89044..bda7e3c 100644
+index 0b89044..65316db 100644
 --- a/assets/js/api-utils.js
 +++ b/assets/js/api-utils.js
 @@ -8,6 +8,40 @@
@@ -53,7 +53,7 @@ index 0b89044..bda7e3c 100644
                  ...(tools.length ? {
                      tools,
                      tool_choice: options.requireTool || (options.replyInTool && options.tools?.length) ? 'required'
-@@ -344,7 +381,7 @@
+@@ -344,15 +381,21 @@
                  };
                  const reader = rawText === undefined ? response.body.getReader() : null;
                  const decoder = new TextDecoder();
@@ -61,8 +61,22 @@ index 0b89044..bda7e3c 100644
 +                const interval = setInterval(flush, STREAM_RENDER_INTERVAL); // [LuzzyRP patch 032] 流式渲染降载：60→120ms
                  try {
                      if (reader) {
++                        /* eslint-disable no-unmodified-loop-condition -- 误报（2026-10-01 静态检查核实）：
++                           done 是 readLine 闭包内的状态，由 feed() → readLine() 在**循环体内**改写
++                           （SSE 收到 [DONE] 或 message_stop 时置位）。规则只看循环体内的字面量赋值，
++                           看不见闭包写入。循环本身以 chunk.done / done 双重收口，无死循环风险；
++                           规则对真实死循环有价值，故只在此处豁免、不全局关闭。 */
                          while (!done) {
-@@ -380,12 +417,27 @@
+                             const chunk = await reader.read();
+                             touch();
+                             if (chunk.done) break;
+                             feed(decoder.decode(chunk.value, { stream: true }));
+                         }
++                        /* eslint-enable no-unmodified-loop-condition */
+                         feed(decoder.decode());
+                     } else feed(rawText);
+                     // 兼容缺失最后换行的完整 JSON；损坏 JSON 必须报错，不能伪装成功。
+@@ -380,12 +423,27 @@
              // 在业务层 JSON/模板校验之前记账；部分流式响应后中止也不会漏掉已返回的用量。
              if (receivedPayload) options.onUsage?.(result.usage, {
                  isStream: result.isStream, durationMs: Date.now() - startedAt,
@@ -90,7 +104,7 @@ index 0b89044..bda7e3c 100644
          for (let attempt = 1; ; attempt++) {
              try { return await requestChatCompletionOnce(options, attempt); }
              catch (error) {
-@@ -394,6 +446,425 @@
+@@ -394,6 +452,425 @@
          }
      };
  

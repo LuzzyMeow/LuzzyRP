@@ -7,6 +7,7 @@
 ## 2026-08-30 · 会话 1：项目启动 + P0 阶段
 
 ### 完成
+
 - **探索与规划**：通读 docs 内全部资料（17 份历史任务文档、design-audit-v0.10.1.md、rikkahub-master 源码架构、图标/字体/世界卡资产盘点），产出 `docs/PLAN-v0.1.0.md` 详细计划并获用户批准。
 - **环境核验（P0-1）**：
   - JDK 21.0.11（Microsoft OpenJDK，JAVA_HOME 已配置）✅
@@ -18,6 +19,7 @@
 - **文档体系落盘（P0-2）**：`.gitignore`、`docs/PLAN-v0.1.0.md`、`docs/WORKLOG.md`、`HARD_REQUIREMENTS.md`、`docs/INVARIANTS-CHECKLIST.md`、`CHANGELOG.md`、`README.md`、`LICENSE`（CC BY-NC 4.0）。
 
 ### 决策
+
 1. **全新重建**：LuzzyRP 为全新代码库，版本线 v0.1.0 / versionCode 1 起；**不沿用旧仓库发展路线与版本历史**（用户明确指示）。旧 docs/task 17 份文档仅作细节规格参考。
 2. 实现蓝本锁定 rikkahub-master（流式 SSE / GenerationHandler / Room / Navigation3 直接移植模式）。
 3. 设计基线沿用 Aurora Dual 令牌（AuroraPink #FF6EC7 / AuroraViolet #B57BFF；亮 #FAF7F2 / 暗 #0E1116；动效 300/150/195ms）。
@@ -27,10 +29,12 @@
 7. 旧仓库 Luzzy-RpTRPG：先备份（docs/archive/，gitignore）→ 新仓库首推成功后删除（gh token 无 delete_repo scope，届时需 `gh auth refresh -s delete_repo` 设备码授权或用户手动删除）。
 
 ### 遗留
+
 - 旧仓库删除依赖 delete_repo 授权（交互式设备码流程），见上。
 - Android SDK build-tools 37 未装（AGP 首次构建会自动安装，licenses 已接受）。
 
 ### 下一步
+
 - P0-3 备份旧仓库 → P0-4 创建 LuzzyMeow/LuzzyRP 并首推 → P0-5 删除旧仓库 → P0-6 Gradle 脚手架 → P0-7 资产管线 → P1 模型层。
 
 ---
@@ -38,6 +42,7 @@
 ## 2026-08-30 · 会话 2：P0-P4 主体完成
 
 ### 完成
+
 - **P0 收口**：Gradle 9.4.1 wrapper（复用 rikkahub 启动器）+ 首次构建走通（修掉 3 个 AGP9/Kotlin2.4 兼容问题：buildconfig 属性移除、java 包名遮蔽、JVM target 不一致）；`gh repo create LuzzyMeow/LuzzyRP` 创建并首推成功（SSH）。
 - **P0-7 资产管线**：`tools/icon_pipeline.py` 生成 815 枚图标资源 + GameIcons.kt（12 类）+ LobeIcons.kt（lucideExtra 37 枚机械转 VectorDrawable）+ LuzzyIcons.kt 语义别名（92 项全解析）+ 启动图标（legacy+adaptive）+ 通知 small_icon（猫）；6 字重字体落位 res/font。
 - **P1 模型层**：UIMessage 多部件模型、ToolApprovalState 五状态、MessageChunk 合并代数（按角色合并——OpenAI delta 无稳定 id，rikkahub 同款语义）、PNG tEXt 读写器；ChunkMergeTest/PngTextChunkRoundTripTest 全绿。
@@ -47,6 +52,7 @@
 - **KV Golden**：KvPrefixStabilityGoldenTest——同历史两次组装逐字节相等 + 易变字段不进前缀断言，全绿。
 
 ### 决策
+
 1. 合并代数按**角色**判定（delta 无稳定 id；rikkahub 同款）。
 2. RP 两阶段落地为「工具轮次上限 3」：轮次内=阶段一（思考+工具，流思考卡片/工具卡片），轮次耗尽不再提供工具=阶段二（基于结果写正文）。普通对话 UNLIMITED（仅 256 步约束）。
 3. KV 分层落位：稳定前缀=system 首消息；动态内容（A/B 摘要+记忆 Top-K+被动召回）置于历史**之后**的 system 块（保护历史前缀缓存）。
@@ -54,10 +60,12 @@
 5. ProviderGateway 接口抽出（Handler/ChatService 依赖抽象，测试可注入假网关）。
 
 ### 遗留
+
 - **旧仓库删除阻塞**：gh token 无 delete_repo scope，需用户执行 `gh auth refresh -h github.com -s delete_repo`（设备码授权）后由 Agent 重试 `gh repo delete LuzzyMeow/Luzzy-RpTRPG --yes`，或用户在 Settings→Danger Zone 手动删除。备份已在 docs/archive/（gitignore）。
 - 流式真机实测待用户提供 API Key（DeepSeek/方舟）。
 
 ### 下一步
+
 - P6/P7 UI 全量（Navigation3 路由壳、聊天页思考卡片时间线、角色卡库、设置族、记忆页）→ P8 发版。
 
 ---
@@ -65,19 +73,23 @@
 ## 2026-08-30 · 会话 3：P6/P7 UI 全量 + v0.1.0 发版
 
 ### 完成
+
 - **P6/P7 UI**：RouteActivity（Navigation3 NavDisplay，16 路由，三态转场 300/195ms）；聊天页（思考卡片三态节点 + 工具卡片审批按钮 + 双色气泡 + 流式跟随 + 回到底部箭头 + 发送/Stop 同位切换）；首页（列表/置顶/搜索/抽屉/新建会话带鹿溪开场白）；角色卡库（PNG/JSON 导入 + 详情编辑/导出/只读保护）；世界书/记忆/收藏/历史页；设置族（供应商列表+详情/生成参数含温度滑条与历史轮数 0-200/外观含四种主题模式/关于）。AuroraSurface 交互引擎、LuzzyTextField、MarkdownText 轻量渲染。ViewModelModule Koin 工厂（含 parametersOf 路由参数）。
 - **P8 发版**：生成 4096 位发布 keystore（30 年有效期，口令记录 docs/RELEASE-KEY.md，均 gitignore）；assembleRelease 签名成功（arm64 20.7MB / x86_64 20.7MB / universal 21MB，R8 minify）；CHANGELOG v0.1.0 完整条目；INVARIANTS-CHECKLIST 自检记录；tag v0.1.0 + GitHub Release（附 universal APK）。
 
 ### 决策
+
 1. Markdown 渲染 v0.1.0 采用零依赖 AnnotatedString 子集解析（粗/斜/代码/删除线），第三方 Markdown 引擎列为 v0.2 候选。
 2. 会话标题自动生成（首轮后一次性任务）。
 
 ### 遗留
+
 - 旧仓库删除仍阻塞（delete_repo scope，见会话 2 遗留）。
 - 流式真机逐字验收待用户提供 API Key；Android 模拟器实测（安装/启动/会话流）列为下一会话首选任务。
 - 世界书条目全功能编辑页（增删改条目）与正则编辑器 UI 在 v0.2 完整交付（数据层与召回引擎已就绪）。
 
 ### 下一步
+
 - 真机/模拟器实测流式逐字 → 世界书/正则编辑器 UI → v0.2.0（TRPG 模式专项）。
 
 ---
@@ -85,20 +97,24 @@
 ## 2026-08-30 · 会话 4：模拟器工具链搭建 + 全流程实测 + v0.1.1 热修
 
 ### 完成
+
 - **模拟器工具链**（用户禁用 USB 真机 A9210，真机上的应用已卸载清理）：sdkmanager 安装 emulator + system-images;android-35;default;x86_64 → 创建 AVD `LuzzyRP_Test`（pixel_6）→ 启动 Android 15 模拟器（emulator-5554）。
 - **全流程实测**：安装 → 启动 → 首页（Aurora 主题/图标/搜索框渲染 ✓）→ 新建对话 → 聊天页（鹿溪开场白完整渲染 ✓）→ 注入文本发送 → 错误条优雅提示（无 Key 场景 ✓）。UI 自动化走无障碍树（contentDescription 可寻址）。
 - **实测发现并修复 3 缺陷**：① AdaptiveIcon 不可 painterResource（启动崩溃，改 luzzy_logo.png 资源）；② WindowInsets 未处理（顶栏入状态栏，加 systemBarsPadding）；③ 种子数据未接线（ensureBuiltinCard/Worldbook/Presets 在 LuzzyApp 启动时幂等初始化）。
 - **v0.1.1 发版**：versionCode 2，CHANGELOG 条目，tag + Release 替换修复版 APK。
 
 ### 决策
+
 1. `input text` 不支持中文注入（系统限制），ASCII 文本完成流程验证；中文流式验收待用户提供 API Key 后真机/模拟器手测。
 2. 模拟器保持运行（LuzzyRP_Test @ emulator-5554），供后续迭代连续测试。
 
 ### 遗留
+
 - 旧仓库删除仍阻塞（delete_repo scope）。
 - 流式逐字验收待 API Key。
 
 ### 下一步
+
 - 世界书/正则编辑器 UI → v0.2.0（TRPG 专项）。
 
 ---
@@ -106,13 +122,16 @@
 ## 2026-08-30 · 会话 5：旧仓库删除确认 + APK 桌面交付
 
 ### 完成
+
 - **旧仓库已删除**（用户手动执行，API 返回 404 确认）：LuzzyMeow/Luzzy-RpTRPG 不复存在，本地 docs/archive/ 备份保留（gitignore）。至此 12 条硬性规定的遗留项全部清零。
 - **桌面交付**：v0.1.1 签名 APK 两份已复制到用户桌面（universal 21.1MB / arm64 20.8MB，SHA256 前缀 09b96518b66afee2），等待用户手动检阅并给出更新方向。
 
 ### 遗留
+
 - 无阻塞项。等用户检阅反馈后按新方向迭代。
 
 ### 下一步
+
 - 依据用户检阅反馈确定 v0.2.0 更新方向（候选：世界书/正则编辑器完整 UI、流式逐字中文验收、TRPG 模式专项）。
 
 ---
@@ -120,6 +139,7 @@
 ## 2026-08-30 · 会话 6：v0.2.0 —— 设计技能落地 + 全功能迭代
 
 ### 完成
+
 - **SKILL 强制落地（规定 13）**：4 项设计 SKILL 克隆存档 docs/skills/（open-design zip 下载反复断连，内容经官方 README/协议文档完整掌握）；HARD_REQUIREMENTS 增补规则 13；创建 DESIGN.md（仓库根设计契约）+ docs/AGENT-GUIDE.md。
 - **思考深度研究**（anysearch 核实）：DeepSeek reasoning.effort/none-high-max；GLM-5.3 仅 effort 三档；Opus 4.7+ adaptive+output_config.effort；GPT reasoning_effort。实现 ThinkingDepthAdapter 按 id 检测家族。
 - **图标黑边根因**：815 枚全为 P 模式索引色（透明区 RGB 杂色 + 硬边）→ 管线升级 RGBA 清洗 + bbox 归一化（occupancy 0.72 统一大小）+ 边缘平滑；启动图黑晕清除。
@@ -129,16 +149,19 @@
 - **发版**：v0.2.0 / versionCode 3；CHANGELOG/README 同步；tag + Release（附 universal APK）+ 桌面交付。
 
 ### 决策
+
 1. open-design 完整 zip 未能入库（网络反复断连）——已通过官方文档掌握内容，zip 存档列为待补；其余 3 仓库完整入库（移除内嵌 .git 保证克隆自包含）。
 2. @Depth 语义实现为「距末尾消息数」，注入角色可选 system/user/assistant（对齐 RP-Hub）。
 3. 聊天背景分层渲染因 ColumnScope 作用域问题本次回退（背景数据链路已就绪），列为下轮打磨首项。
 
 ### 遗留
+
 - 聊天背景图渲染（数据/UI 链路已通，待图层作用域修复）。
 - 记忆设置页拓展滑条（容量/TopK/阈值 UI，数据层字段已就绪）。
 - 用户档案头像在菜单展示；流式逐字中文验收仍待 API Key。
 
 ### 下一步
+
 - 聊天背景图层 + 记忆滑条 + 用户头像菜单展示 → 视觉打磨轮。
 
 ---
@@ -146,6 +169,7 @@
 ## 2026-08-30 · 会话 7：v0.3.0 主题/UI/UX 完全重制
 
 ### 完成（对上轮缺口的补救）
+
 - **Phase 0**：ui-ux-pro-max 检索实操（design-system 基线 + 回退规则）；huashu 动效纪律提炼。
 - **Phase 1 主题令牌 v2**：AuroraColor 完整 M3 方案（surfaceContainer 全族/inverse/scrim/AMOLED 独立方案）；AuroraBrush 渐变系统；LuzzyElevation 五层；LuzzyIconSize 四级；LuzzyCorner 五档；MotionTokens v2 场景化。
 - **Phase 2 组件 v2**：AuroraTopBar+TopBarAction、LuzzyDialog（三态进出）、EmptyState、AuroraSurface v2（scale 0.98 按压）。
@@ -154,16 +178,19 @@
 - **Phase 5 发版**：v0.3.0 / versionCode 4；CHANGELOG 专章；tag+Release+桌面交付。
 
 ### 决策
+
 1. ui-ux-pro-max CSV 无极光系匹配 → 按其规则回退 DESIGN.md 品牌契约色，采用其结构（令牌/对比度/动效分层）。
 2. 转场位移降到 1/6-1/8 屏且 fade 常驻（消除滑动残影，huashu「少即是多」）。
 3. 按压反馈统一 scale 0.98 + graphicsLayer（不动布局，pro-rules「Stable Interaction States」）。
 
 ### 遗留
+
 - 暗色/AMOLED 主题截图巡检（方案已实现，截图待补）。
 - LuzzyIconSize 全项目替换尚有残留硬编码 dp（重点页面已换）。
 - 用户档案头像在抽屉头部展示；聊天背景透明度实时预览。
 
 ### 下一步
+
 - 暗色巡检 + 图标尺寸全量替换 + 弹窗统一替换 AlertDialog 调用点。
 
 ---
@@ -171,15 +198,18 @@
 ## 2026-08-30 · 会话 8：仓库状态改为「开发中 · 不可游玩」
 
 ### 完成
+
 - 用户已手动删除全部旧 Release；README 重写：顶部 WARNING 大字警示块（开发中/不支持正常游玩/不保证数据兼容/Release 不附 APK）+ 能力完成度表 + 路线图（v0.4 为首个可玩版本目标）。
 - 发布说明性 Release（v0.3.0 tag，**标记 pre-release、不附 APK**）：明确 WIP 状态与已知未验收项。
 - CHANGELOG 同步 assets（关于页渲染源）。
 
 ### 决策
+
 1. 后续发版策略调整：**v1.0 前所有 Release 一律不附 APK、标记 pre-release**；首个可玩版本（预计 v0.4 验收完成后）才恢复附 APK 的稳定版发布。
 2. README 状态徽章置顶 Status: WIP。
 
 ### 下一步
+
 - 暗色/AMOLED 巡检 + 组件统一收尾（见会话 7 遗留）。
 
 ---
@@ -189,6 +219,7 @@
 > **重要**：本会话起，项目全面转向 RP-Hub 二次开发（用户拍板），旧 Kotlin/Compose 工程作废（备份于 git tag `legacy-v0.3.0`）。版本线自 v1.0.0 / versionCode 1 重新起算。
 
 ### 完成
+
 - **可行性探索**：摸清 RP-Hub（纯前端 Vue CDN + Tailwind CDN，CC BY-NC 4.0 与旧工程一致，二创合规；NSFW 预设位于 built-in-content.js；字体栈为 --app-font-modern/--app-font-serif + Lora；update-check 指向 rphub-presence.zeabur.app）+ 壳技术选型论证（原生 WebView 壳，三层结构：上游层/扩展层/原生层）+ 上游同步机制论证（覆盖 + patch 重放）。
 - **决策落盘**：`docs/PLAN-v1.0.0.md`（10 条决策 + 9 Phase 实施计划 + 同步 SOP + 8 项风险登记 + 验收清单）。
 - **文档体系重写**：`README.md`（二创署名声明 + 完整门面）、`AGENTS.md`（后续 Agent 工作指南：文件地图/硬性规定速览/工作流程/同步 SOP/扩展规范/测试要求/红线）、`HARD_REQUIREMENTS.md`（8 条新硬性规定，取代旧 13 条）。
@@ -197,6 +228,7 @@
 - **构建修错**：AGP 9 不再需要 org.jetbrains.kotlin.android 插件（移除后重跑构建中）。
 
 ### 决策
+
 1. 上游基线锁定 RP-Hub 1.8.9（本地 rp-hub-reference 与官方一致，commit b409ca6）。
 2. 壳加载路径 = filesDir 解压（localStorage 持久化），非 android_asset。
 3. 更新检查（rphub-update-api）二创后禁用（patch 002），自建服务列 v1.1.0 候选。
@@ -204,10 +236,12 @@
 5. 旧工程备份采用 git tag 方式（git 历史完整保留 11GB 资产，无需物理归档）。
 
 ### 遗留
+
 - assembleDebug 构建结果待确认（AGP 9 插件修正后）。
 - 待办：Patch 体系（001-005 品牌/禁用更新检查/vendor 本地化/扩展层挂载）、CDN 资源离线化（Vue/Tailwind/marked/DOMPurify/SortableJS/Lora）、文件桥实机验证、Phase 7 测试验收。
 
 ### 下一步
+
 - 确认构建通过 → 生成登记 patch（001-005）→ CDN 离线化（Phase 2）→ 品牌化（Phase 3）。
 
 ---
@@ -217,6 +251,7 @@
 > 续重建会话 1（见上）。本会话完成 v1.0.0 重建的核心工程部分，`assembleDebug` 持续通过。
 
 ### 完成
+
 - **Phase 1 壳工程（完成）**：Gradle 单模块化（删 core/ 三模块，libs.versions.toml 瘦身为 6 依赖）；AGP 9 内置 Kotlin 适配（移除 kotlin.android 插件、kotlinOptions → kotlin block，查证官方迁移文档）；壳代码 6 文件：AssetExtractor（filesDir 解压 + `.extracted_v1` 版本标记幂等）、WebViewSetup（DOM storage / file 访问 / UA 标注）、LuzzyBridge（剪贴板/Toast/版本/设备信息，R8 keep）、FileChooserHandler（SAF 导入，onActivityResult 转发）、DownloadHandler（DownloadManager 导出）、MainActivity（ComponentActivity 宿主 + 返回键回退）；Manifest 重写（去 LuzzyApp、加下载权限、configChanges 补 density/fontScale）。**产物：24.8MB debug APK 三件套（ABI 拆分）**。
 - **Phase 2 离线化（完成）**：vendor/ 下载 7 件（vue 164KB / tailwind.js 398KB 运行时 JIT / marked / purify 3.0.6 / SortableJS / daisyUI 4.7.2 / localforage 1.10.0）；Lora 可变字体本地打包（Regular + Italic 两文件覆盖 400-700）；主页面 + character + novel 子页面 CDN **全扫描清零**（审计中发现子页面同样有 CDN 依赖，补做本地化）；`assets/css/local-fonts.css` 建立（本地 @font-face + 字体栈覆盖）；**决策**：CJK 分片字体（Ma Shan Zheng 100+ 分片）不做本地化，依赖安卓系统 Noto 回退（登记 patch 007 决策）。
 - **Phase 3 品牌化（完成）**：title→LuzzyRP、入口 logo→LUZZY·RP、移除 rphub-update-api meta、vendor 引用、扩展层挂载（luzzy-theme.css + luzzy-bridge.js + luzzy-ext.js 尾部注入）；`tools/patches/README.md` 登记 7 个 patch（001-007）；`tools/apply-patches.ps1` 幂等重放脚本（8 步全 SKIP 验证 = 已应用状态）；`tools/sync-upstream.ps1` 同步脚本（dry-run 分支 + 参考克隆更新提示 + 二创专属文件备份恢复保护 + 指纹更新）。
@@ -224,6 +259,7 @@
 - **文档**：CHANGELOG v1.0.0 条目（含上游基线声明 + 历史区存档）；README/AGENTS.md/HARD_REQUIREMENTS.md 已在会话 1 完成；.gitignore 加 rp-hub-reference/ 排除；DESIGN.md 移除（摈弃项，git 历史可恢复）。
 
 ### 决策
+
 1. AGP 9 内置 Kotlin：不装 kotlin.android 插件，`kotlin { compilerOptions { jvmTarget } }` 顶层块配置。
 2. 入口 logo 品牌化改文字（LUZZY·RP）不动 CSS 动画结构（entry-logo-* 动画体系完整保留）。
 3. patch 体系采用「脚本幂等查找替换」而非 git apply（上游文件无版本基线 diff 可比，脚本更抗冲突）。
@@ -231,6 +267,7 @@
 5. rp-hub-reference/ 加 .gitignore（独立仓库 + 11GB 资产不入库；同步 SOP 依赖其 fetch upstream）。
 
 ### 遗留
+
 - `cdn.sta1n.cn/keys` 与 `qianxun1688.com` 推广外链未处理（保留待审，Phase 3 遗留）。
 - LuzzyBridge 未接入扩展层实机调用验证（需真机）。
 - FileChooserHandler/DownloadHandler 实机验证未做（需要真机 SAF）。
@@ -238,6 +275,7 @@
 - 构建警告：onActivityResult deprecated / databaseEnabled deprecated（Phase 4 桥接完善时处理）。
 
 ### 下一步
+
 - 真机安装验证（壳加载 + 离线化 + 品牌化 + 桥接）→ CSP/混合内容审计 → 同步演练 → Phase 4 桥接完善 → Phase 7 测试验收。
 
 ---
@@ -247,6 +285,7 @@
 > 用户连接真机（小米 pandora，arm64），完成 v1.0.0 壳工程首次实机验收。
 
 ### 完成
+
 - **安装与启动**：`adb install` arm64 debug APK 成功；冷启动无崩溃；`AssetExtractor` 解压 rphub + ext 双目录成功。
 - **界面完整加载**：uiautomator dump 确认 RP-Hub 全界面就位——侧边栏（聊天/用量统计/记忆系统/UI模板/角色卡管理/在线/高级/设置）、聊天页（未选择角色卡空态、发送图片 0/3、自动生图开关、单次系统指令、剧情分支：主线、切换模型、输入框+发送按钮）。
 - **离线化生效**：vendor 本地加载（tailwind.js 运行时 JIT 正常，仅生产环境提示警告）；无任何 CDN 请求失败。
@@ -257,16 +296,19 @@
 - **新增**：JS console 转发到 Logcat（tag: JSConsole）——RP-Hub 是纯 JS 应用，调试与扩展层验证全靠 console 输出（FileChooserHandler.webChromeClient 内 onConsoleMessage）。
 
 ### 决策
+
 1. AssetExtractor 改为 ROOTS 列表驱动（rphub + ext 双根），标记版本统一管理。
 2. JS console 转发进 WebChromeClient（与文件选择桥同文件，避免多 WebChromeClient 冲突）。
 
 ### 遗留
+
 - 文件桥实机验证（角色卡 PNG 导入导出 SAF 全流程）——需要用户操作或自动化脚本。
 - 推广外链清理（cdn.sta1n.cn/keys、qianxun1688.com）。
 - 上游同步演练。
 - 构建警告（onActivityResult / databaseEnabled deprecated）Phase 4 处理。
 
 ### 下一步
+
 - 文件桥 SAF 实机验证 → 推广外链清理 → 同步演练 → Phase 4 桥接完善 → Phase 7 测试验收 → 发布。
 
 ---
@@ -276,20 +318,24 @@
 > 用户新任务：①AGENTS.md 增量更新硬性规定（设计相关必须启用 4 项 skill）；②设置页新增主题功能（经典=原版 + 新主题方案 + 新用户默认新主题）；③主题附属字体设置（系统内置字体=经典，默认字体=PuHuiTi-3/AlibabaSans，新用户默认）。
 
 ### 完成
+
 - **AGENTS.md 增量更新**：硬性规定速览表新增第 9 条「设计 SKILL 强制条款」+ §2.1 详细展开（触发条件/4 项 SKILL 本地存档表/强制流程 5 步/豁免/与规定 4 的关系）。
 - **HARD_REQUIREMENTS.md 同步**：新增规定 9（设计 SKILL 强制条款），含 4 项 SKILL 表 + 强制流程 + 守护落点。
 - **4 项 SKILL 启用**：huashu-design（SKILL.md 579 行完整阅读：三方向硬门/反 AI slop/动效=物理学/Gate 文件协议）、awesome-design-md（73 份 DESIGN.md 范本库）、open-design（用户手动下载 zip 解压至 docs/skills/open-design，242MB；AGENTS.md 完整阅读：DESIGN.md 品牌契约/五维 critique/UI 动画哲学）、ui-ux-pro-max-skill（CLAUDE.md + SKILL.md + pro-rules.md 完整阅读：10 优先级规则/检索命令/Pre-Delivery Checklist）。
 - **技术侦察**：RP-Hub 无内置主题机制（纯浅色，色值硬编码在 index.html tailwind.config）；设置页结构确认（用户设置/生图设置/高级设置区块）；字体资产盘点（PuHuiTi-3 woff2 每字重 1.4-5.3MB，AlibabaSans woff2 每字重 44-47KB）。
 
 ### 决策
+
 1. 主题技术路线候选：方案 C（tailwind.config 色板改 var() 引用 + 扩展层 CSS 变量切换）最优雅，待讨论确认。
 2. 字体打包策略：PuHuiTi 精选 3 字重（Regular/Medium/Bold ≈ 15.5MB）+ AlibabaSans 全 6 字重（≈ 0.3MB）。
 
 ### 遗留
+
 - 主题方案 3 方向待用户选择（huashu-design 三方向硬门）。
 - 字体设置 UI 设计待主题方向确定后展开。
 
 ### 下一步
+
 - 主题 3 方向讨论 → 用户选定 → DESIGN.md 设计真源 → 实施。
 
 ---
@@ -299,6 +345,7 @@
 > 续会话 4。用户确认：新主题走 **Claude 风格** + **亮暗双模式**。三方向板（huashu-design 硬门）并行制作中。
 
 ### 完成
+
 - **设计 spec 固化**：`docs/design/theme-spec.md`（三方向共同输入：产品/受众/硬约束/界面结构/三方向色板核心/动效纪律）。
 - **三方向板并行启动**（3 个 subagent 独立工作）：
   - A · 暖纸书房：Claude 原味（米纸 #FAF9F5 + 烤橙 #D97757），卡片式分层布局
@@ -314,16 +361,19 @@
 - **技术方案文档**：`docs/design/theme-tech-plan.md`（data-theme 驱动机制 / 设置项落点 / 字体打包 / 上游同步影响表：patch 008-011 登记规划）
 
 ### 决策
+
 1. 主题机制 = `data-theme` + `data-mode` 双属性驱动（复刻上游 `data-app-font` 模式），classic = 原版色值默认变量。
 2. 主题/字体设置存扩展层独立键（`luzzy_theme` 等），不侵入上游 settings 对象（硬性规定 3 扩展层隔离）。
 3. 字体默认 = luzzy（PuHuiTi + AlibabaSans），通过扩展层 `data-app-font="luzzy"` 触发，上游 `normalizeFontFamily` 兜底为 modern 时扩展层重写。
 4. 新用户默认新主题（luzzy）+ 默认字体（luzzy），老用户保留原设置。
 
 ### 遗留
+
 - 三方向板完成待展示（A/B/C 各亮暗两张截图）。
 - 方向板选定后：DESIGN.md 设计真源 → 色板变量填充 → patch 008-011 → 设置页 UI → 实机验证。
 
 ### 下一步
+
 - 展示三方向板 → 用户选定 → direction-approved.md 落档 → DESIGN.md → 实施。
 
 ---
@@ -333,20 +383,24 @@
 > 续会话 5。三个方向板 subagent 并行制作，A（暖纸书房）与 C（墨韵朱砂）已完成并验证，B（极光暖夜）制作中。
 
 ### 完成
+
 - **方向 A · 暖纸书房**（subagent c7b78d52）：`docs/design/direction-a-warm-paper.html`（900 行单文件）+ 亮/暗截图。卡片式分层骨架（气泡悬浮卡 + 输入区悬浮工具栏 + 顶栏毛玻璃）；烤橙双档策略（#D97757 图形 accent / #B85C3E 文字按钮，过 4.5:1）；对比度亮 13.9:1/5.1:1、暗 13.5:1/6.0:1；零 JS 错误、无溢出、交互全通。
 - **方向 C · 墨韵朱砂**（subagent ae7ce188）：`docs/design/theme-C-moyun-zhusha.html`（656 行单文件）+ 亮/暗截图。分栏杂志骨架（书页眉细线 + 消息左右分栏剧本排版）；宣纸 #F7F3EC + 墨色 #2B2620 + 朱砂 #C0392B 点睛；对比度亮 13.6:1/5.5:1、暗 14.7:1/7.9:1；零 JS 错误、交互全通。
 - **汇总文档**：`docs/design/direction-summary.md`（三方向对比表 + 交付物清单 + 验证结果 + 选定后流程）。
 - **清理**：删除重复的 theme-A-* 截图（保留 subagent 权威版本 direction-a-*）。
 
 ### 决策
+
 1. 方向板截图命名规范：`direction-<字母>-<mode>.png`（subagent 产出为准）。
 2. 方向板工具条（页面切换/亮暗按钮）是设计标注层，非 app 内容。
 
 ### 遗留
+
 - 方向 B（极光暖夜）制作中。
 - 用户选定方向后：direction-approved.md 落档 → DESIGN.md 填充 → luzzy-theme.css 变量 → patch 008-011 → 设置页 UI → 实机验证。
 
 ### 下一步
+
 - B 完成 → 三方向一起展示给用户 → 用户选定 → 实施。
 
 ---
@@ -356,6 +410,7 @@
 > 续会话 6。用户从三方向板中选定「A · 暖纸书房」，主题系统全部实施完成（待真机验证）。
 
 ### 完成
+
 - **方向选定落档**：`docs/design/direction-approved.md`（用户选择原话「A」+ 方向 A 完整设计要点）。
 - **DESIGN.md 设计真源定稿**：方向 A「暖纸书房」完整契约（亮/暗色板 token 表、卡片式分层布局、动效令牌、可访问性、主题技术契约）。
 - **luzzy-theme.css 主题变量填充**：classic = 原版色值；luzzy 亮色 = 米纸系 gray（#FAF9F5→#2A2826）+ 烤橙系 primary（#D97757 图形 / #B85C3E 按钮 / #A8543A 文字）；luzzy 暗色 = 深暖灰 gray 反转（#262624→#F5F1EA）+ 暖橙 primary；body 过渡 + reduced-motion 兜底。
@@ -370,15 +425,18 @@
 - **验证**：20 个主题变量定义/引用一一对应；13 项 patch 状态全 OK；assembleDebug 通过（40.8MB）。
 
 ### 决策
+
 1. 老用户迁移策略：savedSettings 无 theme 字段 → classic（保留原版），新用户默认 luzzy（settings 默认值）。
 2. 主题切换联动系统栏：applyThemeMode watch 调 LuzzyBridge.setSystemBarStyle（亮=深图标/暗=浅图标）。
 3. 暗色 gray 色阶反转映射（50 最深=画布 → 900 最浅=主文字），使上游全部 gray-* 工具类自动适配，无需改上游 HTML。
 
 ### 遗留
+
 - 真机验证（用户在用手机，待空闲）：主题切换、亮暗切换、字体切换、系统栏联动、老用户迁移。
 - 方向板 B/C 存档（备选，不实施）。
 
 ### 下一步
+
 - 真机验证 → 修复问题 → CHANGELOG v1.0.0 更新 → 发布。
 
 ---
@@ -388,6 +446,7 @@
 > 续会话 7。用户连接真机（小米 25098PN5AC / Android 16），验证主题系统。**发现主题未生效——界面仍为原版灰色，非暖纸书房米纸色。已定位到最可能根因，移交下一个 Agent 修复。**
 
 ### 完成
+
 - **安装与启动**：`adb install` 最新 APK（40.8MB，含主题系统）成功；冷启动无崩溃；AssetExtractor 解压正常；扩展层自检输出正常（`[LuzzyRP] v1.0.0-debug (code 1) · upstream RP-Hub 1.8.9`）。
 - **部署文件验证**（run-as 检查解压后文件）：
   - `index.html` 含 `var(--tw-gray-50)`（patch 008 生效）✅
@@ -401,6 +460,7 @@
 **现象**：新用户默认 theme='luzzy'，但界面颜色仍是原版灰色（#BCBDBE 等），非暖纸书房米纸色（#FAF9F5）。
 
 **已排除**：
+
 1. 文件部署问题（patch 008 已生效，luzzy-theme.css 已挂载）
 2. JS 语法错误（node --check 通过）
 3. 老用户迁移逻辑（按设计工作）
@@ -413,30 +473,39 @@
 - 证据：截图颜色 #BCBDBE ≈ 原版 gray-200（#e5e7eb 的暗化版？）或 Tailwind 未生成规则时的兜底色；#7C7D7D 顶栏 ≈ 原版黑色渐隐层叠在白色上。
 
 **备选根因（可能性低）**：
+
 - `data-theme` / `data-mode` 属性未设置（watch 未执行）——但 luzzy-ext.js 的 applyTheme 也会设置，且无 JS 报错。
 - luzzy-theme.css 的 `:root[data-theme="luzzy"][data-mode="light"]` 选择器未命中。
 
 ### 修复方向（下一个 Agent 参考）
 
 **方案 1（推荐）· 放弃 Tailwind config var() 化，改用 CSS 覆盖层**：
+
 - 回滚 patch 008（tailwind.config 恢复 hex 原值）。
 - 在 luzzy-theme.css 中，用**高优先级 CSS 规则覆盖** Tailwind 生成的工具类：
   ```css
-  :root[data-theme="luzzy"][data-mode="light"] .bg-gray-50 { background-color: #FAF9F5; }
-  :root[data-theme="luzzy"][data-mode="light"] .text-gray-800 { color: #3D3A36; }
+  :root[data-theme='luzzy'][data-mode='light'] .bg-gray-50 {
+    background-color: #faf9f5;
+  }
+  :root[data-theme='luzzy'][data-mode='light'] .text-gray-800 {
+    color: #3d3a36;
+  }
   ```
 - 缺点：需要覆盖 RP-Hub 用到的全部 gray/primary 工具类组合（bg-/text-/border-/from-/to-/ring- 等），工作量大但可控。
 - 优点：不依赖 Tailwind 对 var() 的支持，100% 可靠。
 
 **方案 2 · 验证 Tailwind 是否支持 var() 颜色**：
+
 - 在浏览器（Playwright）加载 index.html，检查生成的 `<style>` 里 `.bg-gray-50` 规则是否存在、值是什么。
 - 若 Tailwind 支持 var()（生成 `background-color: var(--tw-gray-50)`），则问题在 data-theme 未设置，转查 watch 链路。
 - 若 Tailwind 拒绝 var()（规则缺失），走方案 1。
 
 **方案 3 · 换用 Tailwind 任意值语法**：
+
 - config 色板改 `'rgb(var(--tw-gray-50) / <alpha-value>)'` 形式（Tailwind 官方支持的 CSS 变量颜色模式）——但需要变量存 RGB 三元组而非 hex，改动面大。
 
 **验证方法**：
+
 1. Playwright 加载 `file:///D:/.NekoTool/LuzzyRP/app/src/main/assets/rphub/index.html`，`page.evaluate` 检查：
    - `document.documentElement.dataset.theme` / `dataset.mode` 值
    - `getComputedStyle(document.querySelector('.bg-gray-50')).backgroundColor` 值
@@ -444,10 +513,12 @@
 2. 真机复测：卸载重装 → 截图采样聊天区背景应为 #FAF9F5（亮色）。
 
 ### 决策
+
 1. 主题未生效问题**不阻塞其他工作**，但 v1.0.0 发布前必须修复。
 2. 移交下一个 Agent 时，优先执行「修复方向」中的方案 2（验证根因）→ 按结果走方案 1 或 3。
 
 ### 遗留
+
 - **P0：主题未生效**（根因待验证，见上）。
 - 真机验证其余项（亮暗切换、字体切换、系统栏联动）待主题生效后补测。
 - 文件桥 SAF 实机验证（角色卡 PNG 导入导出）。
@@ -456,6 +527,7 @@
 - 构建警告（onActivityResult / databaseEnabled deprecated）。
 
 ### 下一步
+
 - 下一个 Agent：验证 Tailwind var() 支持性 → 修复主题 → 真机复测 → 补测亮暗/字体/系统栏 → CHANGELOG → 发布。
 
 ---
@@ -467,9 +539,10 @@
 > 默认 = PuHuiTi 3 + AlibabaSans）。本次会话全流程完成，模拟器验证通过。
 
 ### 完成
+
 1. **规定 9 文档**：HARD_REQUIREMENTS「八条」→「九条」措辞同步（规定 9 上会话已写入，本次核对一致）。
 2. **4 项设计 SKILL 完整阅读**：huashu-design SKILL.md + animation-pitfalls.md、open-design AGENTS.md
-   + CLAUDE.md、ui-ux-pro-max CLAUDE.md + SKILL.md + pro-rules.md、awesome-design-md README.md。
+   - CLAUDE.md、ui-ux-pro-max CLAUDE.md + SKILL.md + pro-rules.md、awesome-design-md README.md。
 3. **旧主题移除**：patch 008-011 全部撤销（index.html 色板恢复 hex、app.js/core-utils.js 与
    rp-hub-reference 逐字节一致、luzzy-theme.css 重置、apply-patches/README 移除登记）。提交 feaa52d2。
 4. **三方向硬门**（huashu Fallback Phase 1-5）：spec-v2（≥500 字合同 + 五问）→ 共享骨架
@@ -494,6 +567,7 @@
    - 截图存档：docs/design/verify-v2-final-{light,dark}.png。
 
 ### 决策
+
 1. **三方向共享骨架**：huashu「三版布局互异」规则对主题任务修正——宿主 DOM 固定，差异轴收窄为
    视觉身份（色彩/材质/圆角/排印/动效），spec §5 明文声明。
 2. **主题机制沿用 var() 方案**：jsdom 实证 Tailwind Play CDN 接受 var() 色值（推翻会话 8 的
@@ -506,6 +580,7 @@
    完成填表/切主题/数据面断言——后续 WebView 壳验证的标准路径。
 
 ### 踩坑记录
+
 - `adb shell input text` 对 WebView 输入框不生效（需 CDP evaluate + 原生 setter + input event）。
 - 模拟器同时存在 `com.luzzymeow.luzzyrp`（旧 v0.1.1 Compose 残留）与 `.debug` 后缀包，
   launch 时曾启动错包造成长时间误判——旧包已卸载。
@@ -515,6 +590,7 @@
 - PowerShell heredoc 经 Git Bash 传入会被截断——长 PS1 内容用 Write 工具整文件写入。
 
 ### 遗留
+
 - 上游硬编码 indigo/blue/pink 工具类（用户设置页头部渐变、抽屉图标等）不在 gray/primary
   ramp 内，保持原样；是否扩展主题覆盖待用户决策（DESIGN.md Do/Don't 已留口）。
 - 「荧光笔落笔」招牌动效（DESIGN.md roadmap）：需正则/markdown 管线配合，独立迭代。
@@ -522,6 +598,7 @@
 - CHANGELOG 已更新 v1.0.0-rc2；版本号/versionCode 未动（发布流程待用户确认节奏）。
 
 ### 下一步
+
 - 用户真机体验新主题 → 反馈微调（色板/字体/动效均可按 DESIGN.md token 快速调）。
 - 决定是否扩展上游硬编码色的主题化（indigo/pink → coral 系）。
 - v1.0.0 正式发布流程（assembleRelease + CHANGELOG 定稿 + GitHub Release）。
@@ -529,6 +606,7 @@
 ### 会话 9 追记：暗色模式修复（用户反馈「暗色有点难看，对比度没调好」）
 
 **诊断（CDP 实测）**——用户直觉正确，且根因比对比度更深：
+
 1. **机制缺陷（主因）**：v2 纯 `var()` 色板下，Tailwind JIT 无法给带透明度修饰符的工具类
    （`bg-gray-50/60`、`border-gray-100/80` 等）注入 alpha，**回退输出纯白**——暗色下输入框/
    设置输入框/分段滑块发白全是这个根因（jsdom 早期 B 场景已见端倪：alpha 变体丢失）。
@@ -537,6 +615,7 @@
 4. **上游写死白**：styles.css `.segmented-switch__indicator { background:#fff }`。
 
 **修复（patch 008 升 v3 + 暗色板重调）**：
+
 - 色板改 **RGB 三元组** + config `rgb(var(--tw-*) / <alpha-value>)`（Tailwind 官方模式）——
   透明度变体由 JIT 自动注入 alpha，机制性消除白块回退；classic/亮/暗三套变量全部改三元组。
 - 暗色板重调（保持 Claude 暖黑）：canvas #171614 / surface-soft #201E1B / card #2B2824（层次
@@ -573,6 +652,7 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 ## 2026-09-01 · 会话 10：雾纸玻璃层 Frost-Paper（液态玻璃方向融合）
 
 ### 完成
+
 - **设计 SKILL 强制条款重执行**：完整重读 4 项 SKILL 主文档（huashu-design SKILL / awesome-design-md README / open-design AGENTS+CLAUDE / ui-ux-pro-max CLAUDE+SKILL），跑 glassmorphism 风格检索（blur 10-20px + 半透 10-30% + 1px 亮边 + 对比度条件性）。
 - **三方向硬门**：固化共享 spec（`docs/design/boards-v3/SPEC.md`）→ 3 个并行 subagent 各出一块方向板（HTML+Playwright 截图，亮暗双框渲染同一聊天场景）：A 雾纸 Frost-Paper（Windows Mica 派，玻璃仅固定 chrome）/ B 琥珀琉璃 Amber-Glass（暖 tint，AI 气泡玻璃化）/ C 晨露 Liquid-Clear（Apple Liquid Glass 派，高透+saturate，用户气泡玻璃化）→ 用户选定 **A**（`direction-approved-v3.md` 存档）。
 - **实施**（全在 `luzzy-theme.css`，零新 patch）：chrome 半透白面枚举接管（`bg-white/50/60/70/90/95` → 亮 cream/暗暖纸 0.86；**故意不接管 /20 /40**——照片上白 chip 白字语义）；`backdrop-blur-xl` 24→16px；`.app-sidebar` 补 blur；模态面板 `.fixed.inset-0 > .bg-white` 雾纸化；气泡 `.msg-bubble-glass` 回归不透纸面+去 blur；上游 `!important` 白面成建制收编（`.input-island` 等 7 个选择器 + 抽屉遮罩去 slate）；`@supports` 实底降级。
@@ -590,6 +670,7 @@ rgba(43,40,36,.72)、透明度变体 rgba(23,22,20,·.8) 正常着色、**纯白
 用户指示「详细记录当前情况和工作节点，我将重置上下文」→ **只做记录，不动代码**。
 
 产出：**`docs/STATUS-v1.5.0-assistant.md` 全面重写为「交接档」**（300 行，12 节）：
+
 1. 一句话现状 + 工作模式（用户一点一点提、我一点一点改）；
 2. 环境与快速上手（构建/装机/自检命令 + **真机操作要点**：截图必带 MSYS_NO_PATHCONV、坐标随通知横幅变化）；
 3. 当前数据快照（45 提交未 push、工作区干净、331 tests、APK 75MiB、设备版本 1.4.0-debug）；
@@ -634,13 +715,13 @@ WebView 调试开关**。
 
 **诊断（全程实测量化，不猜）**：
 
-| 手段 | 读数 | 结论 |
-|------|------|------|
-| `dumpsys display` | renderFrameRate 120Hz | 屏幕 120Hz |
-| 页内 rAF 采样（CDP） | 全场景 avg 8.3ms / p95 8.4 / **零帧 >16.7ms** | **主线程不是瓶颈** |
-| `Performance.getMetrics` 增量 | Layout 0.27ms + RecalcStyle 0.75ms + Paint 0.6ms / 帧 | 同上 |
-| CDP 帧事件追踪 | `BeginFrame` 间隔 P50 **8.32ms**；单次展开 34 DrawFrame / **5 DroppedFrame** | 确有掉帧 |
-| `dumpsys gfxinfo` | UI 中位 10ms、**GPU 中位 5ms**、95 分位 10~14ms | **GPU 栅格 > 8.33ms 预算** |
+| 手段                          | 读数                                                                         | 结论                       |
+| ----------------------------- | ---------------------------------------------------------------------------- | -------------------------- |
+| `dumpsys display`             | renderFrameRate 120Hz                                                        | 屏幕 120Hz                 |
+| 页内 rAF 采样（CDP）          | 全场景 avg 8.3ms / p95 8.4 / **零帧 >16.7ms**                                | **主线程不是瓶颈**         |
+| `Performance.getMetrics` 增量 | Layout 0.27ms + RecalcStyle 0.75ms + Paint 0.6ms / 帧                        | 同上                       |
+| CDP 帧事件追踪                | `BeginFrame` 间隔 P50 **8.32ms**；单次展开 34 DrawFrame / **5 DroppedFrame** | 确有掉帧                   |
+| `dumpsys gfxinfo`             | UI 中位 10ms、**GPU 中位 5ms**、95 分位 10~14ms                              | **GPU 栅格 > 8.33ms 预算** |
 
 **定位**：折叠是 `grid-template-rows` 布局动画，逐帧重栅格不可免；主线程仅 ~1.6ms/帧，
 **瓶颈是 GPU 栅格约 5ms/帧（DPR 3.25）超过 120Hz 的 8.33ms 预算**，超额帧落到下一 vsync。
@@ -655,6 +736,7 @@ WebView 调试开关**。
 与总顿挫时长等比下降，且该时长本就是本项目令牌规定的值（原 0.32s 是上游值）。
 
 **负面结论（已实测排除，勿重复尝试）**：
+
 1. `.advanced-nav-panel-inner` / `.advanced-nav-list` 加 `will-change: transform` 促独立合成层
    → 成对交替无收益（28 vs 28），且与 patch 034 的常驻层教训相悖；
 2. `.advanced-nav-panel{contain:paint}` → 首测似 −64%（14→5），**成对交替复测反向**
@@ -682,12 +764,12 @@ release 构建通过、装机冒烟通过、侧栏展开态截图确认渲染正
 
 **诊断链（四步，全部实测）**：
 
-| 步骤 | 手段 | 读数 | 结论 |
-|------|------|------|------|
-| 1 | 注入 rAF 采样器 + reload | 首帧 166ms、平滑起点 288ms；t=138 有 Δ125ms、t=238 有 Δ91ms | 开头两处卡顿 |
-| 2 | CPU 采样剖析 | `(program)` 163ms；tailwind.js 合计 ~60ms、vue.global.prod.js 若干 | 卡顿 = 上游启动成本 |
-| 3 | 事件级追踪 | `ParseHTML→EvaluateScript` **109ms**、`PerformMicrotaskCheckpoint` **83ms**；**RasterTask 仅 2.3ms** | 不是纹理/栅格问题，是 JS 执行 |
-| 4 | `LayerTree.compositingReasons` | 开屏全部动画元素均为 `accelerated transform/opacity`（加不加 `will-change` 都是 27 层） | **动画机制无问题** |
+| 步骤 | 手段                           | 读数                                                                                                 | 结论                          |
+| ---- | ------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 1    | 注入 rAF 采样器 + reload       | 首帧 166ms、平滑起点 288ms；t=138 有 Δ125ms、t=238 有 Δ91ms                                          | 开头两处卡顿                  |
+| 2    | CPU 采样剖析                   | `(program)` 163ms；tailwind.js 合计 ~60ms、vue.global.prod.js 若干                                   | 卡顿 = 上游启动成本           |
+| 3    | 事件级追踪                     | `ParseHTML→EvaluateScript` **109ms**、`PerformMicrotaskCheckpoint` **83ms**；**RasterTask 仅 2.3ms** | 不是纹理/栅格问题，是 JS 执行 |
+| 4    | `LayerTree.compositingReasons` | 开屏全部动画元素均为 `accelerated transform/opacity`（加不加 `will-change` 都是 27 层）              | **动画机制无问题**            |
 
 **转折点**：前三步都指向"主线程被上游启动阻塞"，但第 4 步证明动画在合成器上跑、不会因主线程阻塞而掉帧。
 于是改测**真机冷启动**（`dumpsys gfxinfo`）：**UI 帧时中位 17ms（=60fps）、GPU 90 分位 15ms、
@@ -704,6 +786,7 @@ legacy 掉帧 80.69%** —— 开屏那 2.6 秒整个跑在 60Hz 上，这才是
 legacy 掉帧 **80.69% → 4.13% / 4.76% / 3.84%**；转场窗口 95 分位 13ms。
 
 **否决记录（重要，勿重走）**：
+
 1. **WAAPI 重排入场时间轴**（等主线程平稳后 `currentTime = 0`）——实测**不生效**：CSS 动画的时序
    由样式重算掌管，`startTime` 仍是 169ms 未被改写。已回退该实现。
 2. **单段解除**（只在点击时解除遮挡抑制）——冷启动同样到 7ms，但应用首绘被推迟到点击瞬间，
@@ -732,16 +815,18 @@ awesome-design-md `README.md` 的 DESIGN.md 九段格式；ui-ux-pro-max `CLAUDE
 编辑面与列表混在一起（真机截图确认）。
 
 **改后（patch 040，index.html + app.js）**：
+
 - **卡片列表**：显示名 + 类型徽标（text/image/embedding）+ 模型 ID（等宽）+ 上下文/输出 + 模态 chips
-  + 编辑·删除图标按钮；空态沿用原 /models 拉取缓存说明。
+  - 编辑·删除图标按钮；空态沿用原 /models 拉取缓存说明。
 - **二级弹窗**：`modal-shell`（`z-[70]` 叠于编辑器 `z-[60]`），字段与原表单逐项一致 + ID 预设提示与撤销。
 - **编辑完即保持**：编辑在**草稿副本**上进行，`confirmModelEditor` 才 `splice` 原位写回或 `push`；
   取消不留痕；删除弹窗内条目时自动收殓弹窗、索引前移时同步递减。
 
 **工程纪律（硬性规定 2/10）**：
+
 1. 标记：index.html 2 处 + app.js 2 处 `[LuzzyRP patch 040]`；
 2. 实体重生成（v1.5.0 修正规程）：上游纯净基线 `4aef0bb` → LF 归一 → `git diff --no-index
-   --ignore-cr-at-eol` → 头路径改写；**前像 blob id 与登记表一致**（index.html `52135b42` /
+--ignore-cr-at-eol` → 头路径改写；**前像 blob id 与登记表一致**（index.html `52135b42` /
    app.js `79267c03`）；
 3. **双验证**：逆向（纯净基线 + 实体 → 工作树）**2/2 逐字节一致**；端到端（纯净基线全量 →
    `apply-patches.ps1`）**9 枚全 [OK]** 且结果与工作树**9/9 逐字节一致**；
@@ -775,6 +860,7 @@ awesome-design-md `README.md` 的 DESIGN.md 九段格式；ui-ux-pro-max `CLAUDE
 且描述是有损压缩（细节丢失）；此外输入模态里还留着从未有可用通路的 `video`。
 
 **改后（app.js + ui-components.js + index.html）**：
+
 1. **原生支持图片时直发**：新增 `chatModelSupportsImages()`（按当前聊天模型的
    `inputModalities` 判定）与 `buildNativeImageContent()`——图片按 `image_url` part
    **直发聊天模型，不调用识图模型**（`recognizeChatImage` 整段跳过，图片状态直接置 ready）。
@@ -797,6 +883,7 @@ awesome-design-md `README.md` 的 DESIGN.md 九段格式；ui-ux-pro-max `CLAUDE
 
 `AssistantRepository.ensureDefaultAssistant()`（首次进入自动创建内置「阿墨」）**整体删除**，
 助手一律由用户显式 `createAssistant(name)` 创建；配套：
+
 - 新增 `deleteAssistant(assistantId)`：先清 FTS + 消息（唯一写入口 `deleteByAssistantIndexed`），
   再清会话及其余按 assistantId 归属的表；**工作区目录按 PLAN §6.1 默认保留**；
 - `AssistantListViewModel.refresh()` 去掉 default 回落（选中项为空即进空态）；
@@ -821,11 +908,11 @@ WebView 侧配套 `.lsp-handoff`（`ext/luzzy-theme.css` + `ext/luzzy-assistant.
 
 ### 五、收口（G1–G3，本次补做）
 
-| 缺口 | 处理 |
-|------|------|
-| G1 `tools/patches/README.md` 未登记 041 | 已补 041 条目（内容 / 假设 / 预期冲突点 / requestTools 复原说明） |
+| 缺口                                           | 处理                                                                                                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1 `tools/patches/README.md` 未登记 041        | 已补 041 条目（内容 / 假设 / 预期冲突点 / requestTools 复原说明）                                                                                                     |
 | G2 index.html 的 video 清理**无独立 041 注释** | 已补 2 行注释 → 实体 `012-035-index-html.patch` 重生成（前像 `52135b4` 一致、后像 `a853f0a`→`6b2498f`）→ **逆向验证逐字节一致**（纯净基线 + 实体 = 工作树，313226 B） |
-| G3 WORKLOG / STATUS 未记录会话 50 | 本节 + STATUS §3/§6/§12 同步 |
+| G3 WORKLOG / STATUS 未记录会话 50              | 本节 + STATUS §3/§6/§12 同步                                                                                                                                          |
 
 **收口后实跑门禁**：`tools/verify-markers.ps1` → **95 PASS / 0 FAIL**（含 040 三项、041 六项；
 R1/R2 上游敏感文件仍逐字节一致、R3 CHANGELOG 同步一致）。
@@ -841,15 +928,15 @@ ui-ux-pro-max `CLAUDE.md`（本项目有自有契约，未套通用库）、awes
 「上游设置页皮肤」（白底深字 + 2dp 描边 + ledger 组件库）拼进同一原生容器，两者在上游本属
 不同场景（角色背景图 vs 纯白管理台），搬进来后未做身份统一。
 
-| 级 | 断层 | 证据 |
-|----|------|------|
-| A1 | 两套顶栏语言 | `ChatTopBar.kt:45-137` vs `LedgerPageHeader` |
-| A2 | 图标描边 1.6/1.5dp vs 2dp | `ChatIcons.kt:28,58,84` |
-| A3 | 折叠节奏三套（Web 侧栏 200 / 助手管理页 360 / 路由 200-140）+ **契约自相矛盾** | `LedgerTokens.kt:56` + DESIGN.md §Motion |
-| B1 | 用户气泡未按契约（#EFE9DE 而非 #F1E3D9，与 AI 气泡几乎同色） | `MessageComponents.kt:70-80` |
-| B2 | 输入岛 `+` `↑` 用 Text 字符 | `InputIsland.kt:62,99` |
-| B3 | 终端用系统 `FontFamily.Monospace`，字体章未登记 | `TerminalScreen.kt:128` |
-| C1-C4 | 双空态实现 / 气泡 max 宽无出处 / 消息间距 48dp 显散 / 导航隐喻两套 | 见审查档 |
+| 级    | 断层                                                                           | 证据                                         |
+| ----- | ------------------------------------------------------------------------------ | -------------------------------------------- |
+| A1    | 两套顶栏语言                                                                   | `ChatTopBar.kt:45-137` vs `LedgerPageHeader` |
+| A2    | 图标描边 1.6/1.5dp vs 2dp                                                      | `ChatIcons.kt:28,58,84`                      |
+| A3    | 折叠节奏三套（Web 侧栏 200 / 助手管理页 360 / 路由 200-140）+ **契约自相矛盾** | `LedgerTokens.kt:56` + DESIGN.md §Motion     |
+| B1    | 用户气泡未按契约（#EFE9DE 而非 #F1E3D9，与 AI 气泡几乎同色）                   | `MessageComponents.kt:70-80`                 |
+| B2    | 输入岛 `+` `↑` 用 Text 字符                                                    | `InputIsland.kt:62,99`                       |
+| B3    | 终端用系统 `FontFamily.Monospace`，字体章未登记                                | `TerminalScreen.kt:128`                      |
+| C1-C4 | 双空态实现 / 气泡 max 宽无出处 / 消息间距 48dp 显散 / 导航隐喻两套             | 见审查档                                     |
 
 **落档**：新建 **`docs/design/AUDIT-assistant-ui-parity.md`**（评审结论 + P0-P3 修复计划 + 验收标准 +
 风险表）；`docs/design/direction-approved-assistant.md` 追加「⏳ 待决 · 顶栏语言统一（D1/D2/D3 三方向）」；
@@ -874,17 +961,17 @@ STATUS §7 加 R6、§12 加第 16 项。
 
 ### 一、接手盘点（先验证，再动手）
 
-| 项 | 事实 |
-|----|------|
-| HEAD | `2b85d51d`（会话 49+50 已提交，领先 `origin/main` 50 提交） |
-| 在途改动 | 8 文件 +105/−141：`DESIGN.md`、`ChatTopBar.kt`、`MessageComponents.kt`、`LedgerComponents.kt`、`LedgerIcons.kt`、`LedgerTokens.kt`、`LuzzyAssistantTheme.kt`、**删除 `ChatIcons.kt`**；新增 `ic_lz_menu.xml` / `ic_lz_send.xml` / `AUDIT-assistant-ui-parity.md`（均未提交） |
-| 断点位置 | 文件时间戳 21:16–21:22：**P0（契约自洽）已改完**；P1 走到 P1-3 —— **P1-4 只做了一半**（`LedgerIcons.Send` 与 `ic_lz_send.xml` 已建，但 `InputIsland` 仍在用文字字符） |
+| 项       | 事实                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HEAD     | `2b85d51d`（会话 49+50 已提交，领先 `origin/main` 50 提交）                                                                                                                                                                                                                                                                                                                                                                     |
+| 在途改动 | 8 文件 +105/−141：`DESIGN.md`、`ChatTopBar.kt`、`MessageComponents.kt`、`LedgerComponents.kt`、`LedgerIcons.kt`、`LedgerTokens.kt`、`LuzzyAssistantTheme.kt`、**删除 `ChatIcons.kt`**；新增 `ic_lz_menu.xml` / `ic_lz_send.xml` / `AUDIT-assistant-ui-parity.md`（均未提交）                                                                                                                                                    |
+| 断点位置 | 文件时间戳 21:16–21:22：**P0（契约自洽）已改完**；P1 走到 P1-3 —— **P1-4 只做了一半**（`LedgerIcons.Send` 与 `ic_lz_send.xml` 已建，但 `InputIsland` 仍在用文字字符）                                                                                                                                                                                                                                                           |
 | 遗留破绽 | ① `ChatTopBar` 删组件时**误删仍在使用的 `Column` import**（编译必失败）；② `LedgerTokensTest` 仍断言已删除的 `Ledger.CollapseDurationMs`（测试编译必失败）；③ `MessageComponents` 新常量 KDoc 插进 `MessageItem` 的文件级 KDoc 与函数之间（原 KDoc 悬空）；④ `CHAT_CONTENT_BOTTOM_PADDING` 定义后未接线；⑤ `DESIGN.md` 的修订块引用插在组件表第 6、7 行之间，**把 15 行表劈成两张**；⑥ 契约里写了不存在的 `LedgerIcons.ArrowUp` |
 
 ### 二、本轮动作
 
 1. **P1-4 输入岛图标（补完上一手未做完的）**：`Text("+")` / `Text("↑")` → `Icon(painterResource(
-   LedgerIcons.Plus / LedgerIcons.Send), 24dp)`（`Ledger.IconSize`），字形不再随字体 / 系统漂移；
+LedgerIcons.Plus / LedgerIcons.Send), 24dp)`（`Ledger.IconSize`），字形不再随字体 / 系统漂移；
 2. **P0-5 规格锁定测试同步**：折叠时长断言 `360` → **展开 200 / 收起 140**；图标集 **19 → 22 枚**
    （补 `Menu` / `Sliders` / `Send`），测试名改「覆盖助手页所需语义」（不再只管管理页）；
 3. **修复编译阻断**：补回 `ChatTopBar` 的 `Column` import；
@@ -897,13 +984,13 @@ STATUS §7 加 R6、§12 加第 16 项。
 
 ### 三、验证（全部实跑，非推断）
 
-| 项 | 命令 | 结果 |
-|----|------|------|
-| 单测 | `./gradlew :app:testDebugUnitTest` | **331 用例 / 0 失败 / 0 错误**（34 个测试类） |
-| 门禁 | `powershell -File tools/verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch） |
-| 构建 | `./gradlew :app:assembleRelease` | BUILD SUCCESSFUL；release 目录**只有一个** `app-release.apk`（**40.94 MB**） |
-| 签名 | `apksigner verify --print-certs` | **CN=LuzzyRP / SHA-256 `ed78235d…dfb1`**（与上一版一致，符合 §3.4 步骤 5） |
-| 真机 | `adb devices` | **空 —— 本机无设备接入**，装机与并排截图**未做** |
+| 项   | 命令                                        | 结果                                                                         |
+| ---- | ------------------------------------------- | ---------------------------------------------------------------------------- |
+| 单测 | `./gradlew :app:testDebugUnitTest`          | **331 用例 / 0 失败 / 0 错误**（34 个测试类）                                |
+| 门禁 | `powershell -File tools/verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch）                             |
+| 构建 | `./gradlew :app:assembleRelease`            | BUILD SUCCESSFUL；release 目录**只有一个** `app-release.apk`（**40.94 MB**） |
+| 签名 | `apksigner verify --print-certs`            | **CN=LuzzyRP / SHA-256 `ed78235d…dfb1`**（与上一版一致，符合 §3.4 步骤 5）   |
+| 真机 | `adb devices`                               | **空 —— 本机无设备接入**，装机与并排截图**未做**                             |
 
 ### 四、遗留
 
@@ -938,29 +1025,29 @@ DESIGN.md 为品牌契约）、ui-ux-pro-max `CLAUDE.md`、awesome-design-md `RE
 
 ### 二、落地（原生 Compose，零上游改动、零新 patch）
 
-| 项 | 改前 | 改后 |
-|----|------|------|
-| 页头形态 | **覆盖层**：112dp 黑色渐隐压在消息流之上 | **入流**：48dp 行 + 水平 16dp + 行下 16dp，与八张管理页同骨架 |
-| 表面 / 文字 | canvas 上看不见的渐变 + **白字** | **canvas 底 + 深字**（名称 20sp Bold `body`，会话标题 12sp `mutedSoft`） |
-| 汉堡 | 32dp 圆形点击区 + Canvas 手绘 1.6dp 图标 | 40dp 触控区 + **24dp `LedgerIcons.Menu`**（2dp），`muted` |
-| 头像 | 36dp 半透明白圆 + 白字（为深色渐变而设） | 36dp 圆：`accentSoft` 底 + `accentButton` 字 + `hairline` 边（＝管理页「前置图标」位配色） |
-| chevron | 16dp 手绘 1.6dp，白 62% | 16dp `LedgerIcons.ChevronDown`（2dp），`mutedSoft` |
-| 设置按钮 | 36dp 圆形点击区 + 手绘齿轮 1.5dp，白 78% | **`LedgerIconButton` 40dp 方钮**（`card` 底 + `hairline` 边 + `rounded-xl`，§#2 规格） |
-| 死常量 | `HEADER_GRADIENT_HEIGHT` / `HEADER_ROW_HEIGHT` / `CHAT_CONTENT_TOP_PADDING` | 随黑渐隐一起删除（消息区不再需要 56dp 让位） |
-| 按下反馈 | 聊天页各自为政 | `pressScale`（0.95 / 150ms）由 `private` 改 `internal`，**聊天页与管理页同一定义点** |
+| 项          | 改前                                                                        | 改后                                                                                       |
+| ----------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 页头形态    | **覆盖层**：112dp 黑色渐隐压在消息流之上                                    | **入流**：48dp 行 + 水平 16dp + 行下 16dp，与八张管理页同骨架                              |
+| 表面 / 文字 | canvas 上看不见的渐变 + **白字**                                            | **canvas 底 + 深字**（名称 20sp Bold `body`，会话标题 12sp `mutedSoft`）                   |
+| 汉堡        | 32dp 圆形点击区 + Canvas 手绘 1.6dp 图标                                    | 40dp 触控区 + **24dp `LedgerIcons.Menu`**（2dp），`muted`                                  |
+| 头像        | 36dp 半透明白圆 + 白字（为深色渐变而设）                                    | 36dp 圆：`accentSoft` 底 + `accentButton` 字 + `hairline` 边（＝管理页「前置图标」位配色） |
+| chevron     | 16dp 手绘 1.6dp，白 62%                                                     | 16dp `LedgerIcons.ChevronDown`（2dp），`mutedSoft`                                         |
+| 设置按钮    | 36dp 圆形点击区 + 手绘齿轮 1.5dp，白 78%                                    | **`LedgerIconButton` 40dp 方钮**（`card` 底 + `hairline` 边 + `rounded-xl`，§#2 规格）     |
+| 死常量      | `HEADER_GRADIENT_HEIGHT` / `HEADER_ROW_HEIGHT` / `CHAT_CONTENT_TOP_PADDING` | 随黑渐隐一起删除（消息区不再需要 56dp 让位）                                               |
+| 按下反馈    | 聊天页各自为政                                                              | `pressScale`（0.95 / 150ms）由 `private` 改 `internal`，**聊天页与管理页同一定义点**       |
 
 **保留的用户指定差异**：头像 + 助手名 + 会话标题（可点开会话信息）+ 右上角「助手设置」
 （上游是「清空聊天」）。**取消的只是上游那层皮肤**。
 
 ### 三、验证
 
-| 项 | 命令 | 结果 |
-|----|------|------|
-| 单测 | `./gradlew :app:testDebugUnitTest` | **331 用例 / 0 失败 / 0 错误**（34 类） |
-| 门禁 | `tools/verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch） |
-| 构建 | `./gradlew :app:assembleRelease` | BUILD SUCCESSFUL；单包 `app-release.apk` **40.95 MB** |
-| 签名 | `apksigner verify --print-certs` | **CN=LuzzyRP / `ed78235d…dfb1`**（与上一版一致） |
-| 真机 | `adb devices` | **空** —— 亮/暗双模式的页头观感**未验**，待用户装机 |
+| 项   | 命令                               | 结果                                                  |
+| ---- | ---------------------------------- | ----------------------------------------------------- |
+| 单测 | `./gradlew :app:testDebugUnitTest` | **331 用例 / 0 失败 / 0 错误**（34 类）               |
+| 门禁 | `tools/verify-markers.ps1`         | **95 PASS / 0 FAIL**（未改上游文件、无新 patch）      |
+| 构建 | `./gradlew :app:assembleRelease`   | BUILD SUCCESSFUL；单包 `app-release.apk` **40.95 MB** |
+| 签名 | `apksigner verify --print-certs`   | **CN=LuzzyRP / `ed78235d…dfb1`**（与上一版一致）      |
+| 真机 | `adb devices`                      | **空** —— 亮/暗双模式的页头观感**未验**，待用户装机   |
 
 ### 四、交付前自检（硬性规定 9 第 5 步）
 
@@ -993,19 +1080,19 @@ DESIGN.md 为品牌契约）、ui-ux-pro-max `CLAUDE.md`、awesome-design-md `RE
 
 ### 二、改前事实（先量再改）
 
-| 事实 | 证据 |
-|------|------|
-| RP-Hub 各页之间是**硬切** | 上游用 `v-show`/`v-if` 切 `currentView`，全站 10 处 `<transition>` 全是 toast/弹窗/下拉面板，**无页级转场**；扩展层 0 处转场代码 |
-| 侧栏收起与换页**无时间关系** | `.app-sidebar` 上游 `0.28s cubic-bezier(.22,.78,.25,1)`，换页瞬时完成 |
-| 助手内部路由**已有**动画 | `AssistantHost` 的 `AnimatedContent`（1/24 屏宽滑入 + 淡入，200/140ms）——与用户所说「页面切换」不是同一层，故本次不动它 |
+| 事实                         | 证据                                                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| RP-Hub 各页之间是**硬切**    | 上游用 `v-show`/`v-if` 切 `currentView`，全站 10 处 `<transition>` 全是 toast/弹窗/下拉面板，**无页级转场**；扩展层 0 处转场代码 |
+| 侧栏收起与换页**无时间关系** | `.app-sidebar` 上游 `0.28s cubic-bezier(.22,.78,.25,1)`，换页瞬时完成                                                            |
+| 助手内部路由**已有**动画     | `AssistantHost` 的 `AnimatedContent`（1/24 屏宽滑入 + 淡入，200/140ms）——与用户所说「页面切换」不是同一层，故本次不动它          |
 
 ### 三、实现（扩展层 + 原生，零上游改动、无新 patch）
 
 1. **CSS**（`ext/luzzy-theme.css`）：新增「页面交接编排」段——单一变量 `--lsp-handoff-ms`（200ms）
-   + `--lsp-handoff-ease`（令牌曲线）驱动**四处**：侧栏 `translate3d(-104%)`、`.mobile-overlay`
-   遮罩、旧页 `lspViewOut`（1→0）、新页 `lspViewIn`（**.35→1**，新页不从 0 起，避免线性交叉淡化
-   往底色发灰的「灰陷」）；两层一律用 **animation 而非 transition**（类加在切换的同一帧，
-   transition 找不到「前一帧的值」）。
+   - `--lsp-handoff-ease`（令牌曲线）驱动**四处**：侧栏 `translate3d(-104%)`、`.mobile-overlay`
+     遮罩、旧页 `lspViewOut`（1→0）、新页 `lspViewIn`（**.35→1**，新页不从 0 起，避免线性交叉淡化
+     往底色发灰的「灰陷」）；两层一律用 **animation 而非 transition**（类加在切换的同一帧，
+     transition 找不到「前一帧的值」）。
 2. **JS 控制器**（`ext/luzzy-ext.js`）：捕获阶段记 `before` 可见集合 → 下一帧取 `after` 做**集合
    差分**（新页 = after−before / 旧页 = before−after / 恒可见 chrome = 交集，天然排除）；旧页若仍在
    文档中（v-show 保活）则清掉行内 `display:none` 当**原位快照层**（不克隆节点：零克隆成本、
@@ -1033,7 +1120,7 @@ chrome 当成当前页 → 旧页 `display:none` 没还原 → 两页叠加。
 断言 **A4 各要素同时结束（差 ≤ 2 帧）/ A5 时长 200ms ± 60ms / A6 零 JS 异常**。
 
 - **红证**：故意注释掉收尾还原一步 → 测试立刻复现用户现象（`A1 可见页面 2 个 (chat-view-root |
-  management-view)`，退出码 1）；恢复后 `pass: true`、`failures: []`。
+management-view)`，退出码 1）；恢复后 `pass: true`、`failures: []`。
 - **时间线实测**（修复后）：`t=9ms o=1 i=.35 tx=0` → `t=56 o=.225 i=.854 tx=-232` →
   `t=106 o=.034 i=.978 tx=-289` → `t=209 o=0 i=1 tx=-300`；`outEnd=145 / inEnd=145 / txEnd=162`
   （旧页与新页**同帧**终止，侧栏差 1 帧）✔ 正是用户要的「淡化结束 = 菜单栏刚好收起」。
@@ -1050,12 +1137,12 @@ chrome 当成当前页 → 旧页 `display:none` 没还原 → 两页叠加。
 
 ### 七、验证
 
-| 项 | 结果 |
-|----|------|
-| `tools/page-handoff-test.cjs` | **pass**（0 失败 / 0 异常；红证已验） |
-| `testDebugUnitTest` | **331 / 0 失败** |
-| `verify-markers` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch） |
-| `assembleRelease` | 通过（单包） |
+| 项                            | 结果                                             |
+| ----------------------------- | ------------------------------------------------ |
+| `tools/page-handoff-test.cjs` | **pass**（0 失败 / 0 异常；红证已验）            |
+| `testDebugUnitTest`           | **331 / 0 失败**                                 |
+| `verify-markers`              | **95 PASS / 0 FAIL**（未改上游文件、无新 patch） |
+| `assembleRelease`             | 通过（单包）                                     |
 
 ### 八、遗留
 
@@ -1075,14 +1162,14 @@ chrome 当成当前页 → 旧页 `display:none` 没还原 → 两页叠加。
 
 ### 一、审查发现（按严重度）
 
-| # | 发现 | 证据 | 处置 |
-|---|------|------|------|
-| **1** | **工具开关链路整条是死的**——`ApprovalGate` KDoc 与 PLAN §12.1 都写「T2/T3 默认关闭，**需用户在设置里逐项开启**」，但：① `AssistantRuntime.toolSwitches` **从未被赋值**（审批门 `globalSwitch` 恒返回 null → 永远取 tier 默认）；② `setToolGlobalSwitch` **零调用点**；③ **没有开关 UI**。→ 日历读写 / 发到 RP 会话 / 终端 / 截屏 / 点击 / 短信 / 通讯录 **共 8 类工具永远开不了** | `git grep 'toolSwitches = '`（零命中）、`git grep setToolGlobalSwitch`（仅定义处）、设置页 6 个区块无工具开关 | **已修**（下节） |
-| **2** | **日历工具 100% 失败**——代码检查 `READ_CALENDAR`/`WRITE_CALENDAR`，但**清单里没声明**这两项权限、也没有申请流程；未声明的运行时权限**永远无法授予** | `AndroidManifest.xml` 只有 INTERNET / ACCESS_NETWORK_STATE / WRITE_EXTERNAL_STORAGE | **已修**（下节） |
-| **3** | **「未读取到 Web 端配置」是死路**——助手设置页只有三字状态，无出路（用户 2026-09-10 实测反馈过） | `SettingsScreen.kt` 原 `statusText = "未读取到"` | **已修**（下节） |
-| 4 | 会话导出入口仍缺失（原在助手抽屉，抽屉删除后无新入口） | STATUS §7.1 R1 | **未修**（属「恢复一个功能」，需新桥接方法 + SAF 导出 + 设计决策，**待用户拍板是否要**） |
-| 5 | 助手聊天页「汉堡 → RP 侧栏」与管理页「返回箭头 → 回首页」是两套导航隐喻 | 审查档 C4 | **判为可接受**（Android 常规：主页前导动作是抽屉、子页前导动作是返回），不改，登记判定 |
-| 6 | 旧页快照层 `z-index: 2` 低于上游弹窗层 | 会话 53 遗留 | 保留（弹窗打开时不会换页），已在会话 53 登记 |
+| #     | 发现                                                                                                                                                                                                                                                                                                                                                                              | 证据                                                                                                          | 处置                                                                                     |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **1** | **工具开关链路整条是死的**——`ApprovalGate` KDoc 与 PLAN §12.1 都写「T2/T3 默认关闭，**需用户在设置里逐项开启**」，但：① `AssistantRuntime.toolSwitches` **从未被赋值**（审批门 `globalSwitch` 恒返回 null → 永远取 tier 默认）；② `setToolGlobalSwitch` **零调用点**；③ **没有开关 UI**。→ 日历读写 / 发到 RP 会话 / 终端 / 截屏 / 点击 / 短信 / 通讯录 **共 8 类工具永远开不了** | `git grep 'toolSwitches = '`（零命中）、`git grep setToolGlobalSwitch`（仅定义处）、设置页 6 个区块无工具开关 | **已修**（下节）                                                                         |
+| **2** | **日历工具 100% 失败**——代码检查 `READ_CALENDAR`/`WRITE_CALENDAR`，但**清单里没声明**这两项权限、也没有申请流程；未声明的运行时权限**永远无法授予**                                                                                                                                                                                                                               | `AndroidManifest.xml` 只有 INTERNET / ACCESS_NETWORK_STATE / WRITE_EXTERNAL_STORAGE                           | **已修**（下节）                                                                         |
+| **3** | **「未读取到 Web 端配置」是死路**——助手设置页只有三字状态，无出路（用户 2026-09-10 实测反馈过）                                                                                                                                                                                                                                                                                   | `SettingsScreen.kt` 原 `statusText = "未读取到"`                                                              | **已修**（下节）                                                                         |
+| 4     | 会话导出入口仍缺失（原在助手抽屉，抽屉删除后无新入口）                                                                                                                                                                                                                                                                                                                            | STATUS §7.1 R1                                                                                                | **未修**（属「恢复一个功能」，需新桥接方法 + SAF 导出 + 设计决策，**待用户拍板是否要**） |
+| 5     | 助手聊天页「汉堡 → RP 侧栏」与管理页「返回箭头 → 回首页」是两套导航隐喻                                                                                                                                                                                                                                                                                                           | 审查档 C4                                                                                                     | **判为可接受**（Android 常规：主页前导动作是抽屉、子页前导动作是返回），不改，登记判定   |
+| 6     | 旧页快照层 `z-index: 2` 低于上游弹窗层                                                                                                                                                                                                                                                                                                                                            | 会话 53 遗留                                                                                                  | 保留（弹窗打开时不会换页），已在会话 53 登记                                             |
 
 ### 二、修复落地
 
@@ -1103,22 +1190,22 @@ chrome 当成当前页 → 旧页 `display:none` 没还原 → 两页叠加。
 
 ### 三、交付前五维 critique（硬性规定 9 第 5 步）
 
-| 维度 | 判定 |
-|------|------|
+| 维度 | 判定                                                                                                             |
+| ---- | ---------------------------------------------------------------------------------------------------------------- |
 | 方向 | 设置页新增区块沿用「卷宗」语言（`LedgerCollapseCard` + `LedgerToggleRow` + caption 分组），与其余 6 个区块同构 ✔ |
-| 品牌 | **零新增色相**；提示文字取既有 token（亮 `accentDeep` / 暗 `warning`），并说明为何亮色不用 warning ✔ |
-| 层级 | 分组标题 caption/`muted` → 行标题 `label`/`body` → 说明 caption/`mutedSoft` 三级可比；状态文字与其它卡片同款 ✔ |
-| 动效 | 本轮无新增动效（沿用令牌）✔ |
-| 工程 | 清单真相在 registry、状态真相在 DataStore，**各只有一处**；新增 1 条单测锁契约 ✔ |
+| 品牌 | **零新增色相**；提示文字取既有 token（亮 `accentDeep` / 暗 `warning`），并说明为何亮色不用 warning ✔             |
+| 层级 | 分组标题 caption/`muted` → 行标题 `label`/`body` → 说明 caption/`mutedSoft` 三级可比；状态文字与其它卡片同款 ✔   |
+| 动效 | 本轮无新增动效（沿用令牌）✔                                                                                      |
+| 工程 | 清单真相在 registry、状态真相在 DataStore，**各只有一处**；新增 1 条单测锁契约 ✔                                 |
 
 ### 四、验证
 
-| 项 | 结果 |
-|----|------|
-| `testDebugUnitTest` | **332 / 0 失败**（331 + 新增 1 条契约测试） |
-| `verify-markers` | **95 PASS / 0 FAIL** |
-| `assembleRelease` | 通过 |
-| `tools/page-handoff-test.cjs` | **pass**（转场回归未受影响） |
+| 项                            | 结果                                        |
+| ----------------------------- | ------------------------------------------- |
+| `testDebugUnitTest`           | **332 / 0 失败**（331 + 新增 1 条契约测试） |
+| `verify-markers`              | **95 PASS / 0 FAIL**                        |
+| `assembleRelease`             | 通过                                        |
+| `tools/page-handoff-test.cjs` | **pass**（转场回归未受影响）                |
 
 ### 五、遗留
 
@@ -1157,10 +1244,10 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 
 ### 三、复测（同一探针，真机）
 
-| 场景 | 首帧 | 结果 |
-|------|------|------|
-| 聊天 → 设置 | 首帧即 `ghost=chat-view-root / ho=1 / tx=0` | ✅ 硬切帧消失 |
-| 设置 → 记忆系统 | `ghost=management-view / layer=True` | ✅ 此前无快照层的场景现在同样交叉淡化 |
+| 场景            | 首帧                                        | 结果                                  |
+| --------------- | ------------------------------------------- | ------------------------------------- |
+| 聊天 → 设置     | 首帧即 `ghost=chat-view-root / ho=1 / tx=0` | ✅ 硬切帧消失                         |
+| 设置 → 记忆系统 | `ghost=management-view / layer=True`        | ✅ 此前无快照层的场景现在同样交叉淡化 |
 
 两条曲线依旧共终止（旧页 1→0 与新页 .35→1 同窗，侧栏 0→-300 同步）。
 
@@ -1181,8 +1268,8 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 
 - **CSS 动画的缓动在关键帧上**：`KeyframeEffect.getTiming().easing` 对 CSS 动画恒为 `linear`
   （不是实现问题）→ 真实曲线读 `effect.getKeyframes().map(k => k.easing)`（本次差点误报）；
-- **模板字符串里的注释不能含反引号**：`evalJs(\`…\`)` 内的注释写反引号会截断模板串，
-  报 `missing ) after argument list` 且行号指向别处（与「Kotlin 块注释可嵌套」同类）。
+- **模板字符串里的注释不能含反引号**：`evalJs(\`…\`)`内的注释写反引号会截断模板串，
+报`missing ) after argument list` 且行号指向别处（与「Kotlin 块注释可嵌套」同类）。
 
 ### 六、遗留
 
@@ -1200,14 +1287,14 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 
 ### 一、改前的 6 条「页 → 页」推进边与处置
 
-| # | 改前 | 处置 |
-|---|------|------|
-| 1 | 8 个管理页页头**返回箭头 → 回首页** | 改**汉堡 → 打开侧栏**（它们本就是侧栏一级入口，没有「上一级」可返） |
-| 2 | 会话页「全部助手管理」→ 独立页 `AssistantManager` | **并入会话页折叠卡**；路由与 `AssistantManagerScreen.kt` 删除 |
-| 3 | 会话页点会话 → `Chat(id)` 页 | **切到同为一级的「对话」页**并打开该会话；`Chat` 路由删除 |
-| 4 | 会话页「新建会话」→ `Chat(id)` | 同上（新建后回对话页） |
-| 5 | 头像条末尾「+」→ 助手管理页 | 语义本就是**新建助手** → 直连 `createAssistant` |
-| 6 | 对话页右上角设置按钮 → 设置页 | **保留**（同级跳转，用户 2026-09-09 明确指定的快捷入口，非层级） |
+| #   | 改前                                              | 处置                                                                |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------- |
+| 1   | 8 个管理页页头**返回箭头 → 回首页**               | 改**汉堡 → 打开侧栏**（它们本就是侧栏一级入口，没有「上一级」可返） |
+| 2   | 会话页「全部助手管理」→ 独立页 `AssistantManager` | **并入会话页折叠卡**；路由与 `AssistantManagerScreen.kt` 删除       |
+| 3   | 会话页点会话 → `Chat(id)` 页                      | **切到同为一级的「对话」页**并打开该会话；`Chat` 路由删除           |
+| 4   | 会话页「新建会话」→ `Chat(id)`                    | 同上（新建后回对话页）                                              |
+| 5   | 头像条末尾「+」→ 助手管理页                       | 语义本就是**新建助手** → 直连 `createAssistant`                     |
+| 6   | 对话页右上角设置按钮 → 设置页                     | **保留**（同级跳转，用户 2026-09-09 明确指定的快捷入口，非层级）    |
 
 ### 二、实现
 
@@ -1223,13 +1310,13 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 
 ### 三、验证
 
-| 项 | 结果 |
-|----|------|
-| `git grep` 残留引用 | `AssistantManagerScreen` / `AssistantRoute.Chat` / `AssistantRoute.AssistantManager` **零命中** |
-| `:app:compileDebugKotlin` | BUILD SUCCESSFUL |
-| `:app:testDebugUnitTest` | **332 / 0 失败** |
-| `:app:assembleRelease` | 通过（单包 40.96 MB） |
-| 文档 | DESIGN.md §管理页组件规范 #1 与 §助手页 IA 已同步「左键二选一」「扁平单页制」；CHANGELOG v1.5.0「修复」段登记 |
+| 项                        | 结果                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `git grep` 残留引用       | `AssistantManagerScreen` / `AssistantRoute.Chat` / `AssistantRoute.AssistantManager` **零命中**               |
+| `:app:compileDebugKotlin` | BUILD SUCCESSFUL                                                                                              |
+| `:app:testDebugUnitTest`  | **332 / 0 失败**                                                                                              |
+| `:app:assembleRelease`    | 通过（单包 40.96 MB）                                                                                         |
+| 文档                      | DESIGN.md §管理页组件规范 #1 与 §助手页 IA 已同步「左键二选一」「扁平单页制」；CHANGELOG v1.5.0「修复」段登记 |
 
 ### 四、遗留
 
@@ -1254,32 +1341,32 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 `webview_devtools_remote_<pid>` → `adb forward tcp:9222 localabstract:<socket>`；临时探针
 `%TEMP%\lsp-probe.mjs`（inline 表达式或 `@文件`），未入仓库。
 
-| 取证 | 结果 |
-|------|------|
-| 设备动画设置 | `animator_duration_scale` / `transition_animation_scale` / `window_animation_scale` **全 = 1.0**；页面 `matchMedia('(prefers-reduced-motion: reduce)').matches` = **false** → **排除「系统关了动画」这条** |
-| 侧栏点「记忆系统」（真机逐帧） | 旧页 `1.00 → 0.00`、新页 `0.35 → 1.00`、侧栏 `tx 0 → -300`、`ho=1` 首帧（t=40ms 即已生效），**200ms 内 ~12 帧** → **RP 主界面（WebView）页间交叉淡化在真机上是生效的** |
-| 汉堡 → 侧栏（进助手时抽屉开着） | 3 轮复现 1 次失败：`openRpSidebar` 被调用（打桩计数 +1）但**侧栏最终仍是关的** |
-| 上游侧栏开合实现 | `app.js`：`let isMobileSidebarOpen` + `setMobileSidebarOpen(open)` 内 `classList.toggle('mobile-sidebar-open')`；CSS：`.app-sidebar:not(.mobile-sidebar-open){transform:translate3d(-104%,0,0)}` |
+| 取证                            | 结果                                                                                                                                                                                                       |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设备动画设置                    | `animator_duration_scale` / `transition_animation_scale` / `window_animation_scale` **全 = 1.0**；页面 `matchMedia('(prefers-reduced-motion: reduce)').matches` = **false** → **排除「系统关了动画」这条** |
+| 侧栏点「记忆系统」（真机逐帧）  | 旧页 `1.00 → 0.00`、新页 `0.35 → 1.00`、侧栏 `tx 0 → -300`、`ho=1` 首帧（t=40ms 即已生效），**200ms 内 ~12 帧** → **RP 主界面（WebView）页间交叉淡化在真机上是生效的**                                     |
+| 汉堡 → 侧栏（进助手时抽屉开着） | 3 轮复现 1 次失败：`openRpSidebar` 被调用（打桩计数 +1）但**侧栏最终仍是关的**                                                                                                                             |
+| 上游侧栏开合实现                | `app.js`：`let isMobileSidebarOpen` + `setMobileSidebarOpen(open)` 内 `classList.toggle('mobile-sidebar-open')`；CSS：`.app-sidebar:not(.mobile-sidebar-open){transform:translate3d(-104%,0,0)}`           |
 
 ### 二、三处根因与修复
 
-| # | 根因 | 修复 |
-|---|------|------|
-| 1 | **点「对话」停在上一页**：`AssistantRoot` 进入跳转写 `if (target != ChatList) route = target`——「对话」路由名是**空串**、映射结果正是 `ChatList`，被守卫挡掉；且 key 是 `initialRoute` 字符串，**同一路由再次进入 key 不变 → `LaunchedEffect` 不重跑**（点「会话」同样可能停在对话页） | `MainActivity` 新增 `assistantNavSeq`（每次 `showAssistant` 自增），Compose 侧 `LaunchedEffect(navSeq)` 作 key；**去掉 ChatList 排除**；路由/序号的写入挪进 `runOnUiThread` 且先于 `setContent` |
-| 2 | **一次切换叠两套动画 → 读作硬切**：侧栏进入时覆盖层整体 alpha 0→1，页内 `AnimatedContent` 同时滑出/滑入 → 新页在覆盖层还半透明时就换完，等覆盖层不透明时「已经在那儿」 | 新增 `assistantEntering`（进入淡化 200ms 内 true）→ 此期间 `transitionSpec` 返回 `EnterTransition.None togetherWith ExitTransition.None`；页内同级跳转（会话 → 对话、对话 → 助手设置）改**纯交叉淡化**（去掉 1/24 位移，扁平单页制下页间已无前后关系） |
-| 3 | **点汉堡无法呼出菜单**：扩展层为让侧栏同步左收**直接摘掉** `mobile-sidebar-open` 类，而上游开合是模块状态 `isMobileSidebarOpen` → **摘类不改状态**，DOM（已收）与状态（认为开着）脱节；下次 `toggleMobileMenu()` 把状态翻成 false、toggle 一个「本来就不存在的类」→ 视觉零变化（第一次点没反应，第二次才开） | `withDrawerHandoff` 不再摘类，改**点上游自己的汉堡**（`toggleMobileMenu` 的 DOM 入口，与 `openRpSidebar` 同一个按钮），交上游状态机摘类；信号类更名 `lsp-assistant-handoff`（**不再承载 transform**），`ext/luzzy-theme.css` 的 `html.lsp-handoff .app-sidebar{transform…!important}` 规则删除 |
-| 3b | （同批）返回侧栏是两段：覆盖层淡出 140ms → **盲等 250ms** 才点汉堡 → 侧栏再滑入 200ms，中间 ~110ms 空档 | `openRpSidebar()` 改走**页面交接令牌 200ms**（与侧栏滑入同帧起跑、同时结束）；前端调用从「盲等固定时长」改为**按返回值退避重试**（`Luzzy.openRpSidebar()` 返回 false → 100ms 后补试，最多 3 次）。普通退出（返回键 / onExit）仍 140ms |
+| #   | 根因                                                                                                                                                                                                                                                                                                         | 修复                                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **点「对话」停在上一页**：`AssistantRoot` 进入跳转写 `if (target != ChatList) route = target`——「对话」路由名是**空串**、映射结果正是 `ChatList`，被守卫挡掉；且 key 是 `initialRoute` 字符串，**同一路由再次进入 key 不变 → `LaunchedEffect` 不重跑**（点「会话」同样可能停在对话页）                       | `MainActivity` 新增 `assistantNavSeq`（每次 `showAssistant` 自增），Compose 侧 `LaunchedEffect(navSeq)` 作 key；**去掉 ChatList 排除**；路由/序号的写入挪进 `runOnUiThread` 且先于 `setContent`                                                                                                |
+| 2   | **一次切换叠两套动画 → 读作硬切**：侧栏进入时覆盖层整体 alpha 0→1，页内 `AnimatedContent` 同时滑出/滑入 → 新页在覆盖层还半透明时就换完，等覆盖层不透明时「已经在那儿」                                                                                                                                       | 新增 `assistantEntering`（进入淡化 200ms 内 true）→ 此期间 `transitionSpec` 返回 `EnterTransition.None togetherWith ExitTransition.None`；页内同级跳转（会话 → 对话、对话 → 助手设置）改**纯交叉淡化**（去掉 1/24 位移，扁平单页制下页间已无前后关系）                                         |
+| 3   | **点汉堡无法呼出菜单**：扩展层为让侧栏同步左收**直接摘掉** `mobile-sidebar-open` 类，而上游开合是模块状态 `isMobileSidebarOpen` → **摘类不改状态**，DOM（已收）与状态（认为开着）脱节；下次 `toggleMobileMenu()` 把状态翻成 false、toggle 一个「本来就不存在的类」→ 视觉零变化（第一次点没反应，第二次才开） | `withDrawerHandoff` 不再摘类，改**点上游自己的汉堡**（`toggleMobileMenu` 的 DOM 入口，与 `openRpSidebar` 同一个按钮），交上游状态机摘类；信号类更名 `lsp-assistant-handoff`（**不再承载 transform**），`ext/luzzy-theme.css` 的 `html.lsp-handoff .app-sidebar{transform…!important}` 规则删除 |
+| 3b  | （同批）返回侧栏是两段：覆盖层淡出 140ms → **盲等 250ms** 才点汉堡 → 侧栏再滑入 200ms，中间 ~110ms 空档                                                                                                                                                                                                      | `openRpSidebar()` 改走**页面交接令牌 200ms**（与侧栏滑入同帧起跑、同时结束）；前端调用从「盲等固定时长」改为**按返回值退避重试**（`Luzzy.openRpSidebar()` 返回 false → 100ms 后补试，最多 3 次）。普通退出（返回键 / onExit）仍 140ms                                                          |
 
 ### 三、验证
 
-| 项 | 结果 |
-|----|------|
-| `:app:compileReleaseKotlin` | BUILD SUCCESSFUL |
-| `:app:testDebugUnitTest` | **332 / 0 失败** |
-| `verify-markers.ps1` | **95 PASS / 0 FAIL**（未改上游文件、无新 patch；R3 随 gen-changelog 重跑转绿） |
+| 项                            | 结果                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `:app:compileReleaseKotlin`   | BUILD SUCCESSFUL                                                                                                      |
+| `:app:testDebugUnitTest`      | **332 / 0 失败**                                                                                                      |
+| `verify-markers.ps1`          | **95 PASS / 0 FAIL**（未改上游文件、无新 patch；R3 随 gen-changelog 重跑转绿）                                        |
 | `tools/page-handoff-test.cjs` | **pass: true**（连切 10 次不变量 + A7–A10 确定性判据；声明值 200ms / `cubic-bezier(.23,1,.32,1)` / 侧栏 `0.2s` 一致） |
-| `:app:assembleRelease` | 通过；单包 40.96 MB；`apksigner` CN=LuzzyRP、SHA-256 `ed78235d…dfb1` **与上一版一致** |
-| 装机 | `adb -s df97f3c4 install -r` Success（同签名覆盖，数据保留） |
+| `:app:assembleRelease`        | 通过；单包 40.96 MB；`apksigner` CN=LuzzyRP、SHA-256 `ed78235d…dfb1` **与上一版一致**                                 |
+| 装机                          | `adb -s df97f3c4 install -r` Success（同签名覆盖，数据保留）                                                          |
 
 ### 四、遗留（**下一会话第一件事**）
 
@@ -1295,13 +1382,13 @@ dt=237  两者同时收尾  tx=-300                                        ← �
 
 ### 五、真机复验（2026-09-11 续，用户在场「来真机验证吧」）——**三处全过，并抓到第四个根因**
 
-| 复验项 | 结果 |
-|--------|------|
-| 进助手（抽屉开着）→ 点汉堡**一次**即出侧栏 | ✅（修复前需点两次） |
-| 助手「对话」子项落到对话页 | ✅ 页内文本 = 「阿墨 / 在下方输入消息开始对话」；设置页特征「保存」不存在 |
-| 记忆页 / 终端页页头 | ✅ 均为汉堡（`content-desc="打开侧栏"`），页内容正确 |
-| 会话页点一条会话 → 对话页 | ✅（页头**不显示**会话标题属预期：`ChatScreen` 对默认标题「新会话」故意不渲染副标题） |
-| 侧栏 → 助手（子项进入） | ✅ 侧栏左收逐帧 `0 → -53 → … → -300`，约 **174ms** |
+| 复验项                                     | 结果                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| 进助手（抽屉开着）→ 点汉堡**一次**即出侧栏 | ✅（修复前需点两次）                                                                  |
+| 助手「对话」子项落到对话页                 | ✅ 页内文本 = 「阿墨 / 在下方输入消息开始对话」；设置页特征「保存」不存在             |
+| 记忆页 / 终端页页头                        | ✅ 均为汉堡（`content-desc="打开侧栏"`），页内容正确                                  |
+| 会话页点一条会话 → 对话页                  | ✅（页头**不显示**会话标题属预期：`ChatScreen` 对默认标题「新会话」故意不渲染副标题） |
+| 侧栏 → 助手（子项进入）                    | ✅ 侧栏左收逐帧 `0 → -53 → … → -300`，约 **174ms**                                    |
 
 **抓到第四个根因（关键）**：首次复验时「助手 → 汉堡」路径的侧栏是**跳**到位的——
 CDP 逐帧显示 `openRpSidebar()` 调用后 **9ms 的首帧 `transform` 已是 0**，而 WebView 活跃时同一次
@@ -1314,11 +1401,11 @@ CSS 过渡直接跳到终态。修复：`Luzzy.openRpSidebar()` 把「点上游�
 **逐帧录像客观判定**（`adb screenrecord --time-limit 8` + ffmpeg `scale=160:80,signalstats` 取
 逐帧平均亮度，`tblend=all_mode=difference` 取帧间差）：
 
-| 转场 | 时间窗 | 渐变帧数 | 帧间差峰值 | 形态 |
-|------|--------|---------|-----------|------|
-| 助手汉堡 → 侧栏呼出 | t=5.68–5.93 | 18 | 9.65 | 9.65 → 7.36 → … → 0.75 平滑衰减 |
-| 侧栏 → 助手（进入） | t=6.71–6.81 | 10 | 20.11 | 20.1 → 16.2 → 12.6 → … → 0.84 |
-| RP 页间（聊天 → 记忆系统） | t=5.70–5.86 | 11 | 35.53 | 前段快、随后逐帧衰减（ease-out 特征） |
+| 转场                       | 时间窗      | 渐变帧数 | 帧间差峰值 | 形态                                  |
+| -------------------------- | ----------- | -------- | ---------- | ------------------------------------- |
+| 助手汉堡 → 侧栏呼出        | t=5.68–5.93 | 18       | 9.65       | 9.65 → 7.36 → … → 0.75 平滑衰减       |
+| 侧栏 → 助手（进入）        | t=6.71–6.81 | 10       | 20.11      | 20.1 → 16.2 → 12.6 → … → 0.84         |
+| RP 页间（聊天 → 记忆系统） | t=5.70–5.86 | 11       | 35.53      | 前段快、随后逐帧衰减（ease-out 特征） |
 
 **判据**：硬切的特征是「单帧最大跳变后立刻归零、无渐变尾巴」；三段转场都在十几帧上连续变化且
 帧间差单调衰减 → **不存在硬切**。
@@ -1341,13 +1428,13 @@ CSS 过渡直接跳到终态。修复：`Luzzy.openRpSidebar()` 把「点上游�
 ### 一、方法（无真机也能定量：桌面 Chromium 同引擎族 + 应用自身函数）
 
 - 真机断开 → 用 `tools/page-handoff-test.cjs` 同款通道（headless Chrome 9347 + 手机视口 390×844
-  + DPR 3.25）加载 `index.html`；
+  - DPR 3.25）加载 `index.html`；
 - **拿到应用实例**：`#app.__vue_app__._container._vnode.component.proxy`（生产构建下
   `app._instance` 不挂，必须走容器 vnode）；
 - **注入合成历史**：`proxy.characters.splice(...)` + `proxy.currentCharacterIndex = 0`
   （`currentCharacter` 是 computed，直接赋值无效——第一版探针就栽在这里：`rows: 0`）
-  + `proxy.chatHistory` 塞 N 条 + `proxy.isGenerating = true`
-  → 模板真的走「流式分支」渲染；
+  - `proxy.chatHistory` 塞 N 条 + `proxy.isGenerating = true`
+    → 模板真的走「流式分支」渲染；
 - **量真实 tick**：`last.content += chunk` → `await $nextTick()` → 强制 layout；
 - **归因**：CDP `Profiler` 采样（80µs）按自耗时聚合。
 - 探针脚本在 `%TEMP%\stream-perf*.cjs`（未入仓库）。
@@ -1356,11 +1443,11 @@ CSS 过渡直接跳到终态。修复：`Luzzy.openRpSidebar()` 把「点上游�
 
 真实 tick 成本（桌面 Chromium，30 条历史、流式那条在末尾；120Hz 帧预算 = **8.33ms**）：
 
-| 流式消息长度 | JS（含 innerHTML 重建） | layout | **合计** | 对比 120Hz 预算 |
-|---|---|---|---|---|
-| 1 200 字 | 8.0ms | 3.6ms | **11.6ms** | 超 1.4× |
-| 4 000 字 | 14.8ms | 9.9ms | **24.7ms** | 超 3× |
-| 8 000 字 | 23.8ms | 21.1ms | **44.8ms** | 超 **5.4×** |
+| 流式消息长度 | JS（含 innerHTML 重建） | layout | **合计**   | 对比 120Hz 预算 |
+| ------------ | ----------------------- | ------ | ---------- | --------------- |
+| 1 200 字     | 8.0ms                   | 3.6ms  | **11.6ms** | 超 1.4×         |
+| 4 000 字     | 14.8ms                  | 9.9ms  | **24.7ms** | 超 3×           |
+| 8 000 字     | 23.8ms                  | 21.1ms | **44.8ms** | 超 **5.4×**     |
 
 **每 tick 的调用次数**（真实模板，30 条历史）：`parseCot` **42×**、`processMainContent` **22×**、
 `renderMarkdown` **21×** —— 每 tick 把**整屏可见的每条消息**都重新求值一遍（上游
@@ -1382,12 +1469,12 @@ innerHTML 重建 → 浏览器重新解析 HTML、重建 DOM、重排整条消�
 
 ### 三、已排除 / 不成立的猜测
 
-| 猜测 | 实测 |
-|---|---|
-| 三条协议节流不一致（Anthropic/Gemini 未降载） | **否**：`api-utils.js` 三处 flush 都用 `STREAM_RENDER_INTERVAL = 120`（patch 032 已统一） |
-| 每 tick 落库（localStorage 全量写） | **否**：`saveChatHistoryNow` 只在生成结束/编辑等离散点调用，`onDelta` 内没有 |
-| 记忆化 `parseCot/processMainContent/renderMarkdown` 能救 | **只有 ~1.1ms**（44.8→42.7）：JS 管线不是大头，**DOM 重建 + 布局才是** |
-| `contain: layout` 单独能救 | 部分：JS 6.6→5.06（@1200字）、22.3→15.5（@8000字），**layout 几乎不变**（3.5→3.6 / 20.4→20.3） |
+| 猜测                                                     | 实测                                                                                           |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 三条协议节流不一致（Anthropic/Gemini 未降载）            | **否**：`api-utils.js` 三处 flush 都用 `STREAM_RENDER_INTERVAL = 120`（patch 032 已统一）      |
+| 每 tick 落库（localStorage 全量写）                      | **否**：`saveChatHistoryNow` 只在生成结束/编辑等离散点调用，`onDelta` 内没有                   |
+| 记忆化 `parseCot/processMainContent/renderMarkdown` 能救 | **只有 ~1.1ms**（44.8→42.7）：JS 管线不是大头，**DOM 重建 + 布局才是**                         |
+| `contain: layout` 单独能救                               | 部分：JS 6.6→5.06（@1200字）、22.3→15.5（@8000字），**layout 几乎不变**（3.5→3.6 / 20.4→20.3） |
 
 ### 四、优化方案（**不丢任何前端部分**：Markdown / 正则 / 风格过滤 / DOMPurify / 面板 / 图片全保留）
 
@@ -1404,12 +1491,12 @@ innerHTML 重建 → 浏览器重新解析 HTML、重建 DOM、重排整条消�
 
 **B. 配套小改（各自独立、可分别验收）**
 
-| # | 改动 | 预期 | 风险 |
-|---|------|------|------|
-| B1 | `filterBlockedStyleText` 前置「触发器词」快速判定：文本里一个触发词都没有就直接返回原文 | 省 ~4.3ms@4000字 | 低（需证明是**必要条件**；否则改用前缀记忆化） |
-| B2 | 一次渲染里 `parseCot`/`processMainContent` 记忆化（同一内容同一次渲染结果不变） | 省 ~1ms + 减少重复正则 | 极低 |
-| B3 | `renderMarkdown` 的缓存键改「消息对象上的字段」或**嵌套 Map**（现在每次拼 `role_flag_全文`，8千字=16KB 拷贝 + 哈希） | 省 1–3ms | 低 |
-| B4 | 消息行 `contain: layout`（配合 A 使用） | JS 再降 ~30% | 中（containment 影响 margin collapse / fixed 定位，**必须真机截图目测**） |
+| #   | 改动                                                                                                                 | 预期                   | 风险                                                                      |
+| --- | -------------------------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| B1  | `filterBlockedStyleText` 前置「触发器词」快速判定：文本里一个触发词都没有就直接返回原文                              | 省 ~4.3ms@4000字       | 低（需证明是**必要条件**；否则改用前缀记忆化）                            |
+| B2  | 一次渲染里 `parseCot`/`processMainContent` 记忆化（同一内容同一次渲染结果不变）                                      | 省 ~1ms + 减少重复正则 | 极低                                                                      |
+| B3  | `renderMarkdown` 的缓存键改「消息对象上的字段」或**嵌套 Map**（现在每次拼 `role_flag_全文`，8千字=16KB 拷贝 + 哈希） | 省 1–3ms               | 低                                                                        |
+| B4  | 消息行 `contain: layout`（配合 A 使用）                                                                              | JS 再降 ~30%           | 中（containment 影响 margin collapse / fixed 定位，**必须真机截图目测**） |
 
 **C. 不做**（会丢前端部分）：流式期退化成纯文本尾巴、关掉风格过滤/正则/净化、减少渲染条数、
 粗暴提高节流间隔到 300ms+。
@@ -1427,6 +1514,7 @@ innerHTML 重建 → 浏览器重新解析 HTML、重建 DOM、重排整条消�
 是结构上成立的，不是承诺。
 
 **实现期踩到的两处坑（都已修）**：
+
 1. 注释节点**没有** `insertAdjacentHTML`/`after` → 原设计用 `<!--anchor-->` 做前缀/尾部分界是错的；
    改为**节点计数**模型（`prefixNodes` + `Range.createContextualFragment` 插入）。
 2. 首版「候选失败即冷却 12 tick」在短消息上会把整段优化永久挡掉（一次失败=后续全不推进）；
@@ -1442,10 +1530,10 @@ layout 1.38ms vs 6.32ms** / **A8 负控 118 tick 中 46 tick 不等价**（证�
 **端到端收益（同一真实模板、30 条历史、流式条在末尾；每 tick 主线程）**：
 
 | 消息长度 | 优化前 JS+layout | 优化后 JS+layout | layout 前 → 后 |
-|---|---|---|---|
-| 1 200 字 | 11.6ms | **7.8ms** | 3.5 → 1.6ms |
-| 4 000 字 | 24.7ms | **12.0ms** | 10.4 → 1.9ms |
-| 8 000 字 | 44.8ms | **18.3ms** | 20.2 → 2.6ms |
+| -------- | ---------------- | ---------------- | -------------- |
+| 1 200 字 | 11.6ms           | **7.8ms**        | 3.5 → 1.6ms    |
+| 4 000 字 | 24.7ms           | **12.0ms**       | 10.4 → 1.9ms   |
+| 8 000 字 | 44.8ms           | **18.3ms**       | 20.2 → 2.6ms   |
 
 → 典型回复（≤2 千字）已回到 120Hz 帧预算（8.33ms）以内；超长回复的剩余大头是
 **模板侧每 tick 对全部可见消息重算 `parseCot`/`processMainContent`（含风格过滤 ~4.3ms@4000字）**
@@ -1484,13 +1572,14 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 **实测（修复前）**：
 
-| 手写条目 | 端点 `/models` 是否含同 id | 合并结果 |
-|---|---|---|
-| `manual-only-model` | 否 | ✅ 保留（`manual:true`、上下文保留） |
-| `shared-model`（label/上下文是我填的） | **是** | ❌ **变成检测条目**：`manual:false`、`label:null`、`ctx:null` |
-| `deepseek-flash`（我填的） | 是 | ❌ 同上被顶掉 |
+| 手写条目                               | 端点 `/models` 是否含同 id | 合并结果                                                      |
+| -------------------------------------- | -------------------------- | ------------------------------------------------------------- |
+| `manual-only-model`                    | 否                         | ✅ 保留（`manual:true`、上下文保留）                          |
+| `shared-model`（label/上下文是我填的） | **是**                     | ❌ **变成检测条目**：`manual:false`、`label:null`、`ctx:null` |
+| `deepseek-flash`（我填的）             | 是                         | ❌ 同上被顶掉                                                 |
 
 **根因两处**：
+
 1. `fetchModelsForProvider` 的合并是 `manualOnly + models`（**检测结果覆盖同 id 手动条目**）——
    而**请求路径** `getProviderModelMeta` 明明是「手动模型条目优先」，两边自相矛盾；
 2. `providerModels` 缓存只由「保存供应商」或 `/models` 拉取成功写入 —— **冷启动为空**，
@@ -1499,12 +1588,12 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ### 二、修复（patch 043，四处）
 
-| # | 改动 |
-|---|------|
-| ① | `fetchModelsForProvider`：合并改**手动条目优先**（`detectedOnly = models − manual`，`merged = [...manual, ...detectedOnly]`） |
-| ② | 新增 `seedManualProviderModels()`，在 `onMounted`（`loadData()` 之后）把各商手动模型种入缓存（幂等，只补缺 id） |
-| ③ | 新增拉取标记 `providerModelsFetched`：`ensureProviderModelsLoaded` 不再以「缓存是否存在」判断是否拉取——否则手动模型一进缓存就把**自动检测顺带关掉**（这是本修复第一版的副作用，靠 `fetchHits=0` 抓出来的）；保存/删除供应商时复位标记 |
-| ④ | 两条保存路径（内置商 override / 用户商）也改为手动条目优先写回缓存（原「缺 id 才补」→ 对手动模型的编辑在选择器里看不到） |
+| #   | 改动                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | `fetchModelsForProvider`：合并改**手动条目优先**（`detectedOnly = models − manual`，`merged = [...manual, ...detectedOnly]`）                                                                                                         |
+| ②   | 新增 `seedManualProviderModels()`，在 `onMounted`（`loadData()` 之后）把各商手动模型种入缓存（幂等，只补缺 id）                                                                                                                       |
+| ③   | 新增拉取标记 `providerModelsFetched`：`ensureProviderModelsLoaded` 不再以「缓存是否存在」判断是否拉取——否则手动模型一进缓存就把**自动检测顺带关掉**（这是本修复第一版的副作用，靠 `fetchHits=0` 抓出来的）；保存/删除供应商时复位标记 |
+| ④   | 两条保存路径（内置商 override / 用户商）也改为手动条目优先写回缓存（原「缺 id 才补」→ 对手动模型的编辑在选择器里看不到）                                                                                                              |
 
 ### 三、验证
 
@@ -1570,15 +1659,15 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ### 四、验证
 
-| 项 | 结果 |
-|----|------|
-| `node --check` ui-components.js | ✅ |
-| `tools/model-list-test.cjs` | ✅ 全过，**新增 A7 渲染层断言**（label clientWidth > 0 且未截断）+ **A8 负控**（检测行必须仍单行） |
-| **A7 负控实证** | `git stash push -- ui-components.js`（回到旧标记）→ 跑门禁 → **A7 FAIL / exit 1** → `stash pop` 复原 |
-| 实体 `012-035-ui-components-js.patch` | 前像 `e9a992bc` 不变；**逆向 `--directory=app/src/main/assets/rphub` apply 后与工作树逐字节一致** |
-| 端到端实体重放 | 9 枚 → **9/9 applied、9/9 与工作树一致** |
-| `verify-markers.ps1` | 043 的 ui-components 检查由 2 项扩到 3 项（`043-selector-shows-label` / `043-selector-two-line` / `043-selector-mark`） |
-| 真机复验（重建装机后） | label 完整可见、三条手配模型排最前（截图存 `%TEMP%`） |
+| 项                                    | 结果                                                                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `node --check` ui-components.js       | ✅                                                                                                                      |
+| `tools/model-list-test.cjs`           | ✅ 全过，**新增 A7 渲染层断言**（label clientWidth > 0 且未截断）+ **A8 负控**（检测行必须仍单行）                      |
+| **A7 负控实证**                       | `git stash push -- ui-components.js`（回到旧标记）→ 跑门禁 → **A7 FAIL / exit 1** → `stash pop` 复原                    |
+| 实体 `012-035-ui-components-js.patch` | 前像 `e9a992bc` 不变；**逆向 `--directory=app/src/main/assets/rphub` apply 后与工作树逐字节一致**                       |
+| 端到端实体重放                        | 9 枚 → **9/9 applied、9/9 与工作树一致**                                                                                |
+| `verify-markers.ps1`                  | 043 的 ui-components 检查由 2 项扩到 3 项（`043-selector-shows-label` / `043-selector-two-line` / `043-selector-mark`） |
+| 真机复验（重建装机后）                | label 完整可见、三条手配模型排最前（截图存 `%TEMP%`）                                                                   |
 
 ### 五、遗留
 
@@ -1597,15 +1686,15 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ### 一、结论先说
 
-| 事实 | 数值（真机实测） |
-|------|-----------------|
-| 流式指令 `v-lsp-stream` 自身一次更新 | **≈1.4ms**（全量重渲染那一步；半量 0.43ms） |
-| **一次根级响应式状态变更的主线程代价** | **≈230–340ms**（与改的是什么无关） |
-| 指令换成**空实现**（同一个 tick 循环） | **233ms —— 完全不变** |
-| 消息长度 1200 字 vs 5300 字 | **一样**（233 vs 234ms） |
-| 一次状态变更被 diff 的 vnode 数 | **≈1040 个**（`isSameVNodeType` 调用计数） |
-| JS 侧强制布局/样式读取 | **0 次**（`getComputedStyle` / `getBoundingClientRect` / `offsetHeight` / `scrollHeight` / `clientHeight` 全为 0） |
-| `dumpsys gfxinfo`（合成流式期间） | Janky 69–93 / Total ≈300（≈25–30% 掉帧） |
+| 事实                                   | 数值（真机实测）                                                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 流式指令 `v-lsp-stream` 自身一次更新   | **≈1.4ms**（全量重渲染那一步；半量 0.43ms）                                                                        |
+| **一次根级响应式状态变更的主线程代价** | **≈230–340ms**（与改的是什么无关）                                                                                 |
+| 指令换成**空实现**（同一个 tick 循环） | **233ms —— 完全不变**                                                                                              |
+| 消息长度 1200 字 vs 5300 字            | **一样**（233 vs 234ms）                                                                                           |
+| 一次状态变更被 diff 的 vnode 数        | **≈1040 个**（`isSameVNodeType` 调用计数）                                                                         |
+| JS 侧强制布局/样式读取                 | **0 次**（`getComputedStyle` / `getBoundingClientRect` / `offsetHeight` / `scrollHeight` / `clientHeight` 全为 0） |
+| `dumpsys gfxinfo`（合成流式期间）      | Janky 69–93 / Total ≈300（≈25–30% 掉帧）                                                                           |
 
 **即：patch 042 做对了（渲染器从 ~12–45ms 降到 ~1.4ms），但它不是真机的瓶颈。**
 真机瓶颈是**上游的单体根组件**：任何根级状态变更都会重渲染并 diff 整个界面（≈1040 vnode / 1130 DOM 节点），
@@ -1643,6 +1732,7 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 **未做**：方向 A/B 都会改变流式呈现语义，按纪律先报后做。
 
 ### 四、踩坑记录（新增，值得进 AGENTS §7）
+
 - **「DOM 里有文本」不等于「用户看得见」**：flex 行里唯一的可收缩项会被压成 `clientWidth = 0`
   而**不报错、不告警**，只看 `textContent` 的断言全绿。凡新增「要显示的字段」，必须量
   `getBoundingClientRect().width > 0` 且 `scrollWidth ≤ clientWidth`。
@@ -1662,11 +1752,11 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 流式期间正文/思考**不再每 tick 写响应式状态**：
 
-| 位置 | 改动 |
-|------|------|
+| 位置                            | 改动                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `app.js`（patch 044，6 处标记） | `onDelta` 的 `content`/`reasoning` 先进**非响应式缓冲** `livePending`；渲染后（`processMainContent(parseCot(raw).main, true).text`，与模板绑定同源）交给 `Luzzy.streamRender.feed()` 直接上屏；响应式状态按 `LIVE_COMMIT_INTERVAL = 1200ms` 低频提交；`finally` 开头 `commitLiveDelta(true)` 强制追平（**必须在读 content 的 `filterBlockedStyleText`/落库之前**）；正文容器未挂载时（流式分支 `v-if` 依赖 content）立即提交一次，避免开头没有落点；扩展层不可用 → 每 tick 立即提交 = 改前行为（降级） |
-| `index.html`（patch 044，1 处） | 流式分支绑定加 `live: true`，供指令登记「当前流式正文元素」 |
-| `ext/luzzy-stream.js` | 新增 `feed(text, role)`（同一任务内合并、setTimeout 0 上屏）与 `liveState()`；`update()` 增加**不倒退守卫**：活通道期间 Vue 带「低频提交的旧文本」回灌时以活文本为准，`src === live.text`（提交追平）后活通道自动退场；`unmounted` 时清理 |
+| `index.html`（patch 044，1 处） | 流式分支绑定加 `live: true`，供指令登记「当前流式正文元素」                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `ext/luzzy-stream.js`           | 新增 `feed(text, role)`（同一任务内合并、setTimeout 0 上屏）与 `liveState()`；`update()` 增加**不倒退守卫**：活通道期间 Vue 带「低频提交的旧文本」回灌时以活文本为准，`src === live.text`（提交追平）后活通道自动退场；`unmounted` 时清理                                                                                                                                                                                                                                                              |
 
 **不丢任何前端部分**：渲染仍走应用自己的 `renderMarkdown`（过滤/正则/marked/净化全保留），
 且提交后 `content` 与所渲染文本**逐字相等**。代价（显式记录）：流式**中间态**的次要 UI
@@ -1674,14 +1764,14 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ### 二、验证
 
-| 项 | 结果 |
-|----|------|
-| `node --check`（app.js / ext / 门禁脚本） | ✅ |
-| `tools/stream-render-test.cjs` | ✅ A1–A8 全过 **+ 新增 B1–B5**：未登记元素时 feed 返回 false 不抛错 / 指令 `live:true` 登记元素 / 活通道 DOM 与全量渲染**逐节点等价** / **旧文本回灌不倒退**（1680 vs 840 字）/ 提交追平后活通道退场 |
-| `verify-markers.ps1` | ✅ **119 PASS / 0 FAIL**（新增 9 项 044 检查） |
-| 实体 `012-035-index-html` / `012-036-app-js` | 前像 `52135b42` / `79267c03` 不变；**各逆向 apply 后与工作树逐字节一致**；**端到端 9/9 重放与工作树一致** |
-| `assembleRelease` / `testDebugUnitTest` | ✅ 构建通过、单测通过 |
-| 真机 | 已装机；CDP 确认 `Luzzy.streamRender.feed` 存在、`liveState()` 正常 |
+| 项                                           | 结果                                                                                                                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node --check`（app.js / ext / 门禁脚本）    | ✅                                                                                                                                                                                                   |
+| `tools/stream-render-test.cjs`               | ✅ A1–A8 全过 **+ 新增 B1–B5**：未登记元素时 feed 返回 false 不抛错 / 指令 `live:true` 登记元素 / 活通道 DOM 与全量渲染**逐节点等价** / **旧文本回灌不倒退**（1680 vs 840 字）/ 提交追平后活通道退场 |
+| `verify-markers.ps1`                         | ✅ **119 PASS / 0 FAIL**（新增 9 项 044 检查）                                                                                                                                                       |
+| 实体 `012-035-index-html` / `012-036-app-js` | 前像 `52135b42` / `79267c03` 不变；**各逆向 apply 后与工作树逐字节一致**；**端到端 9/9 重放与工作树一致**                                                                                            |
+| `assembleRelease` / `testDebugUnitTest`      | ✅ 构建通过、单测通过                                                                                                                                                                                |
+| 真机                                         | 已装机；CDP 确认 `Luzzy.streamRender.feed` 存在、`liveState()` 正常                                                                                                                                  |
 
 ### 三、⚠️ 记录与**归因更正**：真机会话被重置这件事
 
@@ -1690,11 +1780,13 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 **归因更正（2026-09-11 用户澄清）**：我当时写成「我的 CDP 探针把用户会话搞丢了」，**这是错的** ——
 **会话是用户自己删的**。教训记两条：
+
 1. **不要把「时间相邻」当成「因果」**：真机上观察到数据变化，先问用户，再写结论；
 2. 但下面那条「探针崩溃把状态留在真机上」**属实**（14 条 + `isGenerating=true` 在我清理前一直挂着），
    纪律照旧成立。
 
 **纪律（保留，硬性）**：
+
 1. 真机探针尽量**只读**（读 DOM / 读状态 / 读性能指标）；需要「有内容的会话」时，
    **先在应用内新建一次性角色/会话**，测完删除；或直接在桌面同引擎族 + 本地桩数据上测；
 2. 确需写入时，**收尾必须是独立的一次调用**（先复原再跑断言），且**每步之后核对**被改动的状态；
@@ -1714,13 +1806,13 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ### 二、这段 319 秒窗口里量到的东西（**live 臂，真实流**）
 
-| 指标 | 实测 |
-|------|------|
-| rAF 帧间隔 p50 / p95 | **16.6ms / 16.7ms**（≈60fps 满帧） |
-| 帧间隔 >100ms / >300ms | 259 / 53 |
-| 长任务（≥50ms） | **260 个，合计 79.9s / 319s ≈ 25% 占用**，最长 1082ms |
+| 指标                    | 实测                                                      |
+| ----------------------- | --------------------------------------------------------- |
+| rAF 帧间隔 p50 / p95    | **16.6ms / 16.7ms**（≈60fps 满帧）                        |
+| 帧间隔 >100ms / >300ms  | 259 / 53                                                  |
+| 长任务（≥50ms）         | **260 个，合计 79.9s / 319s ≈ 25% 占用**，最长 1082ms     |
 | `v-lsp-stream` 增量统计 | advances 0 / failures 0 / repairs 0（正文为空，没走增量） |
-| 活通道 | feeds 0（思考不走活通道） |
+| 活通道                  | feeds 0（思考不走活通道）                                 |
 
 **解读**：25% 的主线程占用正是「**1.2s 一次的低频提交**」的形态（≈0.8 次/秒 × ~300ms）；
 改前是每 120ms 一次提交（≈8 次/秒 ≈ 2500ms/秒）→ 主线程被完全占满。**机制按设计工作了**。
@@ -1754,36 +1846,36 @@ B3 廉价缓存键 / B4 contain）**，尚未实施。
 
 ### 二、做法（patch 045）
 
-| 位置 | 改动 |
-|------|------|
+| 位置                  | 改动                                                                                                                                                                                                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ext/luzzy-stream.js` | 活通道由单条扩为**两条**（`content` / `reasoning`），各自持有 元素/文本/定时器/退场判定；`feed(text, role, channel)` 第三参选通道；指令按 `live: true` 与 `live: 'reasoning'` 分别登记；**思考通道固化 `skipRegex=true`**（模板原本就是 `renderMarkdown(step.text,'assistant',true)`，用错会显示正则差异） |
-| `index.html` | 思考步骤正文 `v-html="renderMarkdown(step.text,'assistant',true)"` → `v-lsp-stream="{ src: step.text, role: 'assistant', live: 'reasoning' }"`（src 传纯文本，渲染仍由 ext 调应用自己的 renderMarkdown） |
-| `app.js` | 思考 delta 也走缓冲 + `api.feed(..., 'reasoning')`；响应式 `reasoning` 用 `LIVE_REASONING_COMMIT_INTERVAL = 6000ms`；**正文开始提交时强制把思考一次性追平**（面板定稿后再显示正文）；finally 强制追平不变；提交逻辑拆成 content/reasoning 两个独立到期判定 |
+| `index.html`          | 思考步骤正文 `v-html="renderMarkdown(step.text,'assistant',true)"` → `v-lsp-stream="{ src: step.text, role: 'assistant', live: 'reasoning' }"`（src 传纯文本，渲染仍由 ext 调应用自己的 renderMarkdown）                                                                                                   |
+| `app.js`              | 思考 delta 也走缓冲 + `api.feed(..., 'reasoning')`；响应式 `reasoning` 用 `LIVE_REASONING_COMMIT_INTERVAL = 6000ms`；**正文开始提交时强制把思考一次性追平**（面板定稿后再显示正文）；finally 强制追平不变；提交逻辑拆成 content/reasoning 两个独立到期判定                                                 |
 
 **不丢任何前端部分**：思考面板仍走应用的 `renderMarkdown`（marked/DOMPurify/显示正则全保留，
 且 skipRegex 与原调用一致）。代价：流式中间态的「思考 N 字」计数刷新变慢（面板正文仍按 120ms 更新）。
 
 ### 三、验证
 
-| 项 | 结果 |
-|----|------|
+| 项                             | 结果                                                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tools/stream-render-test.cjs` | ✅ A1–A8、B1–B5 全过 **+ 新增 C1/C1b/C2/C3/C4**（通道独立登记 / 两通道共存 / **思考通道 skipRegex=true 且渲染等价** / 正文通道更新正确 / **跨通道互不干扰**） |
-| `verify-markers.ps1` | ✅ **127 PASS / 0 FAIL**（045 新增 8 项；044 的 `044-live-feed-call`/`044-ext-live-binding` 随实现签名变化同步更新） |
-| 实体 | `012-035-index-html`（前像 `52135b42`）/ `012-036-app-js`（前像 `79267c03`）重生成：**逆向逐字节一致**、**端到端 9/9 重放一致** |
-| 构建/单测 | ✅ `assembleRelease` + `testDebugUnitTest` |
-| 真机 CDP | ✅ 装机后 `liveState()` 正常返回双通道（`skipRegex` 分别 false/true） |
+| `verify-markers.ps1`           | ✅ **127 PASS / 0 FAIL**（045 新增 8 项；044 的 `044-live-feed-call`/`044-ext-live-binding` 随实现签名变化同步更新）                                          |
+| 实体                           | `012-035-index-html`（前像 `52135b42`）/ `012-036-app-js`（前像 `79267c03`）重生成：**逆向逐字节一致**、**端到端 9/9 重放一致**                               |
+| 构建/单测                      | ✅ `assembleRelease` + `testDebugUnitTest`                                                                                                                    |
+| 真机 CDP                       | ✅ 装机后 `liveState()` 正常返回双通道（`skipRegex` 分别 false/true）                                                                                         |
 
 ### 四、真机结果（同提示词 `写一段 200 字左右的雨夜场景描写。`，`deepseek-v4.1-flash`）
 
-| 指标 | **patch 045（live）** | legacy（每 tick 提交） | 044（参考，同日早先两轮） |
-|------|----------------------|----------------------|--------------------------|
-| 窗口 | 31.4s / 35.2s | 38.7s | 47.4s / 24.1s |
-| 帧数 | 2105 / **3326** | 734 | 3608 / 1474 |
-| 平均帧率 | 67 / **94.5 fps** | 19 fps | 76.1 / 61.1 fps |
-| 帧间隔 p50 | 8.3ms | 8.3ms | 8.3ms |
-| **帧间隔 p95** | **8.4ms** | **241.2ms** | 8.4ms |
-| 长任务占用 | 44.5% / **22%** | 86% | 38% / 50% |
-| 思考通道 feeds | **504 次**（35s） | — | — |
+| 指标           | **patch 045（live）** | legacy（每 tick 提交） | 044（参考，同日早先两轮） |
+| -------------- | --------------------- | ---------------------- | ------------------------- |
+| 窗口           | 31.4s / 35.2s         | 38.7s                  | 47.4s / 24.1s             |
+| 帧数           | 2105 / **3326**       | 734                    | 3608 / 1474               |
+| 平均帧率       | 67 / **94.5 fps**     | 19 fps                 | 76.1 / 61.1 fps           |
+| 帧间隔 p50     | 8.3ms                 | 8.3ms                  | 8.3ms                     |
+| **帧间隔 p95** | **8.4ms**             | **241.2ms**            | 8.4ms                     |
+| 长任务占用     | 44.5% / **22%**       | 86%                    | 38% / 50%                 |
+| 思考通道 feeds | **504 次**（35s）     | —                      | —                         |
 
 **结论**：思考面板接活通道后，思考阶段的长任务占用明显下降（86% → 22%，其中 045 让「思考
 每 1.2s 重建整条面板」变成「6s 一次 + 期间增量上屏」），帧间隔 p95 稳定在 8.4ms（满帧）。
@@ -1822,28 +1914,29 @@ dy=-20 → ★发送键★
 dy=  0 → BUTTON.about-top-fab.fixed.bottom-5     ← 正中心点到的竟是它！
 dy=+30 → BUTTON.about-top-fab.fixed.bottom-5
 ```
+
 `.about-top-fab` = 关于页「回到顶部」悬浮按钮（`fixed bottom-5 right-5`、44×44、`z-30`）——
 **隐藏态 `opacity: 0`，但 `.lsp-fab-row .about-top-fab { pointer-events: auto }` 让它照样吃点击**，
 与发送键重叠 **41×25px** → 用户「要点偏上」的真相是**点下半部点到了这个隐形按钮**。
 
 ### 三、改动
 
-| # | 改动 | 层次 |
-|---|------|------|
-| 1 | `.lsp-fab-row .about-top-fab { pointer-events: none }` + 仅 `.is-visible` 时 `auto` | 扩展层 CSS（零上游改动） |
-| 2 | 输入框改「非响应式镜像 + 200ms 防抖同步」：`:value="chatInputViewValue()" @input="handleChatInput"`；`chatInputViewValue()` **永远返回最新文本**（任何重渲染都不会冲掉正在输入/拼字的内容） | patch 046（index.html + app.js） |
-| 3 | 发送键 `:disabled` 改读 `chatInputHasText`（**只在「空 ↔ 非空」翻转时**才写的响应式布尔）→ 按钮**即时可用**，打字过程最多两次重渲染 | 同上 |
-| 4 | `flushChatInput()` 在 `sendMessage` 开头与失焦时调用 → 发出的永远是刚打的字 | 同上 |
+| #   | 改动                                                                                                                                                                                        | 层次                             |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 1   | `.lsp-fab-row .about-top-fab { pointer-events: none }` + 仅 `.is-visible` 时 `auto`                                                                                                         | 扩展层 CSS（零上游改动）         |
+| 2   | 输入框改「非响应式镜像 + 200ms 防抖同步」：`:value="chatInputViewValue()" @input="handleChatInput"`；`chatInputViewValue()` **永远返回最新文本**（任何重渲染都不会冲掉正在输入/拼字的内容） | patch 046（index.html + app.js） |
+| 3   | 发送键 `:disabled` 改读 `chatInputHasText`（**只在「空 ↔ 非空」翻转时**才写的响应式布尔）→ 按钮**即时可用**，打字过程最多两次重渲染                                                         | 同上                             |
+| 4   | `flushChatInput()` 在 `sendMessage` 开头与失焦时调用 → 发出的永远是刚打的字                                                                                                                 | 同上                             |
 
 ### 四、真机复验
 
-| 项 | 改前 | 改后 |
-|----|------|------|
-| 15 次按键的根重渲染 / 长任务 | 15 次 / 15 个（≈4.4s 阻塞） | **1 次 / 1 个（359ms）** |
-| 按键→下一帧延迟 p50 / p95 | 3.8ms / **302.7ms** | **4.7ms / 8.1ms** |
-| 发送键命中带 | 仅顶部 ~20px | **全高**（逐点命中确认） |
-| 全页「不可见却吃点击」元素 | 1 个（就是那个 FAB） | **0 个**（扫描 75 个候选） |
-| 打字后立刻点发送键中心 | — | **发出 = 刚打的字 ✅**（点前一刻 `userInput` 只同步到第一个字，证明防抖 + 发送追平都对） |
+| 项                           | 改前                        | 改后                                                                                     |
+| ---------------------------- | --------------------------- | ---------------------------------------------------------------------------------------- |
+| 15 次按键的根重渲染 / 长任务 | 15 次 / 15 个（≈4.4s 阻塞） | **1 次 / 1 个（359ms）**                                                                 |
+| 按键→下一帧延迟 p50 / p95    | 3.8ms / **302.7ms**         | **4.7ms / 8.1ms**                                                                        |
+| 发送键命中带                 | 仅顶部 ~20px                | **全高**（逐点命中确认）                                                                 |
+| 全页「不可见却吃点击」元素   | 1 个（就是那个 FAB）        | **0 个**（扫描 75 个候选）                                                               |
+| 打字后立刻点发送键中心       | —                           | **发出 = 刚打的字 ✅**（点前一刻 `userInput` 只同步到第一个字，证明防抖 + 发送追平都对） |
 
 ### 五、本轮踩坑（已进 CHANGELOG/AGENTS 记录）
 
@@ -1874,20 +1967,20 @@ dy=+30 → BUTTON.about-top-fab.fixed.bottom-5
 
 ### 二、结果（两轮交替，逐轮数值）
 
-| 指标 | **live（patch 044）** | legacy（改前行为） |
-|------|----------------------|-------------------|
-| 窗口时长 | 47.4s / 24.1s | 26.9s / 48.4s |
-| 渲染帧数 | 3608 / 1474 | 232 / 394 |
-| **平均帧率** | **76.1 / 61.1 fps** | 8.6 / 8.1 fps |
-| 帧间隔 p50 | 8.3 / 8.3 ms | 8.4 / 16.7 ms |
-| **帧间隔 p95** | **8.4 / 8.4 ms** | **241.3 / 241.4 ms** |
-| 帧间隔 >100ms | 65 / — | 108 / — |
-| 长任务数（≥50ms） | 66 / 46 | 110 / 194 |
-| 长任务每秒 | 1.39 / 1.91 | 4.09 / 4.01 |
-| **长任务占用** | **38% / 50%** | **95% / 95%** |
-| 最长单任务 | 1065ms（首帧）/ — | 1141ms（首帧）/ — |
-| 活通道投喂次数 | 37 / 73 | —（不走活通道） |
-| 增量推进 | advances 1 / 5 | advances 3 / 5 |
+| 指标              | **live（patch 044）** | legacy（改前行为）   |
+| ----------------- | --------------------- | -------------------- |
+| 窗口时长          | 47.4s / 24.1s         | 26.9s / 48.4s        |
+| 渲染帧数          | 3608 / 1474           | 232 / 394            |
+| **平均帧率**      | **76.1 / 61.1 fps**   | 8.6 / 8.1 fps        |
+| 帧间隔 p50        | 8.3 / 8.3 ms          | 8.4 / 16.7 ms        |
+| **帧间隔 p95**    | **8.4 / 8.4 ms**      | **241.3 / 241.4 ms** |
+| 帧间隔 >100ms     | 65 / —                | 108 / —              |
+| 长任务数（≥50ms） | 66 / 46               | 110 / 194            |
+| 长任务每秒        | 1.39 / 1.91           | 4.09 / 4.01          |
+| **长任务占用**    | **38% / 50%**         | **95% / 95%**        |
+| 最长单任务        | 1065ms（首帧）/ —     | 1141ms（首帧）/ —    |
+| 活通道投喂次数    | 37 / 73               | —（不走活通道）      |
+| 增量推进          | advances 1 / 5        | advances 3 / 5       |
 
 **该机是 120Hz 面板（帧预算 8.33ms）**：live 臂 p50/p95 都贴在 **8.3/8.4ms = 满帧**；
 legacy 臂 p95 是 **241ms**（≈4fps 的尾部）。**即用户要的「跑满手机帧率」，活通道做到了。**
@@ -1954,27 +2047,21 @@ legacy 臂 p95 是 **241ms**（≈4fps 的尾部）。**即用户要的「跑满
 
 **验证**（本会话收尾实测，四条验收门 + 悬空引用扫描）
 
-| 门 | 命令 | 结果 |
-|---|---|---|
-| release 构建 | `./gradlew :app:assembleRelease` | **成功**；`app/build/outputs/apk/release/` 下 **只有 1 个** `app-release.apk` |
-| APK 体积 | 改造前 42 969 263 → 改造后 **18 215 394** 字节 | **−24 753 869 字节（−57.6%）**，剩余 42.4%（基本就是被删的助手资产） |
-| 单元测试 | `./gradlew :app:testDebugUnitTest` | **成功 / 0 失败**；注：全仓测试源码**只剩助手测试**，35 枚整体随模块删除后 `app/src/test` 已空（0 个测试类），故本轮为「无测试可跑」的绿 |
-| 标记门 | `tools/verify-markers.ps1` | **132 PASS / 0 FAIL**（原 95 项含 4 项 `V15-assistant-*`，退役 4 项后其余项与 046/HOTZONE 等新增项合计 132） |
-| 流式渲染门 | `node tools/stream-render-test.cjs` | **pass: true / failures: []**（118 tick 全等价，负控 A8 仍判红） |
-| 模型列表门 | `node tools/model-list-test.cjs` | **pass: true / failures: []**（A7/A8 真实渲染宽度断言通过） |
-| 页面交接门（额外，AGENTS §1.5 要求） | `node tools/page-handoff-test.cjs` | **pass: true**——本轮动了 `ext/luzzy-ext.js` 的交接控制器与 `luzzy-theme.css` 的 `.lsp-view-*` 邻近段，按登记表属必跑项 |
-| 悬空引用 | 全仓 `grep` 助手标识符（`openAssistant` / `luzzy-assistant` / `AssistantController` / `LuzzyAssistantTheme` / `ProotRuntime` / `animateAssistantOverlay` 等） | **代码与工具层零命中**；剩余命中全部是**历史文档**（`docs/`）与**CHANGELOG 历史叙述**，以及由 CHANGELOG 自动生成的 `ext/luzzy-changelog.js`（构建期重生成，非手写） |
+| 门                                   | 命令                                                                                                                                                          | 结果                                                                                                                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| release 构建                         | `./gradlew :app:assembleRelease`                                                                                                                              | **成功**；`app/build/outputs/apk/release/` 下 **只有 1 个** `app-release.apk`                                                                                       |
+| APK 体积                             | 改造前 42 969 263 → 改造后 **18 215 394** 字节                                                                                                                | **−24 753 869 字节（−57.6%）**，剩余 42.4%（基本就是被删的助手资产）                                                                                                |
+| 单元测试                             | `./gradlew :app:testDebugUnitTest`                                                                                                                            | **成功 / 0 失败**；注：全仓测试源码**只剩助手测试**，35 枚整体随模块删除后 `app/src/test` 已空（0 个测试类），故本轮为「无测试可跑」的绿                            |
+| 标记门                               | `tools/verify-markers.ps1`                                                                                                                                    | **132 PASS / 0 FAIL**（原 95 项含 4 项 `V15-assistant-*`，退役 4 项后其余项与 046/HOTZONE 等新增项合计 132）                                                        |
+| 流式渲染门                           | `node tools/stream-render-test.cjs`                                                                                                                           | **pass: true / failures: []**（118 tick 全等价，负控 A8 仍判红）                                                                                                    |
+| 模型列表门                           | `node tools/model-list-test.cjs`                                                                                                                              | **pass: true / failures: []**（A7/A8 真实渲染宽度断言通过）                                                                                                         |
+| 页面交接门（额外，AGENTS §1.5 要求） | `node tools/page-handoff-test.cjs`                                                                                                                            | **pass: true**——本轮动了 `ext/luzzy-ext.js` 的交接控制器与 `luzzy-theme.css` 的 `.lsp-view-*` 邻近段，按登记表属必跑项                                              |
+| 悬空引用                             | 全仓 `grep` 助手标识符（`openAssistant` / `luzzy-assistant` / `AssistantController` / `LuzzyAssistantTheme` / `ProotRuntime` / `animateAssistantOverlay` 等） | **代码与工具层零命中**；剩余命中全部是**历史文档**（`docs/`）与**CHANGELOG 历史叙述**，以及由 CHANGELOG 自动生成的 `ext/luzzy-changelog.js`（构建期重生成，非手写） |
 
 **下一步**
 
 - 用户真机体验 release 包（移除后的包体积与启动是否如预期），通过后才谈发版。
 - v1.5.0 剩余内容 = 上游同步 1.9.3 + 本版各 patch，发版流程仍按 AGENTS §3.4。
-
-
-
-
-
-
 
 ---
 
@@ -1990,11 +2077,11 @@ legacy 臂 p95 是 **241ms**（≈4fps 的尾部）。**即用户要的「跑满
 
 **① 三条并行深度调研（47 条 file:line 证据，推翻了 3 条既有假设）**
 
-| 原假设 | 裁决 |
-|---|---|
-| depth≥1 时 `<active_tools>` 被整段替换 | **错** —— 阈值是 `activeToolDepth < 4`（`app.js:6056`），depth 0/1/2/3 逐字节相同 |
-| depth≥1 时 `tools` 字段消失 | **错（方向相反）** —— 因 `requireTool` 在 depth≥1 翻假（`app.js:6696` → `api-utils.js:262`），tools **多出 1 个** `output_reply`（4→5） |
-| 副模型结果带 `toISOString()` 进 messages | **错** —— 只写 `window.__RPHubLastUiTemplateAnalysis`（`app.js:5645`），**从不进 messages**；请求路径全仓无时钟值 |
+| 原假设                                   | 裁决                                                                                                                                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| depth≥1 时 `<active_tools>` 被整段替换   | **错** —— 阈值是 `activeToolDepth < 4`（`app.js:6056`），depth 0/1/2/3 逐字节相同                                                       |
+| depth≥1 时 `tools` 字段消失              | **错（方向相反）** —— 因 `requireTool` 在 depth≥1 翻假（`app.js:6696` → `api-utils.js:262`），tools **多出 1 个** `output_reply`（4→5） |
+| 副模型结果带 `toISOString()` 进 messages | **错** —— 只写 `window.__RPHubLastUiTemplateAnalysis`（`app.js:5645`），**从不进 messages**；请求路径全仓无时钟值                       |
 
 **新发现（原清单没有）**：⑧ 世界书触发概率门用 `Math.random()`（`data-services.js:805,813`）；
 ⑨ 原生图片 parts 是尾相对的（`app.js:5177-5192`）；⑩ `filterBlockedStyleText` 读时重写历史；
@@ -2146,11 +2233,11 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 
 **实测结果（三条，全部通过）**
 
-| # | 验证项 | 结果 |
-|---|---|---|
-| 1 | 桥存在性与能力探测 | `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 三个方法均为 function；`chatCapabilities()` 返回 `{available:true, protocols:["openai","anthropic","gemini"]}`；`chatNative.ready()===true` |
-| 2 | 事件回传（**核心**） | 打桩端点下依次收到 **`delta` → `usage` → `delta` → `done`** 四型事件，拼回完整回复「原生传输链路验证成功。」；服务端确认收到 `POST /v1/chat/completions`，`model`/`stream`/`messages` 均正确。**jobId 逐字节回显**（`chatStart` 返回值 === 事件里的 jobId） |
-| 3 | 失败路径与降级 | 不可达端点下收到 `error` 终态事件（`网络错误（ConnectException）`）→ 未吐任何增量，**静默回落** JS 路径（`resolved:"FALLBACK"`）→ **熔断生效**（`tripped:true`）；全程 **零 JS 异常** |
+| #   | 验证项               | 结果                                                                                                                                                                                                                                                        |
+| --- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 桥存在性与能力探测   | `LuzzyBridge.chatStart/chatAbort/chatCapabilities` 三个方法均为 function；`chatCapabilities()` 返回 `{available:true, protocols:["openai","anthropic","gemini"]}`；`chatNative.ready()===true`                                                              |
+| 2   | 事件回传（**核心**） | 打桩端点下依次收到 **`delta` → `usage` → `delta` → `done`** 四型事件，拼回完整回复「原生传输链路验证成功。」；服务端确认收到 `POST /v1/chat/completions`，`model`/`stream`/`messages` 均正确。**jobId 逐字节回显**（`chatStart` 返回值 === 事件里的 jobId） |
+| 3   | 失败路径与降级       | 不可达端点下收到 `error` 终态事件（`网络错误（ConnectException）`）→ 未吐任何增量，**静默回落** JS 路径（`resolved:"FALLBACK"`）→ **熔断生效**（`tripped:true`）；全程 **零 JS 异常**                                                                       |
 
 > **第 2 条同时验证了本轮修掉的那个 bug**：`onEvent` 若仍是「先摘处理器再派发」，
 > 终态 `done` 会被静默丢弃、`eventCount` 会是 0、调用方 Promise 永不 settle。
@@ -2174,15 +2261,15 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 
 **① 升级数据守恒 —— 逐项比对通过（这是「无感知升级」的实证）**
 
-| 项 | 升级前 v1.4.0(12) | 升级后 v2.0.0(13) |
-|---|---|---|
-| 角色 | 2（Isryx / Aurelion Sol） | **2（同名）** |
-| 会话条数 | 3 | **3** |
-| 预设 / 世界书 / 正则 | 18 / 1 / 1 | **18 / 1 / 1** |
-| IndexedDB | `RPHubDB`，24 键，14 个键族 | **完全一致** |
-| 设置项 / 供应商 | 44 / STA1N | **44 / STA1N** |
-| 主题 / 模式 / 字体 | luzzy / light / luzzy | **不变** |
-| 新增层 | guard/chatNative/bridge 均 false | **均 true** |
+| 项                   | 升级前 v1.4.0(12)                | 升级后 v2.0.0(13) |
+| -------------------- | -------------------------------- | ----------------- |
+| 角色                 | 2（Isryx / Aurelion Sol）        | **2（同名）**     |
+| 会话条数             | 3                                | **3**             |
+| 预设 / 世界书 / 正则 | 18 / 1 / 1                       | **18 / 1 / 1**    |
+| IndexedDB            | `RPHubDB`，24 键，14 个键族      | **完全一致**      |
+| 设置项 / 供应商      | 44 / STA1N                       | **44 / STA1N**    |
+| 主题 / 模式 / 字体   | luzzy / light / luzzy            | **不变**          |
+| 新增层               | guard/chatNative/bridge 均 false | **均 true**       |
 
 **零数据迁移、零重配置**，同包名覆盖安装数据完整保留 —— 与设计预期一致。
 
@@ -2225,6 +2312,7 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 应用内完全不可见。所以这一轮先把仪器造出来。
 
 **patch 052 改动（三文件）**
+
 1. `api-utils.js`：Anthropic 补 `message_delta.stop_reason` / 非流式 `stop_reason` 捕获；
    Gemini 补 `candidates[0].finishReason` 并把 `MAX_TOKENS` **归一为 `length`**；
    两适配器把 `finishReason` 一路带出，`withUsageMetrics` 出口与 OpenAI 路径统一放进
@@ -2238,24 +2326,25 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 
 **真机实测结论（决定性）**
 
-| 记录 | model | output tokens | 耗时 | finishReason |
-|---|---|---|---|---|
-| 最新 | `[Cloud]DeepSeek-V4.1-Flash` | 1254 | 11.4s | **`stop`** |
-| 上一条 | `[Cloud]DeepSeek-V4.1-Flash` | 1143 | 11.7s | **`stop`** |
-| 更早 | `[Cloud]DeepSeek-V4.1-Flash` | 810 | 7.4s | （字段上线前） |
-| 更早 | `deepseek-v4.1-flash`（裸 id） | 16206 | 96.8s | （字段上线前） |
+| 记录   | model                          | output tokens | 耗时  | finishReason   |
+| ------ | ------------------------------ | ------------- | ----- | -------------- |
+| 最新   | `[Cloud]DeepSeek-V4.1-Flash`   | 1254          | 11.4s | **`stop`**     |
+| 上一条 | `[Cloud]DeepSeek-V4.1-Flash`   | 1143          | 11.7s | **`stop`**     |
+| 更早   | `[Cloud]DeepSeek-V4.1-Flash`   | 810           | 7.4s  | （字段上线前） |
+| 更早   | `deepseek-v4.1-flash`（裸 id） | 16206         | 96.8s | （字段上线前） |
 
 **全部是 `stop`，没有一条 `length`。** 所以：
+
 - **不是 `max_tokens` 撞上限**（那是 `length`）
 - **不是我们截的**
 - 服务端明确报告「模型正常收尾」
 
 **同时发现两条路由行为差异极大，且都指向供应商侧：**
 
-| 路由 | 行为 | 细节字段上报 |
-|---|---|---|
-| 裸 `deepseek-v4.1-flash` | 输出 **16206** tokens、推理 50159 字、能跑长 | `cached_tokens` / `reasoning_tokens` **都上报** |
-| `[Cloud]DeepSeek-V4.1-Flash` | 三次分别 810 / 1143 / 1254 tokens 就停 | 两者**都是 null** |
+| 路由                         | 行为                                         | 细节字段上报                                    |
+| ---------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| 裸 `deepseek-v4.1-flash`     | 输出 **16206** tokens、推理 50159 字、能跑长 | `cached_tokens` / `reasoning_tokens` **都上报** |
+| `[Cloud]DeepSeek-V4.1-Flash` | 三次分别 810 / 1143 / 1254 tokens 就停       | 两者**都是 null**                               |
 
 同一供应商、两条路由、上报能力完全不同 ⇒ **后端不是同一个**。且 `[Cloud]` 路由「详尽思考计划 +
 3 个字的正文然后 stop」的行为**与自愿收尾不符** —— 所以真正的问题从「谁截断了」变成了
@@ -2286,16 +2375,16 @@ WebView 生命周期竞态只能在真机确认**（本机无设备）。而本�
 
 #### 一、当前工作节点（v2.0 状态：可发布，未 push）
 
-| 项 | 状态 |
-|---|---|
-| 版本 | **v2.0.0 / versionCode 13**，真机（小米 25098PN5AC / Android 16）已装并实测 |
-| 提交 | `65d8a7b4`（v2.0 主体）、`86c4a896`（模拟器桥接实测）、`f9a5d34f`（真机守恒实测）、`a88a8ced`（patch 052） |
-| 工作树 | 干净（仅遗留本就不属于本项目的未跟踪 `.workbuddy/`） |
-| 门禁 | `verify-markers.ps1` **158 PASS / 0 FAIL**；`prefix-cache-test.cjs` 8/8（负控判红）；既有三门禁全 PASS |
-| 构建 | `assembleRelease` 成功，**恰好 1 个 APK** 18,498,870 B，签名 `CN=LuzzyRP` / SHA-256 `ed78235d…`（与上版一致） |
-| 单测 | Kotlin **207** 用例 0 失败（22 条真 socket）+ JS 胶水 14/14 |
-| 实测成果 | KV 公共前缀 **0.9101 → 1.0000**；真机真实缓存命中 **8320/8492 ≈ 98%**；Anthropic 协议从「完全不可用」修到可用；原生传输真机跑通 |
-| **未 push** | 按 §3.4，等用户真机体验通过后才 push + Release |
+| 项          | 状态                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 版本        | **v2.0.0 / versionCode 13**，真机（小米 25098PN5AC / Android 16）已装并实测                                                     |
+| 提交        | `65d8a7b4`（v2.0 主体）、`86c4a896`（模拟器桥接实测）、`f9a5d34f`（真机守恒实测）、`a88a8ced`（patch 052）                      |
+| 工作树      | 干净（仅遗留本就不属于本项目的未跟踪 `.workbuddy/`）                                                                            |
+| 门禁        | `verify-markers.ps1` **158 PASS / 0 FAIL**；`prefix-cache-test.cjs` 8/8（负控判红）；既有三门禁全 PASS                          |
+| 构建        | `assembleRelease` 成功，**恰好 1 个 APK** 18,498,870 B，签名 `CN=LuzzyRP` / SHA-256 `ed78235d…`（与上版一致）                   |
+| 单测        | Kotlin **207** 用例 0 失败（22 条真 socket）+ JS 胶水 14/14                                                                     |
+| 实测成果    | KV 公共前缀 **0.9101 → 1.0000**；真机真实缓存命中 **8320/8492 ≈ 98%**；Anthropic 协议从「完全不可用」修到可用；原生传输真机跑通 |
+| **未 push** | 按 §3.4，等用户真机体验通过后才 push + Release                                                                                  |
 
 #### 二、用户新指示（本轮）
 
@@ -2475,9 +2564,9 @@ who comes into possession of a copy`）：
   MainActivity/WebView，v2.x 零影响，P6 才切 launcher）；P1 不引导航库（route 状态 +
   CompositionLocal）；构建验证走模拟器 debug 包，真机 release 包不动。
 - **技术锚点（探索代理已核实）**：Compose 接线先例全在 `52aab12c`（kotlin.plugin.compose@2.4.0
-  + BOM 2026.08.00 + composeMappingProducerClasspath 钉版本补丁）；8 枚 TTF 在
-  `52aab12c:app/src/main/assets/assistant/fonts/` 可 `git show` 取回；HCT 库 =
-  material-foundation/material-color-utilities（Apache-2.0，不触发 AGPL，rikkahub submodule 未检出）。
+  - BOM 2026.08.00 + composeMappingProducerClasspath 钉版本补丁）；8 枚 TTF 在
+    `52aab12c:app/src/main/assets/assistant/fonts/` 可 `git show` 取回；HCT 库 =
+    material-foundation/material-color-utilities（Apache-2.0，不触发 AGPL，rikkahub submodule 未检出）。
 
 ### 会话 64 · 收尾（同日）
 
@@ -2777,6 +2866,7 @@ who comes into possession of a copy`）：
 ### 开始
 
 用户四条指示（承接上一轮节点卡的两个缺陷）：
+
 1. 节点应该存在于模型输出的**气泡内**（此前是气泡上方的独立卡）；
 2. 每个子节点做好边界：内容过长**允许滑动查看**，不无限延伸；
 3. 子节点动画 = **自动展开 → 逐字流式 → 完成后自动折叠**；
@@ -2818,16 +2908,16 @@ who comes into possession of a copy`）：
      （变化后判定会把「本来贴底」误判成「用户上滑」）+ 开页即贴底。
 4. **开发注入钩子（仅 debug 源集）**：模拟器只有英文 IME（`adb shell input text` 遇 CJK
    直接抛 NPE），而本应用内容全是中文——`ui/DevHooks.kt`（main，恒 null、release 零行为）
-   + `src/debug/` 的 `DevInputReceiver`（adb 广播注入中文并触发发送）。后续 UI 验证可自动化。
+   - `src/debug/` 的 `DevInputReceiver`（adb 广播注入中文并触发发送）。后续 UI 验证可自动化。
 
 ### 二、真机验证（模拟器 × 真实端点 × 4 次真请求，零模拟）
 
 | 轮次 | 记忆召回 | reasoning 增量 | 工具调用 | 参数增量 | 工具结果 | 正文增量 | 总事件 | 时长 |
-|------|---------|---------------|---------|---------|---------|---------|--------|------|
-| 1 | 1 | 19 | 1 | 20 | 1 | 108 | 151 | 4.0s |
-| 2 | 1 | 323 | **2** | 37 | 2 | 106 | 472 | 5.5s |
-| 3 | 1 | 139 | 1 | 21 | 1 | 111 | 275 | 5.7s |
-| 4 | 1 | 23 | 1 | 20 | 1 | 140 | 187 | 2.8s |
+| ---- | -------- | -------------- | -------- | -------- | -------- | -------- | ------ | ---- |
+| 1    | 1        | 19             | 1        | 20       | 1        | 108      | 151    | 4.0s |
+| 2    | 1        | 323            | **2**    | 37       | 2        | 106      | 472    | 5.5s |
+| 3    | 1        | 139            | 1        | 21       | 1        | 111      | 275    | 5.7s |
+| 4    | 1        | 23             | 1        | 20       | 1        | 140      | 187    | 2.8s |
 
 - 正文 465 个增量中 **267 个是单字符**（reasoning 504 个中 191 个单字符）→ 逐字到达、逐字追加；
 - 工具参数分片为**模型真实给出**：`{"keywords": ["钟楼","苹果树","来历","种树"]}`；本地执行
@@ -2842,8 +2932,8 @@ who comes into possession of a copy`）：
   `deepseek-flash`；实测首帧 153ms、`reasoning_content` 可用、**模型会自主发 `tool_calls`**）。
   **密钥只写模拟器内 App 的 SharedPreferences**（经 `run-as` 注入），**不入库、不进 APK**。
 - **工具节点语义如实记录**：本阶段是**模型自主调用**（真实 `tool_calls` 增量 + 真实本地执行
-  + 真实二次请求），不是应用侧预设。与 WebView 版「生成前无条件扫描世界书」不同——那时由
-  应用发起，现在由模型发起。
+  - 真实二次请求），不是应用侧预设。与 WebView 版「生成前无条件扫描世界书」不同——那时由
+    应用发起，现在由模型发起。
 - **记忆召回算法**：本阶段是词面重叠（CJK 二元组）而非向量召回——不需要嵌入模型、可离线、
   可单测；**用途同源、算法不同**，P4 数据层建成后替换实现。
 - **思考卡留在气泡内**：思考属于这条回复本身，故作为 AI 气泡的第一个子块，不再独立成卡。
@@ -2888,6 +2978,7 @@ who comes into possession of a copy`）：
 本轮把 **P2 剩下两项**真正做完：① 会话列表；② 消息渲染 Markdown→Compose。
 
 计划分叉先请用户拍板（侦察发现语义不重合）：
+
 - **rikkahub** = 按助手分组的会话抽屉（置顶 + 今天/昨天/日期分段）；
 - **我们上游** = **没有平铺会话列表**，一次「会话」= 角色 × 剧情分支（`StoryBranchModal`，
   SVG 路线图，存储键 `rp_hub_chat_{角色}__branch__{分支}`）。
@@ -2912,7 +3003,7 @@ who comes into possession of a copy`）：
      （不可变 + 主线不可改名/不可删除 + 删除连坐后代 + 切走回退主线）。
    - `ui/pages/chat/BranchListSheet.kt`：M3 `ModalBottomSheet`，入口在聊天页顶栏
      （与上游 `openStoryBranchModal` 同位置）；每项 = 分支名 + `N 楼 · x.x 字` + 「起点」「当前」
-     + 「自主线第 N 楼分出」+ 进入/重命名/删除；**层级缩进 + 树形连接线**替代上游 SVG 路线图。
+     - 「自主线第 N 楼分出」+ 进入/重命名/删除；**层级缩进 + 树形连接线**替代上游 SVG 路线图。
    - **统计全部真实算出**（楼数 = 消息数、字数 = 字符数），演示分支 = 主线前两楼的**真实副本**
      （不含任何编造内容）；生成期间切分支时结果仍落在发起的那条分支（`turnBranchId` 快照）。
 3. **pro-rules 清单核对中修掉一处不合规**：消息操作行图标热区原为 32dp
@@ -2922,12 +3013,12 @@ who comes into possession of a copy`）：
 
 ### 二、真机验证要点（全为真实数据）
 
-| 验证点 | 证据 |
-|---|---|
-| 语义修正 | 「左右看了看…」的动作行渲染为**斜体且无星号**（此前星号裸奔） |
+| 验证点      | 证据                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 语义修正    | 「左右看了看…」的动作行渲染为**斜体且无星号**（此前星号裸奔）                                                                     |
 | 富 Markdown | 一次**真实请求**让模型输出纯 Markdown → 有序列表（带悬挂缩进）/ 引用（左边条）/ 代码块（语言标签 `json` + 等宽 JSON）全部正确渲染 |
-| 分支列表 | 主线「4 楼 · 252 字」、「教堂后墙」「2 楼 · 137 字 · 自主线第 2 楼分出」——数字来自真实消息 |
-| 分支切换 | 点「进入」后对话从 4 楼变 2 楼（真实换掉消息列表），「当前」徽标随迁 |
+| 分支列表    | 主线「4 楼 · 252 字」、「教堂后墙」「2 楼 · 137 字 · 自主线第 2 楼分出」——数字来自真实消息                                        |
+| 分支切换    | 点「进入」后对话从 4 楼变 2 楼（真实换掉消息列表），「当前」徽标随迁                                                              |
 
 ### 三、五维 critique（自评；**不替代独立评审**）
 
@@ -3017,18 +3108,18 @@ P3 大部分完成、P4 未开始。据此确认用户意图 = **把聊天链路
 7. **T7 正文可选中复制**：静止消息挂 `SelectionContainer`，**流式期间不挂**
    （rikkahub 的并发修改崩溃纪律）。
 8. **T8 收尾**：`DESIGN-compose §19` 写死**验收标准表**（操作→期望→证据）+ **10 步回归清单**
-   + 门禁现状；单测 **294 全绿**（本轮新增 11：用量/截断 9 + 结构不变式 2）。
+   - 门禁现状；单测 **294 全绿**（本轮新增 11：用量/截断 9 + 结构不变式 2）。
 
 ### 二、真机验证（全部有截图/logcat 证据）
 
-| 项 | 证据 |
-|---|---|
-| 键盘避让 | `verify-p4-ime-before.png`（完全被盖）→ `verify-p4-ime-after.png`（完整可见） |
-| 回底按钮 | `verify-p4-scrollbottom.png`；点击后消失且回到最新（前后帧 diff 确认） |
-| 新内容圆点 | `verify-p4-newcontent-dot.png`（离开底部时收到流式内容 → 主色点出现） |
-| 用量脚注 | `verify-p4-nerdline.png`（真实数字，非编造） |
-| 删除确认 | `verify-p4-delete-confirm.png`（「将删除 1 条消息，不可恢复。」+ 红色删除） |
-| 滚动判定 | logcat：贴底 `bot=1633 ≤ vpEnd=1659` / 离开底部 `bot=1760 > vpEnd=1659` |
+| 项         | 证据                                                                          |
+| ---------- | ----------------------------------------------------------------------------- |
+| 键盘避让   | `verify-p4-ime-before.png`（完全被盖）→ `verify-p4-ime-after.png`（完整可见） |
+| 回底按钮   | `verify-p4-scrollbottom.png`；点击后消失且回到最新（前后帧 diff 确认）        |
+| 新内容圆点 | `verify-p4-newcontent-dot.png`（离开底部时收到流式内容 → 主色点出现）         |
+| 用量脚注   | `verify-p4-nerdline.png`（真实数字，非编造）                                  |
+| 删除确认   | `verify-p4-delete-confirm.png`（「将删除 1 条消息，不可恢复。」+ 红色删除）   |
+| 滚动判定   | logcat：贴底 `bot=1633 ≤ vpEnd=1659` / 离开底部 `bot=1760 > vpEnd=1659`       |
 
 ### 三、决策与不做清单（照计划）
 
@@ -3087,12 +3178,12 @@ P3 大部分完成、P4 未开始。据此确认用户意图 = **把聊天链路
 `docs/rikkahub-master/.../ui/components/ai/ChatInput.kt`（AGPL-3.0；本项目已整体转 AGPL-3.0，
 形态复用许可兼容，**采用架构与节拍、未逐行复制代码**），它的三条结构性答案：
 
-| rikkahub | 解决什么 | 我们的落地 |
-|---|---|---|
-| **输入框满宽独占一行、在最上**，动作行在其下 | 输入框是第一眼落点、长文本有完整宽度、动作贴键盘侧 | 同（此前动作行在上、输入与发送同行，输入被发送键挤） |
-| 动作行左簇 **`weight(1f)+horizontalScroll`** | **溢出从根上消失**：按钮再多也不换行、不挤压固定件 | 同（此前靠「算宽度刚好放下」，脆） |
-| 模型 **onlyIcon**；次要动作收进「＋ 更多」 | 名字不占宽度 | 半采用：模型 = 图标(`ic_lz_chip`) + **短名（78dp 省略）**；可滚动簇保证不挤压别人 |
-| padding 8/4、行距 2dp、按钮 30dp | 紧凑节拍 | padding/行距照用；按钮 **44dp**（Android 下限 48dp、iOS 下限 44dp；因可滑，放宽宽度无代价） |
+| rikkahub                                     | 解决什么                                           | 我们的落地                                                                                  |
+| -------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **输入框满宽独占一行、在最上**，动作行在其下 | 输入框是第一眼落点、长文本有完整宽度、动作贴键盘侧 | 同（此前动作行在上、输入与发送同行，输入被发送键挤）                                        |
+| 动作行左簇 **`weight(1f)+horizontalScroll`** | **溢出从根上消失**：按钮再多也不换行、不挤压固定件 | 同（此前靠「算宽度刚好放下」，脆）                                                          |
+| 模型 **onlyIcon**；次要动作收进「＋ 更多」   | 名字不占宽度                                       | 半采用：模型 = 图标(`ic_lz_chip`) + **短名（78dp 省略）**；可滚动簇保证不挤压别人           |
+| padding 8/4、行距 2dp、按钮 30dp             | 紧凑节拍                                           | padding/行距照用；按钮 **44dp**（Android 下限 48dp、iOS 下限 44dp；因可滑，放宽宽度无代价） |
 
 未实现的三项入口**全保留**，点击弹如实说明（「附件：需要 P5 的图片管线，届时开放」）。
 **验证**：150% 系统字号下**不破版**（模型名继续省略、动作行与发送键完好、放不下则横滑）——
@@ -3101,9 +3192,9 @@ P3 大部分完成、P4 未开始。据此确认用户意图 = **把聊天链路
 **教训（两条，都要记住）**：
 ① 用户说「太挤/臃肿」时，解法是**重排**，不是删功能；删功能属于改需求。
 ② **有成熟参考实现时先去看它**——我前两轮都在自己猜版式（先算宽度、再调层级），
-   而 rikkahub 早有一套验证过的结构（输入在上 + 动作行可横滑 + 图标化）一次就把问题从根上解掉。
-   用户一句「你可以看一下 rikkahub 的实现方式」比我两轮试错都值。项目里有 `docs/rikkahub-master`
-   与 `rp-hub-reference` 两套参考源码，**遇到设计/实现拿不准先读它们**。
+而 rikkahub 早有一套验证过的结构（输入在上 + 动作行可横滑 + 图标化）一次就把问题从根上解掉。
+用户一句「你可以看一下 rikkahub 的实现方式」比我两轮试错都值。项目里有 `docs/rikkahub-master`
+与 `rp-hub-reference` 两套参考源码，**遇到设计/实现拿不准先读它们**。
 
 **③ DSML 协议标记漏进正文（我实测抓到）**：开启工具后 DeepSeek 除 `tool_calls` 外还用自家
 DSML 文本标记复述工具调用，那段标记作为 `content` 出现在气泡里（截图存档）。修法：
@@ -3113,15 +3204,15 @@ DSML 文本标记复述工具调用，那段标记作为 `content` 出现在气�
 
 ### 三、真机验证（全为真实交互）
 
-| 验证点 | 证据 |
-|---|---|
-| 模型面板 | 显示 `https://api.deepseek.com/models` 与供应商真实返回的 2 个模型；选中后 chip 变更并持久化 |
+| 验证点       | 证据                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| 模型面板     | 显示 `https://api.deepseek.com/models` 与供应商真实返回的 2 个模型；选中后 chip 变更并持久化 |
 | 工具开关 A/B | 关：只有 reasoning+content、**0 工具事件**；开：`tool_start` + 21 个参数分片 + `tool_result` |
-| 重新生成 | 触发真实新一轮（recall/reasoning/tool）；`‹2/2›` 出现且内容确为另一条新回复 |
-| 更多菜单 | 「复制 Markdown 源码 / 删除此消息 / 删除此消息及之后」 |
-| 编辑弹窗 | 「编辑这条回复」+ 预填 Markdown 源码 + 未改时保存禁用 |
-| 世界书面板 | 4 条真实条目 + 关键词 chips + 「编辑归 P4」说明 |
-| DSML 过滤 | 同一提示词重跑：回复是干净 RP 正文，无任何 `<\| … DSML …>` |
+| 重新生成     | 触发真实新一轮（recall/reasoning/tool）；`‹2/2›` 出现且内容确为另一条新回复                  |
+| 更多菜单     | 「复制 Markdown 源码 / 删除此消息 / 删除此消息及之后」                                       |
+| 编辑弹窗     | 「编辑这条回复」+ 预填 Markdown 源码 + 未改时保存禁用                                        |
+| 世界书面板   | 4 条真实条目 + 关键词 chips + 「编辑归 P4」说明                                              |
+| DSML 过滤    | 同一提示词重跑：回复是干净 RP 正文，无任何 `<\| … DSML …>`                                   |
 
 截图：`docs/design/verify-p3-{island-before,island-after,models,model-switched,tools,tools-off,worldbook,nosml,regenerate,more-menu,edit}.png`
 
@@ -3209,7 +3300,7 @@ IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 We
   关键认识：**手写样本必然漏字段**。手写会是
   `{role,name,content}`，而真前端写出来的是
   `{role,name,content,reasoning,id,shouldAnimate,isCotOpen,isReasoningOpen,
-  isReasoningUserToggled,isReasoningAutoCollapsed,isSelf,isSummaryOpen}`——
+isReasoningUserToggled,isReasoningAutoCollapsed,isSelf,isSummaryOpen}`——
   「瞬态字段白名单」这类要求只有真数据带得出来。
 - **真实入口清单**：`user`/`settings` 响应式赋值（触发 app.js 深度 watcher → `saveData()`）、
   `editUserApiProvider`+`saveProviderEditor`+`updateProviderKey`、
@@ -3276,9 +3367,9 @@ IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 We
   **无 Android 依赖** → 夹具 JSON 直接喂，不需要模拟器。
 - **一个真缺陷在实现时暴露**：上游「新键优先」是**整键替换**。照抄会把旧库/旧前缀里的角色卡
   **整张丢掉**——夹具里同一份数据有 `rp_hub_characters`(3) + 主库 `silly_tavern_characters`(1)
-  + 旧库 `silly_tavern_characters`(1)，照抄只剩 3 张。改为**带身份字段的记录按 uuid 逐条合并**
-  （同 uuid 取新库版本），其余键仍整键优先 + 留「被遮蔽」记录。
-  这一条现在被 `坑10 旧库独有的角色没被丢掉` 钉住。
+  - 旧库 `silly_tavern_characters`(1)，照抄只剩 3 张。改为**带身份字段的记录按 uuid 逐条合并**
+    （同 uuid 取新库版本），其余键仍整键优先 + 留「被遮蔽」记录。
+    这一条现在被 `坑10 旧库独有的角色没被丢掉` 钉住。
 - **幂等（G2）口径从严**：不是「同键覆盖」，而是「同一输入跑两次 `MigratedData` 逐字段相等」。
   为此：缺 uuid 的角色用**内容哈希**补 id（随机 UUID 会让第二次迁移多出一张卡）；
   合并/遍历顺序全部确定；`ExtractedAsset.equals` 按**字节内容**比（默认 `ByteArray` 是引用比较，
@@ -3297,11 +3388,11 @@ IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 We
 
 ### 三、设备端实测（模拟器 release 包，两条路径都跑）
 
-| 项 | 结果 |
-|---|---|
-| 单块 | `完成`：82,992 字符 / 1 块；manifest `mainKeys:29 legacyKeys:3 completed:true` |
-| 多块（`?chunk=8000`） | 11 块；**与单块版内容完全一致**（仅 `capturedAt` 不同） |
-| 与夹具比对 | **31/32 键逐字节相同**；唯一差异是夹具中被脱敏的两个密钥字段（长度保留） |
+| 项                    | 结果                                                                           |
+| --------------------- | ------------------------------------------------------------------------------ |
+| 单块                  | `完成`：82,992 字符 / 1 块；manifest `mainKeys:29 legacyKeys:3 completed:true` |
+| 多块（`?chunk=8000`） | 11 块；**与单块版内容完全一致**（仅 `capturedAt` 不同）                        |
+| 与夹具比对            | **31/32 键逐字节相同**；唯一差异是夹具中被脱敏的两个密钥字段（长度保留）       |
 
 > 夹具（`dump.js`）与生产导出器（`luzzy-migrate.html`）是**两条独立实现**，对同一份真实数据
 > 给出相同结果 → 单测用的夹具确实代表生产输入，不是自说自话。这是本轮最有价值的一条证据。
@@ -3351,7 +3442,7 @@ IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 We
 
 ### 三、坑：仪器化测试方法名不能带空格
 
-- 反引号中文用例名（`` fun `迁移导入落到 Room，行数与迁移结果一致`() ``）在 JVM 单测里没问题，
+- 反引号中文用例名（``fun `迁移导入落到 Room，行数与迁移结果一致`()``）在 JVM 单测里没问题，
   但 androidTest 要过 D8：Kotlin 为方法里的 `runBlocking { }` lambda 生成的内部类名
   `LuzzyStoreTest$迁移导入落到 Room，行数与迁移结果一致$1` **含空格**，
   而 DEX 040 之前不允许 → `dexBuilderDebugAndroidTest` 直接失败。
@@ -3381,15 +3472,16 @@ IndexedDB」（`file://` 同 origin 假设），b 路径备选是「在现有 We
 
 聊天页的会话数据从「内存 + 内置演示」改为**真实存储**：
 
-| 时机 | 行为 |
-|---|---|
+| 时机 | 行为                                                                         |
+| ---- | ---------------------------------------------------------------------------- |
 | 启动 | 载入当前角色的分支列表 + **该角色上次所在分支** + 各分支消息（分支按 id 读） |
-| 发送 | 追加用户消息行 → 生成收尾再追加助手回复行 |
-| 编辑 | 只更新该行 content（**payload 列不动** → 旧结构的多余字段不丢） |
-| 删除 | 单条 / 及其后 |
-| 分支 | 切换/重命名/删除都落盘（删分支连消息一起清） |
+| 发送 | 追加用户消息行 → 生成收尾再追加助手回复行                                    |
+| 编辑 | 只更新该行 content（**payload 列不动** → 旧结构的多余字段不丢）              |
+| 删除 | 单条 / 及其后                                                                |
+| 分支 | 切换/重命名/删除都落盘（删分支连消息一起清）                                 |
 
 两个刻意决定：
+
 - **思考内容也持久化**：`reasoning` 列在载入时还原成思考节点，否则重启后消息会「少一块」。
 - **界面不等 IO，但错误不吞**：写操作走独立协程（消息立刻上屏），失败只影响持久化；
   但失败要打日志——吞掉的话「没存住」会表现为「重启后少一条」，那时再查就晚了。
@@ -3608,19 +3700,20 @@ monogram 降级）+ `ChatSessionRepository.overview()`；路由 `Sessions` 带 `
 
 剖面 `PerfProfileTest`（30 卡 / 90 会话 / **1.24 万条消息**，预热 1 + 测 3 取中位）：
 
-| 操作 | 前 | 后 |
-|---|---|---|
-| `overview(90 条会话)` | **332ms** | **9ms**（改恒定 3 次查询） |
-| `load(重卡 6000 条)` | 51ms | **37ms**（只装当前分支） |
-| `load(轻卡)` | 17ms | 11ms |
-| `characters(30 全量 payload)` | 2ms | 1ms（**原以为是热点的猜测被数字否掉**） |
+| 操作                          | 前        | 后                                      |
+| ----------------------------- | --------- | --------------------------------------- |
+| `overview(90 条会话)`         | **332ms** | **9ms**（改恒定 3 次查询）              |
+| `load(重卡 6000 条)`          | 51ms      | **37ms**（只装当前分支）                |
+| `load(轻卡)`                  | 17ms      | 11ms                                    |
+| `characters(30 全量 payload)` | 2ms       | 1ms（**原以为是热点的猜测被数字否掉**） |
 
 顺带修两个真实缺陷：
+
 1. **思维链被当正文渲染**（迁移真数据暴露）——上游把 CoT 存在正文里、渲染期靠 `parseCot()` 剥离，
    我们只认 `reasoning` 字段 → `CotParser`（Kotlin 移植）+ 载入时转思考节点 + 编辑时 `rewrap` 装回。
 2. **每帧重解析**——`body` 曾是 getter，每次重组重扫 1~2KB 正文；改构造时算一次 + 有界缓存
    （冷 **193µs** / 热 **0.44µs**）。
-另：渲染期替换 `{{char}}`/`{{user}}`（上游只替换后者），存储不动。
+   另：渲染期替换 `{{char}}`/`{{user}}`（上游只替换后者），存储不动。
 
 ### 三、⚠️「模拟器那么卡」的真因（**不是应用**）
 
@@ -3734,6 +3827,7 @@ AVD 原值备份在 `config.ini.bak-perf`。
 四个拍板：注入策略**全保真改道为 DSH 式尾部快照**／**撤掉工作区入口**／**五个假数据页全部接真库**／**设计门继续豁免三方向**。
 
 **DSH 调查（核心结论，源码在 /tmp/dsh-src）**
+
 - 第一原则：**前缀稳定是涌现的，不是管理出来的**（append-only 日志 + 每节点纯函数投影）；
 - 会变的内容一律**尾部 user 快照**（变了才发 + 作废声明 + 去重：内容没变就一条都不发）；
 - 上游 7 个 position 里 3 个（at_depth/user_top/assistant_top）随轮次漂移，与纯追加**数学上不可兼得**
@@ -3741,19 +3835,22 @@ AVD 原值备份在 `config.ini.bak-perf`。
 - 完整 Agent Loop 要素清单（turn/step、finish_reason 驱动、配对完整、中断保留、压缩）已提炼，见计划 §1.4。
 
 **已落地（提交 62f79c26 / cb012be7 / d5e008ff / 532b6ecc，均已 push）**
+
 - 纯函数层 4 文件（PromptAssembler / WorldBookActivator / PromptSections / RuntimeSnapshots）+ 51 JVM 测试全绿；
 - `WorldBookTool` 换真库；人设字段裁决（description+personality 都进 prompt——上游只看后者会让真实卡人设全丢）；
 - **A5 真缺陷修复**：温度/最大输出从未持久化（load/save 都漏）→ 已补读写；
 - A4 schema 字节稳定门禁两条；`TransportStore` 漏存问题的修复说明。
 
 **A6/A7 已回退（两处真缺陷，重做方案三步写在 PLAN §11）**
+
 1. 快照落盘位置错：追加在列表末尾 ≠ 请求中的位置（用户消息之前）→ 纯追加没达成；
 2. 新增 `ChatMessage.Snapshot` 后仪器化测试出现 Compose 运行时崩溃。
-正确接法（下次照做）：`send()` 先取 bundle（IO）→ **先落快照、再落用户消息** → 再跑 turn；
-快照用 payload 标记持久化 + `toChatMessage` 认回 + 界面不渲染但进请求（`fromHistory` 已有）；
-验收加**字节级断言** `turn1 请求 ⊂ turn2 请求`。
+   正确接法（下次照做）：`send()` 先取 bundle（IO）→ **先落快照、再落用户消息** → 再跑 turn；
+   快照用 payload 标记持久化 + `toChatMessage` 认回 + 界面不渲染但进请求（`fromHistory` 已有）；
+   验收加**字节级断言** `turn1 请求 ⊂ turn2 请求`。
 
 **两处要更正的本会话说法**
+
 - 「主线程读库只在真机崩」**不成立**：Room 的 suspend DAO 自己切线程，`allowMainThreadQueries`
   只影响同步调用。`forTest` 移除该放宽仍然正确（让测试与生产同纪律），但理由要改；
 - 「SnapshotStateObserver 多线程」在**stash 基线（已知全绿的 cb012be7）同样复现** →
@@ -3779,13 +3876,13 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 ### 状态
 
-| 项 | 值 |
-|---|---|
-| 五阶段 | Stage 0-3 完成；Stage 4 完成 3/4（剩真机覆盖安装，等用户授权）；**P5 批 A 走到暂停点** |
-| HEAD | `532b6ecc` |
-| 门禁 | **单测全绿（434）**；仪器化在长跑模拟器上偶发红（stash 基线同样复现 = 环境劣化，重启处置） |
-| 最新发布 | 仍是 v1.4.0；v3.0.0 未发版 |
-| 设计真源 | `DESIGN-compose.md`（§24/§25 待回填）／`PLAN-v3.0-p5-agent-loop.md`（本轮计划） |
+| 项       | 值                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------ |
+| 五阶段   | Stage 0-3 完成；Stage 4 完成 3/4（剩真机覆盖安装，等用户授权）；**P5 批 A 走到暂停点**     |
+| HEAD     | `532b6ecc`                                                                                 |
+| 门禁     | **单测全绿（434）**；仪器化在长跑模拟器上偶发红（stash 基线同样复现 = 环境劣化，重启处置） |
+| 最新发布 | 仍是 v1.4.0；v3.0.0 未发版                                                                 |
+| 设计真源 | `DESIGN-compose.md`（§24/§25 待回填）／`PLAN-v3.0-p5-agent-loop.md`（本轮计划）            |
 
 ### 下一步（按序，第 1 步已由用户指示取消）
 
@@ -3852,13 +3949,13 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 **批 A 验收（PLAN §7.1）——达标**：
 
-| 判据 | 真机实测 |
-|---|---|
-| 公共前缀占比（相邻两轮） | **1.0000**（验收线 0.95，目标 1.0） |
-| 缓存命中率 | 该轮 `输入 10,956（缓存 9,756）` = **89.0%**；会话累计 0.4710（9,756/20,712） |
-| 缓存纪元变化 | **0**（同模型同设置，无虚假失效） |
-| 落盘顺序 | `落盘 idx=5 顺序=Snapshot→User` —— **快照先于用户消息**（A6 的核心不变式） |
-| 快照不渲染 | 对话里未出现 `Current runtime context…` |
+| 判据                     | 真机实测                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| 公共前缀占比（相邻两轮） | **1.0000**（验收线 0.95，目标 1.0）                                           |
+| 缓存命中率               | 该轮 `输入 10,956（缓存 9,756）` = **89.0%**；会话累计 0.4710（9,756/20,712） |
+| 缓存纪元变化             | **0**（同模型同设置，无虚假失效）                                             |
+| 落盘顺序                 | `落盘 idx=5 顺序=Snapshot→User` —— **快照先于用户消息**（A6 的核心不变式）    |
+| 快照不渲染               | 对话里未出现 `Current runtime context…`                                       |
 
 轮数如实登记：真机只跑到 **2 轮**（用户认为够了）；结构性质（1.0000 = 严格延伸）不随轮数变化，
 但「连续 5 轮」的字面要求**未在真机满足**，JVM 侧由 `BatchACacheAcceptanceTest` 覆盖 5 轮。
@@ -3874,7 +3971,7 @@ AVD 原值备份在 `config.ini.bak-perf`。
 2. **首帧 vs 启动准备竞速**：`ChatPage` 的 `remember { store.load() }` 早于旧设置搬运完成 →
    首帧渲染「未配置」，且永不刷新（要切页/重启才正常）。修法：搬运作为
    `MigrationCoordinator.ensureMigrated` 的 `startup` 回调（状态离开 Running 之前跑完）
-   + 聊天页在同一个启动门之后再读一次配置。
+   - 聊天页在同一个启动门之后再读一次配置。
 
 ### 3. 输入法不抬起输入岛（已修 · 并**更正**会话 74 早先的错误结论）
 
@@ -3890,11 +3987,11 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 **真机复验（clean release 包，`df97f3c4`）**：
 
-| 状态 | 发送键 bounds（y 区间） |
-|---|---|
-| 键盘收起 | `[1067,2465][1126,2524]` |
+| 状态     | 发送键 bounds（y 区间）      |
+| -------- | ---------------------------- |
+| 键盘收起 | `[1067,2465][1126,2524]`     |
 | 键盘弹起 | `[1067,**1481**][1126,1540]` |
-| 再收起 | `[1067,2465][1126,2524]` |
+| 再收起   | `[1067,2465][1126,2524]`     |
 
 分层探针实测：`imeBottom=1036`、`compose ime == viewIme == 1036`、`decorH == screenH`
 （窗口未被缩小，确实是 inset 路径）。探针已在验证后全部删除（复查 `logcat -s LuzzyInsets` 为空）。
@@ -3922,12 +4019,12 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 ### 4. 用户实测发现（4 条主观反馈，待分诊）
 
-| # | 现象 | 初步分诊 |
-|---|---|---|
-| 1 | 真流式输出失效（感觉不到逐字） | **未定位**。会话 74 的 diff 恰好改了 `send`/`runTurn`/列表项，**是首要嫌疑**，需与上一版 v3.0 包做 A/B |
-| 2 | 划到底部时不自动吸附跟随流式 | **未定位**。但 `isAtBottom()` 对「末项比视口还高」的情形判 false，长回复下本来就不跟随——属既有逻辑缺口，A/B 一并确认 |
-| 3 | 对话高亮（正则，引号内文字等）没有了 | **Compose 版从未实现**正则脚本的显示应用（迁移把 `rp_hub_regex` 搬进来了，但没有消费方）→ 属功能缺口，不是回归 |
-| 4 | 第一轮正文里看到「记忆整理」等 CoT，且输出完毕后消失（既不在节点也不在正文） | **既有行为**：流式期 `LiveTurn.body` 是模型原样正文，收尾时 `AiResult.body = CotParser.mainOf(raw)` 把未识别的 CoT 剥掉。真问题是**流式期与收尾后显示不一致** + 该段 CoT 未被识别成节点 |
+| #   | 现象                                                                         | 初步分诊                                                                                                                                                                                |
+| --- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 真流式输出失效（感觉不到逐字）                                               | **未定位**。会话 74 的 diff 恰好改了 `send`/`runTurn`/列表项，**是首要嫌疑**，需与上一版 v3.0 包做 A/B                                                                                  |
+| 2   | 划到底部时不自动吸附跟随流式                                                 | **未定位**。但 `isAtBottom()` 对「末项比视口还高」的情形判 false，长回复下本来就不跟随——属既有逻辑缺口，A/B 一并确认                                                                    |
+| 3   | 对话高亮（正则，引号内文字等）没有了                                         | **Compose 版从未实现**正则脚本的显示应用（迁移把 `rp_hub_regex` 搬进来了，但没有消费方）→ 属功能缺口，不是回归                                                                          |
+| 4   | 第一轮正文里看到「记忆整理」等 CoT，且输出完毕后消失（既不在节点也不在正文） | **既有行为**：流式期 `LiveTurn.body` 是模型原样正文，收尾时 `AiResult.body = CotParser.mainOf(raw)` 把未识别的 CoT 剥掉。真问题是**流式期与收尾后显示不一致** + 该段 CoT 未被识别成节点 |
 
 **明确未做**：这 4 条**本轮没有修**（属批 C 的缺陷清理项），也没写成结论——只有分诊意见。
 
@@ -3958,16 +4055,16 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 ### 状态一览
 
-| 项 | 值 |
-|---|---|
-| 五阶段 | Stage 0-3 完成；Stage 4 完成（真机装包 + 迁移 **已完成**）；**P5 批 A 完成并真机验收达标**；**批 B 在途（5/7）** |
-| HEAD | `ffd37a2c` |
-| 门禁 | **JVM 单测 509 条 / 0 失败（3 连跑稳定）**；`checkChat`（仪器化）**按用户指示未跑**（用户明确要求不用模拟器） |
-| 真机 | `df97f3c4`（小米 25098PN5AC / Android 16）；**机上装的是 `d400e766` 那份 release 包**
-（= 批 A + 输入法修复，已真机验证），**不是**批 B 的 `ffd37a2c` —— 批 B 是引擎重写，
-在用户明确授权前**不要**往真机装（真机数据是用户真实数据） |
-| 最新发布 | 仍是 v1.4.0；v3.0.0 未发版 |
-| 设计真源 | `DESIGN-compose.md`（§24/§25 **仍未回填**）／`PLAN-v3.0-p5-agent-loop.md` |
+| 项                                                                                   | 值                                                                                                               |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| 五阶段                                                                               | Stage 0-3 完成；Stage 4 完成（真机装包 + 迁移 **已完成**）；**P5 批 A 完成并真机验收达标**；**批 B 在途（5/7）** |
+| HEAD                                                                                 | `ffd37a2c`                                                                                                       |
+| 门禁                                                                                 | **JVM 单测 509 条 / 0 失败（3 连跑稳定）**；`checkChat`（仪器化）**按用户指示未跑**（用户明确要求不用模拟器）    |
+| 真机                                                                                 | `df97f3c4`（小米 25098PN5AC / Android 16）；**机上装的是 `d400e766` 那份 release 包**                            |
+| （= 批 A + 输入法修复，已真机验证），**不是**批 B 的 `ffd37a2c` —— 批 B 是引擎重写， |
+| 在用户明确授权前**不要**往真机装（真机数据是用户真实数据）                           |
+| 最新发布                                                                             | 仍是 v1.4.0；v3.0.0 未发版                                                                                       |
+| 设计真源                                                                             | `DESIGN-compose.md`（§24/§25 **仍未回填**）／`PLAN-v3.0-p5-agent-loop.md`                                        |
 
 ### 批 A 已完成（含真机验收）
 
@@ -3980,16 +4077,16 @@ AVD 原值备份在 `config.ini.bak-perf`。
 
 ### 批 B 在途（本轮未完成的部分，接手第一件事）
 
-| 项 | 状态 |
-|---|---|
-| B1 两级循环 + 状态机 | ✅ `chat/AgentLoop.kt`（`ChatEngine` 已删除改名，**不要**再引入同名类） |
-| B2 终止条件（含 max_tokens 粘性、50 step 上限） | ✅ |
-| B3 工具配对 + 合成结果 + 工具抛异常不掀翻 turn | ✅ |
-| B3b 工具轨迹落库 + 展开时补悬空 | ✅ `chat/ToolTrail.kt` + payload 键 `luzzyToolTrail` |
-| B4 中断保留（`interrupted` 标记落库/认回） | ✅（**UI 显示该标记未做**，属视觉产出需设计流程） |
-| **B5 压缩** | ❌ **未开始**（`TransportConfig` 还没有 `contextWindow` 字段） |
-| **B6 重试** | ❌ **未开始** |
-| B7 纯追加不变量守卫 | ✅ |
+| 项                                              | 状态                                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------- |
+| B1 两级循环 + 状态机                            | ✅ `chat/AgentLoop.kt`（`ChatEngine` 已删除改名，**不要**再引入同名类） |
+| B2 终止条件（含 max_tokens 粘性、50 step 上限） | ✅                                                                      |
+| B3 工具配对 + 合成结果 + 工具抛异常不掀翻 turn  | ✅                                                                      |
+| B3b 工具轨迹落库 + 展开时补悬空                 | ✅ `chat/ToolTrail.kt` + payload 键 `luzzyToolTrail`                    |
+| B4 中断保留（`interrupted` 标记落库/认回）      | ✅（**UI 显示该标记未做**，属视觉产出需设计流程）                       |
+| **B5 压缩**                                     | ❌ **未开始**（`TransportConfig` 还没有 `contextWindow` 字段）          |
+| **B6 重试**                                     | ❌ **未开始**                                                           |
+| B7 纯追加不变量守卫                             | ✅                                                                      |
 
 **未完成的还有**：`DESIGN-compose §24（请求组装与缓存）/§25（Agent Loop）` 两份设计真源回填
 （PLAN §6-D4 的一部分，属文档欠账）。
@@ -4041,10 +4138,10 @@ AVD 原值备份在 `config.ini.bak-perf`。
 `runTurn` 的 follow 循环、`pinToBottom`、`isAtBottom`、live 面板渲染**一处未动**
 （唯一相关变化是 `send()` 现在要先等一次 DB 取数 `prepareTurn` 再发请求 → 只影响**首字延迟**）。
 
-| 反馈 | 静态结论（证据） | 仍缺的那一步 |
-|---|---|---|
-| ① 真流式输出失效（感觉不到逐字） | **不是批 A 引入的回归**：内容增量→`LiveTurn.body`→气泡的整条路径在批 A 前后逐字节相同 | 真机 A/B（装 `ffd37a2c` 发 1-2 条消息） |
-| ② 划到底部不自动吸附跟随 | `follow = isAtBottom() && !isScrollInProgress` 是**批 A 之前就有**的判据；`isAtBottom()` 在「末项比视口还高」时判 false 是既有缺口 | 同上 |
+| 反馈                             | 静态结论（证据）                                                                                                                   | 仍缺的那一步                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| ① 真流式输出失效（感觉不到逐字） | **不是批 A 引入的回归**：内容增量→`LiveTurn.body`→气泡的整条路径在批 A 前后逐字节相同                                              | 真机 A/B（装 `ffd37a2c` 发 1-2 条消息） |
+| ② 划到底部不自动吸附跟随         | `follow = isAtBottom() && !isScrollInProgress` 是**批 A 之前就有**的判据；`isAtBottom()` 在「末项比视口还高」时判 false 是既有缺口 | 同上                                    |
 
 **两条很可能是同一个机理**：follow 一旦掉出去，新流出的文字就在视口**下方**越长越多，
 用户看到的是「画面不动」= ①，而「划到底也不跟」= ②。这一条**只能靠设备验证**——
@@ -4119,11 +4216,11 @@ release 包同签名覆盖安装（`ed78235d…` 指纹未变），数据保留�
 
 **① 「感觉不到逐字」+「划到底不吸附」= 三处独立缺陷（用户两条反馈的最终定性）**
 
-| # | 缺陷 | 真机证据 | 修法 |
-|---|---|---|---|
-| 1 | `pinToBottom` 滚不到真正的底 | 末项比视口高时，程序化贴底后「回到底部」常驻；手动滑到底后它立刻消失 → **判据没错，是滚动不到位**（差约 235px） | 滚完量一次真实缺口，用 `scrollBy` 补上（最多两轮） |
-| 2 | 开页 / 切分支的贴底是**空操作** | 冷启动后列表停在长会话**顶部**，节点 bounds 与「从未滚动」逐字节相同（pin 跑在异步取数之前，`totalItemsCount == 0` 早退且不重试） | 以「本分支条数」为键，等列表渲染出条目再贴；`pinnedBranch` 只贴一次 |
-| 3 | 跟随判据**流式期间必然抖成 false 且回不来** | 逐帧采样：一次真实生成里第 3 个采样点起「回到底部」常驻（= `isAtBottom()` false），文字继续在视口下方长出 | 跟随只认**用户手势**（`DragInteraction`）：拖动即停、停在底部即恢复；FAB 条件同步为 `!atBottom && !followTail` |
+| #   | 缺陷                                        | 真机证据                                                                                                                          | 修法                                                                                                           |
+| --- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | `pinToBottom` 滚不到真正的底                | 末项比视口高时，程序化贴底后「回到底部」常驻；手动滑到底后它立刻消失 → **判据没错，是滚动不到位**（差约 235px）                   | 滚完量一次真实缺口，用 `scrollBy` 补上（最多两轮）                                                             |
+| 2   | 开页 / 切分支的贴底是**空操作**             | 冷启动后列表停在长会话**顶部**，节点 bounds 与「从未滚动」逐字节相同（pin 跑在异步取数之前，`totalItemsCount == 0` 早退且不重试） | 以「本分支条数」为键，等列表渲染出条目再贴；`pinnedBranch` 只贴一次                                            |
+| 3   | 跟随判据**流式期间必然抖成 false 且回不来** | 逐帧采样：一次真实生成里第 3 个采样点起「回到底部」常驻（= `isAtBottom()` false），文字继续在视口下方长出                         | 跟随只认**用户手势**（`DragInteraction`）：拖动即停、停在底部即恢复；FAB 条件同步为 `!atBottom && !followTail` |
 
 **复验（同一台机器、同一份 release 包）**：开页即在底部（FAB 不出现）；点「回到底部」后 FAB 消失；
 上滑 → FAB 出现（手势判据生效）；滑回底部 → FAB 消失（跟随恢复）；一次完整真实生成全程 FAB 未出现，
@@ -4173,9 +4270,12 @@ I LuzzyCache: 本轮 … 命中 0.8079（7,504/9,288）· 纪元变化 0 · [Clo
 看屏幕（截图）确认：模型正文里写的是**内联样式 HTML**：
 
 ```html
-<div style="display:block;margin:16px auto;max-width:520px;background:#0d1416;border:1px solid #1f3a3c;…">
+<div
+  style="display:block;margin:16px auto;max-width:520px;background:#0d1416;border:1px solid #1f3a3c;…"
+>
   <div style="…letter-spacing:3px;…">墙垣铭文 · 残译</div>
-  <div style="…">PÆRMIΓ</div><div>…[一] 此并不通天，纳万物之影。…</div>
+  <div style="…">PÆRMIΓ</div>
+  <div>…[一] 此并不通天，纳万物之影。…</div>
 </div>
 ```
 
@@ -4201,14 +4301,14 @@ CSP 缺 `script-src`、实体编码绕过未拦）——已按判据修实现，
 **设计门（硬性规定 9，触发）**：委托独立评审完整读完 4 项 SKILL 主文档 + `DESIGN-compose`
 相关节，结论 **GO（需调整）**，六条必须调整项**全部落实**：
 
-| # | 评审要求 | 落实 |
-|---|---|---|
-| ① | 卡片字号要跟随系统缩放 | `textZoom` 由 `LocalDensity.fontScale` 算出（夹 50–300） |
-| ② | 高度治理：不许首帧撑开弹出、不许静默裁内容 | 含卡气泡跳过 `animateContentSize`；清洗时去掉内联样式里的 `height`/`max-height`/`overflow*` |
-| ③ | 主题基线 + 亮/暗双主题目测 | 注入 `body{color:主题色}` + 链接色 + 基准字号（低特异性）；**亮/暗各目测一次** |
-| ④ | reduced-motion | `ANIMATOR_DURATION_SCALE == 0` 时无条件停用卡内动效；另始终带 `prefers-reduced-motion` 查询 |
-| ⑤ | 流式成本与线程安全 | 流式分段改到后台线程；正则表全部**预编译只读**（原可变缓存会成数据竞争） |
-| ⑥ | 真源自相矛盾 | `DESIGN-compose §16.4` 的「HTML 按纯文本展示」已标注**被 §26 取代** |
+| #   | 评审要求                                   | 落实                                                                                        |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| ①   | 卡片字号要跟随系统缩放                     | `textZoom` 由 `LocalDensity.fontScale` 算出（夹 50–300）                                    |
+| ②   | 高度治理：不许首帧撑开弹出、不许静默裁内容 | 含卡气泡跳过 `animateContentSize`；清洗时去掉内联样式里的 `height`/`max-height`/`overflow*` |
+| ③   | 主题基线 + 亮/暗双主题目测                 | 注入 `body{color:主题色}` + 链接色 + 基准字号（低特异性）；**亮/暗各目测一次**              |
+| ④   | reduced-motion                             | `ANIMATOR_DURATION_SCALE == 0` 时无条件停用卡内动效；另始终带 `prefers-reduced-motion` 查询 |
+| ⑤   | 流式成本与线程安全                         | 流式分段改到后台线程；正则表全部**预编译只读**（原可变缓存会成数据竞争）                    |
+| ⑥   | 真源自相矛盾                               | `DESIGN-compose §16.4` 的「HTML 按纯文本展示」已标注**被 §26 取代**                         |
 
 另采纳建议：清洗器正则预编译、删多余的 `@SuppressLint`；评审指出的**死控件**（`button`/`label`
 点了没反应）已处理为降级 `span` / 删除输入类。**未处理的风险如实登记**：卡片密集会话的
@@ -4233,11 +4333,11 @@ CSP 缺 `script-src`、实体编码绕过未拦）——已按判据修实现，
 
 **定位（三件事，只有两件是本项目的缺口）**：
 
-| 现象 | 归属 | 判定 |
-|---|---|---|
-| `<div style="background:#0d1416">…</div>` 铺成纯文本 | 块级 HTML | 上一轮已修（卡片通道） |
-| 引号内对白没有颜色 | **行内 HTML** | 缺口：`<span style=…>` 从来没被渲染（Compose 文本层不认识标签） |
-| 正文首行 `!set_color` | 模型自造控制行 | **不是缺口**：全仓库 JS 无任何 `!命令` 解析（逐文件核查），上游同样当普通文字显示 |
+| 现象                                                 | 归属           | 判定                                                                              |
+| ---------------------------------------------------- | -------------- | --------------------------------------------------------------------------------- |
+| `<div style="background:#0d1416">…</div>` 铺成纯文本 | 块级 HTML      | 上一轮已修（卡片通道）                                                            |
+| 引号内对白没有颜色                                   | **行内 HTML**  | 缺口：`<span style=…>` 从来没被渲染（Compose 文本层不认识标签）                   |
+| 正文首行 `!set_color`                                | 模型自造控制行 | **不是缺口**：全仓库 JS 无任何 `!命令` 解析（逐文件核查），上游同样当普通文字显示 |
 
 **实现**（细节见 `DESIGN-compose §27`）：
 
@@ -4291,102 +4391,101 @@ CSP 缺 `script-src`、实体编码绕过未拦）——已按判据修实现，
 
 ### 状态一览
 
-| 项 | 值 |
-|---|---|
-| HEAD | `2223e188`（显示期正则 + 行内 HTML：代码 + 测试 + `DESIGN §27` + 交接，**已 push**） |
-| 门禁 | **JVM 单测 647 条 / 0 失败，连跑 3 次稳定**；`checkChat`（仪器化）**按用户指示未跑**（无模拟器）；仪器化源码编译通过 |
-| 真机 | `df97f3c4` 上装的是本轮 release 包（含 §26 卡片 + §27 正则/行内）；**验收做到一半设备被收回**，随后 `adb` 报 device not found |
-| 阶段 | Stage 0-4 完成（含真机迁移）；批 A 真机验收达标（公共前缀 1.0000、命中 89%）；批 B 代码完成 + 真机抽验通过；**批 C 未开始** |
-| 设计真源 | `DESIGN-compose.md`（§24 请求组装与缓存 / §25 Agent Loop / §26 块级 HTML 直通 / **§27 显示期正则 + 行内 HTML**） |
-| 发版 | 最新发布仍是 **v1.4.0**；**v3.0.0 未发版**。⚠️ **launcher 仍指向 WebView 的 `MainActivity`**，Compose UI（`ui.ComposeActivity`）只能用 `adb am start` 进 —— 切 launcher 属 **P6**，需要用户在场 |
-| 用户三条反馈 | ① 流式不跟随 ✅ 已修（跟随链三处缺陷）② 卡片没渲染 ✅ 已修（§26，真机目测过）③ **引号高亮 / 「这一段是不是正则」✅ 代码已修（§27），但只有单测证据、缺目视证据** |
+| 项           | 值                                                                                                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HEAD         | `2223e188`（显示期正则 + 行内 HTML：代码 + 测试 + `DESIGN §27` + 交接，**已 push**）                                                                                                            |
+| 门禁         | **JVM 单测 647 条 / 0 失败，连跑 3 次稳定**；`checkChat`（仪器化）**按用户指示未跑**（无模拟器）；仪器化源码编译通过                                                                            |
+| 真机         | `df97f3c4` 上装的是本轮 release 包（含 §26 卡片 + §27 正则/行内）；**验收做到一半设备被收回**，随后 `adb` 报 device not found                                                                   |
+| 阶段         | Stage 0-4 完成（含真机迁移）；批 A 真机验收达标（公共前缀 1.0000、命中 89%）；批 B 代码完成 + 真机抽验通过；**批 C 未开始**                                                                     |
+| 设计真源     | `DESIGN-compose.md`（§24 请求组装与缓存 / §25 Agent Loop / §26 块级 HTML 直通 / **§27 显示期正则 + 行内 HTML**）                                                                                |
+| 发版         | 最新发布仍是 **v1.4.0**；**v3.0.0 未发版**。⚠️ **launcher 仍指向 WebView 的 `MainActivity`**，Compose UI（`ui.ComposeActivity`）只能用 `adb am start` 进 —— 切 launcher 属 **P6**，需要用户在场 |
+| 用户三条反馈 | ① 流式不跟随 ✅ 已修（跟随链三处缺陷）② 卡片没渲染 ✅ 已修（§26，真机目测过）③ **引号高亮 / 「这一段是不是正则」✅ 代码已修（§27），但只有单测证据、缺目视证据**                                |
 
 ### 正文渲染链完成度总表（判断「显示不对」时先看这张表）
 
-| 环节 | 上游实现 | 我们的实现 | 状态 |
-|---|---|---|---|
-| 显示期正则 | `processRegex(isDisplay)` `app.js:4014` | `chat/RegexScripts.kt`（纯） | ✅ 静态完成 + 已接线；**未目视** |
-| 行内 HTML | 浏览器 | `ui/markdown/InlineHtml.kt` + `MdSpan.Html` 渲染分支 | ✅ 静态完成 + 已接线；**未目视** |
-| 块级 HTML | `marked` + `DOMPurify` + `v-html` | `HtmlBlocks` + `HtmlCard`（WebView，JS/网络全关） | ✅ **真机目测通过**（§26.8） |
-| 提示词侧正则 | `processRegex(isPrompt)` `app.js:6511` | — | ❌ 未接线（函数已支持 `Mode.Prompt`+depth）**静态可做** |
-| UI 模板变量块·剥除 | `stripUiTemplateUpdateBlock` `data-services.js:1665` | — | ❌ 未做 **静态可做** |
-| UI 模板变量块·面板 | `renderUiTemplateHtml` | — | ❌ 未做（要真机） |
-| 文风过滤 | `filterBlockedStyleText` `app.js:1470`（默认**开**） | — | ❌ 未做 **静态可做（先问用户）** |
-| 思考块拆分 | `parseCot` `core-utils.js:19` | 只把它纳入**受保护区** | ❌ 拆分未做（纯逻辑可静态做一半） |
+| 环节               | 上游实现                                             | 我们的实现                                           | 状态                                                    |
+| ------------------ | ---------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- |
+| 显示期正则         | `processRegex(isDisplay)` `app.js:4014`              | `chat/RegexScripts.kt`（纯）                         | ✅ 静态完成 + 已接线；**未目视**                        |
+| 行内 HTML          | 浏览器                                               | `ui/markdown/InlineHtml.kt` + `MdSpan.Html` 渲染分支 | ✅ 静态完成 + 已接线；**未目视**                        |
+| 块级 HTML          | `marked` + `DOMPurify` + `v-html`                    | `HtmlBlocks` + `HtmlCard`（WebView，JS/网络全关）    | ✅ **真机目测通过**（§26.8）                            |
+| 提示词侧正则       | `processRegex(isPrompt)` `app.js:6511`               | —                                                    | ❌ 未接线（函数已支持 `Mode.Prompt`+depth）**静态可做** |
+| UI 模板变量块·剥除 | `stripUiTemplateUpdateBlock` `data-services.js:1665` | —                                                    | ❌ 未做 **静态可做**                                    |
+| UI 模板变量块·面板 | `renderUiTemplateHtml`                               | —                                                    | ❌ 未做（要真机）                                       |
+| 文风过滤           | `filterBlockedStyleText` `app.js:1470`（默认**开**） | —                                                    | ❌ 未做 **静态可做（先问用户）**                        |
+| 思考块拆分         | `parseCot` `core-utils.js:19`                        | 只把它纳入**受保护区**                               | ❌ 拆分未做（纯逻辑可静态做一半）                       |
 
 ### 批 B 逐项状态（PLAN §12 已同步）
 
-| 项 | 状态 |
-|---|---|
-| B1 两级循环 + 状态机 | ✅ `chat/AgentLoop.kt`（**勿再引入 `ChatEngine`**） |
-| B2 终止条件（max_tokens 粘性 / 50 step） | ✅ |
-| B3 工具配对 + 合成结果 + 工具抛异常兜底 | ✅（真机实测工具真实执行：`world_info_lookup`） |
-| B3b 工具轨迹落库 | ✅ `chat/ToolTrail.kt` + payload 键 `luzzyToolTrail` |
-| B4 中断保留（`interrupted` 落库/认回） | ✅（**UI 显示未做**，属视觉产出须走设计流程） |
-| **B5 压缩** | ✅ 代码 + 水位线落库 + `contextWindow` 设置项，**真机跑通**：`压缩落库 idx=4 裁=4 条 · 估算 13943→12153`、该轮提示词 **10,847→9,288**、命中 **80.8%** |
-| **B6 重试** | ✅ 代码（溢出→先压缩再重发 / 网络→原样重发，各一次且只在无内容上屏时）；**真机无法按需触发**，靠 JVM 12 例 |
-| B7 纯追加不变量守卫 | ✅ |
+| 项                                       | 状态                                                                                                                                                  |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1 两级循环 + 状态机                     | ✅ `chat/AgentLoop.kt`（**勿再引入 `ChatEngine`**）                                                                                                   |
+| B2 终止条件（max_tokens 粘性 / 50 step） | ✅                                                                                                                                                    |
+| B3 工具配对 + 合成结果 + 工具抛异常兜底  | ✅（真机实测工具真实执行：`world_info_lookup`）                                                                                                       |
+| B3b 工具轨迹落库                         | ✅ `chat/ToolTrail.kt` + payload 键 `luzzyToolTrail`                                                                                                  |
+| B4 中断保留（`interrupted` 落库/认回）   | ✅（**UI 显示未做**，属视觉产出须走设计流程）                                                                                                         |
+| **B5 压缩**                              | ✅ 代码 + 水位线落库 + `contextWindow` 设置项，**真机跑通**：`压缩落库 idx=4 裁=4 条 · 估算 13943→12153`、该轮提示词 **10,847→9,288**、命中 **80.8%** |
+| **B6 重试**                              | ✅ 代码（溢出→先压缩再重发 / 网络→原样重发，各一次且只在无内容上屏时）；**真机无法按需触发**，靠 JVM 12 例                                            |
+| B7 纯追加不变量守卫                      | ✅                                                                                                                                                    |
 
 ### 未修 / 已修的真实缺陷（完整清单）
 
-| # | 缺陷 | 状态 |
-|---|---|---|
-| 1 | 真流式「感觉不到逐字」 | ✅ 已定性并修复：跟随链三处缺陷，非流式链路本身 |
-| 2 | 划到底不自动吸附跟随 | ✅ 同上（同一批三处缺陷的另一面） |
-| 3 | 正则高亮缺失 | ✅ **本轮已实现**（`RegexScripts` + `InlineHtml` + 接线）；⚠️ **待目视** |
-| 4 | 首轮正文出现 CoT、输出完毕后消失 | ❌ 流式期与收尾后显示不一致 + 未识别成节点（纯逻辑部分**静态可做**） |
-| 5 | 追加消息覆盖老消息（丢数据） | ✅ 已修（`MAX(sortIndex)+1`） |
-| 6 | 供应商配置保存丢字段 | ✅ 已修（`initial.copy`；真机验证） |
-| 7 | 配置对话框「已配置」后不可达 | ✅ 已修（模型面板底部补入口，真机可用） |
-| 8 | 正文首行出现 `!set_color` 之类控制行 | ⚪ **不是我们的缺口**：全仓库无 `!命令` 解析，上游也当普通文字显示（模型自造）。**不要为此发明过滤器**；要治只能改预设/提示词 |
+| #   | 缺陷                                 | 状态                                                                                                                          |
+| --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 真流式「感觉不到逐字」               | ✅ 已定性并修复：跟随链三处缺陷，非流式链路本身                                                                               |
+| 2   | 划到底不自动吸附跟随                 | ✅ 同上（同一批三处缺陷的另一面）                                                                                             |
+| 3   | 正则高亮缺失                         | ✅ **本轮已实现**（`RegexScripts` + `InlineHtml` + 接线）；⚠️ **待目视**                                                      |
+| 4   | 首轮正文出现 CoT、输出完毕后消失     | ❌ 流式期与收尾后显示不一致 + 未识别成节点（纯逻辑部分**静态可做**）                                                          |
+| 5   | 追加消息覆盖老消息（丢数据）         | ✅ 已修（`MAX(sortIndex)+1`）                                                                                                 |
+| 6   | 供应商配置保存丢字段                 | ✅ 已修（`initial.copy`；真机验证）                                                                                           |
+| 7   | 配置对话框「已配置」后不可达         | ✅ 已修（模型面板底部补入口，真机可用）                                                                                       |
+| 8   | 正文首行出现 `!set_color` 之类控制行 | ⚪ **不是我们的缺口**：全仓库无 `!命令` 解析，上游也当普通文字显示（模型自造）。**不要为此发明过滤器**；要治只能改预设/提示词 |
 
 ### 下一步（**按「有没有真机」分栏**；无真机时只做 A 栏）
 
 **A 栏 · 无真机可做（判据全部落在 JVM 门禁上；每项：先写测试 → 实现 → 3 连跑）**
 
 A1. **提示词侧正则接线**（`app.js:6511-6518` 口径）：把 `RegexScripts.apply(..., Mode.Prompt, depth)`
-    接进 `RequestBuilder` 的历史消息映射，`depth = 条数-1-下标`。
-    *判据*：`RequestBuilderTest` 新增「勾了『仅提示词』的脚本进请求、勾了『仅用户可见』的不进、
-    depth 区间外的跳过」；并**重跑批 A 的纯追加不变量断言**（脚本确定性 → 前缀仍稳定）。
-    *理由*：上游模型看到的上下文与用户看到的不同，这是「模型为什么不听话」的常见真因。
-    **风险**：改请求内容 → 真机复核缓存命中率（进 B 栏）。
-A2. **`<ui_template_updates>` 变量块剥除**（`data-services.js:1650-1691`）：`findUiTemplateUpdateBlock`
-    + `stripUiTemplateUpdateBlock` 的移植（**只认受保护区外的最后一个块**；未闭合算到文末），
-    以及 `parseUiTemplateUpdates` 的 JSON 解析（容忍 ``` 围栏、单模板/多模板两种形态）。
-    *判据*：纯函数单测（剥除后正文不含块、块内 JSON 不参与行内 HTML/正则、非法 JSON 不抛到界面）。
-    *理由*：变量块是**隐藏指令**，现在会整段显示成文字；剥掉它零风险且用户立刻能看见差别。
+接进 `RequestBuilder` 的历史消息映射，`depth = 条数-1-下标`。
+_判据_：`RequestBuilderTest` 新增「勾了『仅提示词』的脚本进请求、勾了『仅用户可见』的不进、
+depth 区间外的跳过」；并**重跑批 A 的纯追加不变量断言**（脚本确定性 → 前缀仍稳定）。
+_理由_：上游模型看到的上下文与用户看到的不同，这是「模型为什么不听话」的常见真因。
+**风险**：改请求内容 → 真机复核缓存命中率（进 B 栏）。
+A2. **`<ui_template_updates>` 变量块剥除**（`data-services.js:1650-1691`）：`findUiTemplateUpdateBlock` + `stripUiTemplateUpdateBlock` 的移植（**只认受保护区外的最后一个块**；未闭合算到文末），
+以及 `parseUiTemplateUpdates` 的 JSON 解析（容忍 ``` 围栏、单模板/多模板两种形态）。
+_判据_：纯函数单测（剥除后正文不含块、块内 JSON 不参与行内 HTML/正则、非法 JSON 不抛到界面）。
+_理由_：变量块是**隐藏指令**，现在会整段显示成文字；剥掉它零风险且用户立刻能看见差别。
 A3. **思考块（CoT）拆分**：`parseCot`（`core-utils.js:19-68`）的完整移植 →
-    `ranges/cot/main/closingTags/isFinished`，流式未闭合时的收尾规则也照搬。
-    *判据*：纯函数单测（嵌套 thinking、未闭合、围栏里的标签不算）。渲染成节点的**视觉**留 B 栏。
+`ranges/cot/main/closingTags/isFinished`，流式未闭合时的收尾规则也照搬。
+_判据_：纯函数单测（嵌套 thinking、未闭合、围栏里的标签不算）。渲染成节点的**视觉**留 B 栏。
 A4. **文风过滤 `filterBlockedStyleText`**：上游默认**开**（`settings.styleFilterEnabled`），
-    它是「删改 AI 措辞」的独立功能，规则是一组中文短语正则（`app.js:1440-1502`）。
-    ⚠️ **先问用户要不要**（它会减字，属产品行为）；要做就纯函数 + 单测，默认值随用户答复。
+它是「删改 AI 措辞」的独立功能，规则是一组中文短语正则（`app.js:1440-1502`）。
+⚠️ **先问用户要不要**（它会减字，属产品行为）；要做就纯函数 + 单测，默认值随用户答复。
 A5. **批 C 的取数层与纯逻辑**（不碰视觉）：用量聚合（`records(usage)` + 缓存命中率）、
-    记忆真统计、角色列表与头像路径、设置绑定（用户档案 → A2 用户信息块；供应商 → `TransportStore`）。
-    *判据*：单测 + 「同输入同输出」；**页面视觉与「看得见」判据留 B 栏**（仓库被咬过一次：
-    「DOM 里有 ≠ 用户看得见」）。
+记忆真统计、角色列表与头像路径、设置绑定（用户档案 → A2 用户信息块；供应商 → `TransportStore`）。
+_判据_：单测 + 「同输入同输出」；**页面视觉与「看得见」判据留 B 栏**（仓库被咬过一次：
+「DOM 里有 ≠ 用户看得见」）。
 A6. **仪器化用例补齐**（`checkChat` 源码层）：把本轮/后续新增能力写成仪器化用例并保证
-    `:app:compileDebugAndroidTestKotlin` 通过（运行留 B 栏）。
+`:app:compileDebugAndroidTestKotlin` 通过（运行留 B 栏）。
 A7. **静态验收准备**：把 B 栏所有待办整理成一张**可勾选的真机回归清单**（含操作步骤、预期、
-    判据），设备回来时照单执行——本轮已把清单骨架写进 `HANDOFF-p5-static.md` B 栏。
+判据），设备回来时照单执行——本轮已把清单骨架写进 `HANDOFF-p5-static.md` B 栏。
 
 **B 栏 · 必须等真机（设备回来后按序，全部需要用户在场或同意）**
 
 B1. **行内高亮的目视证据**（本轮唯一缺的东西）：发一条含 `<span style="color:…">` 的消息
-    （或让用户自己发），确认引号/对白**真的变色**且正文不断行、不吞字。**写入前问用户**。
+（或让用户自己发），确认引号/对白**真的变色**且正文不断行、不吞字。**写入前问用户**。
 B2. 批 C 五个页面的**可见性验收**：`getBoundingClientRect().width > 0`、`scrollWidth ≤ clientWidth`、
-    亮/暗双主题截图；本轮及以后所有 UI 改动都要过这一关。
+亮/暗双主题截图；本轮及以后所有 UI 改动都要过这一关。
 B3. 提示词侧正则（A1）后的**缓存命中率**复核：公共前缀比例 + `cached_tokens` 实测，口径同批 A。
 B4. `checkChat` 仪器化真机跑（无模拟器纪律 → 只能真机）；B6 重试真机触发；长回复跟随；
-    「同会话 10 张卡」滚动帧率 A/B。
+「同会话 10 张卡」滚动帧率 A/B。
 B5. **P6 切换与发版**：切 launcher、移除 WebView 路径、单 APK + 签名一致 + 真机回归（AGENTS §3.4）。
-    **别在无真机时做**。
+**别在无真机时做**。
 
 **C 栏 · 等用户拍板（与真机无关，但别自作主张）**
 C1. 主分支里那条压缩水位线是否清掉（清它会连带删掉其后消息）；
 C2. 文风过滤是否启用（A4）；
 C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡片（图靠上游 JS 管线填，
-    且卡片网络被禁）——要不要先把它当「未实现」显式跳过（现在会得到一个空卡片）。
+且卡片网络被禁）——要不要先把它当「未实现」显式跳过（现在会得到一个空卡片）。
 
 ### 真机环境注意事项（踩过的坑；设备回来后再看）
 
@@ -4416,16 +4515,16 @@ C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡
 
 ### 完成（A 栏七项 + 一项拍板）
 
-| # | 项 | 落点 |
-|---|---|---|
-| A1 | **提示词侧正则接线** | `RegexScripts.applyToPromptMessages` + `RequestBuilder.plan(regexScripts, promptUserName, styleFilterEnabled)`；`ChatPage.prepareTurn` 接线（`promptUserName` 用**档案原名**，不套显示期的「你」兜底） |
-| A2 | **`<ui_template_updates>` 剥除 + 解析** | 新 `chat/UiTemplateUpdates.kt`（`strip`/`find`/`parse`）；接进 `MessageBody` 与 `UserBubble`，**顺序是「先剥块、再跑正则」**（上游 `app.js:11016` 同）。**面板渲染按指示未做** |
-| A3 | **`parseCot` 完整移植** | `CotParser` 补 `ranges`/`rawCot`/`closingTags`；**收编** `RegexScripts.cotRanges` 的重复实现（受保护区自此单一真源） |
-| A4 | **文风过滤** | 新 `chat/StyleFilter.kt`；**用户拍板「做，默认开」→ 同日扩为「完全照上游」（三处都接）** |
-| A5 | **批 C 取数层与纯逻辑** | 新 `chat/PageAggregates.kt`（纯聚合）+ `chat/PageDataSource.kt`（取数）；角色卡/记忆/用量三页接真库；新 `ui/pages/AvatarImage.kt` |
-| A6 | **仪器化用例** | 新 `PageDataUiTest`（7）+ `MessageBodyUiTest`（9）；`:app:compileDebugAndroidTestKotlin` 通过，**运行留真机** |
-| A7 | **真机回归清单** | `HANDOFF-p5-static.md` B 栏扩成**可勾选**清单（B0 前置 / B1 目视 / B2 可见性 / B3 缓存复核 / B4 仪器化 / B5 发版 / B6 拍板项） |
-| — | **NAI 生图正则显式跳过** | 用户拍板；`RegexScripts.IMAGE_GEN_UNSUPPORTED = true`（一行开关，生图管线做好后翻转即可） |
+| #   | 项                                      | 落点                                                                                                                                                                                                   |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A1  | **提示词侧正则接线**                    | `RegexScripts.applyToPromptMessages` + `RequestBuilder.plan(regexScripts, promptUserName, styleFilterEnabled)`；`ChatPage.prepareTurn` 接线（`promptUserName` 用**档案原名**，不套显示期的「你」兜底） |
+| A2  | **`<ui_template_updates>` 剥除 + 解析** | 新 `chat/UiTemplateUpdates.kt`（`strip`/`find`/`parse`）；接进 `MessageBody` 与 `UserBubble`，**顺序是「先剥块、再跑正则」**（上游 `app.js:11016` 同）。**面板渲染按指示未做**                         |
+| A3  | **`parseCot` 完整移植**                 | `CotParser` 补 `ranges`/`rawCot`/`closingTags`；**收编** `RegexScripts.cotRanges` 的重复实现（受保护区自此单一真源）                                                                                   |
+| A4  | **文风过滤**                            | 新 `chat/StyleFilter.kt`；**用户拍板「做，默认开」→ 同日扩为「完全照上游」（三处都接）**                                                                                                               |
+| A5  | **批 C 取数层与纯逻辑**                 | 新 `chat/PageAggregates.kt`（纯聚合）+ `chat/PageDataSource.kt`（取数）；角色卡/记忆/用量三页接真库；新 `ui/pages/AvatarImage.kt`                                                                      |
+| A6  | **仪器化用例**                          | 新 `PageDataUiTest`（7）+ `MessageBodyUiTest`（9）；`:app:compileDebugAndroidTestKotlin` 通过，**运行留真机**                                                                                          |
+| A7  | **真机回归清单**                        | `HANDOFF-p5-static.md` B 栏扩成**可勾选**清单（B0 前置 / B1 目视 / B2 可见性 / B3 缓存复核 / B4 仪器化 / B5 发版 / B6 拍板项）                                                                         |
+| —   | **NAI 生图正则显式跳过**                | 用户拍板；`RegexScripts.IMAGE_GEN_UNSUPPORTED = true`（一行开关，生图管线做好后翻转即可）                                                                                                              |
 
 ### 用户拍板的三件事（本轮问答）
 
@@ -4438,10 +4537,10 @@ C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡
 
 ### 缺陷 / 教训（本轮**自己踩到并修掉**的两处，都是静默失效）
 
-| # | 现象 | 根因 | 修法 |
-|---|---|---|---|
-| 1 | 提示词侧 `{{user}}` 被**删成空白** | 「空名保留占位符」这条契约原先**不是显式实现**，是靠 `applyToPromptMessages` 的提前返回**顺带**兜住的；加②之后提前返回多了一个分支（空名且过滤开着会走进 `apply`）→ 契约当场破 | 判据搬到**源头**（`apply` 里 `if (userName.isBlank()) text`）——调用方再增分支也不会失效。**教训：语义不能靠「调用方的提前返回」实现，那是隐式契约** |
-| 2 | 记忆页会读**主线**而不是当前分支 → 数字静默不对（对话里有记忆、页面显示 0 条） | 会话本体是 (角色, **分支**)；第一版 `memory(uuid)` 用 `ScopeId(uuid)` 默认落 `main` | `memory(uuid, branchId)` + `activeBranch()`；仪器化用例**刻意用非主线分支**跑（用主线就测不到它） |
+| #   | 现象                                                                           | 根因                                                                                                                                                                           | 修法                                                                                                                                                |
+| --- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 提示词侧 `{{user}}` 被**删成空白**                                             | 「空名保留占位符」这条契约原先**不是显式实现**，是靠 `applyToPromptMessages` 的提前返回**顺带**兜住的；加②之后提前返回多了一个分支（空名且过滤开着会走进 `apply`）→ 契约当场破 | 判据搬到**源头**（`apply` 里 `if (userName.isBlank()) text`）——调用方再增分支也不会失效。**教训：语义不能靠「调用方的提前返回」实现，那是隐式契约** |
+| 2   | 记忆页会读**主线**而不是当前分支 → 数字静默不对（对话里有记忆、页面显示 0 条） | 会话本体是 (角色, **分支**)；第一版 `memory(uuid)` 用 `ScopeId(uuid)` 默认落 `main`                                                                                            | `memory(uuid, branchId)` + `activeBranch()`；仪器化用例**刻意用非主线分支**跑（用主线就测不到它）                                                   |
 
 ### 方法上的一条：期望值要**跑出来**，不要**想出来**
 
@@ -4464,11 +4563,6 @@ C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡
 - **B3 是 A1 的验收尾巴**：提示词侧正则改了请求内容 → 必须复核缓存命中率；
   若下降，先看用户是否配了「仅提示词 + 深度区间」的脚本（那会**本就**漂移，上游同语义）。
 
-
-
-
-
-
 ---
 
 ## 📍 当前工作节点（会话 76 收尾 · 2026-09-14 · **设备仍被用户收回 → 继续静态**）
@@ -4488,48 +4582,49 @@ C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡
 
 ### 状态一览（会话 76）
 
-| 项 | 值 |
-|---|---|
-| HEAD | `81e16e7f`（正文渲染链补完 + 批 C 取数层，**已 push**） |
-| 门禁 | **JVM 单测 751 条 / 0 失败，连跑 3 次稳定**；`:app:compileDebugAndroidTestKotlin` 通过 |
-| 真机 | `df97f3c4` 上装的仍是**上一轮**的 release（含 §26/§27，**不含本轮改动**）；本轮**零真机操作** |
-| 阶段 | 批 A ✅ / 批 B ✅ / **正文渲染链补完 A1-A4** ✅ / **批 C 取数层与纯逻辑 A5** ✅ / A6-A7 ✅；**批 C 余项与批 D 未开始** |
-| 设计真源 | `DESIGN-compose.md` §24-§27（**§27.6-27.8 是本轮的新登记**） |
-| 发版 | 最新发布仍是 **v1.4.0**；v3.0.0 未发。⚠️ launcher 仍指向 WebView `MainActivity`（P6） |
+| 项       | 值                                                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| HEAD     | `81e16e7f`（正文渲染链补完 + 批 C 取数层，**已 push**）                                                                |
+| 门禁     | **JVM 单测 751 条 / 0 失败，连跑 3 次稳定**；`:app:compileDebugAndroidTestKotlin` 通过                                 |
+| 真机     | `df97f3c4` 上装的仍是**上一轮**的 release（含 §26/§27，**不含本轮改动**）；本轮**零真机操作**                          |
+| 阶段     | 批 A ✅ / 批 B ✅ / **正文渲染链补完 A1-A4** ✅ / **批 C 取数层与纯逻辑 A5** ✅ / A6-A7 ✅；**批 C 余项与批 D 未开始** |
+| 设计真源 | `DESIGN-compose.md` §24-§27（**§27.6-27.8 是本轮的新登记**）                                                           |
+| 发版     | 最新发布仍是 **v1.4.0**；v3.0.0 未发。⚠️ launcher 仍指向 WebView `MainActivity`（P6）                                  |
 
 ### 正文渲染链完成度总表（判断「显示不对」先看这张表）
 
-| 环节 | 上游实现 | 我们的实现 | 状态 |
-|---|---|---|---|
-| 显示期正则 | `processRegex(isDisplay)` `app.js:4014` | `chat/RegexScripts.kt` | ✅ 静态完成+接线；**未目视** |
-| 行内 HTML | 浏览器 | `ui/markdown/InlineHtml.kt` | ✅ 静态完成+接线；**未目视** |
-| 块级 HTML | `marked`+`DOMPurify`+`v-html` | `HtmlBlocks`+`HtmlCard` | ✅ **真机目测通过**（§26.8） |
-| **提示词侧正则** | `processRegex(isPrompt)` `app.js:6511` | `RegexScripts.applyToPromptMessages` | ✅ **本轮接线**；真机复核命中率（B3） |
-| **变量块·剥除** | `stripUiTemplateUpdateBlock` `data-services.js:1665` | `chat/UiTemplateUpdates.kt` | ✅ **本轮完成**；**未目视** |
-| 变量块·面板 | `renderUiTemplateHtml` | — | ❌ 未做（要真机，按指示不做） |
-| **文风过滤** | `filterBlockedStyleText` `app.js:1470`（**三处**调用） | `chat/StyleFilter.kt` | ✅ **本轮完成三处**；**未目视** |
-| **思考块拆分** | `parseCot` `core-utils.js:19` | `chat/CotParser.kt`（已补全） | ✅ **纯逻辑本轮完成**；渲染成节点未做 |
+| 环节             | 上游实现                                               | 我们的实现                           | 状态                                  |
+| ---------------- | ------------------------------------------------------ | ------------------------------------ | ------------------------------------- |
+| 显示期正则       | `processRegex(isDisplay)` `app.js:4014`                | `chat/RegexScripts.kt`               | ✅ 静态完成+接线；**未目视**          |
+| 行内 HTML        | 浏览器                                                 | `ui/markdown/InlineHtml.kt`          | ✅ 静态完成+接线；**未目视**          |
+| 块级 HTML        | `marked`+`DOMPurify`+`v-html`                          | `HtmlBlocks`+`HtmlCard`              | ✅ **真机目测通过**（§26.8）          |
+| **提示词侧正则** | `processRegex(isPrompt)` `app.js:6511`                 | `RegexScripts.applyToPromptMessages` | ✅ **本轮接线**；真机复核命中率（B3） |
+| **变量块·剥除**  | `stripUiTemplateUpdateBlock` `data-services.js:1665`   | `chat/UiTemplateUpdates.kt`          | ✅ **本轮完成**；**未目视**           |
+| 变量块·面板      | `renderUiTemplateHtml`                                 | —                                    | ❌ 未做（要真机，按指示不做）         |
+| **文风过滤**     | `filterBlockedStyleText` `app.js:1470`（**三处**调用） | `chat/StyleFilter.kt`                | ✅ **本轮完成三处**；**未目视**       |
+| **思考块拆分**   | `parseCot` `core-utils.js:19`                          | `chat/CotParser.kt`（已补全）        | ✅ **纯逻辑本轮完成**；渲染成节点未做 |
 
 ### 缺陷清单（会话 76 更新）
 
-| # | 缺陷 | 状态 |
-|---|---|---|
-| 1 | 真流式「感觉不到逐字」 | ✅ 已修（跟随链三处缺陷） |
-| 2 | 划到底不自动吸附跟随 | ✅ 同上 |
-| 3 | 正则高亮缺失 | ✅ 已实现；**待目视** |
-| 4 | 首轮正文出现 CoT、输出完毕后消失 | ⚠️ **纯逻辑一半本轮完成**（`CotParser.ranges/rawCot/closingTags`）；**渲染成节点的视觉未做**（要真机） |
-| 5 | 追加消息覆盖老消息 | ✅ 已修 |
-| 6 | 供应商配置保存丢字段 | ✅ 已修 |
-| 7 | 配置对话框「已配置」后不可达 | ✅ 已修 |
-| 8 | 正文首行 `!set_color` 之类控制行 | ⚪ **不是缺口**（模型自造；上游也当普通文字） |
-| **9** | **提示词侧 `{{user}}` 被删成空白** | ✅ **本轮自查发现并修**（契约搬进源头；`RequestBuilderTest` 抓住） |
-| **10** | **记忆页读主线而非当前分支 → 数字静默不对** | ✅ **本轮自查发现并修**（`memory(uuid, branchId)`；仪器化用例用非主线分支跑） |
+| #      | 缺陷                                        | 状态                                                                                                   |
+| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1      | 真流式「感觉不到逐字」                      | ✅ 已修（跟随链三处缺陷）                                                                              |
+| 2      | 划到底不自动吸附跟随                        | ✅ 同上                                                                                                |
+| 3      | 正则高亮缺失                                | ✅ 已实现；**待目视**                                                                                  |
+| 4      | 首轮正文出现 CoT、输出完毕后消失            | ⚠️ **纯逻辑一半本轮完成**（`CotParser.ranges/rawCot/closingTags`）；**渲染成节点的视觉未做**（要真机） |
+| 5      | 追加消息覆盖老消息                          | ✅ 已修                                                                                                |
+| 6      | 供应商配置保存丢字段                        | ✅ 已修                                                                                                |
+| 7      | 配置对话框「已配置」后不可达                | ✅ 已修                                                                                                |
+| 8      | 正文首行 `!set_color` 之类控制行            | ⚪ **不是缺口**（模型自造；上游也当普通文字）                                                          |
+| **9**  | **提示词侧 `{{user}}` 被删成空白**          | ✅ **本轮自查发现并修**（契约搬进源头；`RequestBuilderTest` 抓住）                                     |
+| **10** | **记忆页读主线而非当前分支 → 数字静默不对** | ✅ **本轮自查发现并修**（`memory(uuid, branchId)`；仪器化用例用非主线分支跑）                          |
 
 ### 下一步
 
 **A 栏（无真机可做）已清空** —— 会话 76 把七项全做完了。剩下的活分两类：
 
 **① 无真机也能继续做的（下一轮若仍无设备）**
+
 - 批 C 余项里**纯逻辑可做**的部分：C3 多候选持久化（序列化进 `payload`，可单测）、
   C5 表格列宽（`MarkdownText.TableView` 的 `ColumnWidth` 计算，可先单测）、
   C6 撤工作区入口（删按钮 + 提示分支，纯删改）、C7 reduced-motion（读 `ANIMATOR_DURATION_SCALE`，
@@ -4540,6 +4635,7 @@ C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡
   别把它当成「已经能用了」（见 `DESIGN-compose §27.6-3`）。
 
 **② 必须等真机（设备回来后照 `HANDOFF-p5-static.md` B 栏逐条勾）**
+
 - **B1 行内高亮目视**（上一轮就欠着的唯一证据）；
 - **B3 A1 之后的缓存命中率复核**（提示词侧正则改了请求内容 —— 这是 A1 的验收尾巴；
   若下降先看用户是否配了「仅提示词 + 深度区间」的脚本，那会**本就**漂移，上游同语义）；
@@ -4572,11 +4668,11 @@ C3. `NAI画图正则` 若被启用，会渲染出一张**没有图**的生图卡
 
 ### 二、本轮抓出并修掉的 3 处缺陷
 
-| # | 缺陷 | 根因 | 性质 |
-|---|---|---|---|
-| 1 | `PageDataUiTest` **类加载不到**（`ClassNotFoundException`） | 文件在 `ui/pages/` 下，但 `package` 声明写成 `com.luzzymeow.luzzyrp.chat` —— Kotlin 按**声明**编译 | **我（会话 76）写错**，会话 77 修 |
-| 2 | `SettingsStoreTest.doesNotLatchWhenLegacySettingsUnreadable` **断言与实现相反** | 实现在 `bd858254`（真机实测后）**有意**改成「读不到旧设置不种标记」（防用户供应商配置永久搬不过来），测试仍断言旧行为 | **过期测试**，会话 77 修 |
-| 3 | `ChatPage.pinToBottom()` 在**测量帧内**发起滚动 → `performMeasureAndLayout called during measure layout` | `runTurn` 的流式事件收集器（`ChatPage.kt:752`）在测试环境由 `ApplyingContinuationInterceptor` 恢复，恢复时机落在 `measureAndLayout` 内部 → `scrollToItem` 的 `forceRemeasure` 重入 | **产品缺陷**（真机上不易撞，但同属"测量帧里改滚动位置"），会话 77 修 |
+| #   | 缺陷                                                                                                     | 根因                                                                                                                                                                               | 性质                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 1   | `PageDataUiTest` **类加载不到**（`ClassNotFoundException`）                                              | 文件在 `ui/pages/` 下，但 `package` 声明写成 `com.luzzymeow.luzzyrp.chat` —— Kotlin 按**声明**编译                                                                                 | **我（会话 76）写错**，会话 77 修                                    |
+| 2   | `SettingsStoreTest.doesNotLatchWhenLegacySettingsUnreadable` **断言与实现相反**                          | 实现在 `bd858254`（真机实测后）**有意**改成「读不到旧设置不种标记」（防用户供应商配置永久搬不过来），测试仍断言旧行为                                                              | **过期测试**，会话 77 修                                             |
+| 3   | `ChatPage.pinToBottom()` 在**测量帧内**发起滚动 → `performMeasureAndLayout called during measure layout` | `runTurn` 的流式事件收集器（`ChatPage.kt:752`）在测试环境由 `ApplyingContinuationInterceptor` 恢复，恢复时机落在 `measureAndLayout` 内部 → `scrollToItem` 的 `forceRemeasure` 重入 | **产品缺陷**（真机上不易撞，但同属"测量帧里改滚动位置"），会话 77 修 |
 
 **缺陷 3 的完整栈（决定性证据，保留备查）**：
 
@@ -4608,46 +4704,48 @@ ChatPage.kt:526  LazyListState.scrollToItem        ← pinToBottom()
 
 ### 四、真机 vs 模拟器：本轮实测对比
 
-| | 真机 `df97f3c4` | 模拟器 `LuzzyRP_Test` |
-|---|---|---|
+|              | 真机 `df97f3c4`                                         | 模拟器 `LuzzyRP_Test`    |
+| ------------ | ------------------------------------------------------- | ------------------------ |
 | 仪器化 80 条 | **几十分钟 0 条**（锁屏/权限/装包三重阻塞，最终未跑成） | **3 分 22 秒跑完 80 条** |
-| 结论 | 仓库纪律是对的：真机**只装 release 包做人工目视** | 仪器化**只跑模拟器** |
+| 结论         | 仓库纪律是对的：真机**只装 release 包做人工目视**       | 仪器化**只跑模拟器**     |
 
 **真机侧踩到的坑（本轮新增，值得进坑表）**：
+
 - **锁屏会让仪器化测试永久挂起**：`mWakefulness=Dozing` + 锁屏时 Compose 测试测量不到布局，
   一直等（本轮挂了 32 分钟、`0/79` 且 logcat 无任何 TestRunner 记录）。
   处置：`input keyevent KEYCODE_WAKEUP` + 上滑解锁 + `settings put global stay_on_while_plugged_in 7`。
 - **PowerShell 管道会缓冲 adb 输出** → 「测试像没动静」。要实时进度必须直接看 Gradle 的
   `Tests N/M completed`（它本身是滚动的），或用 `Tee-Object` 落盘再读。
-- **`am instrument -e class` 传中文方法名可行，但 PowerShell 续行符 ` 会拆坏参数** →
-  必须用数组形式 `& adb @args`。
+- **`am instrument -e class` 传中文方法名可行，但 PowerShell 续行符 `会拆坏参数** →
+必须用数组形式`& adb @args`。
 - **Gradle 结果目录会被上一次崩溃留下的 `-crash-report.txt` 锁住** →
   `./gradlew --stop` 释放句柄后再删 `app/build/outputs/androidTest-results`，否则报
   `FileSystemException: 另一个程序正在使用此文件`。
 
 ### 五、本轮改动的文件（**未提交**）
 
-| 文件 | 改动 | 归属 |
-|---|---|---|
-| `app/src/main/java/.../ui/pages/chat/ChatPage.kt` | `pinToBottom()` 两次滚动前加 `withFrameNanos { }` | **产品缺陷修复**（缺陷 3） |
-| `app/src/androidTest/.../ui/pages/PageDataUiTest.kt` | `package` 改 `ui.pages`；补 `PageDataSource` import；3 处断言改 `onAllNodes(...).onFirst()`（`onNodeWithText` 要求唯一匹配，页面上同文案有多处） | 测试自身缺陷（缺陷 1 + 断言写法） |
-| `app/src/androidTest/.../data/settings/SettingsStoreTest.kt` | 过期用例改名 `doesNotLatchWhenLegacySettingsUnreadable` 并改正断言；补一条负控 `latchesAfterLegacyBlobIsActuallyRead` | 缺陷 2 |
+| 文件                                                         | 改动                                                                                                                                             | 归属                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `app/src/main/java/.../ui/pages/chat/ChatPage.kt`            | `pinToBottom()` 两次滚动前加 `withFrameNanos { }`                                                                                                | **产品缺陷修复**（缺陷 3）        |
+| `app/src/androidTest/.../ui/pages/PageDataUiTest.kt`         | `package` 改 `ui.pages`；补 `PageDataSource` import；3 处断言改 `onAllNodes(...).onFirst()`（`onNodeWithText` 要求唯一匹配，页面上同文案有多处） | 测试自身缺陷（缺陷 1 + 断言写法） |
+| `app/src/androidTest/.../data/settings/SettingsStoreTest.kt` | 过期用例改名 `doesNotLatchWhenLegacySettingsUnreadable` 并改正断言；补一条负控 `latchesAfterLegacyBlobIsActuallyRead`                            | 缺陷 2                            |
 
 **未提交的原因**：整套 `checkChat` 的最终结果被叫停（跑到 59/80 时 0 失败），
 严格说**缺一次"完整 80 条全绿"的终值**。下一手第一件事就是补跑并取终值，然后提交。
 
 ### 六、设备的当前状态（**下一手必须先处理**）
 
-| 项 | 状态 | 待办 |
-|---|---|---|
-| `com.luzzymeow.luzzyrp`（release） | 装着；**数据已被 `pm clear` 清空**（用户要求「从头开测」） | 用户说「测完替换回 release」——即**卸载 debug/测试件、只留 release** |
-| `com.luzzymeow.luzzyrp.debug` | 装着（`2.0.0-debug`，含本轮全部改动），**当前可能是前台** | 按上一条决定去留 |
-| `…debug.test`（测试件） | 真机与模拟器上都装着 | 真机上的**应卸载**（仓库纪律：真机不装测试件） |
-| ⚠️ 设备设置 | **我改了常亮**：`stay_on_while_plugged_in=7`、`screen_off_timeout=1800000`（原值 **0** / **600000**） | **必须还原**（除非用户同意保留） |
-| 模拟器 | `LuzzyRP_Test` 正在运行（emulator-5554） | 可关（用户此前明确"不用模拟器"，本轮是经用户同意才启用的） |
-| 工作区 | `app/build/outputs/androidTest-results/` 可能有残留；`.tmp-*` 无 | 收尾清理 |
+| 项                                 | 状态                                                                                                  | 待办                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `com.luzzymeow.luzzyrp`（release） | 装着；**数据已被 `pm clear` 清空**（用户要求「从头开测」）                                            | 用户说「测完替换回 release」——即**卸载 debug/测试件、只留 release** |
+| `com.luzzymeow.luzzyrp.debug`      | 装着（`2.0.0-debug`，含本轮全部改动），**当前可能是前台**                                             | 按上一条决定去留                                                    |
+| `…debug.test`（测试件）            | 真机与模拟器上都装着                                                                                  | 真机上的**应卸载**（仓库纪律：真机不装测试件）                      |
+| ⚠️ 设备设置                        | **我改了常亮**：`stay_on_while_plugged_in=7`、`screen_off_timeout=1800000`（原值 **0** / **600000**） | **必须还原**（除非用户同意保留）                                    |
+| 模拟器                             | `LuzzyRP_Test` 正在运行（emulator-5554）                                                              | 可关（用户此前明确"不用模拟器"，本轮是经用户同意才启用的）          |
+| 工作区                             | `app/build/outputs/androidTest-results/` 可能有残留；`.tmp-*` 无                                      | 收尾清理                                                            |
 
 **还原设备设置的两条命令（下一手复制即用）**：
+
 ```powershell
 adb -s df97f3c4 shell settings put global stay_on_while_plugged_in 0
 adb -s df97f3c4 shell settings put system screen_off_timeout 600000
@@ -4674,65 +4772,68 @@ adb -s df97f3c4 shell settings put system screen_off_timeout 600000
 
 ### 状态一览（会话 77）
 
-| 项 | 值 |
-|---|---|
-| HEAD | `117f1023`（**已 push**，与 `origin/main` 一致）；**另有 3 个文件未提交** |
-| JVM 门禁 | **751 条 / 0 失败**（会话 76 的终值，本轮未改动 JVM 侧代码，未重跑） |
+| 项             | 值                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------ |
+| HEAD           | `117f1023`（**已 push**，与 `origin/main` 一致）；**另有 3 个文件未提交**                                          |
+| JVM 门禁       | **751 条 / 0 失败**（会话 76 的终值，本轮未改动 JVM 侧代码，未重跑）                                               |
 | **仪器化门禁** | **80 条**（模拟器 `LuzzyRP_Test`，**3 分 22 秒**）；最后一次完整跑：**78 过 / 2 失败** → 这 2 条已修，**终值待补** |
-| 模拟器 | `LuzzyRP_Test`（emulator-5554）本轮已启动，可能仍在运行 |
-| 真机 | `df97f3c4` 在连接；装着 release（**数据已清空**）+ debug（含本轮改动）+ 测试件 |
-| 阶段 | 批 A ✅ / 批 B ✅ / 正文渲染链补完 ✅ / 批 C 取数层 ✅ / **仪器化真正跑通 ✅（本轮）**；批 C 余项与批 D 未开始 |
-| 发版 | 最新发布仍是 **v1.4.0**；⚠️ **launcher 仍指向 WebView `MainActivity`**（P6） |
+| 模拟器         | `LuzzyRP_Test`（emulator-5554）本轮已启动，可能仍在运行                                                            |
+| 真机           | `df97f3c4` 在连接；装着 release（**数据已清空**）+ debug（含本轮改动）+ 测试件                                     |
+| 阶段           | 批 A ✅ / 批 B ✅ / 正文渲染链补完 ✅ / 批 C 取数层 ✅ / **仪器化真正跑通 ✅（本轮）**；批 C 余项与批 D 未开始     |
+| 发版           | 最新发布仍是 **v1.4.0**；⚠️ **launcher 仍指向 WebView `MainActivity`**（P6）                                       |
 
 ### ⚠️ 未提交的 3 个文件（**下一手第一件事**）
 
-| 文件 | 改动 | 性质 |
-|---|---|---|
-| `ui/pages/chat/ChatPage.kt` | `pinToBottom()` 两次滚动前各加 `withFrameNanos { }` | **产品缺陷修复**（测量帧重入） |
-| `androidTest/.../ui/pages/PageDataUiTest.kt` | `package` 改 `ui.pages` + 补 import + 3 处断言改 `onAllNodes(...).onFirst()` | 测试自身缺陷 |
-| `androidTest/.../data/settings/SettingsStoreTest.kt` | 过期用例改正断言 + 新增负控 | 过期测试 |
+| 文件                                                 | 改动                                                                         | 性质                           |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
+| `ui/pages/chat/ChatPage.kt`                          | `pinToBottom()` 两次滚动前各加 `withFrameNanos { }`                          | **产品缺陷修复**（测量帧重入） |
+| `androidTest/.../ui/pages/PageDataUiTest.kt`         | `package` 改 `ui.pages` + 补 import + 3 处断言改 `onAllNodes(...).onFirst()` | 测试自身缺陷                   |
+| `androidTest/.../data/settings/SettingsStoreTest.kt` | 过期用例改正断言 + 新增负控                                                  | 过期测试                       |
 
 **未提交原因**：缺一次「完整 80 条全绿」的终值（跑到 59/80 时 0 失败被用户叫停）。
 **先补跑验证，再提交**——不要跳过。
 
 ### ⚠️ 设备/环境待还原（我改的，原值已记录）
 
-| 项 | 现值 | 原值 | 命令 |
-|---|---|---|---|
-| 真机常亮 | `stay_on_while_plugged_in=7` | **0** | `adb -s df97f3c4 shell settings put global stay_on_while_plugged_in 0` |
-| 真机熄屏超时 | `screen_off_timeout=1800000` | **600000** | `adb -s df97f3c4 shell settings put system screen_off_timeout 600000` |
-| 真机 debug 包 + 测试件 | 都装着 | 用户说「测完替换回 release」 | **先问用户**再卸 |
-| 模拟器 | 可能在跑 | 用户此前明确「不用模拟器」 | **先问用户**再关 |
-| 工作区 | `app/build/outputs/androidTest-results/` 可能残留 | — | 收尾清理 |
+| 项                     | 现值                                              | 原值                         | 命令                                                                   |
+| ---------------------- | ------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| 真机常亮               | `stay_on_while_plugged_in=7`                      | **0**                        | `adb -s df97f3c4 shell settings put global stay_on_while_plugged_in 0` |
+| 真机熄屏超时           | `screen_off_timeout=1800000`                      | **600000**                   | `adb -s df97f3c4 shell settings put system screen_off_timeout 600000`  |
+| 真机 debug 包 + 测试件 | 都装着                                            | 用户说「测完替换回 release」 | **先问用户**再卸                                                       |
+| 模拟器                 | 可能在跑                                          | 用户此前明确「不用模拟器」   | **先问用户**再关                                                       |
+| 工作区                 | `app/build/outputs/androidTest-results/` 可能残留 | —                            | 收尾清理                                                               |
 
 ### 缺陷清单（会话 77 更新）
 
-| # | 缺陷 | 状态 |
-|---|---|---|
-| 1-3 | 流式跟随链三处（会话 74） | ✅ |
-| 4 | 首轮正文出现 CoT | ⚠️ 纯逻辑已做（`CotParser` 补全）；**渲染成节点的视觉未做** |
-| 5-7 | 落库/配置类（会话 74-75） | ✅ |
-| 8 | `!set_color` 控制行 | ⚪ 不是缺口（模型自造） |
-| 9 | 提示词侧 `{{user}}` 被删空 | ✅（会话 76 自查修） |
-| 10 | 记忆页读主线而非当前分支 | ✅（会话 76 自查修） |
-| **11** | **`PageDataUiTest` 类加载不到（package 与目录不符）** | ✅ **会话 77 修**；**暴露"仪器化从未真跑过"** |
-| **12** | **`SettingsStoreTest` 断言与实现相反（过期测试）** | ✅ **会话 77 修** |
-| **13** | **`pinToBottom()` 测量帧重入崩溃** | ✅ **会话 77 修**（连跑 3 次 OK）；**待完整套件终值** |
+| #      | 缺陷                                                  | 状态                                                        |
+| ------ | ----------------------------------------------------- | ----------------------------------------------------------- |
+| 1-3    | 流式跟随链三处（会话 74）                             | ✅                                                          |
+| 4      | 首轮正文出现 CoT                                      | ⚠️ 纯逻辑已做（`CotParser` 补全）；**渲染成节点的视觉未做** |
+| 5-7    | 落库/配置类（会话 74-75）                             | ✅                                                          |
+| 8      | `!set_color` 控制行                                   | ⚪ 不是缺口（模型自造）                                     |
+| 9      | 提示词侧 `{{user}}` 被删空                            | ✅（会话 76 自查修）                                        |
+| 10     | 记忆页读主线而非当前分支                              | ✅（会话 76 自查修）                                        |
+| **11** | **`PageDataUiTest` 类加载不到（package 与目录不符）** | ✅ **会话 77 修**；**暴露"仪器化从未真跑过"**               |
+| **12** | **`SettingsStoreTest` 断言与实现相反（过期测试）**    | ✅ **会话 77 修**                                           |
+| **13** | **`pinToBottom()` 测量帧重入崩溃**                    | ✅ **会话 77 修**（连跑 3 次 OK）；**待完整套件终值**       |
 
 ### 下一步
 
 **① 收尾（必须先做）**
+
 - 补跑 `ANDROID_SERIAL=emulator-5554 ./gradlew checkChat` → 取「80 条全绿」终值
 - 提交 3 个文件
 - 还原真机两条设置；问用户 debug/测试件/模拟器 的去留
 
 **② 真机目视（照 `HANDOFF-p5-static.md` B 栏；欠了两轮）**
+
 - **B1 行内高亮目视**（发一条含 `<span style="color:…">` 的消息，**需用户同意**）
 - **B2 批 C 三页面可见性**（亮/暗双主题截图）
 - **B3 缓存命中率复核**（A1 的验收尾巴）
 - **B6 压缩水位线「清掉」**（用户已拍板；写用户数据，先复述命令 + 先备份）
 
 **③ P6（需用户在场）**
+
 - **切 launcher 到 `ui.ComposeActivity`** —— 这是用户「点图标进 WebView」的根因
 - 单 APK + 签名一致 + 真机回归 + 发版
 
@@ -4743,7 +4844,7 @@ adb -s df97f3c4 shell settings put system screen_off_timeout 600000
    处置：`KEYCODE_WAKEUP` + 上滑解锁 + `stay_on_while_plugged_in=7`。
 2. **PowerShell 管道缓冲 adb 输出** → 「测试像没动静」。实时进度看 Gradle 的
    `Tests N/M completed`，或 `Tee-Object` 落盘。
-3. **PowerShell 续行符 ` 会拆坏 `am instrument` 的参数** → 必须 `& adb @args` 数组形式。
+3. **PowerShell 续行符 `会拆坏`am instrument`的参数** → 必须`& adb @args` 数组形式。
 4. **Gradle 结果目录被上次崩溃的 `-crash-report.txt` 锁住** →
    `./gradlew --stop` 释放句柄后再删 `app/build/outputs/androidTest-results`。
 5. **`compileDebugAndroidTestKotlin` 通过 ≠ 仪器化用例可用**（本轮血的教训：那批用例写了
@@ -4761,13 +4862,13 @@ adb -s df97f3c4 shell settings put system screen_off_timeout 600000
 
 ### 一、收尾（会话 77 遗留三项，全部完成）
 
-| 项 | 结果 |
-|---|---|
-| 补跑 `checkChat` 取终值 | ✅ **80 条 / 0 失败**（模拟器 `LuzzyRP_Test` 冷启动后，2 分 5 秒） |
-| JVM 单测 | ✅ **751 条 / 0 失败**（门禁内 `testDebugUnitTest`） |
-| 提交未提交改动 | ✅ `8b474e67`（ChatPage + 3 个测试文件） |
-| 真机设置还原 | ⏸ **设备未连接**（`df97f3c4` 不在 `adb devices`；只有被明令禁用的 A9210）→ 保留待办 |
-| 工作区 BOM 归一 | ✅ `HANDOFF-p5-static.md` 补回 BOM、`WORKLOG.md` 去掉 BOM（与 HEAD 一致，diff 只剩内容） |
+| 项                      | 结果                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| 补跑 `checkChat` 取终值 | ✅ **80 条 / 0 失败**（模拟器 `LuzzyRP_Test` 冷启动后，2 分 5 秒）                       |
+| JVM 单测                | ✅ **751 条 / 0 失败**（门禁内 `testDebugUnitTest`）                                     |
+| 提交未提交改动          | ✅ `8b474e67`（ChatPage + 3 个测试文件）                                                 |
+| 真机设置还原            | ⏸ **设备未连接**（`df97f3c4` 不在 `adb devices`；只有被明令禁用的 A9210）→ 保留待办      |
+| 工作区 BOM 归一         | ✅ `HANDOFF-p5-static.md` 补回 BOM、`WORKLOG.md` 去掉 BOM（与 HEAD 一致，diff 只剩内容） |
 
 ### 二、门禁抓出的第 4 处缺陷：面板用例的等待方式（**非产品缺陷，是测试写法**）
 
@@ -4776,12 +4877,12 @@ adb -s df97f3c4 shell settings put system screen_off_timeout 600000
 
 **定位（临时探针，已删）**：写 `DebugSheetProbeTest` 做四组对照 ——
 
-| 变体 | 写法 | 结果 |
-|---|---|---|
-| t1 | 点击后立刻 `waitUntil` | ❌ 超时 5s（诊断显示一直停在「读取中…」） |
-| t2 | 先 `Thread.sleep(400)` 再 `waitUntil` | ✅ 939ms |
-| t3 | 先 `mainClock.advanceTimeBy(1000)` 再 `waitUntil` | ✅ 602ms |
-| t4 | 只推进时钟 + `waitForIdle` 轮询 | ✅ 609ms |
+| 变体 | 写法                                              | 结果                                      |
+| ---- | ------------------------------------------------- | ----------------------------------------- |
+| t1   | 点击后立刻 `waitUntil`                            | ❌ 超时 5s（诊断显示一直停在「读取中…」） |
+| t2   | 先 `Thread.sleep(400)` 再 `waitUntil`             | ✅ 939ms                                  |
+| t3   | 先 `mainClock.advanceTimeBy(1000)` 再 `waitUntil` | ✅ 602ms                                  |
+| t4   | 只推进时钟 + `waitForIdle` 轮询                   | ✅ 609ms                                  |
 
 另一组探针证明**内容其实 200ms 就渲染好了**（`hasText("一条世界书")` 命中 1），
 面板数据层也正常（`book.rows=1 global=1`）。
@@ -4814,10 +4915,10 @@ dump 自身失败绝不盖掉断言失败 —— 这个坑在第一版诊断代�
 
 ### 五、缺陷清单（会话 78 更新）
 
-| # | 缺陷 | 状态 |
-|---|---|---|
-| 11-13 | PageDataUiTest 包名 / SettingsStoreTest 过期断言 / pinToBottom 测量帧重入 | ✅ 会话 77 修，**本会话补验并提交**（80/0） |
-| **14** | **面板用例等待方式饿死帧（世界书/预设交替红）** | ✅ **会话 78 定位并修**（测试写法，非产品缺陷） |
+| #      | 缺陷                                                                      | 状态                                            |
+| ------ | ------------------------------------------------------------------------- | ----------------------------------------------- |
+| 11-13  | PageDataUiTest 包名 / SettingsStoreTest 过期断言 / pinToBottom 测量帧重入 | ✅ 会话 77 修，**本会话补验并提交**（80/0）     |
+| **14** | **面板用例等待方式饿死帧（世界书/预设交替红）**                           | ✅ **会话 78 定位并修**（测试写法，非产品缺陷） |
 
 ### 六、下一步（本会话继续）
 
@@ -4835,22 +4936,22 @@ dump 自身失败绝不盖掉断言失败 —— 这个坑在第一版诊断代�
 
 ### 一、完成清单（带提交号）
 
-| 项 | 落点 | 判据 |
-|---|---|---|
-| **C3 多候选持久化** | `ChatSessionRepository` 私有键 `luzzyCandidates`/`luzzyCandidateIndex`（不改表）；`LuzzyStore.updateMessage`（候选变更必须写 payload，与只动 content 的 `updateContent` 分工） | JVM 7 例（往返/老行回落/坏数据）+ 仪器化 1 例（重新生成→payload 落库→杀进程重开认回） |
-| **C5 表格列宽自适应** | `estimateTableWeights` 纯函数（最长单元格显示宽度 CJK×2 → 平方根收敛 → +1.0 最小权重兜底），`TableView` 用 `weight` | JVM 7 例（宽列/兜底/CJK/缺列/表头计入） |
-| **C6 撤工作区入口** | 删按钮 + `onWorkspace` 参数 + 提示分支（图标定义保留） | 仪器化 1 例断言 `slot_workspace` 不存在 |
-| **C7 reduced-motion** | 新增 `ui/MotionSettings.kt`（ContentObserver 订阅 + 纯函数折算）应用到 8 处自绘动效；`HtmlCard` 收编同一读取器 | JVM 7 例（口径：`==0f` 才算；0.5 是快不是停；NaN 按照常播） |
-| **C4 附件真功能** | `ChatAttachment`（location 双形态与迁移同构）+ payload `imageAttachments`（旧键同构）+ `userContentParts`/`resolveImageParts` + `AttachmentStore`（选图→1024px/JPEG85→落盘）+ 三家 wire 对照 + 待发缩略图条 | JVM 14 例（parts/解析/三协议/往返）+ 仪器化 3 例（真解码/降采样/落盘/读回） |
+| 项                    | 落点                                                                                                                                                                                                        | 判据                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **C3 多候选持久化**   | `ChatSessionRepository` 私有键 `luzzyCandidates`/`luzzyCandidateIndex`（不改表）；`LuzzyStore.updateMessage`（候选变更必须写 payload，与只动 content 的 `updateContent` 分工）                              | JVM 7 例（往返/老行回落/坏数据）+ 仪器化 1 例（重新生成→payload 落库→杀进程重开认回） |
+| **C5 表格列宽自适应** | `estimateTableWeights` 纯函数（最长单元格显示宽度 CJK×2 → 平方根收敛 → +1.0 最小权重兜底），`TableView` 用 `weight`                                                                                         | JVM 7 例（宽列/兜底/CJK/缺列/表头计入）                                               |
+| **C6 撤工作区入口**   | 删按钮 + `onWorkspace` 参数 + 提示分支（图标定义保留）                                                                                                                                                      | 仪器化 1 例断言 `slot_workspace` 不存在                                               |
+| **C7 reduced-motion** | 新增 `ui/MotionSettings.kt`（ContentObserver 订阅 + 纯函数折算）应用到 8 处自绘动效；`HtmlCard` 收编同一读取器                                                                                              | JVM 7 例（口径：`==0f` 才算；0.5 是快不是停；NaN 按照常播）                           |
+| **C4 附件真功能**     | `ChatAttachment`（location 双形态与迁移同构）+ payload `imageAttachments`（旧键同构）+ `userContentParts`/`resolveImageParts` + `AttachmentStore`（选图→1024px/JPEG85→落盘）+ 三家 wire 对照 + 待发缩略图条 | JVM 14 例（parts/解析/三协议/往返）+ 仪器化 3 例（真解码/降采样/落盘/读回）           |
 
 **提交**：`40fbd4cc`（批 C 前半 + 测试基建）→ `195b6beb`（C4）。工作区干净，**未 push**（用户指示本轮到此）。
 
 ### 二、门禁终值
 
-| 门禁 | 结果 |
-|---|---|
+| 门禁               | 结果                                                                       |
+| ------------------ | -------------------------------------------------------------------------- |
 | 仪器化 `checkChat` | **85 条 / 0 失败**（426 秒；82 → 85：C3 重启用例 + C6 断言 + C4 存储用例） |
-| JVM 单测 | **788 条 / 0 失败**（751 → 788：C3 +7、C5 +7、C7 +7、C4 +15、其余 +1） |
+| JVM 单测           | **788 条 / 0 失败**（751 → 788：C3 +7、C5 +7、C7 +7、C4 +15、其余 +1）     |
 
 ### 三、测试基建的系统级修复（本轮最值钱的方法论产出）
 
@@ -4873,8 +4974,9 @@ dump 自身失败绝不盖掉断言失败 —— 这个坑在第一版诊断代�
 
 本会话**完整读过** `docs/skills/` 四份主文档（huashu-design SKILL.md 579 行 + animation-pitfalls/best-practices、
 awesome-design-md README、open-design AGENTS.md + critique-theater + craft、ui-ux-pro-max CLAUDE/SKILL/pro-rules
-+ jetpack-compose.csv 52 条）。要点已用于实现：三方向门走「已选定方向 A 后的迭代」豁免；
-pro-rules 的 reduced-motion / Dynamic Type 必查；compose 规则 34「不硬编码 sp」（D1 的合规底线）。
+
+- jetpack-compose.csv 52 条）。要点已用于实现：三方向门走「已选定方向 A 后的迭代」豁免；
+  pro-rules 的 reduced-motion / Dynamic Type 必查；compose 规则 34「不硬编码 sp」（D1 的合规底线）。
 
 **待下一轮回填 `DESIGN-compose.md`**：C4 缩略图条（56dp 圆角 + 错误色移除钮）、C7 口径、
 C3 候选切换器、D1 字号滑杆（ awesome-design-md 建议落 §3 Typography + §8 Responsive）。
@@ -4961,7 +5063,7 @@ D1/D3 复用既有组件、不新造视觉语言。
    `compileDebugKotlin` 失败，而 `checkChat` 报告里 tests=89/2 是**上一轮测试 APK 的结果文件**
    ——差点把「滚动修复无效」当成结论。**教训：读仪器化结果先看 XML mtime 是否新鲜**
    （AGENTS §7「adb install 后务必确认装的是新构建」的 Gradle 结果版本）。
-3. **JVM 反引号测试名也不允许点号**：`` fun `dp 间距不缩放（上游 settings.fontSize 只缩字体）`() ``
+3. **JVM 反引号测试名也不允许点号**：``fun `dp 间距不缩放（上游 settings.fontSize 只缩字体）`()``
    → `Name contains illegal characters: ..`（`.` 是 JVM 方法名保留字符）。
    坑表「androidTest 方法名 ASCII」的 JVM 侧变体：空格可以，**点号不行**。
 4. **LazyColumn 滚出视口的条目不在语义树**（第二次踩）：设置页滑杆在「高级设置」卡里，
@@ -4975,11 +5077,11 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ### 六、D4 文档反向修正（R1-R7 全部核实后落地）
 
-- R1（占位符已实现，`chat/Placeholders.kt` 存在且接线）/ R6（增删排序已实现，写模型收编）/ 
+- R1（占位符已实现，`chat/Placeholders.kt` 存在且接线）/ R6（增删排序已实现，写模型收编）/
   R3（迁移入口已做）→ `DESIGN-migration` §8.5/§9 表/§10.6 三处改判 + 顺带把「多候选要改表」
   的旧判据也修正（C3 用 payload 私有键，不改表）；
 - R2/R4/D1/D3 → `DESIGN-compose` §20.3 三项闭环 + **§28（批 C 设计落点）/§29（D2/D3）新节**
-  + §3/§9 登记字号自由度与「系统字号 vs 应用内字号」边界；
+  - §3/§9 登记字号自由度与「系统字号 vs 应用内字号」边界；
 - R5 → `PLAN-v3.0-compose` P4 主条目勾选 + 删 P4-C 重复行；
 - R7 → CHANGELOG v2.0.0「at_depth 冲突未解」加「已于 v3.0.0 批 A 解决」括注（历史条目不改写）；
 - CHANGELOG v3.0.0 段补批 C 余项 + 批 D 条目 → `node tools/gen-changelog.mjs` 重跑
@@ -4987,10 +5089,10 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ### 七、门禁终值
 
-| 门禁 | 结果 |
-|---|---|
-| 仪器化 `checkChat` | **91 条 / 0 失败**（85 + D1 字号 4 + D3 迁移报告 2；冷启动后 2m11s） |
-| JVM 单测 | **814 条 / 0 失败 ×3**（788 → +13 D1 缩放/搬运 +9 D2 round-trip +4 D3 解析；`--rerun-tasks` 3 连跑） |
+| 门禁               | 结果                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| 仪器化 `checkChat` | **91 条 / 0 失败**（85 + D1 字号 4 + D3 迁移报告 2；冷启动后 2m11s）                                 |
+| JVM 单测           | **814 条 / 0 失败 ×3**（788 → +13 D1 缩放/搬运 +9 D2 round-trip +4 D3 解析；`--rerun-tasks` 3 连跑） |
 
 ### 八、遗留 / 下一步
 
@@ -5013,12 +5115,12 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ### 状态一览
 
-| 项 | 值 |
-|---|---|
-| 阶段 | **P6 静态工作（计划已获用户批准）推进到 B 项**；A 已提交、B 实现完未提交、C/D/E 未开始 |
-| HEAD | `042f131b`（A 项，**已提交未 push**） |
-| 未提交 | B 项 6 文件（见下表）——编译通过，测试未写 |
-| 真机 | `df97f3c4` 不在线；模拟器已按收尾要求关闭 |
+| 项       | 值                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------ |
+| 阶段     | **P6 静态工作（计划已获用户批准）推进到 B 项**；A 已提交、B 实现完未提交、C/D/E 未开始                 |
+| HEAD     | `042f131b`（A 项，**已提交未 push**）                                                                  |
+| 未提交   | B 项 6 文件（见下表）——编译通过，测试未写                                                              |
+| 真机     | `df97f3c4` 不在线；模拟器已按收尾要求关闭                                                              |
 | 用户指令 | 「先完成 P6 的静态工作……先完成所有代码层的工作，然后再进行 bug 修复与真机检测」→「现在暂停，记录节点」 |
 
 ### 已完成（本会话）
@@ -5040,14 +5142,14 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ### 未提交改动清单（接手先验证再提交）
 
-| 文件 | 改动 |
-|---|---|
-| `data/settings/AppSettings.kt` | + `styleFilterEnabled`（默认 true） |
-| `data/settings/SettingsStore.kt` | `KEY_STYLE_FILTER` 读写 |
-| `ui/pages/chat/ChatPage.kt` | 顶层读开关 + `prepareTurn`/`resultOf`/三处 `AiMessagePanel` 接线 |
-| `ui/pages/chat/ChatComponents.kt` | `AiMessagePanel` 加 `styleFilterEnabled` 参数 → `MessageBody` |
-| `ui/pages/StaticPages.kt` | `SettingsData`/`ApiStatusRow` + 三卡接真 + 撤假开关 |
-| `ui/ComposeActivity.kt` | 构造 `SettingsData` 传入设置页 |
+| 文件                              | 改动                                                             |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `data/settings/AppSettings.kt`    | + `styleFilterEnabled`（默认 true）                              |
+| `data/settings/SettingsStore.kt`  | `KEY_STYLE_FILTER` 读写                                          |
+| `ui/pages/chat/ChatPage.kt`       | 顶层读开关 + `prepareTurn`/`resultOf`/三处 `AiMessagePanel` 接线 |
+| `ui/pages/chat/ChatComponents.kt` | `AiMessagePanel` 加 `styleFilterEnabled` 参数 → `MessageBody`    |
+| `ui/pages/StaticPages.kt`         | `SettingsData`/`ApiStatusRow` + 三卡接真 + 撤假开关              |
+| `ui/ComposeActivity.kt`           | 构造 `SettingsData` 传入设置页                                   |
 
 ### 剩余工作（照已批准的计划，按序）
 
@@ -5073,15 +5175,15 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ### 接手需读文档（按序）
 
-| # | 文档 | 为什么 |
-|---|---|---|
-| 1 | `docs/HANDOFF-p6-static.md` | **本轮交接**：剩余工作的执行细节、判据与顺序 |
-| 2 | 本节（`docs/WORKLOG.md` 末尾） | 接手基线 + 未提交清单 + 已批准计划的边界 |
-| 3 | `AGENTS.md` §3.1 / §7 | 接手流程 + 坑表（本轮新增 2 条，见下） |
-| 4 | `docs/PLAN-v3.0-compose.md` §2/§5 | P6 目标边界（切 launcher / 移除 WebView / 单 APK / 发版） |
-| 5 | `docs/DESIGN-compose.md` §3/§9/§28/§29 | 设计真源（D1-D3 落档处；设置页接真的豁免依据） |
-| 6 | `docs/HANDOFF-p5-static.md` B 栏 | 真机验收清单底稿（E 项要合并它） |
-| 7 | `docs/CHAT-REGRESSION.md` §4 | 仪器化测试写法纪律（写 B 项测试前必读） |
+| #   | 文档                                   | 为什么                                                    |
+| --- | -------------------------------------- | --------------------------------------------------------- |
+| 1   | `docs/HANDOFF-p6-static.md`            | **本轮交接**：剩余工作的执行细节、判据与顺序              |
+| 2   | 本节（`docs/WORKLOG.md` 末尾）         | 接手基线 + 未提交清单 + 已批准计划的边界                  |
+| 3   | `AGENTS.md` §3.1 / §7                  | 接手流程 + 坑表（本轮新增 2 条，见下）                    |
+| 4   | `docs/PLAN-v3.0-compose.md` §2/§5      | P6 目标边界（切 launcher / 移除 WebView / 单 APK / 发版） |
+| 5   | `docs/DESIGN-compose.md` §3/§9/§28/§29 | 设计真源（D1-D3 落档处；设置页接真的豁免依据）            |
+| 6   | `docs/HANDOFF-p5-static.md` B 栏       | 真机验收清单底稿（E 项要合并它）                          |
+| 7   | `docs/CHAT-REGRESSION.md` §4           | 仪器化测试写法纪律（写 B 项测试前必读）                   |
 
 ### 本轮新增坑（值得进 `AGENTS.md` §7）
 
@@ -5159,6 +5261,7 @@ D1/D3 复用既有组件、不新造视觉语言。
   自动迁移 → 数据完好 → 设置页三卡 / 迁移报告目测 → SAF 导入导出走查 → 发版检查单；
   通过后 GitHub Release v3.0.0（仅附那一个 APK）。
 - 真机设置还原两条命令（会话 77 遗留）在清单 §五。
+
 ## 会话 82-83 · 2026-09-15 · **用户插入：世界书（World Info）v3.1 全量开发**
 
 > **用户指令**：「先停下并记录当前工作节点，然后完成世界书相关开发任务，才可继续测试」。
@@ -5186,12 +5289,12 @@ D1/D3 复用既有组件、不新造视觉语言。
 
 ### 三、实现（S1-S4，全部落地）
 
-| 阶段 | 内容 | 证据 |
-|---|---|---|
-| S1 数据层 | `WorldEntry` +8 字段（次级关键词/四逻辑/大小写/全词/@Depth role/粘性/冷却/延迟，含 ST 别名归一）；`LoreBook` + `LoreBookRepository`（多书 CRUD / 启用 / 绑定 / 导入导出）；`WorldBookMigration`（纯函数计划 + 幂等 + 只读旧数据）；`WorldBookFormats`（三形态导入识别） | `WorldBookMigrationTest` 15 例 |
-| S2 激活层 | 四逻辑真值表 / 大小写（正则键同步）/ 全词（中英差异）/ 扫描文本角色名前缀；`TimedEffects`（粘性·冷却·延迟，照 ST 时间线） | `WorldBookActivatorV31Test` 18 例 |
-| S3 注入层 | `@Depth` 按 role 分段进快照；稳定块新增**对话示例前/后**两档；清理两处死代码 | `PromptSectionsTest` +3 例；**缓存门禁全绿** |
-| S4 UI | 列表 / 编辑世界书 / 编辑条目 / 三个二级选择页（全部复用 PageKit + EditorKit） | 装机截图 30-34（含 read_image 审查） |
+| 阶段      | 内容                                                                                                                                                                                                                                                                    | 证据                                         |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| S1 数据层 | `WorldEntry` +8 字段（次级关键词/四逻辑/大小写/全词/@Depth role/粘性/冷却/延迟，含 ST 别名归一）；`LoreBook` + `LoreBookRepository`（多书 CRUD / 启用 / 绑定 / 导入导出）；`WorldBookMigration`（纯函数计划 + 幂等 + 只读旧数据）；`WorldBookFormats`（三形态导入识别） | `WorldBookMigrationTest` 15 例               |
+| S2 激活层 | 四逻辑真值表 / 大小写（正则键同步）/ 全词（中英差异）/ 扫描文本角色名前缀；`TimedEffects`（粘性·冷却·延迟，照 ST 时间线）                                                                                                                                               | `WorldBookActivatorV31Test` 18 例            |
+| S3 注入层 | `@Depth` 按 role 分段进快照；稳定块新增**对话示例前/后**两档；清理两处死代码                                                                                                                                                                                            | `PromptSectionsTest` +3 例；**缓存门禁全绿** |
+| S4 UI     | 列表 / 编辑世界书 / 编辑条目 / 三个二级选择页（全部复用 PageKit + EditorKit）                                                                                                                                                                                           | 装机截图 30-34（含 read_image 审查）         |
 
 **接线**：`PromptInputSource` 改用多书（无书时回落旧两桶）；定时效果状态存
 `kv[worldbook.timedEffects.<branchId>]`；`ComposeActivity` 启动触发幂等迁移；
@@ -5239,13 +5342,13 @@ AN 两档位置（本应用提示词无 AN 模块）、**定时效果的分支�
   `primary` 不同族且对比度不对（截图可见）。改为 **`primaryContainer` + `onPrimaryContainer`**
   （同族更深一档，仍只来自 M3 role），重新出亮/暗两张截图复核通过。
 - **补截修复验证图（D1/D2/D6/D7/D9 的闭环证据，全部 `read_image` 审查）**：
-  | 图 | 页面 | 验证的修复 |
-  |---|---|---|
-  | 54 / 55 | 关于（亮） | D1 版本 `3.0.0（versionCode 14）` 读自 BuildConfig；D2 更新日志卡为真数据源 + **版本下拉 11 项可展开** |
-  | 56 | 角色卡（亮） | D7 空态换 `EmptyState`；页头假按钮已撤 |
-  | 57 | 世界书（亮） | v3.1 列表空态 + 底部「＋ 新建世界书」**在屏内**（`weight(1f)` 修复实证） |
-  | 58 | 预设（亮） | D6 文案已改「已按注入位置拼进请求」（不再说 P5 未接入） |
-  | 59 / 60 / 61 / 62 | 记忆 / 用量 / 关于 / 角色（暗） | B2 的「亮暗各截图、无白块、无对比度过低」 |
+  | 图                | 页面                            | 验证的修复                                                                                             |
+  | ----------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+  | 54 / 55           | 关于（亮）                      | D1 版本 `3.0.0（versionCode 14）` 读自 BuildConfig；D2 更新日志卡为真数据源 + **版本下拉 11 项可展开** |
+  | 56                | 角色卡（亮）                    | D7 空态换 `EmptyState`；页头假按钮已撤                                                                 |
+  | 57                | 世界书（亮）                    | v3.1 列表空态 + 底部「＋ 新建世界书」**在屏内**（`weight(1f)` 修复实证）                               |
+  | 58                | 预设（亮）                      | D6 文案已改「已按注入位置拼进请求」（不再说 P5 未接入）                                                |
+  | 59 / 60 / 61 / 62 | 记忆 / 用量 / 关于 / 角色（暗） | B2 的「亮暗各截图、无白块、无对比度过低」                                                              |
 - **真机清单补齐**：`docs/HANDOFF-p6-device.md` 新增 **§三 B7 世界书 v3.1 走查 12 项**
   （迁移 / 多书 / 三种导入 / 导出回读 / 关键字激活 / whole-word 默认关 / 四种 secondary /
   大小写与全词 / 8 档注入位 / **KV 缓存不变量硬约束** / 定时效果 / 编辑后清除如实登记）。
@@ -5291,20 +5394,20 @@ awesome-design-md `README.md`（250）。设计真源 `DESIGN-compose.md` §2 �
 
 ### 三、缺陷台账（11 项，Phase 1 产出）
 
-| # | 页面 | 缺陷 | 状态 |
-|---|---|---|---|
-| D1 | 关于 | 版本行硬编码「v2.0.0（P1 静态稿）」 | ✅ 已修（读 `BuildConfig`） |
-| D2 | 关于 | changelog 卡为 P1 静态 bullets；「P5 接入 ext/luzzy-changelog.js」欠账 | ✅ 已修（真数据源 + 版本下拉 + `MarkdownText`） |
-| D3 | 设置 | 头带 48dp 裸色块、标题在带外；上游 = 96dp 带纹理 + 标题内嵌 + 头像叠压 | ⏳ 归设置页重设计（boards-v7） |
-| D4 | 设置 | **头带渐变为硬编码色相**（棕/墨绿/紫黑，不在 §2 色板；暗色下发灰脏） | ⏳ 重设计时以 token 重定（任何方向都不得保留发明色） |
-| D5 | 设置 | 数据卡无头带（四卡不一致） | ⏳ 随重设计 |
-| D6 | 世界书/预设页+两个面板 | **文案落后实现**：「检索注入/拼进请求在 P5 接入——改了不影响回复」，而 `WorldBookActivator`/`PromptSections` 早已接入请求组装 | ✅ 已修（4 处文案 + 1 处注释） |
-| D7 | 角色卡 | 空态用文本卡而非 `EmptyState`；且页头「检索 / +」是**无点击的装饰图标（假按钮）** | ✅ 已修（换 `EmptyState` + 撤假按钮） |
-| D8 | 记忆 | 缺 §13.1 规格的「引擎设置折叠卡」（功能缺口非视觉 bug） | 📝 登记（不在本轮） |
-| D9 | 设置 | 用户卡空值显示「描述 0 字 · 偏好 0 字」生硬 | ✅ 已修（空态「未填写」） |
-| D10 | 迁移 | 无旧数据设备每次冷启动跑一次隐藏 WebView 并失败重试 | 📝 登记（安全优先的既定权衡，不改） |
-| D11 | 工程 | `TransferFormat` 冗余 `else`；`SessionsPage` 被成员遮蔽的死扩展 | ✅ 已清 |
-| D11b | 工程 | `LuzzyNavShell.animateTo` / `LocalClipboardManager` deprecated | 📝 有意保留（前者承载 §13.2 抽屉 200ms 与转场同拍编排，M3 新 API 不接受自定义 spec；后者替换需协程管道，收益低） |
+| #    | 页面                   | 缺陷                                                                                                                         | 状态                                                                                                             |
+| ---- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| D1   | 关于                   | 版本行硬编码「v2.0.0（P1 静态稿）」                                                                                          | ✅ 已修（读 `BuildConfig`）                                                                                      |
+| D2   | 关于                   | changelog 卡为 P1 静态 bullets；「P5 接入 ext/luzzy-changelog.js」欠账                                                       | ✅ 已修（真数据源 + 版本下拉 + `MarkdownText`）                                                                  |
+| D3   | 设置                   | 头带 48dp 裸色块、标题在带外；上游 = 96dp 带纹理 + 标题内嵌 + 头像叠压                                                       | ⏳ 归设置页重设计（boards-v7）                                                                                   |
+| D4   | 设置                   | **头带渐变为硬编码色相**（棕/墨绿/紫黑，不在 §2 色板；暗色下发灰脏）                                                         | ⏳ 重设计时以 token 重定（任何方向都不得保留发明色）                                                             |
+| D5   | 设置                   | 数据卡无头带（四卡不一致）                                                                                                   | ⏳ 随重设计                                                                                                      |
+| D6   | 世界书/预设页+两个面板 | **文案落后实现**：「检索注入/拼进请求在 P5 接入——改了不影响回复」，而 `WorldBookActivator`/`PromptSections` 早已接入请求组装 | ✅ 已修（4 处文案 + 1 处注释）                                                                                   |
+| D7   | 角色卡                 | 空态用文本卡而非 `EmptyState`；且页头「检索 / +」是**无点击的装饰图标（假按钮）**                                            | ✅ 已修（换 `EmptyState` + 撤假按钮）                                                                            |
+| D8   | 记忆                   | 缺 §13.1 规格的「引擎设置折叠卡」（功能缺口非视觉 bug）                                                                      | 📝 登记（不在本轮）                                                                                              |
+| D9   | 设置                   | 用户卡空值显示「描述 0 字 · 偏好 0 字」生硬                                                                                  | ✅ 已修（空态「未填写」）                                                                                        |
+| D10  | 迁移                   | 无旧数据设备每次冷启动跑一次隐藏 WebView 并失败重试                                                                          | 📝 登记（安全优先的既定权衡，不改）                                                                              |
+| D11  | 工程                   | `TransferFormat` 冗余 `else`；`SessionsPage` 被成员遮蔽的死扩展                                                              | ✅ 已清                                                                                                          |
+| D11b | 工程                   | `LuzzyNavShell.animateTo` / `LocalClipboardManager` deprecated                                                               | 📝 有意保留（前者承载 §13.2 抽屉 200ms 与转场同拍编排，M3 新 API 不接受自定义 spec；后者替换需协程管道，收益低） |
 
 ### 四、Phase 2 门禁（全绿）
 
@@ -5334,6 +5437,7 @@ awesome-design-md `README.md`（250）。设计真源 `DESIGN-compose.md` §2 �
 （53.4 MB，Flutter + objectbox + quickjs）。
 
 **必须守住的既有不变量（不得破坏）**：
+
 - KV/prompt 前缀**纯追加**形态（批 A 验收：公共前缀占比 1.0000、命中 89%）；
 - `RequestBuilder` 的「请求 = 状态纯函数 + 落盘顺序 = 请求顺序」与**稳定块/易变块七位置分工**（§24.3）；
 - `CacheObserver` 口径与 `BatchACacheAcceptanceTest`（连续五轮纯追加、字节级断言）——世界书注入的
@@ -5350,12 +5454,13 @@ awesome-design-md `README.md`（250）。设计真源 `DESIGN-compose.md` §2 �
 ### 一、调研：旧版页面结构从哪里挖（本仓库的「真源」路径）
 
 WebView 前端源码已从工作树删除，但**两条路都通**（子代理两次失败后自己走的）：
+
 1. `tools/patches/entities/012-035-index-html.patch`（patch 017/025 的源码 diff，**逐行可读**）；
 2. `git log -- <旧路径>` + `git show <rev>:<path>`。
-本轮据此拿到旧版「记忆内容管理器」的完整模板（选择器 / 汇总条 / 向量分片段 / 总结记忆段 /
-编辑弹窗 / 清空按钮）与 `pagination-controls`、`memoryManagerShardModelLabel` 等语义。
-**注意**：`docs/DESIGN-compose.md` §13.1 的 IA 表是 2026-09-12 的静态稿规划，**不等于**旧版实现，
-两者冲突时以 patch/git 里的旧版实现为准。
+   本轮据此拿到旧版「记忆内容管理器」的完整模板（选择器 / 汇总条 / 向量分片段 / 总结记忆段 /
+   编辑弹窗 / 清空按钮）与 `pagination-controls`、`memoryManagerShardModelLabel` 等语义。
+   **注意**：`docs/DESIGN-compose.md` §13.1 的 IA 表是 2026-09-12 的静态稿规划，**不等于**旧版实现，
+   两者冲突时以 patch/git 里的旧版实现为准。
 
 ### 二、记忆系统页重建（本轮主体）
 
@@ -5414,11 +5519,11 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 二、修掉的三处假件
 
-| 症状 | 修法 |
-|---|---|
-| 顶部四个类型筛选是**画出来的方块**：高亮恒在第一项、点了没有任何反应 | 换成 `SegmentChips` 真过滤（统计 / 图表 / 模型汇总一起变） |
-| 折线只有一条按天线，无粒度无供应商无模型无坐标轴 | 三粒度 + 供应商单选 + 模型多选（带色点，空集=全选）+ 网格与刻度 |
-| 页头红垃圾桶是**无点击的装饰图标** | 真按钮 → 确认框（写清条数与影响面）→ 真清库 |
+| 症状                                                                 | 修法                                                            |
+| -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 顶部四个类型筛选是**画出来的方块**：高亮恒在第一项、点了没有任何反应 | 换成 `SegmentChips` 真过滤（统计 / 图表 / 模型汇总一起变）      |
+| 折线只有一条按天线，无粒度无供应商无模型无坐标轴                     | 三粒度 + 供应商单选 + 模型多选（带色点，空集=全选）+ 网格与刻度 |
+| 页头红垃圾桶是**无点击的装饰图标**                                   | 真按钮 → 确认框（写清条数与影响面）→ 真清库                     |
 
 ### 三、新增代码
 
@@ -5466,11 +5571,11 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 二、修掉的三处硬伤
 
-| 症状 | 修法 |
-|---|---|
+| 症状                                                                              | 修法                                                                     |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | 每张卡都用**同一张固定立绘** `vanio_card`，真头像缩成 26dp 小圆（十张卡长得一样） | 卡面 = 这张卡自己的头像（铺满 + 黑渐变）；无图/解码失败回落首字 monogram |
-| 卡右上「导出 / 删除」是**不带点击的图标** | 真按钮：收藏 / 导出（SAF）/ 删除（确认框） |
-| 卡片**点了没反应** | 点卡 = 切当前角色（写 kv）并回到对话页 |
+| 卡右上「导出 / 删除」是**不带点击的图标**                                         | 真按钮：收藏 / 导出（SAF）/ 删除（确认框）                               |
+| 卡片**点了没反应**                                                                | 点卡 = 切当前角色（写 kv）并回到对话页                                   |
 
 ### 三、新增代码
 
@@ -5504,31 +5609,31 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 一、本轮之前已完成（18 个 commit，全部未推）
 
-| # | commit | 内容 |
-|---|---|---|
-| 1 | `f0de4b9c` | 世界书多书架构 + SillyTavern 能力对齐（前序会话） |
-| 2 | `75cc2a74` | P6 验收修复（关于页真数据源 / 过时文案 / 空态 / 假按钮） |
-| 3 | `181f09be` `295aa2ce` | P6 文档与真机清单（前序） |
-| 4 | `e3a98cb5` | **设置页重设计**（boards-v7 方向 A · 织机卡组） |
-| 5 | `dedb3a3a` `d18038cd` `45caff9c` | P6 验收续（修复验证图 + 真机清单 B7 + 150% 字号实测） |
-| 6 | `54e22a2f` | **记忆系统页重建**（管理器 + 引擎设置 + 检索测试） |
-| 7 | `12b939a4` `a983b174` | **用量统计页重建**（撤三处假件 + 三粒度趋势图） |
-| 8 | `248a1295` `2c1931e9` | **角色卡页重建**（真头像卡面 + 真动作）+ 清掉最后一处图标占位 |
-| 9 | `a2633cc8` | **全页复查**（预设补导入导出 / 会话总览抬头行可见性） |
-| 10 | `2446686a` | **150% 字号复查**（修角色卡名字静默截断） |
-| 11 | `9a779917` | **角色卡编辑器**（四段编辑 / 换头像 / 新建角色） |
-| 12 | `0e6f3634` | **世界书两处真缺陷**（扫描设置不可达 / 条目删除无确认） |
+| #   | commit                           | 内容                                                          |
+| --- | -------------------------------- | ------------------------------------------------------------- |
+| 1   | `f0de4b9c`                       | 世界书多书架构 + SillyTavern 能力对齐（前序会话）             |
+| 2   | `75cc2a74`                       | P6 验收修复（关于页真数据源 / 过时文案 / 空态 / 假按钮）      |
+| 3   | `181f09be` `295aa2ce`            | P6 文档与真机清单（前序）                                     |
+| 4   | `e3a98cb5`                       | **设置页重设计**（boards-v7 方向 A · 织机卡组）               |
+| 5   | `dedb3a3a` `d18038cd` `45caff9c` | P6 验收续（修复验证图 + 真机清单 B7 + 150% 字号实测）         |
+| 6   | `54e22a2f`                       | **记忆系统页重建**（管理器 + 引擎设置 + 检索测试）            |
+| 7   | `12b939a4` `a983b174`            | **用量统计页重建**（撤三处假件 + 三粒度趋势图）               |
+| 8   | `248a1295` `2c1931e9`            | **角色卡页重建**（真头像卡面 + 真动作）+ 清掉最后一处图标占位 |
+| 9   | `a2633cc8`                       | **全页复查**（预设补导入导出 / 会话总览抬头行可见性）         |
+| 10  | `2446686a`                       | **150% 字号复查**（修角色卡名字静默截断）                     |
+| 11  | `9a779917`                       | **角色卡编辑器**（四段编辑 / 换头像 / 新建角色）              |
+| 12  | `0e6f3634`                       | **世界书两处真缺陷**（扫描设置不可达 / 条目删除无确认）       |
 
 ### 二、本轮（会话 87）新查出的三处缺口 —— **尚未修**
 
 用「仓储方法有没有界面调用方」这条线扫出来的，三处都属同一类：
 **功能实现了、但界面上接不到**（前几轮修的是「假件」「看不见」，这一类是「够不着」）。
 
-| # | 缺口 | 证据 | 影响 |
-|---|---|---|---|
-| A | **世界书条目排序不可达** | `LoreBookRepository.moveEntry` 无界面调用；`LoreBookPages` 的条目行只有编辑/复制/删除三个按钮，而**预设页同样位置有「上移/下移」** | 条目顺序决定注入顺序（`order` + 列表序），用户无法调整 |
-| B | **世界书绑定角色不可达** | `setBoundTo` / `boundTo` 无界面调用；`WorldEntryEditor` 有 `canBindCharacter` 与 scope 选择器，但**没有任何入口能设「哪本书绑哪个角色」**；而聊天页世界书面板已会显示「+ 某角色 绑定」 | 绑定能力成了死代码；用户无法把一本书指定给某个角色 |
-| C | **剧情分支不能手动新建** | `ChatSessionRepository.createBranch` 无界面调用；`BranchListSheet` 只有切换/重命名/删除 | 分支只能由聊天页「编辑后重跑」自动生成 |
+| #   | 缺口                     | 证据                                                                                                                                                                                   | 影响                                                   |
+| --- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| A   | **世界书条目排序不可达** | `LoreBookRepository.moveEntry` 无界面调用；`LoreBookPages` 的条目行只有编辑/复制/删除三个按钮，而**预设页同样位置有「上移/下移」**                                                     | 条目顺序决定注入顺序（`order` + 列表序），用户无法调整 |
+| B   | **世界书绑定角色不可达** | `setBoundTo` / `boundTo` 无界面调用；`WorldEntryEditor` 有 `canBindCharacter` 与 scope 选择器，但**没有任何入口能设「哪本书绑哪个角色」**；而聊天页世界书面板已会显示「+ 某角色 绑定」 | 绑定能力成了死代码；用户无法把一本书指定给某个角色     |
+| C   | **剧情分支不能手动新建** | `ChatSessionRepository.createBranch` 无界面调用；`BranchListSheet` 只有切换/重命名/删除                                                                                                | 分支只能由聊天页「编辑后重跑」自动生成                 |
 
 ### 三、已登记未做（历史遗留，继续挂着）
 
@@ -5551,15 +5656,15 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 一、本轮交付
 
-| # | 内容 | 落点 |
-|---|---|---|
-| 1 | **A · 世界书条目排序不可达** → 条目行收编共用件 `EntryCard`，菜单加「上移/下移」（越界显式禁用） | `LoreBookPages.kt` |
-| 2 | **B · 世界书绑定角色不可达** → 书列表「⋯」加「绑定角色」弹层 + 新增反向查询 `boundCharacters()` / `bindableCharacters()` | `LoreBookPages.kt` / `LoreBookRepository.kt` |
-| 3 | **C · 剧情分支不能手动新建** → AI 消息操作行加「从这里分支」（照上游 `index.html:668` 同位同义） | `ChatPage.kt` / `ChatThinking.kt` |
-| 4 | **顺带查实的真缺陷**：世界书 `before_char`/`after_char` **重复注入**（system + prelude 各一份）→ 删 prelude 那份 | `PromptAssembler.kt` |
-| 5 | **死代码处置**：删 `WorldEntryEditor.kt`(514 行)、`presetCount`/`worldInfoCount`、`lastMessagePreview`/`lastUserMessagePreview`、`activeEntries`/`bookNameOf` | 5 个文件 |
-| 6 | **修掉两处 Compose 文案里的 Markdown 星号**（`**叠加**` / `**中文建议保持关闭**` 会显示成光秃秃星号） | `LoreBookPages.kt` |
-| 7 | **仪器化 +10 条**（`ReachabilityUiTest` 8 + fork 2）；**JVM +6 条**（注入次数 4 + key 身份 2） | 测试 |
+| #   | 内容                                                                                                                                                          | 落点                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 1   | **A · 世界书条目排序不可达** → 条目行收编共用件 `EntryCard`，菜单加「上移/下移」（越界显式禁用）                                                              | `LoreBookPages.kt`                           |
+| 2   | **B · 世界书绑定角色不可达** → 书列表「⋯」加「绑定角色」弹层 + 新增反向查询 `boundCharacters()` / `bindableCharacters()`                                      | `LoreBookPages.kt` / `LoreBookRepository.kt` |
+| 3   | **C · 剧情分支不能手动新建** → AI 消息操作行加「从这里分支」（照上游 `index.html:668` 同位同义）                                                              | `ChatPage.kt` / `ChatThinking.kt`            |
+| 4   | **顺带查实的真缺陷**：世界书 `before_char`/`after_char` **重复注入**（system + prelude 各一份）→ 删 prelude 那份                                              | `PromptAssembler.kt`                         |
+| 5   | **死代码处置**：删 `WorldEntryEditor.kt`(514 行)、`presetCount`/`worldInfoCount`、`lastMessagePreview`/`lastUserMessagePreview`、`activeEntries`/`bookNameOf` | 5 个文件                                     |
+| 6   | **修掉两处 Compose 文案里的 Markdown 星号**（`**叠加**` / `**中文建议保持关闭**` 会显示成光秃秃星号）                                                         | `LoreBookPages.kt`                           |
+| 7   | **仪器化 +10 条**（`ReachabilityUiTest` 8 + fork 2）；**JVM +6 条**（注入次数 4 + key 身份 2）                                                                | 测试                                         |
 
 ### 二、为什么 A/B/C 是「够不着」而不是「假件」
 
@@ -5585,7 +5690,7 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
   ① **HEAD 对照**——干净 HEAD 全量 **118/118 绿**（3m15s）→ 说明不是「本来就坏」；
   ② **逐类隔离**——两个红类合跑 **17/17 绿**、单跑也绿 → 说明不是逻辑错；
   ③ **找代价来源**——同次运行里 `FontScaleUiTest.sliderShowsPxForDefaultScale`
-     （与本轮改动**毫无关系**的用例）耗时 **144s**，全量总耗时 **485s**；
+  （与本轮改动**毫无关系**的用例）耗时 **144s**，全量总耗时 **485s**；
   ④ **冷启动复跑**——**128/128 绿、总耗时 249s**（降回一半）。
   结论：**模拟器长跑劣化**（仓库坑表已登记同型：会话 79/84 的偶红都是它）。
   按既有纪律**不迎合劣化环境**：代码未因此改动一行。
@@ -5654,16 +5759,16 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 实测结果（正文阈值 4.5:1）：
 
-| 页面 | 对比度 |
-|---|---|
-| 设置 | 12.76:1 |
-| 关于 | 9.67:1 |
-| 预设 | 5.44:1 |
-| 世界书 | 10.10:1 |
-| 会话总览 | 13.34:1 |
-| 对话 · AI 气泡 | 7.26:1 |
-| 对话 · 用户气泡 | 10.43:1 |
-| 预设 · 徽标（专项） | 6.70:1 |
+| 页面                | 对比度  |
+| ------------------- | ------- |
+| 设置                | 12.76:1 |
+| 关于                | 9.67:1  |
+| 预设                | 5.44:1  |
+| 世界书              | 10.10:1 |
+| 会话总览            | 13.34:1 |
+| 对话 · AI 气泡      | 7.26:1  |
+| 对话 · 用户气泡     | 10.43:1 |
+| 预设 · 徽标（专项） | 6.70:1  |
 
 **九页一致：无灰脏块、无破版、无缺字。**
 
@@ -5690,7 +5795,6 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - **③ 视觉纪律**：**本轮收线**——九页亮/暗逐页过完，对比度实测全达标；
   150% 字号与「有数据」四种输入此前已覆盖。
 
-
 ---
 
 ## 会话 90 · 2026-09-16 · AGENTS.md 轻量化（用户指示「尽可能的轻量化」）
@@ -5704,12 +5808,12 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 二、删了什么（均已核实）
 
-| 章节 | 依据 |
-|---|---|
-| §9 四份历史版本快照（v1.5.0/v1.4.0/v1.3.0/v1.2.2，约 123 行） | 全是 CHANGELOG 的重复，且整段在截断线之后 |
-| §4.1/4.2/4.3 上游同步 SOP 正文（约 110 行） | 章头自述「2026-09-12 已退役」；patch 权威登记在 `tools/patches/README.md`（759 行） |
-| §1.3 上游文件地图（17 行） | 描述 `assets/rphub/`——该目录**已随 P6 整体删除**，是在说谎 |
-| §6.2 同步后必测 | 随同步退役，标注「保留仅为历史」 |
+| 章节                                                          | 依据                                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| §9 四份历史版本快照（v1.5.0/v1.4.0/v1.3.0/v1.2.2，约 123 行） | 全是 CHANGELOG 的重复，且整段在截断线之后                                           |
+| §4.1/4.2/4.3 上游同步 SOP 正文（约 110 行）                   | 章头自述「2026-09-12 已退役」；patch 权威登记在 `tools/patches/README.md`（759 行） |
+| §1.3 上游文件地图（17 行）                                    | 描述 `assets/rphub/`——该目录**已随 P6 整体删除**，是在说谎                          |
+| §6.2 同步后必测                                               | 随同步退役，标注「保留仅为历史」                                                    |
 
 **没删**：§7 坑表（59 行最高价值）、§2.1 设计 SKILL 门、§3.4 发布纪律、§5 扩展规范。
 
@@ -5742,6 +5846,7 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 ### 完成（已编译验证 / 测试绿）
 
 **批 G · 上游对照（先行完成）**
+
 - 调研：上游 STA1N156/RP-Hub 最新发布 1.9.5（09-15）；基线 1.9.3 后仅 1.9.4（零 UI）+ 1.9.5。
   1.9.5 设计增量四点：导航面板分组/世界书设置布局/记忆系统样式/移动端。上游纯亮色 Tailwind 风、无暗色。
 - 对照基准：模拟机 Loom v4 逐页截图（8 页）+ 上游在线 demo 截图（浏览器 agent-browser 采集，
@@ -5751,17 +5856,20 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - 「拉取上游」澄清：代码层无落点（同步退役+WebView 删），只做设计借鉴。
 
 **批 A · 机制修复**
+
 - `app/build.gradle.kts`：release 签名 keystore.properties 缺失时 throw GradleException（原静默回退 debug 签名）。
 - `tools/verify-markers.ps1`：收编为只校验 assets/ext/**（8 文件清单 + 孤儿检查），142 条 P6 遗留 FAIL 清零，8 PASS 全绿。
 - 注释漂移×3：ChatComponents.kt（附件已实现）/ RecallEngine.kt（词面口径为现行，撤真嵌入承诺）/ TransportConfig.kt（撤 DataStore 承诺）。
 
 **批 B · 世界书定时效果收尾**
+
 - `LoreBookRepository.forgetBookTimedEffects / forgetEntryTimedEffects`（新）+ `LuzzyStore.keysWithPrefix`（新）+ `TimedEffects.KV_PREFIX`（新）。
 - UI 接线：条目**内容保存**只 forget 本 slot（LoreBookPages 两处保存按钮）；**删除/复制/上移/下移**整书 forget（下标漂移，宁丢状态不挂错）。
 - 分支继承：`ChatSessionRepository.createBranch` 加 parentBranchId 参数复制父分支定时效果 kv（ST 语义）；deleteBranch 连带清 kv；ChatPage「从这里分支」已接线。
 - JVM 测试：`WorldBookActivatorV31Test` 加「整书清理」用例，绿。
 
 **批 C · 记忆自动总结**
+
 - `chat/MemorySummarizer.kt`（新）：每 N 轮（默认 5，UI 3-20 可调）取最近可见消息 → 复用 OpenAiTransport 总结 → 写 classic 记忆（payload 口径对齐旧数据）；失败静默（日志 W）。
 - 触发点：ChatPage send()/regenerateFrom() 的 onFinish 后 `maybeSummarize`（AI 消息落库后）；进度按角色+分支存 kv。
 - 设置：`PageDataSource.summarySettings/saveSummarySettings`（kv `memory.autoSummary`）；记忆页新「自动总结」卡（开关+间隔 chips）。
@@ -5769,10 +5877,12 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - JVM 测试：`MemorySummarizerTest`（触发/跳档/关闭/序列化，5 用例，绿）。
 
 **批 D · 会话总览**
+
 - 核实：SessionsPage 本就是消费 overview()/SessionSummary 的跨角色总览（Loom v4 完整）——
   此前盘点误判「悬空」，`ChatSessionRepository.kt:103` 过时注释已回填。无需新页面。
 
 **批 E（部分）**
+
 - E-1：BandCard 薄壳化（4 处调用零改动，织带绘制单源到 LoomHero，含顶缘高光补齐）。
 - E-2：`DrawerCloseMs = LoomMotion.PageMs`（420ms 单一真源）；抽屉分组标签（对话/创作/数据，G-1）。
 - E-3（部分）：LoreBookList 顶页头换 LoomScaffold（tertiary accent）+ 加载态换骨架；
@@ -5870,7 +5980,7 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
   （估算 139 万 token，远超 40 万上限）。定 15 条项目 exclude 规则后 index 降到 **444**：
   - `docs/skills/**`（14191 个第三方技能仓库存档）整体 exclude
   - 二进制素材全 exclude（png/webp/jpg/svg/字体/音视频/jar）
-  规则赶在**首次 scan 之前**加好——角色由首次 scan 定格，事后摘除要走审批的 Scope Change。
+    规则赶在**首次 scan 之前**加好——角色由首次 scan 定格，事后摘除要走审批的 Scope Change。
 - **441 条认知条目全部落盘**：8 个子代理并行读文件产出条目，主控串行落盘（索引锁保证互斥）。
   最终 `aligned`：entry 441/441、missing/stale/orphan 全 0、budget healthy（56818 tok / 上限 400000）、
   `check` 报「✓ 可提交」。
@@ -5889,15 +5999,15 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 踩坑记录（机器闸比文档严，全部实测确认）
 
-| 闸 | 实测规则 | 教训 |
-|---|---|---|
-| FRAS 分段 | 按 `" \| "`（空格-竖线-空格）切 | 竖线前缺空格会让 R 段吞掉 `A:`，报 `fras_a_empty` |
-| rune 闸 | F≤160 / R≤360 且≤8项 / A≤400 且≤6项 | 与 token 闸是**两套独立闸**，都要过 |
-| S rune 闸 | 按 C 档：C9-8≤600 / C7-4≤200 / C3-1≤50 | 来自 Meta 声明，与 token 闸并存 |
-| token 闸 | `utf8字节/3`（中文 1 字 = 1 token）：C9 R180 S200 / C8 R140 S140 / C5-7 R90 S80 / C1-4 R50 S40 | 比 rune 闸紧得多，C5-7 的 S 只能写 **80 个中文字** |
-| 标签字典 | B 位必须是 Meta 声明的值 | `K` 未声明（vendored 库要用 `L`） |
-| E 档 | 须与真实行数一致（>400 L / 200-400 M / 100-200 S / <100 T） | 写错会被回显提醒 |
-| items 计数 | 按**英文逗号**切分 | `A:Fn(a, b, c)` 会被算成多项，须改斜杠写法 |
+| 闸         | 实测规则                                                                                       | 教训                                               |
+| ---------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| FRAS 分段  | 按 `" \| "`（空格-竖线-空格）切                                                                | 竖线前缺空格会让 R 段吞掉 `A:`，报 `fras_a_empty`  |
+| rune 闸    | F≤160 / R≤360 且≤8项 / A≤400 且≤6项                                                            | 与 token 闸是**两套独立闸**，都要过                |
+| S rune 闸  | 按 C 档：C9-8≤600 / C7-4≤200 / C3-1≤50                                                         | 来自 Meta 声明，与 token 闸并存                    |
+| token 闸   | `utf8字节/3`（中文 1 字 = 1 token）：C9 R180 S200 / C8 R140 S140 / C5-7 R90 S80 / C1-4 R50 S40 | 比 rune 闸紧得多，C5-7 的 S 只能写 **80 个中文字** |
+| 标签字典   | B 位必须是 Meta 声明的值                                                                       | `K` 未声明（vendored 库要用 `L`）                  |
+| E 档       | 须与真实行数一致（>400 L / 200-400 M / 100-200 S / <100 T）                                    | 写错会被回显提醒                                   |
+| items 计数 | 按**英文逗号**切分                                                                             | `A:Fn(a, b, c)` 会被算成多项，须改斜杠写法         |
 
 ### 遗留
 
@@ -5945,17 +6055,17 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 验证（实测，非推断）
 
-| 项 | 结果 |
-|---|---|
-| `:app:assembleDebug` / `:app:assembleRelease` | BUILD SUCCESSFUL（各约 50s） |
-| release APK | **17.41 MB 单包**，versionCode 17 / versionName 1.5.0 |
-| `apksigner verify --print-certs` | 指纹 `ed78235d…ffb1`，**与历史同密钥库一致**（可覆盖升级） |
-| 模拟器安装启动 | `LuzzyRP_Test`（x86_64 / 4096M / gpu off）安装成功、`MainActivity` 为前台 |
-| 真窗口截图目视 | 开屏「开卷」、主界面 + 更新公告弹层、欢迎弹层——顶栏未被状态栏压住、按钮在导航栏上方 |
-| CDP 实测扩展层 | `window.Luzzy` 在；`prefixGuard`/`streamRender`/`toast`/`copyToClipboard`/`openUrl`/`setSystemBarStyle` 全在；**`chatOffload`/`chatNative`/`chatStart`/`chatAbort`/`chatTransportAvailable`/`migrateStart`/`migrateChunk`/`migrateDone` 全部 `undefined`（8/8 已摘净）**；Vue 正常挂载（`#app` 6 子节点）；无 JS 异常 |
-| `tools/verify-markers.ps1` | **6 PASS / 0 FAIL**（门禁自身抓出清单里两个已删文件，已修正——这正是它该做的） |
-| `tools/prefix-cache-test.cjs` | A1–A8 全绿、`failures: []` |
-| `tools/stream-render-test.cjs` / `page-handoff-test.cjs` / `model-list-test.cjs` | 全绿，exit=0 |
+| 项                                                                               | 结果                                                                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `:app:assembleDebug` / `:app:assembleRelease`                                    | BUILD SUCCESSFUL（各约 50s）                                                                                                                                                                                                                                                                                          |
+| release APK                                                                      | **17.41 MB 单包**，versionCode 17 / versionName 1.5.0                                                                                                                                                                                                                                                                 |
+| `apksigner verify --print-certs`                                                 | 指纹 `ed78235d…ffb1`，**与历史同密钥库一致**（可覆盖升级）                                                                                                                                                                                                                                                            |
+| 模拟器安装启动                                                                   | `LuzzyRP_Test`（x86_64 / 4096M / gpu off）安装成功、`MainActivity` 为前台                                                                                                                                                                                                                                             |
+| 真窗口截图目视                                                                   | 开屏「开卷」、主界面 + 更新公告弹层、欢迎弹层——顶栏未被状态栏压住、按钮在导航栏上方                                                                                                                                                                                                                                   |
+| CDP 实测扩展层                                                                   | `window.Luzzy` 在；`prefixGuard`/`streamRender`/`toast`/`copyToClipboard`/`openUrl`/`setSystemBarStyle` 全在；**`chatOffload`/`chatNative`/`chatStart`/`chatAbort`/`chatTransportAvailable`/`migrateStart`/`migrateChunk`/`migrateDone` 全部 `undefined`（8/8 已摘净）**；Vue 正常挂载（`#app` 6 子节点）；无 JS 异常 |
+| `tools/verify-markers.ps1`                                                       | **6 PASS / 0 FAIL**（门禁自身抓出清单里两个已删文件，已修正——这正是它该做的）                                                                                                                                                                                                                                         |
+| `tools/prefix-cache-test.cjs`                                                    | A1–A8 全绿、`failures: []`                                                                                                                                                                                                                                                                                            |
+| `tools/stream-render-test.cjs` / `page-handoff-test.cjs` / `model-list-test.cjs` | 全绿，exit=0                                                                                                                                                                                                                                                                                                          |
 
 ### 决策
 
@@ -5986,14 +6096,14 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 - **AOCI 维护已实测、按用户决定推迟到上游合并后一次做**：本轮收尾调用 `aoci_maintain` 一次，
   返回 **`status: stopped / result: blocked`**（`next_action: explicit_orphan_remove_or_resolve_blocker`）。
   实测差集：**孤儿 343 条**（全是已删的 Compose 时代文件）+ **缺条目 23 条**（刚复位的 rphub 上游文件）
-  + **待更新 13 条**（本轮改动的 AGENTS/README/CHANGELOG/LICENSING 等）。
-  **治理边界（实测确认，下次直接可用）**：Volumes v1 下 CLI `remove-entry` 返回 `volume_read_only`；
-  MCP `aoci_remove_entry` 必须用 **`code:<仓库相对路径>`** 形式（裸路径会被拒），
-  已用 `code:app/src/main/java/com/luzzymeow/luzzyrp/ui/ComposeActivity.kt` **实测通过一条**；
-  36 项创作须走 `aoci_update_entry` 批次入口。全量约 379 次操作。
-  **用户决定：全部推迟到「上游 1.9.7 合并完成」之后一次做**——理由：那 23 条 rphub 条目正是上游
-  要动的文件，现在写一遍、合并后再重写一遍是纯浪费。**当前 blocked 是索引如实反映「尚未对齐」，
-  不是故障**；`aoci.txt` / `.aoci/` 均保持现状不动（AGENTS.md AOCI 区块 §9 允许，且本次未禁写）。
+  - **待更新 13 条**（本轮改动的 AGENTS/README/CHANGELOG/LICENSING 等）。
+    **治理边界（实测确认，下次直接可用）**：Volumes v1 下 CLI `remove-entry` 返回 `volume_read_only`；
+    MCP `aoci_remove_entry` 必须用 **`code:<仓库相对路径>`** 形式（裸路径会被拒），
+    已用 `code:app/src/main/java/com/luzzymeow/luzzyrp/ui/ComposeActivity.kt` **实测通过一条**；
+    36 项创作须走 `aoci_update_entry` 批次入口。全量约 379 次操作。
+    **用户决定：全部推迟到「上游 1.9.7 合并完成」之后一次做**——理由：那 23 条 rphub 条目正是上游
+    要动的文件，现在写一遍、合并后再重写一遍是纯浪费。**当前 blocked 是索引如实反映「尚未对齐」，
+    不是故障**；`aoci.txt` / `.aoci/` 均保持现状不动（AGENTS.md AOCI 区块 §9 允许，且本次未禁写）。
 - **上游分期合并「已完成」**：台账见 **`docs/PLAN-upstream-merge.md`**（每步冲突裁决 / 步长依据 /
   缺陷清单 / 工具 / 踩坑）。四步全部落地：1.9.4（1 冲突，`90aa7671`）→ 1.9.5（24 冲突，`9d79cc7b`）
   → 1.9.6（18 冲突，`7972eb2b`）→ 1.9.7（**0 冲突**，`07bb4540`）。
@@ -6017,12 +6127,12 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 四步三方合并，全部落地并逐步验证：
 
-| 步 | 上游改动 | 冲突 | commit |
-|---|---|---|---|
-| 1.9.3 → 1.9.4 | 4 文件 +91/−31 | 1 | `90aa7671` |
+| 步            | 上游改动           | 冲突   | commit     |
+| ------------- | ------------------ | ------ | ---------- |
+| 1.9.3 → 1.9.4 | 4 文件 +91/−31     | 1      | `90aa7671` |
 | 1.9.4 → 1.9.5 | 8 文件 +8112/−9092 | **24** | `9d79cc7b` |
-| 1.9.5 → 1.9.6 | 11 文件 +1247/−427 | 18 | `7972eb2b` |
-| 1.9.6 → 1.9.7 | 7 文件 +560/−612 | **0** | `07bb4540` |
+| 1.9.5 → 1.9.6 | 11 文件 +1247/−427 | 18     | `7972eb2b` |
+| 1.9.6 → 1.9.7 | 7 文件 +560/−612   | **0**  | `07bb4540` |
 
 **工作树基线已与上游 main（`bcec53b`）对齐**；上游同步恢复常态化——后续版本走常规
 `tools/sync-upstream.ps1` 即可。
@@ -6040,13 +6150,13 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 
 ### 期间发现并修复的真缺陷（5 处，全部实测抓到）
 
-| # | 缺陷 | 症状 | 根因 |
-|---|---|---|---|
-| 1 | `getCustomApiUrlKey` 被误删 | 运行期 ReferenceError | 上游单槽化删了它，但我方多商体系仍需（且要兼容老用户 custom2 数据） |
-| 2 | HTML 注释插进标签属性中间 | **整页白屏**（Vue 编译 SyntaxError） | 解冲突时注释写在 `<div` 的属性列表内 |
-| 3 | `normalizeApiProviderSettings` 重复定义 | 语法错 | ours 与 theirs 都留了 |
-| 4 | 模型列表 label 契约类名丢失 | 门禁 A7 判 label 宽 0 | 移植时把 `text-gray-800` 换成上游 `text-sm` |
-| 5 | `toggleChatFullscreen` 导出悬空 | **整页白屏**（ReferenceError） | patch 022 已移除该函数，合并时按上游导出表补回 |
+| #   | 缺陷                                    | 症状                                 | 根因                                                                |
+| --- | --------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
+| 1   | `getCustomApiUrlKey` 被误删             | 运行期 ReferenceError                | 上游单槽化删了它，但我方多商体系仍需（且要兼容老用户 custom2 数据） |
+| 2   | HTML 注释插进标签属性中间               | **整页白屏**（Vue 编译 SyntaxError） | 解冲突时注释写在 `<div` 的属性列表内                                |
+| 3   | `normalizeApiProviderSettings` 重复定义 | 语法错                               | ours 与 theirs 都留了                                               |
+| 4   | 模型列表 label 契约类名丢失             | 门禁 A7 判 label 宽 0                | 移植时把 `text-gray-800` 换成上游 `text-sm`                         |
+| 5   | `toggleChatFullscreen` 导出悬空         | **整页白屏**（ReferenceError）       | patch 022 已移除该函数，合并时按上游导出表补回                      |
 
 > **第 2 条的定位方法值得留档**：整页白屏时控制台只给 `index.html:1436 SyntaxError`（编译后行号，
 > 与源码不对应）。有效办法是**分段编译定位法**——浏览器里用页面自带的 `Vue.compile`，
@@ -6105,6 +6215,7 @@ WebView 前端源码已从工作树删除，但**两条路都通**（子代理�
 patches/README 前像登记表同步至 1.9.7。
 
 **4. 设备验收（模拟器真窗口截图逐页看）**
+
 - 开屏「开卷」正常；首启欢迎弹层正常（响应式：填称呼时第三人称选项实时联动）
 - 主界面：顶栏在状态栏下方、输入岛在导航栏上方——**insets 正确、无破版**
 - **新侧栏 AppNavigation（上游 1.9.5 重写）真机渲染完美**：品牌字样「LuzzyRP」
@@ -6116,10 +6227,10 @@ patches/README 前像登记表同步至 1.9.7。
 
 ### 期间发现并修复的真缺陷（2 处，均实测抓到）
 
-| # | 缺陷 | 症状 | 根因 |
-|---|---|---|---|
-| 1 | **实体 patch 缺 `\ No newline at end of file` 标记** | apply 后文件尾多 1 换行（逆向验证 7/8 不一致） | 生成时用了 `--ignore-cr-at-eol`，该参数连「文件尾有无换行」的差异一起忽略 → 不产生覆盖文件尾的 hunk 与标记。**去掉该参数后 8/8 通过** |
-| 2 | **patch 032 标记被改写成 `[LuzzyRP patch 032 + 1.9.6 合并]`** | `apply-patches.ps1` 报「标记未落盘」（它用精确串校验） | 我在 1.9.6 合并时把合并说明写进了标记本身，破坏了脚本的精确匹配 → 已恢复标记原样，说明另起行；顺带修正被改坏的缩进 |
+| #   | 缺陷                                                          | 症状                                                   | 根因                                                                                                                                  |
+| --- | ------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **实体 patch 缺 `\ No newline at end of file` 标记**          | apply 后文件尾多 1 换行（逆向验证 7/8 不一致）         | 生成时用了 `--ignore-cr-at-eol`，该参数连「文件尾有无换行」的差异一起忽略 → 不产生覆盖文件尾的 hunk 与标记。**去掉该参数后 8/8 通过** |
+| 2   | **patch 032 标记被改写成 `[LuzzyRP patch 032 + 1.9.6 合并]`** | `apply-patches.ps1` 报「标记未落盘」（它用精确串校验） | 我在 1.9.6 合并时把合并说明写进了标记本身，破坏了脚本的精确匹配 → 已恢复标记原样，说明另起行；顺带修正被改坏的缩进                    |
 
 > 第 1 条的排查过程有价值：逐枚比对发现「apply 成功但内容差 1 字节」，
 > 定位到文件尾；再用「带/不带 `--ignore-cr-at-eol` 的 hunk 数对比」（2 vs 3）确认根因。
@@ -6133,13 +6244,13 @@ patches/README 前像登记表同步至 1.9.7。
 
 ### 验证总表
 
-| 项 | 结果 |
-|---|---|
-| 实体双验证 | 逆向 8/8 · 端到端 8 [OK] / 0 FAIL · 重放 9/9 一致 |
-| 五道 JS 门禁 | 全 PASS |
-| verify-markers | 6 PASS / 0 FAIL |
-| 设备验收 | 开屏 / 首启 / 主界面 / 新侧栏 四图逐张过目，无破版无 console 错误 |
-| 构建 | BUILD SUCCESSFUL，签名与历史一致 |
+| 项             | 结果                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| 实体双验证     | 逆向 8/8 · 端到端 8 [OK] / 0 FAIL · 重放 9/9 一致                 |
+| 五道 JS 门禁   | 全 PASS                                                           |
+| verify-markers | 6 PASS / 0 FAIL                                                   |
+| 设备验收       | 开屏 / 首启 / 主界面 / 新侧栏 四图逐张过目，无破版无 console 错误 |
+| 构建           | BUILD SUCCESSFUL，签名与历史一致                                  |
 
 ### 遗留
 
@@ -6165,11 +6276,11 @@ patches/README 前像登记表同步至 1.9.7。
 
 ### 二、完成的工作（3 个提交，均已本地提交、**未推送**）
 
-| 提交 | 内容 |
-|---|---|
+| 提交       | 内容                                               |
+| ---------- | -------------------------------------------------- |
 | `a4b625c2` | 阶段 A 基线字节归位 + 阶段 B 同步机制 4 处缺陷修复 |
-| `7b0dc18f` | 阶段 C 恢复上游层校验门（66 项，负控 8/8） |
-| `829abc52` | 阶段 D 登记表 + AGENTS/PLAN 文档 + 行尾卫生 |
+| `7b0dc18f` | 阶段 C 恢复上游层校验门（66 项，负控 8/8）         |
+| `829abc52` | 阶段 D 登记表 + AGENTS/PLAN 文档 + 行尾卫生        |
 
 #### 阶段 A · 基线字节归位
 
@@ -6183,12 +6294,12 @@ patches/README 前像登记表同步至 1.9.7。
 
 #### 阶段 B · 同步机制 4 处真缺陷（每处都有证据）
 
-| # | 缺陷 | 证据 | 修法 |
-|---|---|---|---|
-| 1 | **`sync-upstream.ps1` 整目录删拷会吃掉 16.2 MB 字体** | `$excludeDirs=@('vendor','fonts')` 在参考克隆顶层**永远匹配不到任何东西**（vendor/ 与 assets/fonts/ 在我方树下）→ `assets/` 被整目录删除，连带 11 个字体；`$protectedFiles` 只备份 local-fonts.css，**字体无备份无恢复** | 改清单驱动（只写上游受管文件、只删上游确实删了的文件）+ 保护不变式（两集之外的文件同步前后必须一字不动） |
-| 2 | **覆盖复制会灌入 CRLF** | 上游存储 blob 自带 CRLF（该仓库无 .gitattributes），直接 `Copy-Item` 参考克隆工作树 → 一次污染 21 个文件。**本轮实测踩到**（保护不变式先报的警） | 文本文件一律「读 → LF 归一 → 写」 |
-| 3 | **`apply-patches.ps1` 从不返回非零退出码** | 脚本内无任何 `exit` → 调用方 `if ($LASTEXITCODE -ne 0)` 是**死代码**，8 枚实体全 FAIL 也会被报成同步成功 | 所有 FAIL 经 `Report-Fail` 记账，末尾 `exit 1` |
-| 4 | **`AGENTS.md` §4.1「快速判定法」是错的** | 参考克隆按 `core.autocrlf=true` 检出，存储 blob 是 CRLF，而实体前像是 LF 归一后的 id → 照旧文做会把**可干净重放**的实体全部误判为需三方合并（实测 1.9.3 的 8 枚全误判） | 新增 `-CheckBaseline <ref>` 只读预检（正确口径：取字节 → LF 归一 → 算 blob id → 比前像）；AGENTS §4.1 整段重写并标注旧做法为错误 |
+| #   | 缺陷                                                  | 证据                                                                                                                                                                                                                     | 修法                                                                                                                             |
+| --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **`sync-upstream.ps1` 整目录删拷会吃掉 16.2 MB 字体** | `$excludeDirs=@('vendor','fonts')` 在参考克隆顶层**永远匹配不到任何东西**（vendor/ 与 assets/fonts/ 在我方树下）→ `assets/` 被整目录删除，连带 11 个字体；`$protectedFiles` 只备份 local-fonts.css，**字体无备份无恢复** | 改清单驱动（只写上游受管文件、只删上游确实删了的文件）+ 保护不变式（两集之外的文件同步前后必须一字不动）                         |
+| 2   | **覆盖复制会灌入 CRLF**                               | 上游存储 blob 自带 CRLF（该仓库无 .gitattributes），直接 `Copy-Item` 参考克隆工作树 → 一次污染 21 个文件。**本轮实测踩到**（保护不变式先报的警）                                                                         | 文本文件一律「读 → LF 归一 → 写」                                                                                                |
+| 3   | **`apply-patches.ps1` 从不返回非零退出码**            | 脚本内无任何 `exit` → 调用方 `if ($LASTEXITCODE -ne 0)` 是**死代码**，8 枚实体全 FAIL 也会被报成同步成功                                                                                                                 | 所有 FAIL 经 `Report-Fail` 记账，末尾 `exit 1`                                                                                   |
+| 4   | **`AGENTS.md` §4.1「快速判定法」是错的**              | 参考克隆按 `core.autocrlf=true` 检出，存储 blob 是 CRLF，而实体前像是 LF 归一后的 id → 照旧文做会把**可干净重放**的实体全部误判为需三方合并（实测 1.9.3 的 8 枚全误判）                                                  | 新增 `-CheckBaseline <ref>` 只读预检（正确口径：取字节 → LF 归一 → 算 blob id → 比前像）；AGENTS §4.1 整段重写并标注旧做法为错误 |
 
 另修：参考克隆 remote 由 HTTPS 改为 **SSH**（本机 443 不通，实测 `curl 28`；SSH 实测通）；
 指纹清单不再硬编码 15 项、改为覆盖全部 21 个上游受管文件（原实现会抹掉 theme.css/theme.js 两行）；
@@ -6231,25 +6342,27 @@ patches/README 前像登记表同步至 1.9.7。
 
 ### 三、验证总表（本轮实测）
 
-| 判据 | 结果 |
-|---|---|
-| V1 幂等（对同一版本跑完整同步） | **40 个文件逐字节零差异** |
-| V2 保护（19 个二创独有文件） | 全部完好（fonts 11 + local-fonts.css + vendor 7） |
-| V3 双验证 | 逆向 8/8 + 端到端 8 `[OK]`，21/21 与工作树一致 |
-| V4 纯净等值 | 13/13 无标记上游文件与上游逐字节相等 |
-| V5 校验门 | 66 PASS / 0 FAIL；负控 8/8 会响 |
-| V6 JS 门禁 | prefix-cache / stream-render / page-handoff / model-list 全 PASS；desktop-smoke 无异常 |
-| V7 构建 | BUILD SUCCESSFUL，**17.38 MB**，versionCode 17 / v1.5.0，签名 `ed78235d…ffb1` **未变** |
-| V8 真机目视 | 模拟器 `LuzzyRP_Test` 四图过目：开屏 / 主界面 / 侧栏（LuzzyRP 品牌 + 外观·关于）/**外观页完整渲染**，无破版、WebView 零 console 错误 |
+| 判据                            | 结果                                                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| V1 幂等（对同一版本跑完整同步） | **40 个文件逐字节零差异**                                                                                                            |
+| V2 保护（19 个二创独有文件）    | 全部完好（fonts 11 + local-fonts.css + vendor 7）                                                                                    |
+| V3 双验证                       | 逆向 8/8 + 端到端 8 `[OK]`，21/21 与工作树一致                                                                                       |
+| V4 纯净等值                     | 13/13 无标记上游文件与上游逐字节相等                                                                                                 |
+| V5 校验门                       | 66 PASS / 0 FAIL；负控 8/8 会响                                                                                                      |
+| V6 JS 门禁                      | prefix-cache / stream-render / page-handoff / model-list 全 PASS；desktop-smoke 无异常                                               |
+| V7 构建                         | BUILD SUCCESSFUL，**17.38 MB**，versionCode 17 / v1.5.0，签名 `ed78235d…ffb1` **未变**                                               |
+| V8 真机目视                     | 模拟器 `LuzzyRP_Test` 四图过目：开屏 / 主界面 / 侧栏（LuzzyRP 品牌 + 外观·关于）/**外观页完整渲染**，无破版、WebView 零 console 错误 |
 
 ### 四、⚠ 交接：未完成内容（留给下一位接手者）
 
 **1. 推送（最高优先，3 个提交待推）**
+
 ```
 a4b625c2  fix(sync): 上游同步机制加固 —— 修掉会在标准路径上破坏二创内容的 4 处缺陷
 7b0dc18f  feat(gate): 恢复上游层校验门 —— 66 项，21/21 上游文件全覆盖，负控 8/8 会响
 829abc52  docs(sync): 登记表与文档对齐 —— patch 总表 / AGENTS 机制变更 / PLAN 实测回填 / 行尾卫生
 ```
+
 用户中途叫停，明确「记录节点留给下一个接手」。**推送前建议先复跑** `tools/verify-markers.ps1`
 与 4 个断言门禁确认仍是绿的（本轮最后状态为全绿，工作区干净）。
 
@@ -6273,15 +6386,15 @@ VR 设备（`PA921BMGL3190210G`，Pico sparrow）上 `screencap` 返回**纯黑�
 
 ### 五、本轮踩到的坑（写进注释备查）
 
-| 坑 | 现象 | 处置 |
-|---|---|---|
-| PowerShell `$Matches` 是会话级自动变量 | 指纹表头写成 `RP-Hub 4ECEC5FB…`（把上一个循环的哈希残留当版本号） | 用 `-match` 显式取值并前后清空 `$Matches` |
-| `\| Select-Object -First 1` 会掐断管道 | `git rev-parse` 的 `$LASTEXITCODE` 变 -1 → 基线被误判 `UNKNOWN` | 改为先接数组再取首元素 |
-| 文本管道会改写 diff 输出 | 用 `git diff ... \| Set-Content` 产出的 patch 头行被写成 Windows 路径并加引号 | 一律 `cmd /c "... > file"` 取原始字节 |
-| `B $rel: ...` 被解析成盘符变量 | verify-markers 解析报错 | 写 `${rel}` |
-| `Report-Pass/Fail` 计数不回传 | 计数恒 0 | 用 `$script:` 作用域 |
-| 保护不变式误报 6 个上游文件 | 指纹表只列 21 个中的 15 个，LICENSE/README/presence-server 被误判「我方独有」 | 判定集合改为「旧清单 ∪ 新清单」之外（充要） |
-| `git checkout -- <path>` 抹掉未提交改动 | 为撤销被污染文件而 checkout，**连阶段 A 的 11 个字节修复一起还原** | 重做 A1（幂等），并吸取教训：**未提交的改动不要用 checkout 撤销** |
+| 坑                                      | 现象                                                                          | 处置                                                              |
+| --------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| PowerShell `$Matches` 是会话级自动变量  | 指纹表头写成 `RP-Hub 4ECEC5FB…`（把上一个循环的哈希残留当版本号）             | 用 `-match` 显式取值并前后清空 `$Matches`                         |
+| `\| Select-Object -First 1` 会掐断管道  | `git rev-parse` 的 `$LASTEXITCODE` 变 -1 → 基线被误判 `UNKNOWN`               | 改为先接数组再取首元素                                            |
+| 文本管道会改写 diff 输出                | 用 `git diff ... \| Set-Content` 产出的 patch 头行被写成 Windows 路径并加引号 | 一律 `cmd /c "... > file"` 取原始字节                             |
+| `B $rel: ...` 被解析成盘符变量          | verify-markers 解析报错                                                       | 写 `${rel}`                                                       |
+| `Report-Pass/Fail` 计数不回传           | 计数恒 0                                                                      | 用 `$script:` 作用域                                              |
+| 保护不变式误报 6 个上游文件             | 指纹表只列 21 个中的 15 个，LICENSE/README/presence-server 被误判「我方独有」 | 判定集合改为「旧清单 ∪ 新清单」之外（充要）                       |
+| `git checkout -- <path>` 抹掉未提交改动 | 为撤销被污染文件而 checkout，**连阶段 A 的 11 个字节修复一起还原**            | 重做 A1（幂等），并吸取教训：**未提交的改动不要用 checkout 撤销** |
 
 ## 2026-10-01 · 会话 92：上游同步 1.9.7 → 1.9.8 + v1.5.0 正式发布 + 全门禁与模拟器验收
 
@@ -6308,14 +6421,14 @@ VR 设备（`PA921BMGL3190210G`，Pico sparrow）上 `screencap` 返回**纯黑�
 `git merge-file` 得 **7 处冲突**（novel 1 / index.html 1 / app.js 4 / runtime-services 1），
 character 与 ui-components 零冲突自动合并。**逐处裁决**：
 
-| 处 | 上游做了什么 | 裁决 |
-|---|---|---|
-| novel#1 | 删除本页 `RPHUB_PROVIDER_DEFINITIONS`，改读 `window.RPHubConfig.apiProviderOptions` | **采纳上游**。该页第 15 行本就加载 `core-utils.js`（`RPHubConfig` 定义处），可解析；而 patch 029 正落在该 `apiProviderOptions` 上——上游删除与 029 意图同向，本页不再持有第二份内置商副本 |
-| html#1 | 仅删两行废弃注释（GitHub Pages rebuild marker / 注释掉的 favicon） | **保留我方 head**（含 001/004/006/018/027 全部 patch 意图），去掉上游已删的两行 |
-| app#1 | 删 `saveTokenUsageHistoryNow` 解构 | 保留 patch 037（时间范围整链下线），两者不冲突 |
-| app#2/#3 | 新增 `selectableModels`（为快捷槽位/记忆模型过滤 embedding）+ 不可变排序 `[...result]` | **采纳上游结构**，保留 patch 012 的 `bareId` 归一 + patch 043 的 label/供应商名检索与「手动条目同商排最前」 |
-| app#4 | UI 模板副模型温度 0.2 → 0.4 | **保留 patch 015/025 多商路由 + provider 透传**，温度采纳上游 0.4 |
-| rt#1 | 删 `saveTokenUsageHistoryNow` 导出 | 保留 patch 037 现状 |
+| 处       | 上游做了什么                                                                           | 裁决                                                                                                                                                                                     |
+| -------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| novel#1  | 删除本页 `RPHUB_PROVIDER_DEFINITIONS`，改读 `window.RPHubConfig.apiProviderOptions`    | **采纳上游**。该页第 15 行本就加载 `core-utils.js`（`RPHubConfig` 定义处），可解析；而 patch 029 正落在该 `apiProviderOptions` 上——上游删除与 029 意图同向，本页不再持有第二份内置商副本 |
+| html#1   | 仅删两行废弃注释（GitHub Pages rebuild marker / 注释掉的 favicon）                     | **保留我方 head**（含 001/004/006/018/027 全部 patch 意图），去掉上游已删的两行                                                                                                          |
+| app#1    | 删 `saveTokenUsageHistoryNow` 解构                                                     | 保留 patch 037（时间范围整链下线），两者不冲突                                                                                                                                           |
+| app#2/#3 | 新增 `selectableModels`（为快捷槽位/记忆模型过滤 embedding）+ 不可变排序 `[...result]` | **采纳上游结构**，保留 patch 012 的 `bareId` 归一 + patch 043 的 label/供应商名检索与「手动条目同商排最前」                                                                              |
+| app#4    | UI 模板副模型温度 0.2 → 0.4                                                            | **保留 patch 015/025 多商路由 + provider 透传**，温度采纳上游 0.4                                                                                                                        |
+| rt#1     | 删 `saveTokenUsageHistoryNow` 导出                                                     | 保留 patch 037 现状                                                                                                                                                                      |
 
 零冲突自动合并的上游改动（核验后采纳）：character 删除「额外生成」整链（含选项持久化、
 截断重试分支、加权进度分支、提示词三元包裹、setup 导出三项）并把 `IMAGE_GEN_BASE_URL`
@@ -6343,17 +6456,17 @@ character 与 ui-components 零冲突自动合并。**逐处裁决**：
 
 ### 四、验证总表（本轮实测）
 
-| 判据 | 结果 |
-|---|---|
-| 只读预检 | 2 可重放 / 6 需合并（退出码 2）→ 合并后 `-CheckBaseline` 8 枚全可重放 |
-| 重放 vs 合并 | 6 文件 blob id 逐字节相同（0 差异） |
-| `verify-markers.ps1` | **67 PASS / 0 FAIL**（66 → 67：上游新增 README.en.md 进 B 组） |
-| JS 门禁 | prefix-cache / stream-render / page-handoff / model-list 全 PASS |
-| `desktop-smoke.cjs` | **A1–A5 全 PASS**（本轮补齐真断言，见下） |
-| `gen-changelog --check` | EXIT 0（应用内 CHANGELOG 与 CHANGELOG.md 一致） |
-| Gradle `:app:check` + `:app:lintRelease` | 修掉 1 处 NewApi 后 **BUILD SUCCESSFUL** |
-| `assembleRelease` | 17.39 MB，versionCode **18** / v1.5.0，签名 `ed78235d…ffb1` **未变** |
-| 模拟器全流程 | 开屏 → 更新公告（RP-Hub 1.9.8 内容）→ 新手引导 → 主界面 → 侧栏 → 关于页（品牌卡 + CHANGELOG v1.5.0）→ 外观页 → 设置页，**七图过目无破版**；WebView 零 console 错误 |
+| 判据                                     | 结果                                                                                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 只读预检                                 | 2 可重放 / 6 需合并（退出码 2）→ 合并后 `-CheckBaseline` 8 枚全可重放                                                                                              |
+| 重放 vs 合并                             | 6 文件 blob id 逐字节相同（0 差异）                                                                                                                                |
+| `verify-markers.ps1`                     | **67 PASS / 0 FAIL**（66 → 67：上游新增 README.en.md 进 B 组）                                                                                                     |
+| JS 门禁                                  | prefix-cache / stream-render / page-handoff / model-list 全 PASS                                                                                                   |
+| `desktop-smoke.cjs`                      | **A1–A5 全 PASS**（本轮补齐真断言，见下）                                                                                                                          |
+| `gen-changelog --check`                  | EXIT 0（应用内 CHANGELOG 与 CHANGELOG.md 一致）                                                                                                                    |
+| Gradle `:app:check` + `:app:lintRelease` | 修掉 1 处 NewApi 后 **BUILD SUCCESSFUL**                                                                                                                           |
+| `assembleRelease`                        | 17.39 MB，versionCode **18** / v1.5.0，签名 `ed78235d…ffb1` **未变**                                                                                               |
+| 模拟器全流程                             | 开屏 → 更新公告（RP-Hub 1.9.8 内容）→ 新手引导 → 主界面 → 侧栏 → 关于页（品牌卡 + CHANGELOG v1.5.0）→ 外观页 → 设置页，**七图过目无破版**；WebView 零 console 错误 |
 
 ### 五、上一会话遗留项的处置
 
@@ -6391,14 +6504,14 @@ character 与 ui-components 零冲突自动合并。**逐处裁决**：
 
 ### 一、静态检查做了什么（含两处工具缺陷的澄清）
 
-| 检查 | 规模 | 结果 |
-|---|---|---|
-| A1 外部 JS 语法（`node --check`） | 31 文件（上游 10 + ext 7 + tools 14） | 全通过 |
-| A2 HTML 内联 `<script>` 语法 | 8 段（3 个页面） | 全通过 |
-| B Vue 模板编译（真实浏览器 `Vue.compile`） | 3 个页面模板 | 全通过 |
-| E ESLint bug 类规则集（33 条：no-undef / no-dupe-* / no-unreachable / no-unsafe-* / no-self-* / no-constant-* …） | 24 文件 | **修复前 10 条 ERROR → 修复后 0** |
-| C Gradle `:app:lintRelease` + `:app:check` | 全工程 | BUILD SUCCESSFUL |
-| D 门禁 | verify-markers + 5 JS 门禁 | 69 PASS / 0 FAIL；5/5 PASS |
+| 检查                                                                                                              | 规模                                  | 结果                              |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------- |
+| A1 外部 JS 语法（`node --check`）                                                                                 | 31 文件（上游 10 + ext 7 + tools 14） | 全通过                            |
+| A2 HTML 内联 `<script>` 语法                                                                                      | 8 段（3 个页面）                      | 全通过                            |
+| B Vue 模板编译（真实浏览器 `Vue.compile`）                                                                        | 3 个页面模板                          | 全通过                            |
+| E ESLint bug 类规则集（33 条：no-undef / no-dupe-* / no-unreachable / no-unsafe-* / no-self-* / no-constant-* …） | 24 文件                               | **修复前 10 条 ERROR → 修复后 0** |
+| C Gradle `:app:lintRelease` + `:app:check`                                                                        | 全工程                                | BUILD SUCCESSFUL                  |
+| D 门禁                                                                                                            | verify-markers + 5 JS 门禁            | 69 PASS / 0 FAIL；5/5 PASS        |
 
 **两处「工具缺陷」而非代码缺陷（已澄清并修正工具）**：
 
@@ -6457,11 +6570,11 @@ try { const foo = () => 'ok'; } finally { foo; }   →  ReferenceError: foo is n
 
 ### 三、动态检查（模拟器实测，含负控）
 
-| # | 操作 | 修复前（负控 APK） | 修复后（v1.5.1） |
-|---|---|---|---|
-| 1 | 设置页按返回 | → **回到桌面**（缺陷复现） | → **回到对话页**，应用存活 |
-| 2 | 抽屉打开时按返回 | — | → 只关抽屉，不切页不退出 |
-| 3 | 对话页按返回 | → 桌面 | → 桌面（预期） |
+| #   | 操作             | 修复前（负控 APK）         | 修复后（v1.5.1）           |
+| --- | ---------------- | -------------------------- | -------------------------- |
+| 1   | 设置页按返回     | → **回到桌面**（缺陷复现） | → **回到对话页**，应用存活 |
+| 2   | 抽屉打开时按返回 | —                          | → 只关抽屉，不切页不退出   |
+| 3   | 对话页按返回     | → 桌面                     | → 桌面（预期）             |
 
 - 负控 APK 的构造：摘掉 `luzzy-back.js` 挂载行后重新构建安装 —— 实测复现「设置页按返回直接退出」。
 - 设备侧 logcat：**零未捕获 JS 异常**（ReferenceError / TypeError / Uncaught 全 0 命中）；
@@ -6469,29 +6582,29 @@ try { const foo = () => 'ok'; } finally { foo; }   →  ReferenceError: foo is n
 
 ### 四、验收总表
 
-| 判据 | 结果 |
-|---|---|
-| ESLint（bug 规则集） | 修复前 10 ERROR → **修复后 0**（24 文件） |
-| 全量语法 A1+A2 | 31 + 8，**0 失败** |
-| Vue 模板编译（真实浏览器） | 3/3 PASS，负控会响 |
-| `verify-markers.ps1` | **69 PASS / 0 FAIL**（67 → 69：新增 C053-mount-back + D2 luzzy-back.js） |
-| 5 个 JS 门禁 | 全 PASS（另有动态检查 D2-tail-flushed / D3-no-exceptions） |
-| `:app:check` + `:app:lintRelease` | BUILD SUCCESSFUL |
-| `assembleRelease` | versionCode **19** / v1.5.1，签名 `ed78235d…ffb1` **未变** |
-| 实体 patch | 3 枚按 1.9.8 基线重生成（app.js / api-utils.js / index.html），前像后像自洽 |
-| 模拟器 | 返回键三级链实测通过 |
+| 判据                              | 结果                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| ESLint（bug 规则集）              | 修复前 10 ERROR → **修复后 0**（24 文件）                                   |
+| 全量语法 A1+A2                    | 31 + 8，**0 失败**                                                          |
+| Vue 模板编译（真实浏览器）        | 3/3 PASS，负控会响                                                          |
+| `verify-markers.ps1`              | **69 PASS / 0 FAIL**（67 → 69：新增 C053-mount-back + D2 luzzy-back.js）    |
+| 5 个 JS 门禁                      | 全 PASS（另有动态检查 D2-tail-flushed / D3-no-exceptions）                  |
+| `:app:check` + `:app:lintRelease` | BUILD SUCCESSFUL                                                            |
+| `assembleRelease`                 | versionCode **19** / v1.5.1，签名 `ed78235d…ffb1` **未变**                  |
+| 实体 patch                        | 3 枚按 1.9.8 基线重生成（app.js / api-utils.js / index.html），前像后像自洽 |
+| 模拟器                            | 返回键三级链实测通过                                                        |
 
 ### 五、本轮踩到的坑（写进注释备查）
 
-| 坑 | 现象 | 处置 |
-|---|---|---|
-| **PowerShell `>` 重定向写 UTF-16** | ESLint `--format json > out.json` 产出带 BOM 的 UTF-16，`JSON.parse` 报错 | 一律 `cmd /c "... > file"` 取原始字节 |
-| **flat config 的 `files` 相对于配置文件目录** | 配置放子目录时写 `../app/...` 不匹配 → **静默空规则集**，探针也「通过」 | 配置移到仓库根；并**先用探针确认规则真的生效**（`no-undef` 能命中才继续） |
-| ESLint 规则集重叠覆盖 `sourceType` | presence-server 是 Node ESM，被后一条 browser 规则覆盖回 `script` → 解析错 | 在 browser 那条加 `ignores` 排除，而非靠声明顺序 |
-| `no-unmodified-loop-condition` 两处误报 | 闭包内改写（`done`）、AbortController 外部状态（`batchController`）、模块级变量 | **逐处核实为健全模式后**局部豁免并写明理由，不全局关规则 |
-| PowerShell 单引号正则含竖线被当管道 | `Select-String -Pattern 'PASS\|FAIL'` 报 `Unexpected token` | 用双引号，或改用 Node 脚本 |
-| 一次性脚本改文件时「只插不删」 | 插入提升段却忘了删原段 → 重复声明（语法合法但语义混乱） | 改为**一次 remove+insert**，且先断言切片边界 |
-| 「找 try 行」的启发式不可靠 | 同文件多处同缩进 `try {`，命中了另一个函数的 try → 结构写坏 | 改为**锚定唯一注释串**再向上取紧邻 try |
+| 坑                                            | 现象                                                                            | 处置                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **PowerShell `>` 重定向写 UTF-16**            | ESLint `--format json > out.json` 产出带 BOM 的 UTF-16，`JSON.parse` 报错       | 一律 `cmd /c "... > file"` 取原始字节                                     |
+| **flat config 的 `files` 相对于配置文件目录** | 配置放子目录时写 `../app/...` 不匹配 → **静默空规则集**，探针也「通过」         | 配置移到仓库根；并**先用探针确认规则真的生效**（`no-undef` 能命中才继续） |
+| ESLint 规则集重叠覆盖 `sourceType`            | presence-server 是 Node ESM，被后一条 browser 规则覆盖回 `script` → 解析错      | 在 browser 那条加 `ignores` 排除，而非靠声明顺序                          |
+| `no-unmodified-loop-condition` 两处误报       | 闭包内改写（`done`）、AbortController 外部状态（`batchController`）、模块级变量 | **逐处核实为健全模式后**局部豁免并写明理由，不全局关规则                  |
+| PowerShell 单引号正则含竖线被当管道           | `Select-String -Pattern 'PASS\|FAIL'` 报 `Unexpected token`                     | 用双引号，或改用 Node 脚本                                                |
+| 一次性脚本改文件时「只插不删」                | 插入提升段却忘了删原段 → 重复声明（语法合法但语义混乱）                         | 改为**一次 remove+insert**，且先断言切片边界                              |
+| 「找 try 行」的启发式不可靠                   | 同文件多处同缩进 `try {`，命中了另一个函数的 try → 结构写坏                     | 改为**锚定唯一注释串**再向上取紧邻 try                                    |
 
 ### 六、开发路径确认
 
@@ -6505,3 +6618,32 @@ try { const foo = () => 'ok'; } finally { foo; }   →  ReferenceError: foo is n
   上游层文件改动后必须重生成对应实体（本轮重生成 3 枚）。
 - **临时检查工具不留在仓库**：本轮新增的 ESLint 配置与一次性脚本均在 `.static-check/`，
   收尾时整体删除（检查结论已固化进本记录与门禁）。
+
+---
+
+## 2026-10-19 · 会话 94：项目归档 —— README 停更公告（上游独立 App 与本项目重合）
+
+### 完成
+
+- **README 归档改造（公告置顶）**：`[!WARNING]` 停更公告移到页面第一屏（Logo 之前），先看到"已停止更新"再看到项目介绍；正文把"同步持续进行 / 长期承诺 / 当前版本 / 后续规划"等措辞改为归档语境（冻结于上游 RP-Hub 1.9.8），Status 徽章改为「已归档·停止更新」，页脚补 Archived。
+- **强调上游入口**：公告内突出 **上游仓库页面** <https://github.com/STA1N156/RP-Hub> 与 **上游在线页面** <https://sta1n156.github.io/RP-Hub/>（均实测 200），并在二创声明、"与上游的关系"、顶部 NOTE 中重复指向。
+- **停更原因**：上游将开发**独立的原生 App（官方客户端）**，与本项目（安卓套壳 + 扩展层）定位直接重合，继续维护 = 把同一套功能维护两遍；公告中写明该理由，并建议用户改用上游仓库 / 在线页面。
+- **AGENTS.md 收敛**：文首加归档公告（上游两入口 + 停更原因）；§1「上游同步持续进行」改为「已于归档时冻结」；§4 标题标注「归档后冻结，不再执行」。
+- **README 目录树纠错**：删除已不存在的 `HARD_REQUIREMENTS.md` 引用（该文件早已移除），并在"开发者须知"补一句"仅作历史参考"。
+- 文末许可证段落补充"归档后不再更新，许可与二创声明继续对 v1.5.1 生效"。
+
+### 决策
+
+1. **不改代码、不发版**：本次仅改文档（`README.md` / `AGENTS.md` / 本日志），最后一版仍为 v1.5.1。
+2. **保留全部上游同步设施**（`tools/`、`rp-hub-reference/`、patch）不删，便于日后需要时追溯或重启；README 中仅把其描述改为"维护期内执行"。
+3. 徽章保留 `v1.5.1` 前缀（`gen-changelog.mjs` 的正则仍能匹配），但已注明归档后不再运行该脚本。
+4. **推送 + 归档**：调整完成后提交并推送 `origin/main`，随后把 GitHub 仓库标记为 **Archived**（只读），与 README 公告一致。
+
+### 遗留
+
+- 归档后仓库只读：如需再改文档，须先 Unarchive（`gh repo unarchive LuzzyMeow/LuzzyRP`）再修改推送。
+- `docs/PLAN-v1.6.0-dsh.md` 等既有规划文档仍按"继续开发"口径书写，属历史存档，不再逐一收敛。
+
+### 下一步
+
+- 无（项目归档）。

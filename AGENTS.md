@@ -1,12 +1,21 @@
 # AGENTS.md · LuzzyRP 开发指南（v1.5.0）
 
+> [!WARNING]
+> **本项目已于 2026-10-19 归档停更。** 本指南仅作历史参考：不再发版、不再合并上游更新，
+> 上游基线冻结在 **RP-Hub 1.9.8**。
+>
+> - **上游仓库页面**：<https://github.com/STA1N156/RP-Hub>
+> - **上游在线页面**：<https://sta1n156.github.io/RP-Hub/>
+>
+> 上游将开发**独立的原生 App（官方客户端）**，与本项目（安卓套壳 + 扩展层）定位直接重合——这也是本项目停更的原因。
+
 > 接手本仓库的 Agent：先读完本文件再动手。冲突时以用户当前指示为最高优先级。
 
 ## 1. 项目一句话
 
 LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launcher 为 `MainActivity`。
 界面与业务全部在 `app/src/main/assets/rphub`（上游）+ `assets/ext`（扩展层）里跑，原生侧只剩壳。
-上游同步**持续进行**（**当前基线 RP-Hub 1.9.8，已与上游 main 对齐**；1.9.3→1.9.8 的
+上游同步**已于归档时冻结**（**最后基线 RP-Hub 1.9.8，归档时已与上游 main 对齐**；1.9.3→1.9.8 的
 合并台账见 `docs/PLAN-upstream-merge.md`）；遵循上游协议
 （`LICENSE` / `LICENSE-AGPL-3.0` / `docs/LICENSING.md`）。仅侧载分发，不上架。
 
@@ -21,10 +30,10 @@ LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launc
 任何涉及 **UI / 设计 / 动效 / 前端页面 / 交互** 的任务，或**写后端 / 通用代码**的任务，
 动手前必须完整读到以下 SKILL 的**正文**（首页摘要不算；先本机后云端，失效按 ①上报用户 ②再找替代）：
 
-| 组 | 条目（读什么） |
-|---|---|
-| 设计基线 4（全读） | `huashu-design/SKILL.md` · `awesome-design-md/README.md` · `open-design/AGENTS.md` · `ui-ux-pro-max-skill/CLAUDE.md + README.md` |
-| 后端 / 通用编码 3（全读） | `DietrichGebert/ponytail`（正文 + 阶梯纪律）· `github/spec-kit`（正文）· `mattpocock/skills`（正文） |
+| 组                        | 条目（读什么）                                                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 设计基线 4（全读）        | `huashu-design/SKILL.md` · `awesome-design-md/README.md` · `open-design/AGENTS.md` · `ui-ux-pro-max-skill/CLAUDE.md + README.md` |
+| 后端 / 通用编码 3（全读） | `DietrichGebert/ponytail`（正文 + 阶梯纪律）· `github/spec-kit`（正文）· `mattpocock/skills`（正文）                             |
 
 - 本机来源优先：`docs/skills/**`（huashu / awesome-design-md / open-design / ui-ux-pro-max 已存档）；
   其余从 GitHub raw 抓正文（AnySearch `extract` / `web_fetch`，GitHub 页面抓不到就抓 `api.github.com` 目录再取 `raw` 链接）。
@@ -38,7 +47,7 @@ LuzzyRP = **原生 Kotlin 壳 + WebView 承载上游 RP-Hub（Vue 3）**，launc
 - 构建：`./gradlew :app:assembleRelease` → 单 APK（`splits.abi` 已注释，禁止恢复）；签名永远同一密钥库（`keystore.properties` 不入库；换签 = 老用户无法覆盖升级），发布前 `apksigner verify --print-certs` 核对指纹 `ed78235d…ffb1`。
 - 版本：versionCode/versionName 递增；`CHANGELOG.md` 新增一段（构建期 `genChangelog` 自动同步 README 与关于页数据）。
 
-## 4. 上游同步纪律（本项目核心能力，不可荒废）
+## 4. 上游同步纪律（维护期核心能力；归档后冻结，不再执行）
 
 - **上游文件只允许通过 `tools/patches/` 登记的 patch 修改**；新功能优先落在 `assets/ext/` 独立文件（零冲突）。
 - 同步流程：`tools/sync-upstream.ps1`（覆盖上游 + 重放 patch + 更新指纹）→ 回归实测 → 构建发布。
@@ -104,7 +113,6 @@ powershell tools/apply-patches.ps1 -CheckBaseline <新ref>
 **每次同步后必须复跑**：`verify-markers.ps1`（67 项：实体后像等值 / 上游纯净等值 /
 语义锚点 / 红线与二创资产）+ `tools/` 下 5 个 JS 门禁。任一不过即同步未完成。
 
-
 ## 5. 测试与验收
 
 - **回归门在 `tools/` 下的 JS 门禁**（原生测试座已随 Compose 路线删除）：
@@ -125,6 +133,7 @@ powershell tools/apply-patches.ps1 -CheckBaseline <新ref>
   `docs/skills/**`（必读技能存档）与 `docs/design/brand-logo-v2-source.png`（图标源图）**永不删除**。
 
 <!-- aoci:begin -->
+
 ## AOCI 仓库认知
 
 AOCI 为本仓库维护一个稳定、可版本化、可增量更新的仓库级认知层，供模型跨任务复用对系统的理解。

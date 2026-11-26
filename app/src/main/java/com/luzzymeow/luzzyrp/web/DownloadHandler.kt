@@ -16,7 +16,7 @@ import android.widget.Toast
  * 通过 DownloadListener 接管，落盘到外部下载目录并提示。
  *
  * 注意：RP-Hub 多数导出走 blob: URL（前端生成内容），系统 DownloadManager
- * 无法消费 blob: ——此场景由扩展层 luzzy-bridge.js 走 FileChooser/SAF 导出；
+ * 无法消费 blob: ——此类内容由前端生成，WebView 无法直接交给系统下载器；
  * 此处仅接管常规 http(s) 下载。
  */
 object DownloadHandler {
@@ -27,7 +27,7 @@ object DownloadHandler {
             if (url.isNullOrEmpty()) return@setDownloadListener
             val context = webView.context
 
-            // blob: URL 交给扩展层桥接处理（JS 侧 FileChooser/SAF 导出）
+            // blob: URL 由 WebView 内部生成，系统下载器无法消费
             if (url.startsWith("blob:")) {
                 return@setDownloadListener
             }

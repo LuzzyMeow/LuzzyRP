@@ -1,18 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- LuzzyRP 主清单（v1.0.0 WebView 壳；v1.5.0 起 launcher 为 MainActivity） -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 网络访问：用户配置的 LLM API 端点请求（RP-Hub 运行时需要） -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- 导出下载（DownloadManager 写入外部下载目录；API 29+ 走 SAF 无需此权限） -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
-    <!-- [v1.5.0 移除 · 2026-09-20「放弃原生 Kotlin + Compose 路线」]
-         READ/WRITE_CALENDAR（已移除的「助手」日历工具专用）与 v3.0 的 Compose 界面宿主
-         （.ui.ComposeActivity）已随该路线一并移除——界面与业务全部回到 WebView
-         （assets/rphub 上游 + assets/ext 扩展层），原生侧只剩壳。 -->
 
     <application
         android:allowBackup="true"
@@ -20,14 +13,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.LuzzyRP"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
         tools:targetApi="37">
 
-        <!-- [2026-10-01] enableOnBackInvokedCallback：Android 13+ 默认走 OnBackInvokedCallback
-             通道，而本 Activity 用的是 AndroidX onBackPressedDispatcher；显式开启后两者统一，
-             返回键（含手势返回）才会稳定经 MainActivity 的返回处理链（patch 053）。
-             未开启时系统会打印 "OnBackInvokedCallback is not enabled for the application"，
-             并在部分版本上绕过 dispatcher 直接走默认行为。 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>云端备份后台</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --page: #f4f4f1;
+            --surface: #fcfcfb;
+            --ink: #0b0b0b;
+            --ink-2: #52514e;
+            --ink-3: #898781;
+            --grid: #e1e0d9;
+            --axis: #c3c2b7;
+            --border: rgba(11, 11, 11, 0.1);
+            --wash: rgba(11, 11, 11, 0.045);
+            --series-1: #2a78d6;
+            --series-2: #eb6834;
+            --track: #cde2fb;
+            --good: #0ca30c;
+            --warning: #fab219;
+            --critical: #d03b3b;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                color-scheme: dark;
+                --page: #0d0d0d;
+                --surface: #1a1a19;
+                --ink: #f0efec;
+                --ink-2: #c3c2b7;
+                --grid: #2c2c2a;
+                --axis: #383835;
+                --border: rgba(255, 255, 255, 0.1);
+                --wash: rgba(255, 255, 255, 0.06);
+                --series-1: #3987e5;
+                --series-2: #d95926;
+                --track: #184f95;
+            }
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body {
+            margin: 0;
+            background: var(--page);
+            color: var(--ink);
+            font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 16px 56px; }
+        button { font: inherit; color: inherit; cursor: pointer; }
+        .btn {
+            height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 9px;
+            background: var(--surface); font-weight: 600;
+        }
+        .btn:hover { background: var(--wash); }
+        .btn:disabled { opacity: 0.5; cursor: default; }
+        .btn.primary { border-color: transparent; background: var(--series-1); color: #fff; }
+        .card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+        .muted { color: var(--ink-3); font-size: 12px; }
+        .num { font-variant-numeric: tabular-nums; }
+
+        /* Header */
+        .topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+        .topbar h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: 0.01em; }
+        .actions { display: flex; gap: 8px; }
+        main.is-busy .refreshable { opacity: 0.55; transition: opacity 0.2s; }
+
+        /* Sections */
+        section { margin-top: 32px; }
+        .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .section-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+        .section-head p { margin: 2px 0 0; }
+
+        /* Storage */
+        .storage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; }
+        .space { padding: 22px 24px; }
+        .space-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-2); font-weight: 600; }
+        .hero { margin: 6px 0 18px; font-size: 48px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }
+        .status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 99px; color: var(--ink-2); font-size: 12px; font-weight: 600; }
+        .status::before { width: 8px; height: 8px; border-radius: 50%; background: var(--status); content: ''; }
+        .is-good { --status: var(--good); }
+        .is-warning { --status: var(--warning); }
+        .is-critical { --status: var(--critical); }
+        .meter { height: 10px; overflow: hidden; border-radius: 99px; background: var(--track); }
+        .meter > i { display: block; height: 100%; min-width: 0; border-radius: inherit; background: var(--series-1); transition: width 0.4s; }
+        .meter.is-warning > i { background: var(--warning); }
+        .meter.is-critical > i { background: var(--critical); }
+        .meter-legend { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: var(--ink-2); font-size: 13px; }
+        .disk { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--grid); }
+        .facts { display: grid; padding: 4px 20px; }
+        .fact { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 12px; padding: 14px 0; border-top: 1px solid var(--grid); }
+        .fact:first-child { border-top: 0; }
+        .fact b { font-size: 20px; font-weight: 650; }
+        .fact span { color: var(--ink-2); font-weight: 600; }
+        .fact .muted { grid-column: 1 / -1; }
+
+        /* Range filter */
+        .segmented { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+        .segmented button { height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--ink-2); font-weight: 600; }
+        .segmented button[aria-pressed="true"] { background: var(--wash); color: var(--ink); }
+
+        /* KPI tiles and the clean-up card */
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        .tile { padding: 16px 18px; }
+        .tile-label { color: var(--ink-2); font-weight: 600; }
+        .tile-value { margin: 4px 0 2px; font-size: 26px; font-weight: 650; line-height: 1.25; }
+        .cleanup { margin-top: 12px; padding: 16px 18px; }
+        .cleanup-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+        .cleanup-head b { font-weight: 650; }
+        .cleanup-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
+        .cleanup-stats > div { padding: 2px 16px; border-left: 1px solid var(--grid); }
+        .cleanup-stats > div:first-child { padding-left: 0; border-left: 0; }
+        .cleanup-stats b { display: block; font-size: 20px; font-weight: 650; }
+
+        /* Charts */
+        .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .chart { position: relative; padding: 16px 18px 12px; }
+        .chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .chart-head b { font-weight: 650; }
+        .legend { display: flex; gap: 14px; color: var(--ink-2); font-size: 12px; }
+        .legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .legend i { width: 10px; height: 10px; border-radius: 3px; }
+        .plot { height: 214px; margin-top: 10px; }
+        .plot svg { display: block; overflow: visible; }
+        .plot text { fill: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+        .plot .band:focus { outline: none; }
+        .plot .band:focus-visible { outline: 2px solid var(--series-1); }
+        .tooltip {
+            position: absolute; z-index: 2; min-width: 132px; padding: 8px 10px; border: 1px solid var(--border);
+            border-radius: 9px; background: var(--surface); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12); pointer-events: none;
+        }
+        .tooltip-date { margin-bottom: 4px; color: var(--ink-3); font-size: 12px; }
+        .tooltip-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+        .tooltip-row i { width: 12px; height: 2px; border-radius: 2px; }
+        .tooltip-row b { margin-left: auto; padding-left: 10px; color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+        /* Daily table */
+        .table-card { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+        th, td { padding: 11px 18px; border-top: 1px solid var(--grid); text-align: right; }
+        th:first-child, td:first-child { text-align: left; }
+        thead th { border-top: 0; color: var(--ink-3); font-size: 12px; font-weight: 600; }
+        td { font-variant-numeric: tabular-nums; }
+        td small { margin-left: 6px; color: var(--ink-3); font-size: 12px; }
+        tbody tr:hover { background: var(--wash); }
+
+        /* Login */
+        .login { max-width: 360px; margin: 16vh auto 0; padding: 28px; }
+        .login h1 { margin: 0 0 4px; font-size: 20px; font-weight: 650; }
+        .login input {
+            width: 100%; height: 40px; margin: 18px 0 6px; padding: 0 12px; border: 1px solid var(--border);
+            border-radius: 9px; background: var(--page); color: var(--ink); font: inherit;
+        }
+        .login .btn { width: 100%; height: 40px; margin-top: 10px; }
+        .error { min-height: 20px; color: var(--critical); font-size: 13px; }
+
+        @media (max-width: 760px) {
+            .storage, .charts { grid-template-columns: minmax(0, 1fr); }
+            .hero { font-size: 40px; }
+            .cleanup-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; }
+            .cleanup-stats > div:nth-child(3) { padding-left: 0; border-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <form id="login" class="login card" hidden>
+            <h1>云端备份后台</h1>
+            <div class="muted">RP-Hub · 输入环境变量 ADMIN_PASSWORD 里的密码</div>
+            <input id="password" type="password" autocomplete="current-password" placeholder="管理员密码" required>
+            <div id="login-error" class="error"></div>
+            <button class="btn primary" type="submit">登录</button>
+        </form>
+
+        <main id="dashboard" hidden>
+            <div class="topbar">
+                <div>
+                    <h1>云端备份后台</h1>
+                    <div id="updated" class="muted">RP-Hub</div>
+                </div>
+                <div class="actions">
+                    <button id="refresh" class="btn" type="button">刷新</button>
+                    <button id="logout" class="btn" type="button">退出</button>
+                </div>
+            </div>
+
+            <section class="refreshable">
+                <div class="section-head"><h2>存储空间</h2></div>
+                <div class="storage">
+                    <div class="card space">
+                        <div class="space-head">可用空间<span id="status" class="status is-good">充足</span></div>
+                        <div id="free" class="hero">—</div>
+                        <div id="meter" class="meter" role="meter" aria-label="备份已用空间" aria-valuemin="0" aria-valuemax="100"><i id="meter-fill"></i></div>
+                        <div class="meter-legend num"><span id="meter-used"></span><span id="meter-room"></span></div>
+                        <div id="disk" class="disk muted num"></div>
+                    </div>
+                    <div class="card facts">
+                        <div class="fact"><span>有效备份</span><b id="fact-backups" class="num">—</b><div id="fact-backups-note" class="muted"></div></div>
+                        <div class="fact"><span>存储内容</span><b id="fact-pieces" class="num">—</b><div class="muted">每张角色卡、每份聊天各算一份，相同的只存一次</div></div>
+                        <div class="fact"><span>去重与压缩节省</span><b id="fact-saving" class="num">—</b><div id="fact-saving-note" class="muted"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="refreshable">
+                <div class="section-head">
+                    <div>
+                        <h2>使用情况</h2>
+                        <p class="muted">按北京时间统计</p>
+                    </div>
+                    <div class="segmented" role="group" aria-label="统计范围">
+                        <button type="button" data-range="1">今日</button>
+                        <button type="button" data-range="7">近 7 天</button>
+                        <button type="button" data-range="30">近 30 天</button>
+                    </div>
+                </div>
+                <div class="kpis">
+                    <div class="card tile"><div class="tile-label">新建备份</div><div id="kpi-backups" class="tile-value">—</div><div id="kpi-backups-note" class="muted"></div></div>
+                    <div class="card tile"><div class="tile-label">上传</div><div id="kpi-upload" class="tile-value">—</div><div id="kpi-upload-note" class="muted"></div></div>
+                    <div class="card tile"><div class="tile-label">下载</div><div id="kpi-download" class="tile-value">—</div><div id="kpi-download-note" class="muted"></div></div>
+                    <div class="card tile"><div class="tile-label">查重命中率</div><div id="kpi-hit" class="tile-value">—</div><div id="kpi-hit-note" class="muted"></div></div>
+                </div>
+                <div class="card cleanup">
+                    <div class="cleanup-head"><b>清理与删除</b><span class="muted">过期或被同一设备新备份替换的备份会被删除；没有任何备份再用到的内容随后清掉，释放空间</span></div>
+                    <div class="cleanup-stats">
+                        <div><span class="muted">释放空间</span><b id="clean-freed" class="num">—</b></div>
+                        <div><span class="muted">删除内容</span><b id="clean-pieces" class="num">—</b></div>
+                        <div><span class="muted">过期删除的备份</span><b id="clean-expired" class="num">—</b></div>
+                        <div><span class="muted">替换作废的备份</span><b id="clean-replaced" class="num">—</b></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="refreshable">
+                <div class="section-head">
+                    <div>
+                        <h2>每日趋势</h2>
+                        <p id="chart-span" class="muted"></p>
+                    </div>
+                </div>
+                <div class="charts">
+                    <div class="card chart">
+                        <div class="chart-head">
+                            <b>每日流量</b>
+                            <div class="legend"><span><i style="background: var(--series-1)"></i>上传</span><span><i style="background: var(--series-2)"></i>下载</span></div>
+                        </div>
+                        <div id="chart-traffic" class="plot"></div>
+                    </div>
+                    <div class="card chart">
+                        <div class="chart-head"><b>每日新建备份</b></div>
+                        <div id="chart-backups" class="plot"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="refreshable">
+                <div class="section-head"><h2>每日明细</h2></div>
+                <div class="card table-card">
+                    <table>
+                        <thead>
+                            <tr><th>日期</th><th>新建备份</th><th>上传</th><th>下载</th><th>查重命中率</th><th>释放空间</th></tr>
+                        </thead>
+                        <tbody id="days"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        const SESSION_KEY = 'rphub-admin-password';
+        const RANGE_KEY = 'rphub-admin-range';
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        let password = sessionStorage.getItem(SESSION_KEY) || '';
+        let range = [1, 7, 30].includes(Number(sessionStorage.getItem(RANGE_KEY))) ? Number(sessionStorage.getItem(RANGE_KEY)) : 7;
+        let latest = null;
+
+        // ---------- formatting ----------
+        const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const unitFor = (bytes) => {
+            let unit = 0;
+            for (let size = Math.abs(Number(bytes) || 0); size >= 1024 && unit < UNITS.length - 1; size /= 1024) unit += 1;
+            return unit;
+        };
+        // Sizes from KB up and every percentage show two decimals; whole bytes stay whole.
+        const formatBytes = (bytes, unit = unitFor(bytes)) => {
+            const value = (Number(bytes) || 0) / 1024 ** unit;
+            return `${value.toFixed(unit ? 2 : 0)} ${UNITS[unit]}`;
+        };
+        const formatCount = value => (Number(value) || 0).toLocaleString('zh-CN', { maximumFractionDigits: 1 });
+        const formatRate = (part, whole) => (whole ? `${(part / whole * 100).toFixed(2)}%` : '—');
+        // Day keys follow the server: Beijing dates.
+        const dayKey = offset => new Date(Date.now() + 8 * 3600e3 - offset * 864e5).toISOString().slice(0, 10);
+        const lastDays = count => Array.from({ length: count }, (_, index) => dayKey(count - 1 - index));
+        const shortDate = key => `${Number(key.slice(5, 7))}/${Number(key.slice(8))}`;
+        const longDate = key => (key === dayKey(0) ? '今天' : `${Number(key.slice(5, 7))} 月 ${Number(key.slice(8))} 日`);
+        const totalOf = (days, keys) => keys.reduce((sum, key) => {
+            Object.entries(days[key] || {}).forEach(([field, amount]) => { sum[field] = (sum[field] || 0) + amount; });
+            return sum;
+        }, {});
+        const el = (tag, className, text) => {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        };
+
+        // ---------- storage ----------
+        const renderStorage = ({ storage, live, retentionDays }) => {
+            // Backups can grow until the configured limit or until the disk is full, whichever comes first.
+            const room = Math.min(storage.limit, storage.used + storage.diskFree);
+            const ratio = room ? storage.used / room : 0;
+            const [level, label] = ratio > 0.9 ? ['critical', '空间告急'] : ratio > 0.75 ? ['warning', '空间偏紧'] : ['good', '空间充足'];
+            $('free').textContent = formatBytes(Math.max(0, room - storage.used));
+            $('status').className = `status is-${level}`;
+            $('status').textContent = label;
+            $('meter').className = `meter is-${level}`;
+            $('meter').setAttribute('aria-valuenow', (ratio * 100).toFixed(1));
+            $('meter-fill').style.width = `${ratio > 0 ? Math.max(0.8, ratio * 100) : 0}%`;
+            $('meter-used').textContent = `已用 ${formatBytes(storage.used)}（${(ratio * 100).toFixed(2)}%）`;
+            $('meter-room').textContent = `最多可用 ${formatBytes(room)}`;
+            $('disk').textContent = `硬盘剩余 ${formatBytes(storage.diskFree)}，共 ${formatBytes(storage.diskTotal)} · 设置的上限 ${formatBytes(storage.limit)}`;
+            $('fact-backups').textContent = `${formatCount(live.backups)} 份`;
+            $('fact-backups-note').textContent = `每份保存 ${retentionDays} 天，过期自动删除`;
+            $('fact-pieces').textContent = `${formatCount(live.pieces)} 份`;
+            $('fact-saving').textContent = formatRate(Math.max(0, live.backupBytes - storage.used), live.backupBytes);
+            $('fact-saving-note').textContent = `备份原始大小 ${formatBytes(live.backupBytes)}，实际占用 ${formatBytes(storage.used)}`;
+        };
+
+        // ---------- column charts (one per measure; no second axis) ----------
+        // Clean ticks: the top is 1, 2, 2.5, 5 or 10 times a power of ten in the axis's unit; a count axis never shows halves.
+        const niceScale = (max, bytes) => {
+            const unit = bytes ? unitFor(max) : 0;
+            const base = bytes ? 1024 ** unit : 1;
+            const scaled = max / base;
+            const power = 10 ** Math.floor(Math.log10(scaled || 1));
+            const top = [1, 2, 2.5, 5, 10].find(candidate => candidate * power >= scaled) * power * base;
+            const shares = bytes || Number.isInteger(top / 2) ? [0, 0.5, 1] : [0, 1];
+            return { top, shares, format: value => (bytes ? `${Number((value / base).toFixed(2))} ${UNITS[unit]}` : formatCount(value)) };
+        };
+        const svg = (tag, attrs) => {
+            const node = document.createElementNS(SVG_NS, tag);
+            Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, value));
+            return node;
+        };
+        const columnPath = (x, y, width, height) => {
+            const r = Math.min(4, width / 2, height);
+            return `M${x},${y + height}V${y + r}Q${x},${y} ${x + r},${y}H${x + width - r}Q${x + width},${y} ${x + width},${y + r}V${y + height}Z`;
+        };
+
+        const drawColumns = (host, keys, days, series, bytes) => {
+            host.textContent = '';
+            const width = host.clientWidth;
+            const height = host.clientHeight;
+            const pad = { top: 10, right: 4, bottom: 24, left: 56 };
+            const plotWidth = width - pad.left - pad.right;
+            const plotHeight = height - pad.top - pad.bottom;
+            const values = keys.map(key => series.map(item => Number(days[key]?.[item.field]) || 0));
+            const max = Math.max(0, ...values.flat());
+            const scale = niceScale(max, bytes);
+            const yOf = value => pad.top + plotHeight - (value / scale.top) * plotHeight;
+            const root = svg('svg', { width, height, role: 'img' });
+
+            (max ? scale.shares : [0]).forEach((share) => {
+                const y = yOf(scale.top * share);
+                const line = svg('line', { x1: pad.left, x2: width - pad.right, y1: y, y2: y, 'stroke-width': 1 });
+                line.style.stroke = share ? 'var(--grid)' : 'var(--axis)';
+                root.append(line);
+                if (!max) return;
+                const label = svg('text', { x: pad.left - 8, y: y + 4, 'text-anchor': 'end' });
+                label.textContent = share ? scale.format(scale.top * share) : '0';
+                root.append(label);
+            });
+
+            const band = plotWidth / keys.length;
+            const gap = 2;
+            const barWidth = Math.max(2, Math.min(24, (band * 0.68 - gap * (series.length - 1)) / series.length));
+            const groupWidth = barWidth * series.length + gap * (series.length - 1);
+            // Date labels need about 44px each, so narrow charts label every other day (or fewer).
+            const labelEvery = Math.ceil(keys.length / Math.max(2, Math.floor(plotWidth / 44)));
+            const tooltip = el('div', 'tooltip');
+            tooltip.hidden = true;
+            const wash = svg('rect', { y: pad.top, width: band, height: plotHeight, rx: 6 });
+            wash.style.fill = 'var(--wash)';
+            wash.style.display = 'none';
+            root.append(wash);
+
+            keys.forEach((key, index) => {
+                const left = pad.left + band * index;
+                const start = left + (band - groupWidth) / 2;
+                values[index].forEach((value, seriesIndex) => {
+                    if (!value) return;
+                    const top = yOf(value);
+                    const bar = svg('path', { d: columnPath(start + seriesIndex * (barWidth + gap), top, barWidth, pad.top + plotHeight - top) });
+                    bar.style.fill = series[seriesIndex].color;
+                    root.append(bar);
+                });
+                // Counted back from today, so the newest day is always labelled and the spacing stays even.
+                if ((keys.length - 1 - index) % labelEvery === 0) {
+                    const label = svg('text', { x: left + band / 2, y: height - 6, 'text-anchor': 'middle' });
+                    label.textContent = shortDate(key);
+                    root.append(label);
+                }
+                // The whole day's column is the hover and focus target, and the tooltip lists every series.
+                const hit = svg('rect', { class: 'band', x: left, y: pad.top, width: band, height: plotHeight, tabindex: 0 });
+                hit.style.fill = 'transparent';
+                const show = () => {
+                    wash.setAttribute('x', left);
+                    wash.style.display = '';
+                    tooltip.textContent = '';
+                    tooltip.append(el('div', 'tooltip-date', longDate(key)));
+                    series.forEach((item, seriesIndex) => {
+                        const row = el('div', 'tooltip-row');
+                        const swatch = el('i');
+                        swatch.style.background = item.color;
+                        row.append(swatch, el('span', '', item.label), el('b', '', bytes ? formatBytes(values[index][seriesIndex]) : formatCount(values[index][seriesIndex])));
+                        tooltip.append(row);
+                    });
+                    tooltip.hidden = false;
+                    const x = Math.min(width - tooltip.offsetWidth, Math.max(0, left + band / 2 - tooltip.offsetWidth / 2));
+                    tooltip.style.left = `${host.offsetLeft + x}px`;
+                    tooltip.style.top = `${host.offsetTop + Math.max(0, yOf(Math.max(...values[index])) - tooltip.offsetHeight - 8)}px`;
+                };
+                const hide = () => {
+                    wash.style.display = 'none';
+                    tooltip.hidden = true;
+                };
+                hit.addEventListener('pointerenter', show);
+                hit.addEventListener('focus', show);
+                hit.addEventListener('pointerleave', hide);
+                hit.addEventListener('blur', hide);
+                root.append(hit);
+            });
+
+            if (!max) {
+                const empty = svg('text', { x: pad.left + plotWidth / 2, y: pad.top + plotHeight / 2, 'text-anchor': 'middle' });
+                empty.textContent = '这段时间还没有数据';
+                root.append(empty);
+            }
+            host.append(root);
+            host.parentElement.querySelector('.tooltip')?.remove();
+            host.parentElement.append(tooltip);
+        };
+
+        // ---------- activity ----------
+        const renderActivity = ({ days }) => {
+            const keys = lastDays(range);
+            const total = totalOf(days, keys);
+            document.querySelectorAll('[data-range]').forEach((button) => {
+                button.setAttribute('aria-pressed', String(Number(button.dataset.range) === range));
+            });
+
+            $('kpi-backups').textContent = `${formatCount(total.backups)} 份`;
+            $('kpi-backups-note').textContent = `原始大小共 ${formatBytes(total.backupBytes)}`;
+            $('kpi-upload').textContent = formatBytes(total.uploadBytes);
+            $('kpi-upload-note').textContent = `新上传 ${formatCount(total.uploads)} 项内容`;
+            $('kpi-download').textContent = formatBytes(total.downloadBytes);
+            $('kpi-download-note').textContent = `读取备份 ${formatCount(total.restores)} 次，下载 ${formatCount(total.downloads)} 项`;
+            $('kpi-hit').textContent = formatRate(total.hits, total.checked);
+            $('kpi-hit-note').textContent = `云端已有、跳过上传 ${formatCount(total.hits)} / ${formatCount(total.checked)} 项`;
+
+            $('clean-freed').textContent = formatBytes(total.freedBytes);
+            $('clean-pieces').textContent = `${formatCount(total.deletedPieces)} 份`;
+            $('clean-expired').textContent = `${formatCount(total.expired)} 份`;
+            $('clean-replaced').textContent = `${formatCount(total.replaced)} 份`;
+
+            // A single day is not a trend, so the charts show at least a week.
+            const chartKeys = lastDays(Math.max(range, 7));
+            $('chart-span').textContent = range === 1 ? '近 7 天（选“今日”时也按周显示趋势）' : `近 ${range} 天`;
+            drawColumns($('chart-traffic'), chartKeys, days, [
+                { field: 'uploadBytes', label: '上传', color: 'var(--series-1)' },
+                { field: 'downloadBytes', label: '下载', color: 'var(--series-2)' }
+            ], true);
+            drawColumns($('chart-backups'), chartKeys, days, [{ field: 'backups', label: '新建备份', color: 'var(--series-1)' }], false);
+
+            const body = $('days');
+            body.textContent = '';
+            [...keys].reverse().forEach((key) => {
+                const day = days[key] || {};
+                const row = el('tr');
+                const cell = (main, note) => {
+                    const td = el('td', '', main);
+                    if (note) td.append(el('small', '', note));
+                    return td;
+                };
+                row.append(
+                    cell(longDate(key)),
+                    cell(formatCount(day.backups)),
+                    cell(formatBytes(day.uploadBytes), `${formatCount(day.uploads)} 项`),
+                    cell(formatBytes(day.downloadBytes), `${formatCount(day.restores)} 次读取`),
+                    cell(formatRate(day.hits, day.checked)),
+                    cell(formatBytes(day.freedBytes), day.deletedPieces ? `${formatCount(day.deletedPieces)} 份` : '')
+                );
+                body.append(row);
+            });
+        };
+
+        // ---------- loading ----------
+        const showDashboard = (visible) => {
+            $('login').hidden = visible;
+            $('dashboard').hidden = !visible;
+        };
+        // A refused password goes back to the login form; other failures show where the user is looking.
+        const fail = (message, signOut = false) => {
+            if (signOut) sessionStorage.removeItem(SESSION_KEY);
+            if (signOut || $('dashboard').hidden) {
+                showDashboard(false);
+                $('login-error').textContent = message;
+            } else {
+                $('updated').textContent = message;
+            }
+        };
+        const render = (data) => {
+            latest = data;
+            showDashboard(true);
+            renderStorage(data);
+            renderActivity(data);
+            $('updated').textContent = `RP-Hub · 更新于 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+        };
+        const load = async () => {
+            $('refresh').disabled = true;
+            $('dashboard').classList.add('is-busy');
+            try {
+                const response = await fetch('/v1/admin/stats', { headers: { Authorization: `Bearer ${password}` }, cache: 'no-store' });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) return fail(data.error || `加载失败（${response.status}）`, [401, 429, 503].includes(response.status));
+                sessionStorage.setItem(SESSION_KEY, password);
+                $('login-error').textContent = '';
+                render(data);
+            } catch (_) {
+                fail('连不上服务，请稍后再试');
+            } finally {
+                $('refresh').disabled = false;
+                $('dashboard').classList.remove('is-busy');
+            }
+        };
+
+        $('login').addEventListener('submit', (event) => {
+            event.preventDefault();
+            password = $('password').value;
+            load();
+        });
+        $('refresh').addEventListener('click', load);
+        $('logout').addEventListener('click', () => {
+            sessionStorage.removeItem(SESSION_KEY);
+            password = '';
+            $('password').value = '';
+            showDashboard(false);
+        });
+        document.querySelectorAll('[data-range]').forEach(button => button.addEventListener('click', () => {
+            range = Number(button.dataset.range);
+            sessionStorage.setItem(RANGE_KEY, String(range));
+            if (latest) renderActivity(latest);
+        }));
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (latest) renderActivity(latest); }, 150);
+        });
+        // Refreshes itself every minute while the tab is visible.
+        setInterval(() => { if (password && !document.hidden && !$('dashboard').hidden) load(); }, 60_000);
+
+        if (password) load();
+        else showDashboard(false);
+    </script>
+</body>
+</html>

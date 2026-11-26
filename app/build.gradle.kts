@@ -1,45 +1,21 @@
 import java.util.Properties
 
-// :app —— LuzzyRP WebView 壳工程（v1.0.0 重建）
-//
-// [HARD-REQ-8] 发布流程：稳定版 versionCode 递增，release 构建走 luzzy 签名 + 单包产出。
-// 2026-09-08（v1.4.0 用户指示）：**单 APK 发布**——本应用为纯 WebView 壳，无 native 库，
-// ABI 拆分产出的 arm64-v8a / x86_64 / universal 三个包字节完全相同（历史各版实证），
-// 拆分为零收益；release 只产出一个 APK（app-release.apk），GitHub Release 只附这一个。
-// AGP 9 内置 Kotlin 支持（无需 org.jetbrains.kotlin.android 插件，见 AGP 9 迁移说明）。
-// 签名配置：从根目录 keystore.properties 读取（该文件不入库，见 .gitignore）。
-//
-// [v1.5.0 移除] 原「助手」原生 Agent 的构建接入（Compose 编译器插件 / KSP-Room /
-// kotlinx-serialization 插件 + Compose BOM / Room / DataStore / OkHttp / serialization
-// 依赖 + ksp schema 导出 + Compose mapping 生产者版本对齐）已按用户指示于 2026-09-11
-// 彻底移除；本工程回到「最小依赖 WebView 壳」。
-//
-// [v1.5.0 移除 · 2026-09-20「放弃原生 Kotlin + Compose 路线」] v3.0 期间恢复的 Compose 座
-// （kotlin.plugin.compose + KSP + Compose BOM/ui/foundation/material3/haze/activity-compose/
-// lifecycle-compose + Room + OkHttp + kotlinx-serialization + 仪器化测试座）与 v2.0 原生
-// 聊天传输层（chat/ 包）已随该路线整体删除。本工程回到纯 WebView 壳：界面与业务全在
-// app/src/main/assets/rphub（上游）+ assets/ext（扩展层），原生侧只剩壳（MainActivity 等）。
 plugins {
     alias(libs.plugins.android.application)
 }
 
-// [LuzzyRP v1.2.3] 资产签名自动解压（根治「改 assets 忘 bump EXTRACT_VERSION」）：
-// 构建时对 rphub/ext 资产树计算（文件数+总大小+最新 mtime）签名并注入
-// BuildConfig.ASSET_SIGNATURE；AssetExtractor 启动时与设备侧标记比对，
-// 资产有任何变更即自动重新解压——无需任何手动版本操作。
 fun assetSignature(): String {
     var count = 0L
     var total = 0L
     var latest = 0L
-    listOf(file("src/main/assets/rphub"), file("src/main/assets/ext")).forEach { root ->
-        root.walkTopDown().filter { it.isFile }.forEach { f ->
-            count++
-            total += f.length()
-            latest = maxOf(latest, f.lastModified())
-        }
+    file("src/main/assets/rphub").walkTopDown().filter { it.isFile }.forEach { file ->
+        count++
+        total += file.length()
+        latest = maxOf(latest, file.lastModified())
     }
     return "n$count-s$total-m$latest"
 }
+
 val assetSignature = assetSignature()
 
 val keystoreProps: Properties? = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
@@ -54,34 +30,15 @@ android {
         applicationId = "com.luzzymeow.luzzyrp"
         minSdk = 26
         targetSdk = 37
-
-        // 资产签名（见 assetSignature）：资产变更即触发设备侧重新解压
-        buildConfigField("String", "ASSET_SIGNATURE", """"$assetSignature"""")
-        versionCode = 19
-        versionName = "1.5.1"
-
+        buildConfigField("String", "ASSET_SIGNATURE", "\"$assetSignature\"")
+        versionCode = 21
+        versionName = "2.0.6.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // APK 拆分：**关闭**（2026-09-08 v1.4.0 用户指示「以后 release 只给一个 APK 包」）。
-    // 纯 WebView 壳无 native 库，abi 拆分三包字节相同（v1.2.2~v1.4.0 release 资产实证），
-    // 拆分零收益；关闭后 release 产出单个 app-release.apk，Release 只附该包。
-    // 如需重新启用：恢复下方 splits.abi 块即可（历史配置见 git 历史 v1.4.0 之前）。
-    // splits {
-    //     abi {
-    //         isEnable = true
-    //         reset()
-    //         include("arm64-v8a", "x86_64")
-    //         isUniversalApk = true
-    //     }
-    // }
-
-    // 签名：keystore.properties 缺失时**直接构建失败**（2026-09-17）——
-    // 旧逻辑静默回退 debug 签名，侧载分发下会产出「假 release」（换签 = 老用户无法覆盖升级，
-    // 事故级产物）；fail-fast 让缺 keystore 的构建当场报错而不是发出去才被发现。
     signingConfigs {
         if (keystoreProps != null) {
-            create("luzzy") {
+            create("release") {
                 storeFile = rootProject.file(keystoreProps["storeFile"] as String)
                 storePassword = keystoreProps["storePassword"] as String
                 keyAlias = keystoreProps["keyAlias"] as String
@@ -95,13 +52,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName(
-                if (keystoreProps != null) "luzzy"
-                else throw GradleException(
-                    "release 构建需要根目录 keystore.properties（签名单一真源，见 AGENTS.md §3）。" +
-                        "缺失时禁止回退 debug 签名——那会产出老用户无法覆盖升级的假 release。"
-                ),
-            )
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -119,7 +70,6 @@ android {
     }
 }
 
-// AGP 9 内置 Kotlin：编译选项在顶层 kotlin 块配置（kotlinOptions 已被替代）
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -127,57 +77,10 @@ kotlin {
 }
 
 dependencies {
-    // AndroidX 基础（保持最小依赖）
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
-
-    // 测试
     testImplementation(libs.junit)
 }
-
-// [LuzzyRP v1.2.3] 应用内 CHANGELOG 自动同步（硬性规定 5 辅助机制）：
-// 每次构建前由 tools/gen-changelog.mjs 从仓库根 CHANGELOG.md 重新生成
-// src/main/assets/ext/luzzy-changelog.js（关于页更新日志数据源），
-// 杜绝「忘记重新生成」导致应用内日志过期；同步状态另受
-// tools/verify-markers.ps1 的 R3-changelog-sync 门禁拦截（双保险）。
-// node 不可用时降级为告警并保留现有数据文件（不阻塞构建）。
-val genChangelog = tasks.register("genChangelog") {
-    val changelogSrc = rootProject.file("CHANGELOG.md")
-    val genScript = rootProject.file("tools/gen-changelog.mjs")
-    val projectDir = rootProject.projectDir
-    val outFile = layout.projectDirectory.file("src/main/assets/ext/luzzy-changelog.js")
-    inputs.file(changelogSrc)
-    inputs.file(genScript)
-    outputs.file(outFile)
-    doLast {
-        try {
-            val process = ProcessBuilder("node", genScript.absolutePath)
-                .directory(projectDir)
-                .redirectErrorStream(true)
-                .start()
-            val output = process.inputStream.bufferedReader().readText()
-            val code = process.waitFor()
-            System.out.println(output.trim())
-            if (code != 0) throw GradleException("genChangelog 失败（exit $code）")
-        } catch (e: java.io.IOException) {
-            System.err.println("[genChangelog] node 不可用，跳过自动同步（保留现有 luzzy-changelog.js）: " + e.message)
-        }
-    }
-}
-
-tasks.named("preBuild") { dependsOn(genChangelog) }
-
-// [v1.5.0 · 2026-09-20「放弃原生 Kotlin + Compose 路线」]
-// 原 `checkChat`（v3.0 Stage0 建：仪器化 UI 测试 + 真机防护门 `verifyEmulatorDevice`）已随
-// Compose 路线整体删除——仪器化测试座（app/src/androidTest）与 Compose UI 一并移除，
-// 该门禁已无作用对象。WebView 路线的回归门在 tools/ 下的 JS 门禁（见 docs/WORKLOG.md 会话 58/62）：
-//   node tools/prefix-cache-test.cjs      KV / prompt 前缀缓存
-//   node tools/stream-render-test.cjs      流式增量渲染
-//   node tools/page-handoff-test.cjs       页面转场
-//   node tools/model-list-test.cjs         模型列表
-//   node tools/desktop-smoke.cjs           桌面冒烟（035 验收）
-//   powershell tools/verify-markers.ps1    扩展层完整性
-// 真机侧仍只装 release 包做人工目视（严禁安装测试件）。

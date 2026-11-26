@@ -1,84 +1,28 @@
-# ===== LuzzyRP .gitignore =====
-
-# AOCI 接入产生的 preimage 备份（file.backup.时间戳.摘要，写前保护；内容与 Git HEAD 等价）
-*.backup.*
-
 # Gradle
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/**/build/
 local.properties
-# Kotlin 编译会话数据（AGP 内置 Kotlin 插件生成；v2.0 起引入原生传输层后出现）
 .kotlin/
 
 # IDE
 .idea/
 *.iml
-*.ipr
-*.iws
 .vscode/
 .DS_Store
-captures/
-.externalNativeBuild/
-.cxx/
+Thumbs.db
 
 # Keystore（签名密钥严禁入库）
 *.jks
 *.keystore
 !debug.keystore
 keystore.properties
-docs/RELEASE-KEY.md
 
-# 本地参考归档（旧仓库源码备份，不入库）
-docs/archive/
-
-# 上游参考克隆（独立 git 仓库，tools/sync-upstream.ps1 依赖其 fetch upstream；
-# 不随仓库分发——克隆者自行 clone 上游或直接用 assets/rphub 手动同步）
-rp-hub-reference/
-
-# 运行日志与临时文件
+# Logs and temporary files
 *.log
 logs/
-.DS_Store
-Thumbs.db
+*.bak
 
-# Kotlin/Java
+# Java
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
-
-# Room schema 导出目录中的临时文件（schemas 本身需要入库）
-*.bak
-
-# 方向板本地字体（与 app/src/main/assets/rphub/assets/fonts 重复，PNG 为持久产物）
-docs/design/boards-v2/fonts/
-
-# ZCode 会话本地数据（计划/缓存等，仅本机）
-.zcode/
-
-# 旧工程遗物与大型参考资料（2026-09-03 会话 17 清理，硬性规定 7；防回流）
-docs/game-icon-pack/
-docs/lobe-ui-master/
-docs/rikkahub-master/
-docs/AlibabaPuHuiTi-3/
-docs/AlibabaSans/
-docs/D&D 5e SRD 5.2.1/
-docs/task/
-docs/trpg标准世界卡/
-docs/brand-logos/
-docs/audit/
-docs/AGENT-GUIDE.md
-docs/INVARIANTS-CHECKLIST.md
-docs/PLAN-v0.1.0.md
-app/src/main/assets/CHANGELOG.md
-
-# 开屏审片逐帧临时捕获（保留 harness.html 与 sheet/liftrow 拼图）
-docs/design/splash-v1/frames/f_*.png
-docs/design/splash-v1/frames/g_*.png
-docs/design/splash-v1/frames/h_*.png
-docs/design/splash-v1/frames/probe*.png
-docs/design/splash-v1/frames/list.txt
-
-# 第三方 AI 助手的本地会话记忆（非本项目内容）
-.workbuddy/

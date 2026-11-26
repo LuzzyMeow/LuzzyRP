@@ -7,7 +7,7 @@
     const parseVersionId = value => /^\d{5}$/.test(String(value ?? '').trim())
         ? Number(value)
         : null;
-    const currentVersionId = parseVersionId(window.RPHubLatestUpdate?.id);
+    const currentVersionId = parseVersionId(window.RPHubLatestUpdate.id);
     let notifiedVersionId = 0;
 
     const useUpdateCheck = () => {

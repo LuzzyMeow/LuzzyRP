@@ -14,10 +14,10 @@ import android.webkit.WebView
  *
  * RP-Hub 的 `input[type=file]` 在 WebView 中默认不可用，必须通过
  * `onShowFileChooser` 用系统文件选择器（SAF）接管。
- * 上游代码无需任何修改——这是 WebView 层自动回调（AGENTS.md §5.4）。
+ * 上游代码无需任何修改——这是 WebView 层自动回调。
  *
  * 同时转发 JS console 到 Logcat（tag: JSConsole）——RP-Hub 是纯 JS 应用，
- * 调试与扩展层验证全靠 console 输出。
+ * 调试全靠 console 输出。
  */
 class FileChooserHandler {
 

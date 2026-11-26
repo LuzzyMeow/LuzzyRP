@@ -4,7 +4,7 @@
     const root = document.documentElement;
     const valid = value => value === 'dark' || value === 'light';
     const localFrame = frame => {
-        if (!frame?.src) return false;
+        if (!frame.src) return false;
         const url = new URL(frame.src, location.href);
         return url.origin === location.origin && /\/(character|novel)\/index\.html$/.test(url.pathname);
     };

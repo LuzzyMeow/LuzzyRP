@@ -10,6 +10,9 @@
     let mainDb = null;
     let legacyDb = null;
     let initPromise = null;
+    // A cloud restore pauses the page's own saves so its stale state cannot overwrite what comes in; the page
+    // reloads afterwards. Writes passed `force` still go through.
+    let writesPaused = false;
 
     const openAppDB = (name, version = DB_VERSION) => new Promise((resolve, reject) => {
         const request = indexedDB.open(name, version);
@@ -59,7 +62,7 @@
 
     const unwrapForStorage = (value, seen = new WeakMap()) => {
         if (value === null || typeof value !== 'object') return value;
-        const raw = typeof Vue?.toRaw === 'function' ? Vue.toRaw(value) : value;
+        const raw = Vue.toRaw(value);
         if (raw === null || typeof raw !== 'object') return raw;
         if (seen.has(raw)) return seen.get(raw);
         if (raw instanceof Date) return raw.toISOString();
@@ -99,8 +102,7 @@
     const scopedStorageKey = (name, id) => `${storageKey(name)}_${id}`;
     const legacyScopedStorageKey = (name, id) => `${legacyStorageKey(name)}_${id}`;
 
-    const dbSetTo = (targetDb, key, value, options = {}) => new Promise((resolve, reject) => {
-        if (!targetDb) return reject('DB not initialized');
+    const dbSetTo = (targetDb, key, value, options) => new Promise((resolve, reject) => {
         const request = targetDb.transaction(['store'], 'readwrite')
             .objectStore('store')
             .put(options.clone === false ? value : cloneForStorage(value), key);
@@ -109,6 +111,7 @@
     });
 
     const dbSet = async (key, value, options = {}) => {
+        if (writesPaused && !options.force) return;
         if (!mainDb) await initDB();
         try {
             return await dbSetTo(mainDb, key, value, options);
@@ -120,7 +123,6 @@
     };
 
     const dbGetFrom = (targetDb, key) => new Promise((resolve, reject) => {
-        if (!targetDb) return resolve(undefined);
         const request = targetDb.transaction(['store'], 'readonly').objectStore('store').get(key);
         request.onsuccess = () => resolve(request.result);
         request.onerror = (event) => reject(event.target.error);
@@ -139,14 +141,13 @@
 
     const dbGetWithLegacy = async (key, oldKey) => {
         const value = await dbGet(key);
-        if (value !== undefined || !oldKey || !legacyDb) return value;
+        if (value !== undefined || !legacyDb) return value;
         const legacyValue = await dbGetFrom(legacyDb, oldKey);
         if (legacyValue !== undefined) await dbSet(key, legacyValue);
         return legacyValue;
     };
 
     const dbDeleteFrom = (targetDb, key) => new Promise((resolve, reject) => {
-        if (!targetDb) return resolve();
         const request = targetDb.transaction(['store'], 'readwrite').objectStore('store').delete(key);
         request.onsuccess = () => resolve();
         request.onerror = (event) => reject(event.target.error);
@@ -155,7 +156,7 @@
     const dbDeleteWithLegacy = async (key, oldKey) => {
         if (!mainDb) await initDB();
         await dbDeleteFrom(mainDb, key);
-        if (oldKey && legacyDb) await dbDeleteFrom(legacyDb, oldKey);
+        if (legacyDb) await dbDeleteFrom(legacyDb, oldKey);
     };
 
     const readStorageKeys = (targetDb) => new Promise((resolve, reject) => {
@@ -163,28 +164,6 @@
         const request = targetDb.transaction(['store'], 'readonly').objectStore('store').getAllKeys();
         request.onsuccess = () => resolve(request.result.map(key => String(key)));
         request.onerror = () => reject(request.error);
-    });
-
-    const scanStorageEntries = (targetDb, source, inspect) => new Promise((resolve, reject) => {
-        if (!targetDb) return resolve();
-        const request = targetDb.transaction(['store'], 'readonly').objectStore('store').openCursor();
-        request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor) return resolve();
-            inspect(source, String(cursor.key), cursor.value);
-            cursor.continue();
-        };
-        request.onerror = () => reject(request.error);
-    });
-
-    const deleteStorageKeys = (targetDb, keys) => new Promise((resolve, reject) => {
-        if (!targetDb || keys.length === 0) return resolve();
-        const transaction = targetDb.transaction(['store'], 'readwrite');
-        const store = transaction.objectStore('store');
-        keys.forEach(key => store.delete(key));
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(transaction.error);
     });
 
     const getStorageLogicalKey = (key) => {
@@ -197,7 +176,6 @@
     window.RPHubStorage = Object.freeze({
         cloneForStorage,
         deleteScopedStoredValue: (name, id) => dbDeleteWithLegacy(scopedStorageKey(name, id), legacyScopedStorageKey(name, id)),
-        deleteStorageKeys,
         deleteStoredValue: (name) => dbDeleteWithLegacy(storageKey(name), legacyStorageKey(name)),
         getLegacyDb: () => legacyDb,
         getMainDb: () => mainDb,
@@ -207,8 +185,8 @@
         initDB,
         isDatabaseClosingError,
         readStorageKeys,
-        scanStorageEntries,
         setScopedStoredValue: (name, id, value, options = {}) => dbSet(scopedStorageKey(name, id), value, options),
+        setWritesPaused: (paused) => { writesPaused = paused; },
         setStoredValue: (name, value, options = {}) => dbSet(storageKey(name), value, options),
         unwrapForStorage
     });
@@ -219,14 +197,11 @@
     const isEmbeddingLike = value => Array.isArray(value) || ArrayBuffer.isView(value);
     const markRuntimeRaw = (value) => {
         if (!value || typeof value !== 'object') return value;
-        return typeof Vue?.markRaw === 'function' ? Vue.markRaw(value) : value;
+        return Vue.markRaw(value);
     };
 
 
-    const bytesToBase64 = (bytes) => {
-        const source = bytes instanceof Uint8Array
-            ? bytes
-            : new Uint8Array(bytes.buffer, bytes.byteOffset || 0, bytes.byteLength);
+    const bytesToBase64 = (source) => {
         let binary = '';
         const chunkSize = 0x8000;
         for (let i = 0; i < source.length; i += chunkSize) {
@@ -236,7 +211,7 @@
     };
 
     const base64ToInt8Array = (base64) => {
-        const binary = atob(String(base64 || ''));
+        const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
             bytes[i] = binary.charCodeAt(i);
@@ -301,8 +276,24 @@
         ? items.map(memory => normalizeClassicMemoryForRuntime(memory)).filter(Boolean)
         : [];
 
+    // 每条总结记忆有一个持久编号（显示为 M编号），上下文、召回和正文引用共用；旧数据按轮次顺序补号。
+    const flattenClassicMemories = items => (Array.isArray(items) ? items : [])
+        .flatMap(memory => [...(memory?.sourceMemories || []), memory]);
+    const getNextClassicMemoryNo = items => flattenClassicMemories(items)
+        .reduce((max, memory) => Math.max(max, Number.isInteger(memory?.no) ? memory.no : 0), 0) + 1;
+    const numberClassicMemories = items => {
+        let next = getNextClassicMemoryNo(items);
+        flattenClassicMemories(items)
+            .filter(memory => memory && !Number.isInteger(memory.no))
+            .sort((a, b) => (a.secondaryCompressed === true) - (b.secondaryCompressed === true)
+                || (Number(a.turnStart || a.turn) || 0) - (Number(b.turnStart || b.turn) || 0)
+                || (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0))
+            .forEach(memory => { memory.no = next++; });
+        return items;
+    };
 
-    const trimMemoryText = (text, maxLength = 1800) => {
+
+    const trimMemoryText = (text, maxLength) => {
         const cleanText = String(text || '').replace(/\n{3,}/g, '\n\n').trim();
         return cleanText.length <= maxLength ? cleanText : `${cleanText.slice(0, maxLength)}...`;
     };
@@ -359,11 +350,14 @@
     window.RPHubMemoryUtils = Object.freeze({
         buildSummaryEmbeddingText,
         cosineSimilarity,
+        flattenClassicMemories,
         getClassicMemoryKey,
+        getNextClassicMemoryNo,
         getSummaryEmbedding,
         getSummarySources,
         markRuntimeRaw,
         normalizeEmbedding,
+        numberClassicMemories,
         prepareClassicMemoriesForRuntime,
         quantizeEmbeddingForStorage,
         trimMemoryText
@@ -382,8 +376,8 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    const indentXmlText = (text, spaces = 0) => {
-        const prefix = ' '.repeat(Math.max(0, spaces));
+    const indentXmlText = (text, spaces) => {
+        const prefix = ' '.repeat(spaces);
         return String(text || '')
             .split(/\r?\n/)
             .map(line => `${prefix}${line}`)
@@ -401,7 +395,7 @@
             '<enhanced_memory_recall>',
             ...BUILTIN_PROMPTS.enhancedMemoryRecallDescription,
             ...memories.map(memory => [
-                `  <memory_fragment turn="${escapeXmlAttribute(memory.turn)}" similarity="${(memory.score * 100).toFixed(1)}%">`,
+                `  <memory_fragment id="M${escapeXmlAttribute(memory.no)}" turn="${escapeXmlAttribute(memory.turn)}" similarity="${(memory.score * 100).toFixed(1)}%">`,
                 `    <user_input>${escapeXmlText(memory.sourceUserText)}</user_input>`,
                 `    <summary>${escapeXmlText(memory.summary)}</summary>`,
                 '  </memory_fragment>'
@@ -413,13 +407,13 @@
             : message);
     };
 
-    const getMessageSourceIndexes = (message, index, trackSources) => {
-        const source = message?._sourceIndexes;
-        if (!Array.isArray(source)) return trackSources ? [index] : [];
+    const getMessageSourceIndexes = (message, index) => {
+        const source = message._sourceIndexes;
+        if (!Array.isArray(source)) return [index];
         return [...source];
     };
 
-    const toPlainContextMessage = (message, index, trackSources = false) => {
+    const toPlainContextMessage = (message, index, trackSources) => {
         const nextMessage = {
             role: message.role,
             name: message.name,
@@ -428,9 +422,10 @@
         if (message.id) nextMessage.id = message.id;
         if (Number.isFinite(message._contextFloor)) nextMessage._contextFloor = message._contextFloor;
         if (message._preventContextMerge === true) nextMessage._preventContextMerge = true;
-        if (trackSources) nextMessage._sourceIndexes = getMessageSourceIndexes(message, index, true);
-        else if (Array.isArray(message?._sourceIndexes)) nextMessage._sourceIndexes = getMessageSourceIndexes(message, index, false);
-        if (Array.isArray(message?._worldInfoEntries)) nextMessage._worldInfoEntries = message._worldInfoEntries;
+        if (message._classicMemory === true) nextMessage._classicMemory = true;
+        if (trackSources) nextMessage._sourceIndexes = getMessageSourceIndexes(message, index);
+        else if (Array.isArray(message._sourceIndexes)) nextMessage._sourceIndexes = getMessageSourceIndexes(message, index);
+        if (Array.isArray(message._worldInfoEntries)) nextMessage._worldInfoEntries = message._worldInfoEntries;
         return nextMessage;
     };
 
@@ -479,15 +474,11 @@
         return merged;
     };
 
-    const postprocessContextMessages = (messages) => mergeConsecutiveRoleMessages(messages, {
-        mergeRoles: ['user', 'assistant'],
-        includeSystem: true
-    });
+    const postprocessContextMessages = (messages) => mergeConsecutiveRoleMessages(messages);
 
     const getPostprocessedChatMessages = (messages, options = {}) => {
         const { includeSystem = false } = options;
         return mergeConsecutiveRoleMessages(messages, {
-            mergeRoles: ['user', 'assistant'],
             includeSystem,
             trackSources: true
         });
@@ -500,7 +491,7 @@
                 .filter(message => message && typeof message === 'object' && (includeSystem || message.role !== 'system'))
                 .map((message, index) => {
                     const nextMessage = toPlainContextMessage(message, index, false);
-                    nextMessage._sourceIndexes = getMessageSourceIndexes(message, index, true);
+                    nextMessage._sourceIndexes = getMessageSourceIndexes(message, index);
                     return nextMessage;
                 })
             : getPostprocessedChatMessages(messages, { includeSystem });
@@ -508,8 +499,8 @@
         const turns = [];
         let pendingUser = null;
         processedMessages.forEach((message, messageIndex) => {
-            if (!message || message.role === 'system') return;
-            const sourceIndexes = Array.isArray(message._sourceIndexes) ? message._sourceIndexes : [messageIndex];
+            if (message.role === 'system') return;
+            const sourceIndexes = message._sourceIndexes;
             const sourceStartIndex = sourceIndexes.length ? Math.min(...sourceIndexes) : messageIndex;
             const sourceEndIndex = sourceIndexes.length ? Math.max(...sourceIndexes) : messageIndex;
 
@@ -537,10 +528,9 @@
 
     const getConversationTurnAtIndexFromSnapshot = (snapshot, index) => {
         if (!Number.isFinite(index) || index < 0) return null;
-        const turns = Array.isArray(snapshot?.turns) ? snapshot.turns : [];
-        const matchedTurn = turns.find(turn => (turn.sourceIndexes || []).includes(index));
+        const matchedTurn = snapshot.turns.find(turn => turn.sourceIndexes.includes(index));
         if (matchedTurn) return matchedTurn.turn;
-        return turns.filter(turn => turn.endIndex < index).length + 1;
+        return snapshot.turns.filter(turn => turn.endIndex < index).length + 1;
     };
 
     const toNonNegativeNumber = (value, fallback = 0) => {
@@ -565,11 +555,16 @@
         return new RegExp(source, flags);
     };
 
+    // 同一段扫描文本要和几千条世界书的关键词逐个比对，小写结果只算一次。
+    let lowerCaseCache = { text: '', lower: '' };
     const worldInfoKeyMatchesText = (entry, key, text) => {
         const rawKey = String(key || '').trim();
         const rawText = String(text || '');
         if (!rawKey || !rawText) return false;
-        if (!entry?.useRegex) return rawText.toLowerCase().includes(rawKey.toLowerCase());
+        if (!entry?.useRegex) {
+            if (lowerCaseCache.text !== rawText) lowerCaseCache = { text: rawText, lower: rawText.toLowerCase() };
+            return lowerCaseCache.lower.includes(rawKey.toLowerCase());
+        }
         try {
             return createWorldInfoRegex(rawKey).test(rawText);
         } catch (_) {
@@ -578,18 +573,18 @@
         }
     };
 
-    const resolveWorldInfoEntries = (entries, messages, settings = {}, options = {}) => {
+    const resolveWorldInfoEntries = (entries, messages, settings) => {
         const activeEntries = (Array.isArray(entries) ? entries : []).filter(entry => entry?.enabled !== false);
         const chatMessages = Array.isArray(messages) ? messages : [];
-        const random = typeof options.random === 'function' ? options.random : Math.random;
         const probabilityResults = new Map();
         const triggerMap = new Map();
+        const scanTexts = new Map();
 
         const passesProbability = (entry) => {
             const probability = Math.min(100, toNonNegativeNumber(entry?.probability, 100));
             if (entry?.useProbability === false || probability >= 100) return true;
             if (!probabilityResults.has(entry)) {
-                probabilityResults.set(entry, probability > 0 && random() * 100 < probability);
+                probabilityResults.set(entry, probability > 0 && Math.random() * 100 < probability);
             }
             return probabilityResults.get(entry) === true;
         };
@@ -606,7 +601,8 @@
             const keys = Array.isArray(entry.keys) ? entry.keys : [];
             if (scanDepth === 0 || keys.length === 0 || !passesProbability(entry)) return;
 
-            const scanText = chatMessages.slice(-scanDepth).map(message => message?.content || '').join('\n');
+            if (!scanTexts.has(scanDepth)) scanTexts.set(scanDepth, chatMessages.slice(-scanDepth).map(message => message?.content || '').join('\n'));
+            const scanText = scanTexts.get(scanDepth);
             const matchedKeys = keys
                 .map(key => String(key || '').trim())
                 .filter(key => key && worldInfoKeyMatchesText(entry, key, scanText));
@@ -641,8 +637,8 @@
     const buildContextViewerState = ({
         messages,
         budgetedEntries,
-        triggeredEntries,
-        postprocessedChatHistory,
+        triggeredEntries: triggerMap,
+        postprocessedChatHistory: chatMessages,
         worldInfoSettings
     }) => {
         const escapeHtml = (value) => String(value || '')
@@ -653,13 +649,10 @@
             .replace(/'/g, '&#039;');
         const getDisplayName = (entry) => entry.comment || entry.name || '未命名条目';
         const floorInfo = new Map();
-        const chatMessages = Array.isArray(postprocessedChatHistory) ? postprocessedChatHistory : [];
-        const triggerMap = triggeredEntries instanceof Map ? triggeredEntries : new Map();
-        const scanDepth = toNonNegativeNumber(worldInfoSettings?.scanDepth, 2);
-        const maxScanDepth = toNonNegativeNumber(worldInfoSettings?.maxDepth, 0);
+        const scanDepth = toNonNegativeNumber(worldInfoSettings.scanDepth, 2);
+        const maxScanDepth = toNonNegativeNumber(worldInfoSettings.maxDepth, 0);
 
         triggerMap.forEach((data, entry) => {
-            if (!data.matchedKeys) return;
             const rawEntryScanDepth = toNonNegativeNumber(entry.scanDepth ?? scanDepth, 0);
             const entryScanDepth = maxScanDepth > 0 ? Math.min(rawEntryScanDepth, maxScanDepth) : rawEntryScanDepth;
             const entryStart = Math.max(0, chatMessages.length - entryScanDepth);
@@ -686,20 +679,23 @@
             }).join(', ');
         };
 
-        const triggeredWorldInfos = (Array.isArray(budgetedEntries) ? budgetedEntries : []).map(entry => ({
+        const worldInfoContents = budgetedEntries
+            .map(entry => String(entry.content || '').trim())
+            .filter(Boolean);
+        const triggeredWorldInfos = budgetedEntries.map(entry => ({
             name: getDisplayName(entry),
             triggers: getTriggerText(entry)
         }));
-        let displayedFloor = 0;
-        const contextMessages = (Array.isArray(messages) ? messages : []).map(message => {
+        const contextMessages = messages.map(message => {
             const injectedWorldInfos = new Map();
             (Array.isArray(message._worldInfoEntries) ? message._worldInfoEntries : []).forEach(entry => {
                 if (entry) injectedWorldInfos.set(getDisplayName(entry), getTriggerText(entry));
             });
 
             const recallCount = Number(message._enhancedMemoryRecallCount) || 0;
-            const isMemory = recallCount > 0 || (message.role !== 'system' && isRoleMemoryContextContent(message.content));
-            if (isMemory) {
+            // 附加召回片段不改变原消息的角色，仍保留记忆提示和高亮。
+            const isMemory = message.role !== 'system' && isRoleMemoryContextContent(message.content);
+            if (isMemory || recallCount > 0) {
                 const memoryName = recallCount ? '增强记忆召回' : '角色记忆';
                 const memoryTrigger = recallCount ? `已注入 ${recallCount} 条总结` : '已注入';
                 injectedWorldInfos.set(memoryName, memoryTrigger);
@@ -713,17 +709,21 @@
                 : String(message.content || '');
             let renderedContent = escapeHtml(content);
             Array.from(floorInfo.keys()).sort((a, b) => b.length - a.length).forEach(key => {
-                if (!key) return;
                 const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 renderedContent = renderedContent.replace(
                     new RegExp(`(${escapedKey})(?![^<]*>)`, 'gi'),
                     '<mark class="bg-yellow-200/80 text-yellow-900 border-b border-yellow-400 font-bold px-0.5 mx-px rounded shadow-sm">$1</mark>'
                 );
             });
-            if (isMemory) {
+            // 总结记忆的编号标签和召回片段标签一样高亮，方便对照正文里的引用。
+            renderedContent = renderedContent.replace(
+                /\[M\d{1,6}\]/g,
+                '<mark class="bg-primary-200/80 text-primary-900 border-b border-primary-400 font-bold px-1 rounded shadow-sm">$&</mark>'
+            );
+            if (isMemory || recallCount > 0) {
                 renderedContent = renderedContent.replace(
                     /&lt;\/?(?:enhanced_memory_recall|memory_fragment)\b[\s\S]*?&gt;/g,
-                    '<mark class="bg-purple-200/80 text-purple-900 border-b border-purple-400 font-bold px-1 rounded shadow-sm">$&</mark>'
+                    '<mark class="bg-primary-200/80 text-primary-900 border-b border-primary-400 font-bold px-1 rounded shadow-sm">$&</mark>'
                 );
             }
 
@@ -732,8 +732,12 @@
                 name: message.name,
                 content,
                 renderedContent,
-                floor: Number.isFinite(message._contextFloor) ? ++displayedFloor : null,
-                isMemory,
+                // 用对话里的真实楼层号：记忆压缩会把部分楼层并掉，按顺序重新编号就和简介对不上。
+                floor: Number.isFinite(message._contextFloor) ? message._contextFloor : null,
+                // 这条消息里世界书正文占的字数，查看器把它从所在消息里拆出来单独统计。
+                worldInfoChars: worldInfoContents.reduce((total, text) => total + (content.includes(text) ? text.length : 0), 0),
+                // 被记忆替换的楼层（总结和合并标记）也按记忆显示和统计，原文只算没被替换的部分。
+                isMemory: isMemory || message._classicMemory === true,
                 wiTriggers: Array.from(injectedWorldInfos.entries()).map(([name, triggers]) => ({ name, triggers }))
             };
         });
@@ -743,11 +747,10 @@
 
     const injectContextMessages = ({
         messages,
-        worldInfoGroups,
-        safeTargetLimit = 1
+        worldInfoGroups: groups,
+        safeTargetLimit
     }) => {
-        const groups = worldInfoGroups || {};
-        const finalMessages = [...(Array.isArray(messages) ? messages : [])];
+        const finalMessages = [...messages];
         const joinEntries = (entries) => entries
             .map(entry => `[${entry.comment || 'Entry'}]\n${entry.content}`)
             .join('\n\n');
@@ -765,7 +768,7 @@
             return Math.max(targetIndex, safeTargetLimit);
         };
 
-        const depthEntries = Array.isArray(groups.at_depth) ? groups.at_depth : [];
+        const depthEntries = groups.at_depth;
         depthEntries.sort((a, b) => (a.order || 0) - (b.order || 0));
         depthEntries.forEach(entry => {
             finalMessages.splice(findDepthIndex(entry.depth !== undefined ? entry.depth : 4), 0, {
@@ -775,7 +778,7 @@
             });
         });
 
-        const userTopEntries = Array.isArray(groups.user_top) ? groups.user_top : [];
+        const userTopEntries = groups.user_top;
         if (userTopEntries.length > 0) {
             const lastUserMessage = finalMessages.slice().reverse().find(message => message.role === 'user');
             if (lastUserMessage) {
@@ -787,7 +790,7 @@
             }
         }
 
-        const assistantTopEntries = Array.isArray(groups.assistant_top) ? groups.assistant_top : [];
+        const assistantTopEntries = groups.assistant_top;
         if (assistantTopEntries.length > 0) {
             const lastAssistantMessage = finalMessages.slice().reverse().find(message => message?.role === 'assistant');
             if (lastAssistantMessage) {
@@ -806,17 +809,13 @@
         buildContextViewerState,
         buildConversationTurnSnapshot,
         escapeXmlAttribute,
-        escapeXmlText,
         getConversationTurnAtIndexFromSnapshot,
         getPostprocessedChatMessages,
         indentXmlText,
         injectContextMessages,
         isRoleMemoryContextContent,
-        mergeConsecutiveRoleMessages,
         postprocessContextMessages,
-        resolveWorldInfoEntries,
-        toNonNegativeNumber,
-        worldInfoKeyMatchesText
+        resolveWorldInfoEntries
     };
 })();
 
@@ -865,7 +864,7 @@
             const id = String(branch?.id || '').trim();
             if (!id || seen.has(id)) return null;
             seen.add(id);
-            const fallbackName = id === STORY_BRANCH_MAIN_ID ? '主线' : `分支 ${index + 1}`;
+            const fallbackName = `分支 ${index + 1}`;
             const name = id === STORY_BRANCH_MAIN_ID
                 ? '主线'
                 : String(branch?.name || fallbackName).trim().replace(/^路线(?=\s*\d+$)/, '分支');
@@ -961,7 +960,6 @@
             const wordCount = isActive ? activeWordCount : branch.wordCount;
             return {
                 ...branch,
-                ...position,
                 x: position.x + horizontalOffset,
                 y: position.y + verticalOffset,
                 centerX: position.centerX + horizontalOffset,
@@ -1007,8 +1005,6 @@
 // --- UI-template utilities ---
 (function () {
     const { generateUUID } = window.RPHubUtils;
-    const DEFAULT_HTML = '';
-    const DEFAULT_VARIABLES = {};
 
     const cloneUiObject = (value) => JSON.parse(JSON.stringify(value || {}));
     const cloneUiValue = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -1023,7 +1019,7 @@
         if (template.initialVariableState && typeof template.initialVariableState === 'object') {
             return cloneUiObject(template.initialVariableState);
         }
-        let baseState = cloneUiObject(variableState || template.variableState || template.variables || DEFAULT_VARIABLES);
+        let baseState = cloneUiObject(variableState || template.variableState || template.variables);
         const logs = Array.isArray(template.changeLog) ? [...template.changeLog].sort((a, b) => (a.time || 0) - (b.time || 0)) : [];
         const initializedKeys = new Set();
         logs.forEach(log => {
@@ -1045,7 +1041,7 @@
                 ? cloneUiObject(template.variables)
                 : (template.initialVariableState && typeof template.initialVariableState === 'object'
                     ? cloneUiObject(template.initialVariableState)
-                    : { ...DEFAULT_VARIABLES }));
+                    : {}));
         return {
             id: template.id || generateUUID(),
             name: template.name || 'UI模板',
@@ -1053,7 +1049,7 @@
             scope: template.scope === 'global' ? 'global' : 'character',
             order: Number.isFinite(Number(template.order)) ? Number(template.order) : 100,
             placement: ['top', 'bottom'].includes(template.placement) ? template.placement : 'bottom',
-            htmlTemplate: stripUiTemplateCodeFence(template.htmlTemplate || template.template || DEFAULT_HTML),
+            htmlTemplate: stripUiTemplateCodeFence(template.htmlTemplate || template.template),
             initialVariableState: inferInitialUiTemplateState(template, variableState),
             variableState,
             variableSchema: (template.variableSchema && (typeof template.variableSchema === 'object' || typeof template.variableSchema === 'string')) ? template.variableSchema : '',
@@ -1063,7 +1059,7 @@
         };
     };
 
-    const sanitizeUiTemplateImportEntry = (template = {}) => {
+    const sanitizeUiTemplateImportEntry = (template) => {
         const { changeLog, runtimeByCharacter, variableState, model, version, ...cleanTemplate } = template || {};
         if (!cleanTemplate.initialVariableState && !cleanTemplate.variables && variableState && typeof variableState === 'object') {
             cleanTemplate.initialVariableState = cloneUiObject(variableState);
@@ -1180,25 +1176,25 @@
         ...overrides
     });
 
-    const renderUiTemplateString = (templateText, variables = {}, context = null) => {
+    const renderUiTemplateString = (templateText, variables, context = null) => {
         const activeContext = context || createUiTemplateRenderContext(variables);
         const withArrays = renderUiTemplateEachBlocks(String(templateText || ''), variables, activeContext);
         return withArrays.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, expression) => {
-            const key = String(expression || '').trim();
+            const key = expression.trim();
             if (!key || key === 'else' || key.startsWith('#') || key.startsWith('/')) return match;
             return escapeUiValue(getUiTemplateValue(variables, key, activeContext));
         });
     };
 
-    const renderUiTemplateEachBlocks = (templateText, variables = {}, context = null) => {
-        let output = String(templateText || '');
+    const renderUiTemplateEachBlocks = (templateText, variables, context) => {
+        let output = templateText;
         const eachBlockPattern = /\{\{\s*#each\s+([^\s}]+)(?:\s+as\s+([A-Za-z_$][\w$]*))?\s*\}\}((?:(?!\{\{\s*#each\b)[\s\S])*?)\{\{\s*\/each\s*\}\}/g;
         for (let pass = 0; pass < 50; pass++) {
             let replaced = false;
             output = output.replace(eachBlockPattern, (match, path, alias, body) => {
                 replaced = true;
                 const value = getUiTemplateValue(variables, path, context);
-                const [itemTemplate, emptyTemplate = ''] = String(body || '').split(/\{\{\s*else\s*\}\}/i);
+                const [itemTemplate, emptyTemplate = ''] = body.split(/\{\{\s*else\s*\}\}/i);
                 const entries = Array.isArray(value)
                     ? value.map((item, index) => ({ item, key: index, index }))
                     : (isUiTemplateObject(value)
@@ -1289,6 +1285,17 @@
                     document.querySelectorAll('img').forEach(function(img) {
                         img.addEventListener('load', updateHeight);
                     });
+                    // 卡片里的记忆引用 [M12]：借父页面同一套处理加角标，点击回到父页面打开判断依据。
+                    var citations = window.parent && window.parent.RPHubMemoryCitations;
+                    if (citations && citations.decorate(document)) {
+                        var citationStyle = document.createElement('style');
+                        citationStyle.textContent = citations.frameStyle();
+                        document.head.appendChild(citationStyle);
+                        document.addEventListener('click', function(event) {
+                            var cite = event.target.closest && event.target.closest('.memory-cite, .memory-cite-text');
+                            if (cite) citations.open(cite.getAttribute('data-memory-nos'));
+                        });
+                    }
                     updateHeight();
                 });
                 if (window.ResizeObserver) {
@@ -1329,7 +1336,7 @@ ${content}
 </html>`;
     };
 
-    const createExecutableHtmlIframe = (rawHtml, extraClass = '') => {
+    const createExecutableHtmlIframe = (rawHtml, extraClass) => {
         const iframe = document.createElement('iframe');
         iframe.className = `w-full bg-white block executable-html-frame ${extraClass}`.trim();
         iframe.style.height = 'auto';
@@ -1340,23 +1347,11 @@ ${content}
         iframe.setAttribute('scrolling', 'no');
         iframe.setAttribute('sandbox', htmlIframeSandbox);
         iframe.setAttribute('allow', 'clipboard-read; clipboard-write; fullscreen; autoplay; encrypted-media; picture-in-picture');
-        iframe.onload = function () {
-            try {
-                setTimeout(() => {
-                    if (this.contentWindow && this.contentWindow.document) {
-                        const doc = this.contentWindow.document;
-                        this.style.height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight) + 'px';
-                    }
-                }, 100);
-            } catch (error) {
-                console.warn('Failed to resize iframe:', error);
-            }
-        };
         iframe.srcdoc = buildExecutableHtmlDocument(rawHtml);
         return iframe;
     };
 
-    const renderExecutableHtmlFrame = (rawHtml, extraClass = '') => {
+    const renderExecutableHtmlFrame = (rawHtml, extraClass) => {
         const container = document.createElement('div');
         container.className = 'html-card-container ui-template-frame-container';
         container.style.margin = '0';
@@ -1550,22 +1545,17 @@ ${content}
 
     window.RPHubUiTemplateUtils = {
         applyUiTemplateUpdateListToTemplate,
-        buildExecutableHtmlDocument,
         cloneUiObject,
-        cloneUiValue,
         createExecutableHtmlIframe,
         findUiTemplateUpdateBlock,
-        getUiTemplateValue,
         inferInitialUiTemplateState,
         normalizeUiTemplate,
         normalizeUiTemplateUpdateList,
         parseUiTemplateUpdates,
         renderUiTemplateHtml,
-        renderUiTemplateString,
         sanitizeUiTemplateImportEntry,
         setUiTemplateValue,
         stringifyUiSchema,
-        stripUiTemplateCodeFence,
         stripUiTemplateUpdateBlock
     };
 })();

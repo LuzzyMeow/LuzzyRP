@@ -1,8 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 自适应启动图标背景（2026-09-04 品牌图标 v2 全面替换）：取新 LOGO 边缘均值色，
-         前景 ic_launcher_foreground = 全图 68% 居中 + 同色画布填充（圆形/方圆蒙版下
-         构图完整）。历史：#2A0E22 → #FF6EC7 → #00000000（透明贴纸）→ #EDD7BD。
-         画作资源已由用户以 AI 生图新 LOGO 整体替换（源图 docs/design/brand-logo-v2-source.png） -->
-    <color name="ic_launcher_background">#EDD7BD</color>
+    <color name="ic_launcher_background">#FDEFDC</color>
 </resources>

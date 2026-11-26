@@ -165,7 +165,8 @@ const stringifyErrorDetail = (detail) => {
     }
 };
 
-const getApiErrorStatus = (payload, fallbackStatus) => {    const candidates = [
+const getApiErrorStatus = (payload, fallbackStatus) => {
+    const candidates = [
         payload?.status,
         payload?.statusCode,
         payload?.code,
@@ -174,36 +175,18 @@ const getApiErrorStatus = (payload, fallbackStatus) => {    const candidates = [
         payload?.error?.code,
         fallbackStatus
     ];
-    return candidates.find(value => (
-        value !== undefined && value !== null && value !== '' && /^\d+$/.test(String(value))
-    )) || '';
+    return candidates.find(value => /^\d+$/.test(String(value))) || '';
 };
 
 const formatApiErrorMessage = (status, detail) => {
     const lines = [];
-    if (status !== undefined && status !== null && status !== '') lines.push(`API Error: ${status}`);
+    if (status !== '') lines.push(`API Error: ${status}`);
     lines.push(stringifyErrorDetail(detail).trim() || '请求失败');
     return lines.join('\n');
 };
 
-// [LuzzyRP patch 051] C4 · Anthropic Messages 的正常流式事件类型集合
-// （用于把「正常事件信封」与「错误信封」区分开；`type:"error"` 故意不在其中）
-const ANTHROPIC_STREAM_EVENT_TYPES = new Set([
-    'message_start', 'message_delta', 'message_stop',
-    'content_block_start', 'content_block_delta', 'content_block_stop',
-    'ping'
-]);
 const extractApiErrorMessage = (payload, fallbackStatus = '') => {
     if (!payload || typeof payload !== 'object') return '';
-    // [LuzzyRP patch 051] C4 · 只在「确实是错误信封」时才判错。
-    // Anthropic Messages 的流式事件按规范**带顶层 message 对象**
-    //   {"type":"message_start","message":{"id":…,"type":"message","role":…,"content":[],"usage":{…}}}
-    // 而下面的 `payload.message || payload.detail` 是无条件读取的 → 每个 Anthropic 响应的
-    // **第一帧**就被当成 "API Error: 200 {…}" 抛出，Anthropic 协议实际从未跑通过
-    // （parseAnthropicSseChunk 第 484 行 `if (apiError) throwApiError(apiError)` 立即中断）。
-    // 这里按「已知的正常流式事件类型」提前放行；`type:"error"` 不在集合内，故 Anthropic
-    // 真正的错误事件仍会照常上抛。仅新增一个提前返回，不改变其它任何分支的行为。
-    if (typeof payload.type === 'string' && ANTHROPIC_STREAM_EVENT_TYPES.has(payload.type)) return '';
     const error = payload.error;
     const status = getApiErrorStatus(payload, fallbackStatus);
     if (typeof error === 'string') return formatApiErrorMessage(status, error);
@@ -217,6 +200,54 @@ const extractApiErrorMessage = (payload, fallbackStatus = '') => {
     return detail ? formatApiErrorMessage(status, detail) : '';
 };
 
+// Toast icons name the action the message reports, so call sites only pass a status.
+const toastIcons = {
+    success: '<path d="M20 6 9 17l-5-5"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+    warning: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+    error: '<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>',
+    wait: '<path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 5v6m4-6v6"/>',
+    download: '<path d="M12 3v12m-5-5 5 5 5-5M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+    upload: '<path d="M12 15V3M7 8l5-5 5 5M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+    starOff: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
+    star: '<path fill="currentColor" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8m0-5v5h-5"/>',
+    rename: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    branch: '<path d="M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9"/>',
+    model: '<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    swap: '<path d="m16 3 4 4-4 4M20 7H4m4 14-4-4 4-4m-4 4h16"/>',
+    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>'
+};
+// First match wins, so the more specific wording comes first.
+const toastIconRules = [
+    [/正在|稍后|等待/, 'wait'],
+    [/复制/, 'copy'],
+    [/删除|清空|清理|清除/, 'trash'],
+    [/导出/, 'download'],
+    [/导入/, 'upload'],
+    [/取消收藏/, 'starOff'],
+    [/收藏/, 'star'],
+    [/图片|生图/, 'image'],
+    [/重新生成|重试/, 'refresh'],
+    [/改名|重命名/, 'rename'],
+    [/分支/, 'branch'],
+    [/模型/, 'model'],
+    [/中止|停止/, 'stop'],
+    [/切换|进入/, 'swap'],
+    [/保存/, 'save']
+];
+const getToastIcon = (message, type = 'info') => {
+    // A failure or caution should read as such, whatever the action was.
+    if (type === 'error') return toastIcons.error;
+    const icon = toastIconRules.find(([pattern]) => pattern.test(String(message)))?.[1];
+    if (type === 'warning') return toastIcons[icon === 'wait' ? 'wait' : 'warning'];
+    return toastIcons[icon] || toastIcons[type] || toastIcons.info;
+};
+
 window.RPHubUtils = {
     compressImage,
     defaultAvatar,
@@ -225,6 +256,7 @@ window.RPHubUtils = {
     generateUUID,
     getApiUsagePayload,
     getImageTagRegex,
+    getToastIcon,
     normalizeApiUsage,
     parseCot,
     stringifyErrorDetail
@@ -233,8 +265,8 @@ window.RPHubUtils = {
 
 // --- Character-card utilities ---
 (function () {
-    const textDecoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
-    const textEncoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+    const textDecoder = new TextDecoder('utf-8');
+    const textEncoder = new TextEncoder();
 
     const { imageStyleArtists } = window.RPHubBuiltinContent;
     const getImageStyleArtists = (style, customArtists = '') => {
@@ -312,10 +344,9 @@ window.RPHubUtils = {
         .join('');
 
     const findUnprotectedMatches = (text, pattern, { includeUiTemplateUpdates = false } = {}) => {
-        const source = String(text || '');
         let offset = 0;
         const matches = [];
-        splitProtectedText(source).forEach(({ text: part, protected: isProtected }) => {
+        splitProtectedText(text).forEach(({ text: part, protected: isProtected }) => {
             // 变量解析器只需看到块的开标签；块内 JSON 仍不参与普通匹配。
             const searchable = !isProtected ? part : includeUiTemplateUpdates
                 ? (part.match(/^<ui_template_updates\b[^>]*>/i)?.[0] || '') : '';
@@ -338,45 +369,13 @@ window.RPHubUtils = {
         return match ? { index: match.index, text: match[0] } : null;
     };
 
-    const encodeUtf8 = (value) => {
-        if (textEncoder) return textEncoder.encode(String(value ?? ''));
-        const encoded = encodeURIComponent(String(value ?? ''));
-        const bytes = [];
-        for (let i = 0; i < encoded.length; i += 1) {
-            if (encoded[i] === '%') {
-                bytes.push(parseInt(encoded.slice(i + 1, i + 3), 16));
-                i += 2;
-            } else {
-                bytes.push(encoded.charCodeAt(i));
-            }
-        }
-        return new Uint8Array(bytes);
-    };
+    const encodeUtf8 = (value) => textEncoder.encode(value);
 
-    const decodeUtf8 = (bytes) => {
-        if (textDecoder) return textDecoder.decode(bytes);
-        let encoded = '';
-        for (let i = 0; i < bytes.length; i += 1) {
-            const hex = bytes[i].toString(16);
-            encoded += '%' + (hex.length === 1 ? '0' + hex : hex);
-        }
-        try {
-            return decodeURIComponent(encoded);
-        } catch (_) {
-            let text = '';
-            for (let i = 0; i < bytes.length; i += 1) {
-                text += String.fromCharCode(bytes[i]);
-            }
-            return text;
-        }
-    };
+    const decodeUtf8 = (bytes) => textDecoder.decode(bytes);
 
     const toBytes = (value) => {
         if (value instanceof Uint8Array) return value;
         if (value instanceof ArrayBuffer) return new Uint8Array(value);
-        if (ArrayBuffer.isView(value)) {
-            return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-        }
         throw new TypeError('Expected ArrayBuffer or Uint8Array');
     };
 
@@ -402,6 +401,13 @@ window.RPHubUtils = {
         }
     };
 
+    const readPngChunkType = (view, offset) => String.fromCharCode(
+        view.getUint8(offset + 4),
+        view.getUint8(offset + 5),
+        view.getUint8(offset + 6),
+        view.getUint8(offset + 7)
+    );
+
     const readPngChunks = (buffer) => {
         const bytes = toBytes(buffer);
         const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -411,12 +417,7 @@ window.RPHubUtils = {
         try {
             while (offset + 8 <= bytes.byteLength) {
                 const length = view.getUint32(offset, false);
-                const type = String.fromCharCode(
-                    view.getUint8(offset + 4),
-                    view.getUint8(offset + 5),
-                    view.getUint8(offset + 6),
-                    view.getUint8(offset + 7)
-                );
+                const type = readPngChunkType(view, offset);
                 const dataStart = offset + 8;
                 const dataEnd = dataStart + length;
                 if (dataEnd + 4 > bytes.byteLength) break;
@@ -483,8 +484,6 @@ window.RPHubUtils = {
             throw error;
         }
         return {
-            chunks,
-            payload,
             data: parseCharacterPayload(payload)
         };
     };
@@ -518,10 +517,8 @@ window.RPHubUtils = {
         return !!value;
     };
 
-    const normalizeRegexScript = (script = {}, options = {}) => {
+    const normalizeRegexScript = (script = {}, options) => {
         const normalized = { ...script };
-        const fallbackScope = options.fallbackScope || 'character';
-        const systemNames = Array.isArray(options.systemNames) ? options.systemNames : [];
         if (normalized.disabled !== undefined) normalized.enabled = !normalized.disabled;
         else if (normalized.enabled === undefined) normalized.enabled = true;
         if (!normalized.name && normalized.scriptName) normalized.name = normalized.scriptName;
@@ -537,15 +534,15 @@ window.RPHubUtils = {
         if (normalized.minDepth === undefined) normalized.minDepth = null;
         if (normalized.maxDepth === undefined) normalized.maxDepth = null;
         normalized.scope = normalized.scope === 'global'
-            || fallbackScope === 'global'
-            || systemNames.includes(normalized.name || normalized.scriptName)
+            || options.fallbackScope === 'global'
+            || options.systemNames.includes(normalized.name || normalized.scriptName)
             ? 'global'
             : 'character';
         delete normalized.disabled;
         return normalized;
     };
 
-    const normalizeImportedRegexScript = (script = {}, options = {}) => {
+    const normalizeImportedRegexScript = (script = {}, options) => {
         const normalized = { ...script };
         if (!normalized.name) normalized.name = normalized.scriptName || 'Regex Script';
         if (!normalized.regex) normalized.regex = normalized.findRegex || '';
@@ -568,13 +565,12 @@ window.RPHubUtils = {
         return normalizeRegexScript(normalized, options);
     };
 
-    const normalizeWorldInfoEntry = (entry = {}, options = {}) => {
+    const normalizeWorldInfoEntry = (entry = {}, options) => {
         const mergedEntry = { ...entry };
         Object.entries(entry.extensions || {}).forEach(([key, value]) => {
             if (value !== undefined && value !== null) mergedEntry[key] = value;
         });
         delete mergedEntry.extensions;
-        const systemNames = Array.isArray(options.systemNames) ? options.systemNames : [];
         const normalizeBoolean = (value, fallback) => {
             if (value === undefined || value === null) return fallback;
             if (typeof value === 'string') {
@@ -625,7 +621,7 @@ window.RPHubUtils = {
             content: getValue(['content'], ''),
             enabled: normalizeBoolean(getValue(['enabled'], true), true)
                 && !normalizeBoolean(getValue(['disable', 'disabled'], false), false),
-            scope: systemNames.includes(comment) || getValue(['scope'], 'character') === 'global' ? 'global' : 'character',
+            scope: options.systemNames.includes(comment) || getValue(['scope'], 'character') === 'global' ? 'global' : 'character',
             keys,
             useRegex: normalizeBoolean(getValue(['use_regex', 'useRegex'], false), false),
             constant: normalizeBoolean(getValue(['constant'], false), false),
@@ -747,13 +743,13 @@ window.RPHubUtils = {
         };
     };
 
-    const toUiTemplateExportEntry = (template = {}, options = {}) => {
+    const toUiTemplateExportEntry = (template = {}) => {
         const variableState = cloneJsonValue(template.variableState, {});
         return {
             id: template.id,
             name: template.name || 'UI模板',
             enabled: template.enabled !== false,
-            scope: options.scope || template.scope || 'character',
+            scope: template.scope || 'character',
             order: toNumber(template.order, 100),
             placement: ['top', 'bottom'].includes(template.placement) ? template.placement : 'bottom',
             htmlTemplate: template.htmlTemplate || template.template || '',
@@ -848,12 +844,7 @@ window.RPHubUtils = {
 
         while (offset + 8 <= pngBytes.byteLength) {
             const length = view.getUint32(offset, false);
-            const type = String.fromCharCode(
-                view.getUint8(offset + 4),
-                view.getUint8(offset + 5),
-                view.getUint8(offset + 6),
-                view.getUint8(offset + 7)
-            );
+            const type = readPngChunkType(view, offset);
             const nextOffset = offset + 12 + length;
             if (type === 'IHDR') {
                 insertPos = nextOffset;
@@ -931,11 +922,9 @@ window.RPHubUtils = {
     window.RPHubCardUtils = {
         blobToDataUrl,
         buildCharacterCardData,
-        decodeBase64Utf8,
         downloadBlob,
         encodeBase64Utf8,
         extractNativeReasoning,
-        findPngCharacterPayload,
         findLastUnprotectedMatch,
         findUnprotectedMatches,
         isNativeReasoningPart,
@@ -947,10 +936,8 @@ window.RPHubUtils = {
         normalizeRegexModifiers,
         normalizeWorldInfoEntry,
         parseImportedCharacterCard,
-        parseCharacterPayload,
         parseWorldInfoKeysText,
         parsePngCharacterData,
-        readPngChunks,
         toBoolean,
         toNumber,
         toRegexExportEntry,
@@ -966,13 +953,9 @@ window.RPHubUtils = {
         systemRegexNames: Object.freeze(['NAI画图正则']),
         systemWorldInfoNames: Object.freeze(['自动生图']),
         imageGenBaseUrl: 'https://nai.sta1n.cn',
-        // [LuzzyRP patch 029] 内置供应商精简（v1.3.0 需求 2，用户拍板 D3）：仅保留 DeepSeek 且开放编辑
-        // （editable）。原 sta1n/openrouter/siliconflow 由 app.js migrateRemovedBuiltinProviders 启动时
-        // 无损迁移为等价用户自定义商（URL/Key/模型槽位引用保留）；默认商随列表切换为 deepseek。
-        // 注：patch 023 的 STA1N favicon 修复随条目移除退位（novel 兜底副本同步精简）。
-        defaultApiProviderId: 'deepseek',
+        defaultApiProviderId: 'sta1n',
         defaultApiConfig: Object.freeze({
-            apiUrl: 'https://api.deepseek.com/v1',
+            apiUrl: 'https://sta1n.ai/v1',
             apiKey: '',
             model: '',
             qualityModel: '',
@@ -981,15 +964,28 @@ window.RPHubUtils = {
         }),
         apiProviderOptions: Object.freeze([
             Object.freeze({
-                    // [1.9.6 合并 · 2026-09-21] 上游把本内置商（sta1n）的 icon 换了新 CDN
-                    // （picui.ogmua.cn → img.cdn1.vip，旧图床已失效）。本仓库 [LuzzyRP patch 029]
-                    // 已将该内置商从内置列表移除（用户拍板：内置商精简为 DeepSeek），故此处**不恢复条目**；
-                    // 若日后重新启用，请使用上游的新图标 URL：icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp'
+                id: 'sta1n',
+                name: 'STA1N API',
+                apiUrl: 'https://sta1n.ai/v1',
+                icon: 'https://img.cdn1.vip/i/6a11f4d96fa99_1779561689.webp'
+            }),
+            Object.freeze({
                 id: 'deepseek',
                 name: 'DeepSeek',
                 apiUrl: 'https://api.deepseek.com/v1',
-                icon: 'https://www.deepseek.com/favicon.ico',
-                editable: true
+                icon: 'https://www.deepseek.com/favicon.ico'
+            }),
+            Object.freeze({
+                id: 'openrouter',
+                name: 'OpenRouter',
+                apiUrl: 'https://openrouter.ai/api/v1',
+                icon: 'https://openrouter.ai/favicon.ico'
+            }),
+            Object.freeze({
+                id: 'siliconflow',
+                name: 'SiliconFlow',
+                apiUrl: 'https://api.siliconflow.cn/v1',
+                icon: 'https://siliconflow.cn/favicon.ico'
             })
         ]),
         activeTools: window.RPHubBuiltinContent.activeTools,
@@ -1001,13 +997,6 @@ window.RPHubUtils = {
                 { value: 'assistant', label: 'AI消息' }
             ]),
             presetRoleDisplayLabels: Object.freeze({ system: '系统', user: 'User', assistant: 'AI' }),
-            fontFamilies: Object.freeze([
-            // [LuzzyRP patch 009] 字体选项：内置改「经典」系 + 新增 luzzy 默认（上游: modern/serif/system）
-                { value: 'luzzy', label: 'Luzzy 默认' },
-                { value: 'modern', label: '经典（原版）' },
-                { value: 'serif', label: '经典衬线（Lora）' },
-                { value: 'system', label: '系统' }
-            ]),
             fontSizes: Object.freeze([12, 13, 14, 15, 16, 17, 18, 19, 20].map(size => ({
                 value: size,
                 label: `${size}px`
@@ -1023,7 +1012,7 @@ window.RPHubUtils = {
             ]),
             imageModels: Object.freeze([
                 { value: 'nai-diffusion-4-5-full', label: 'V4.5 完整版（-1）' },
-                { value: 'nai-diffusion-5-full', label: 'V5 完整版（-8）' }
+                { value: 'nai-diffusion-5-full', label: 'V5 完整版（-6）' }
             ]),
             imageSizes: Object.freeze([
                 { value: '竖图', label: '竖图' },

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { flushBackupStats, handleAdminRequest, handleBackupRequest, initBackup } from './backup.js';
 
 const port = Number(process.env.PORT) || 3000;
 const parseVersionId = value => /^\d{5}$/.test(String(value ?? '').trim())
@@ -9,7 +10,7 @@ const versionRefreshMs = 60_000;
 let latestVersionId = 10189;
 let nextVersionRefreshAt = 0;
 let versionRefreshPromise = null;
-const allowedOrigins = String(process.env.ALLOWED_ORIGINS || '*')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*')
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
@@ -66,21 +67,20 @@ const readJson = async (request) => {
 const server = http.createServer(async (request, response) => {
     const origin = request.headers.origin || '';
     const corsOrigin = getCorsOrigin(origin);
-    const url = new URL(request.url || '/', 'http://localhost');
+    const url = new URL(request.url, 'http://localhost');
+
+    if (origin && !corsOrigin) return sendJson(response, 403, { error: 'Origin not allowed' });
 
     if (request.method === 'OPTIONS') {
-        if (origin && !corsOrigin) return sendJson(response, 403, { error: 'Origin not allowed' });
         response.writeHead(204, {
             'Access-Control-Allow-Origin': corsOrigin || '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, X-Blob-Encoding',
             'Access-Control-Max-Age': '86400',
             Vary: 'Origin'
         });
         return response.end();
     }
-
-    if (origin && !corsOrigin) return sendJson(response, 403, { error: 'Origin not allowed' });
 
     if (request.method === 'GET' && url.pathname === '/health') {
         return sendJson(response, 200, { ok: true }, corsOrigin);
@@ -109,17 +109,28 @@ const server = http.createServer(async (request, response) => {
         }
     }
 
+    if (url.pathname === '/admin' || url.pathname.startsWith('/v1/admin/')) {
+        return handleAdminRequest(request, response, url, (status, body) => sendJson(response, status, body, corsOrigin));
+    }
+
+    if (url.pathname.startsWith('/v1/backup')) {
+        return handleBackupRequest(request, response, url, (status, body) => sendJson(response, status, body, corsOrigin),
+            corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin, Vary: 'Origin' } : {});
+    }
+
     return sendJson(response, 404, { error: 'Not found' }, corsOrigin);
 });
 
+// A large backup piece on a slow phone connection can take longer than Node's default five minutes.
+server.requestTimeout = 30 * 60_000;
+
 refreshLatestVersionId();
+initBackup();
 
 server.listen(port, '0.0.0.0', () => {
     console.log(`RP-Hub update check service listening on ${port}`);
 });
 
-const shutdown = () => server.close(() => process.exit(0));
+const shutdown = () => flushBackupStats().then(() => server.close(() => process.exit(0)));
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
-
-export { server };

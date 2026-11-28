@@ -317,6 +317,7 @@ image###英文Tag###
 
     const activeTools = Object.freeze({
             types: Object.freeze({ keyword: 'keyword_dialogue', web: 'web_search', random: 'random_number' }),
+            defaultsVersion: 2,
             resultCount: Object.freeze({ min: 5, default: 5, max: 10, version: 4 }),
             maxAutoContinue: 4,
             aggressiveness: Object.freeze({
@@ -330,16 +331,11 @@ image###英文Tag###
                     adaptive: '积极补全不确定信息；人设、剧情、记忆、事实、前文细节或用户暗指内容不明确时先调用工具，上下文完全足够时可直接回复。'
                 })
             }),
-            tavily: Object.freeze({
-                searchEndpoint: 'https://api.tavily.com/search',
-                extractEndpoint: 'https://api.tavily.com/extract',
-                searchDepth: 'advanced'
-            }),
             defaults: Object.freeze([
                 Object.freeze({
                     id: 'tool_grep',
                     name: '关键词检索',
-                    enabled: false,
+                    enabled: true,
                     type: 'keyword_dialogue',
                     callName: 'tool_grep',
                     resultCount: 5,
@@ -349,20 +345,20 @@ image###英文Tag###
                 }),
                 Object.freeze({
                     id: 'tool_web',
-                    name: 'Tavily 联网搜索',
-                    enabled: false,
+                    name: 'Anysearch 联网搜索',
+                    enabled: true,
                     type: 'web_search',
                     callName: 'tool_web',
                     resultCount: 5,
                     resultCountVersion: 4,
-                    description: '通过 Tavily 查询外部资料。query 为搜索词时返回标题、URL 和摘要；为真实 HTTP(S) URL 时读取网页正文。适合查最新信息、作品设定或本地资料无法确认的内容。优先使用具体名称、站点或别名；按需读取来源链接，不编造 URL，不把网页资料当作对话中已经发生的事实。',
-                    displayDescription: '通过 Tavily 联网搜索补充外部资料，也能进入链接读取网页详情，适合同人设定、作品百科、冷门角色和最新信息。',
-                    tavilyApiKey: ''
+                    description: '通过 Anysearch 查询外部资料。query 为搜索词时返回标题、URL 和摘要；为真实 HTTP(S) URL 时读取网页正文。API Key 可留空，匿名使用有较低额度。适合查最新信息、作品设定或本地资料无法确认的内容。优先使用具体名称、站点或别名；按需读取来源链接，不编造 URL，不把网页资料当作对话中已经发生的事实。',
+                    displayDescription: '通过 Anysearch 联网搜索补充外部资料，也能读取网页详情。API Key 可留空使用匿名额度，适合同人设定、作品百科、冷门角色和最新信息。',
+                    anysearchApiKey: ''
                 }),
                 Object.freeze({
                     id: 'tool_random',
                     name: '随机生成',
-                    enabled: false,
+                    enabled: true,
                     type: 'random_number',
                     callName: 'tool_random',
                     description: '由程序等概率随机生成一个结果，两种参数方式只能选一种：传 min 和 max 生成包含上下限的随机整数，可包含负数；或传 choices 名称数组，从中抽取一项，可用于物品、位置等自定义选项，如 ["手","脚","腿"]，重复名称只计一次。用户指定了范围或选项时须严格沿用，未指定时 AI 根据任务或游戏规则确定。整数上下限须为安全整数，范围内整数个数不超过 9007199254740991。必须使用工具返回的 value，不得自行编造随机结果或因结果不理想而反复重抽。',

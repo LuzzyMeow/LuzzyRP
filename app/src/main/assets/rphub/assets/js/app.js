@@ -148,6 +148,34 @@ marked.use({
     }
 });
 
+class AnysearchBridgeError extends Error {
+    constructor(status, requestId, code) {
+        super(code || 'anysearch_error');
+        this.name = 'AnysearchBridgeError';
+        this.status = Number(status) || 0;
+        this.requestId = String(requestId || '');
+        this.code = String(code || '');
+    }
+}
+
+const anysearchBridgeCallbacks = new Map();
+window.__luzzyAnysearchResolve = (callbackId, resultJson) => {
+    const callback = anysearchBridgeCallbacks.get(callbackId);
+    if (!callback) return;
+    anysearchBridgeCallbacks.delete(callbackId);
+
+    try {
+        const result = JSON.parse(resultJson);
+        if (result?.ok) {
+            callback.resolve(result.data || {});
+        } else {
+            callback.reject(new AnysearchBridgeError(result?.status, result?.requestId, result?.error));
+        }
+    } catch (error) {
+        callback.reject(new Error('Anysearch 返回数据无法解析。'));
+    }
+};
+
 const RollingText = {
     props: { value: { type: [String, Number], default: '' } },
     setup(props) {
@@ -218,6 +246,7 @@ const app = createApp({
         const ACTIVE_TOOL_KEYWORD_TYPE = activeToolConfig.types.keyword;
         const ACTIVE_TOOL_WEB_TYPE = activeToolConfig.types.web;
         const ACTIVE_TOOL_RANDOM_TYPE = activeToolConfig.types.random;
+        const ACTIVE_TOOL_DEFAULTS_VERSION = activeToolConfig.defaultsVersion;
         const ACTIVE_TOOL_MIN_RESULT_COUNT = activeToolConfig.resultCount.min;
         const ACTIVE_TOOL_DEFAULT_RESULT_COUNT = activeToolConfig.resultCount.default;
         const ACTIVE_TOOL_MAX_RESULT_COUNT = activeToolConfig.resultCount.max;
@@ -226,10 +255,7 @@ const app = createApp({
         const ACTIVE_TOOL_AGGRESSIVENESS_ADAPTIVE = activeToolConfig.aggressiveness.adaptive;
         const ACTIVE_TOOL_AGGRESSIVENESS_OPTIONS = activeToolConfig.aggressiveness.options;
         const ACTIVE_TOOL_REMINDERS = activeToolConfig.aggressiveness.reminders;
-        const ACTIVE_TOOL_TAVILY_ENDPOINT = activeToolConfig.tavily.searchEndpoint;
-        const ACTIVE_TOOL_TAVILY_EXTRACT_ENDPOINT = activeToolConfig.tavily.extractEndpoint;
-        const ACTIVE_TOOL_TAVILY_SEARCH_DEPTH = activeToolConfig.tavily.searchDepth;
-        const ACTIVE_TOOL_TAVILY_EXTRACT_MAX_URLS = ACTIVE_TOOL_DEFAULT_RESULT_COUNT;
+        const ACTIVE_TOOL_ANYSEARCH_EXTRACT_MAX_URLS = ACTIVE_TOOL_DEFAULT_RESULT_COUNT;
         const getDefaultActiveToolDefinitions = () => activeToolConfig.defaults.map(tool => ({ ...tool }));
 
         // --- State ---
@@ -1237,7 +1263,13 @@ const app = createApp({
                 .find(item => item.id === (isLegacyWebTool ? 'tool_web' : tool.id) || item.callName === callName);
             if (!defaultTool) return null;
             const fallback = defaultTool;
-            if (fallback.type === ACTIVE_TOOL_RANDOM_TYPE) return { ...fallback, enabled: tool.enabled !== false };
+            if (fallback.type === ACTIVE_TOOL_RANDOM_TYPE) {
+                return {
+                    ...fallback,
+                    enabled: tool.enabled !== false,
+                    defaultsVersion: ACTIVE_TOOL_DEFAULTS_VERSION
+                };
+            }
             const normalizedCallName = fallback.callName;
             const resultCountVersion = Number(tool.resultCountVersion) || 1;
             const normalizedType = fallback.type;
@@ -1257,13 +1289,14 @@ const app = createApp({
                 enabled: tool.enabled !== false,
                 type: normalizedType,
                 callName: normalizedCallName,
+                defaultsVersion: ACTIVE_TOOL_DEFAULTS_VERSION,
                 resultCount: normalizedResultCount,
                 resultCountVersion: ACTIVE_TOOL_RESULT_COUNT_VERSION,
                 description: fallback.description,
                 displayDescription: fallback.displayDescription
             };
             if (normalizedType === ACTIVE_TOOL_WEB_TYPE) {
-                normalized.tavilyApiKey = String(tool.tavilyApiKey || tool.apiKey || fallback.tavilyApiKey || '').trim();
+                normalized.anysearchApiKey = String(tool.anysearchApiKey || '').trim();
             }
             return normalized;
         };
@@ -1286,7 +1319,9 @@ const app = createApp({
                 });
             getDefaultActiveToolDefinitions().forEach(defaultTool => {
                 const hasDefaultTool = normalized.some(tool => tool.id === defaultTool.id || tool.callName === defaultTool.callName);
-                if (!hasDefaultTool) normalized.push(defaultTool);
+                if (!hasDefaultTool) {
+                    normalized.push({ ...defaultTool, defaultsVersion: ACTIVE_TOOL_DEFAULTS_VERSION });
+                }
             });
             if (JSON.stringify(activeTools.value) !== JSON.stringify(normalized)) {
                 activeTools.value = normalized;
@@ -1793,6 +1828,15 @@ const app = createApp({
                 if (savedGlobalUiTemplates) globalUiTemplates.value = savedGlobalUiTemplates.map(template => normalizeUiTemplate({ ...template, scope: 'global' }));
 
                 const savedActiveTools = await getStoredValue('active_tools');
+                if (Array.isArray(savedActiveTools)
+                    && savedActiveTools.length > 0
+                    && savedActiveTools.every(tool => tool?.enabled === false)
+                    && savedActiveTools.every(tool => (Number(tool?.defaultsVersion) || 1) < ACTIVE_TOOL_DEFAULTS_VERSION)) {
+                    savedActiveTools.forEach(tool => {
+                        tool.enabled = true;
+                        tool.defaultsVersion = ACTIVE_TOOL_DEFAULTS_VERSION;
+                    });
+                }
                 normalizeActiveTools(savedActiveTools || activeTools.value);
 
                 const savedWISettings = await getStoredValue('worldinfo_settings');
@@ -5550,51 +5594,89 @@ const app = createApp({
                 .sort((a, b) => a.messageIndex - b.messageIndex);
         };
 
-        const getTavilyErrorDetailText = (detail) => {
-            if (detail === null || detail === undefined) return '';
-            if (typeof detail === 'string') return detail.trim();
-            if (typeof detail === 'number' || typeof detail === 'boolean') return String(detail);
-            if (Array.isArray(detail)) {
-                return detail
-                    .map(item => getTavilyErrorDetailText(item))
-                    .filter(Boolean)
-                    .join('；');
+        const buildAnysearchErrorMessage = (error, action = 'search') => {
+            const status = Number(error?.status) || 0;
+            const code = String(error?.code || '');
+            const requestId = String(error?.requestId || '').trim();
+            const requestSuffix = requestId ? `（request_id: ${requestId}）` : '';
+            const actionLabel = action === 'extract' ? '网页读取' : '搜索';
+
+            if (code === 'bridge_unavailable') return 'Anysearch 原生桥不可用，请使用最新版 LuzzyRP。';
+            if (code === 'timeout') return `Anysearch ${actionLabel}超时，请稍后重试。`;
+            if (code === 'network') return '无法连接 Anysearch，请检查网络。';
+            if (code === 'query_required') return 'Anysearch 搜索词不能为空。';
+            if (code === 'invalid_url') return '要读取的网页 URL 无效，仅支持 HTTP/HTTPS。';
+            if (code === 'untrusted_page') return '当前页面不允许调用 Anysearch 原生桥。';
+            if (code === 'unsupported_action') return 'Anysearch 请求类型不受支持。';
+            if (code === 'request_failed') return `Anysearch ${actionLabel}请求失败。`;
+            if (status === 400) return `Anysearch ${actionLabel}参数无效${requestSuffix}`;
+            if (status === 401) return `Anysearch API Key 无效，请检查工具设置。${requestSuffix}`;
+            if (status === 402) return `Anysearch 额度已用完；匿名额度也可在次日恢复。${requestSuffix}`;
+            if (status === 403) return `Anysearch API Key 已过期或访问被禁止。${requestSuffix}`;
+            if (status === 415) return 'Anysearch 请求格式异常。';
+            if (status === 422) return `Anysearch 无法读取该网页或内容类型不受支持。${requestSuffix}`;
+            if (status === 429) return `Anysearch 请求太频繁，请稍后重试。${requestSuffix}`;
+            if (status === 502) return `Anysearch 服务暂时不可用，请稍后重试。${requestSuffix}`;
+            return `Anysearch ${actionLabel}失败${status ? `：HTTP ${status}` : ''}${requestSuffix}`;
+        };
+
+        const requestAnysearchBridge = (action, payload, apiKey, signal) => new Promise((resolve, reject) => {
+            const bridge = window.LuzzyAnysearchNative;
+            if (!bridge || typeof bridge.request !== 'function') {
+                reject(new AnysearchBridgeError(0, '', 'bridge_unavailable'));
+                return;
             }
-            if (typeof detail === 'object') {
-                const directKeys = ['msg', 'message', 'error_message', 'error', 'detail', 'reason', 'description'];
-                for (const key of directKeys) {
-                    const text = getTavilyErrorDetailText(detail[key]);
-                    if (text) return text;
-                }
-                return stringifyErrorDetail(detail).trim();
+            if (signal?.aborted) {
+                reject(createAbortReason());
+                return;
             }
-            return String(detail).trim();
+
+            const callbackId = `anysearch_${generateUUID().replace(/-/g, '')}`;
+            let settled = false;
+            let abortHandler = null;
+            const cleanup = () => {
+                anysearchBridgeCallbacks.delete(callbackId);
+                if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+            };
+            const finishResolve = (value) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve(value);
+            };
+            const finishReject = (error) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                reject(error);
+            };
+
+            abortHandler = () => finishReject(createAbortReason());
+            anysearchBridgeCallbacks.set(callbackId, { resolve: finishResolve, reject: finishReject });
+            signal?.addEventListener('abort', abortHandler, { once: true });
+
+            try {
+                bridge.request(action, JSON.stringify(payload), String(apiKey || ''), callbackId);
+            } catch (error) {
+                finishReject(new AnysearchBridgeError(0, '', 'request_failed'));
+            }
+        });
+
+        const requestAnysearchForTool = async (action, payload, tool, signal) => {
+            try {
+                return await requestAnysearchBridge(
+                    action,
+                    payload,
+                    String(tool?.anysearchApiKey || '').trim(),
+                    signal
+                );
+            } catch (error) {
+                if (error?.name === 'AbortError') throw error;
+                throw new Error(buildAnysearchErrorMessage(error, action));
+            }
         };
 
-        const buildTavilyErrorMessage = (response, data) => {
-            const detail = data?.detail ?? data?.message ?? data?.error ?? data?.error_message;
-            const message = getTavilyErrorDetailText(detail);
-            if (response.status === 401) return 'Tavily API Key 无效，请检查工具设置里的 API Key。';
-            if (response.status === 429) return 'Tavily 请求太频繁或额度不足，请稍后再试。';
-            if (response.status === 432 || response.status === 433) return message || 'Tavily 账户额度或权限不足。';
-            return message || `Tavily 搜索失败：HTTP ${response.status}`;
-        };
-
-        const requestTavily = async (endpoint, apiKey, body, signal) => {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body),
-                signal
-            });
-            const data = await response.json().catch(() => ({}));
-            return { response, data };
-        };
-
-        const normalizeTavilyExtractUrl = (value) => {
+        const normalizeAnysearchExtractUrl = (value) => {
             let text = String(value || '').trim().replace(/[，。；、）)\].,;]+$/g, '');
             if (!text) return '';
             if (/^www\./i.test(text)) text = `https://${text}`;
@@ -5610,9 +5692,9 @@ const app = createApp({
         const extractWebUrlsFromToolQuery = (query) => {
             const matches = String(query || '').match(/https?:\/\/[^\s<>"'，。；、）)\]]+|www\.[^\s<>"'，。；、）)\]]+/gi) || [];
             const urls = matches
-                .map(normalizeTavilyExtractUrl)
+                .map(normalizeAnysearchExtractUrl)
                 .filter(Boolean);
-            return [...new Set(urls)].slice(0, ACTIVE_TOOL_TAVILY_EXTRACT_MAX_URLS);
+            return [...new Set(urls)].slice(0, ACTIVE_TOOL_ANYSEARCH_EXTRACT_MAX_URLS);
         };
 
         const getWebTitleFromUrl = (url) => {
@@ -5623,90 +5705,74 @@ const app = createApp({
             }
         };
 
-        const extractWebPagesByTavilyForTool = async (urls, tool, signal) => {
-            const apiKey = String(tool?.tavilyApiKey || '').trim();
-            if (!apiKey) {
-                throw new Error('请先在工具设置里填写 Tavily API Key。');
-            }
+        const extractWebPagesByAnysearchForTool = async (urls, tool, signal) => {
+            const settled = await Promise.allSettled(
+                urls.map(url => requestAnysearchForTool('extract', { url }, tool, signal))
+            );
+            if (signal?.aborted) throw createAbortReason();
 
-            const body = {
-                urls: urls.length === 1 ? urls[0] : urls,
-                extract_depth: ACTIVE_TOOL_TAVILY_SEARCH_DEPTH,
-                format: 'markdown',
-                include_favicon: true,
-                timeout: 30
-            };
-
-            const { response, data } = await requestTavily(ACTIVE_TOOL_TAVILY_EXTRACT_ENDPOINT, apiKey, body, signal);
-            if (!response.ok) {
-                throw new Error(buildTavilyErrorMessage(response, data).replace('搜索失败', '网页读取失败'));
-            }
-
-            const results = (Array.isArray(data.results) ? data.results : [])
-                .map((item, index) => {
-                    const url = String(item?.url || urls[index] || '').trim();
-                    return {
-                        index: index + 1,
-                        title: String(item?.title || getWebTitleFromUrl(url)).trim(),
+            const results = [];
+            const failedResults = [];
+            settled.forEach((outcome, index) => {
+                const sourceUrl = urls[index];
+                if (outcome.status === 'fulfilled') {
+                    const payload = outcome.value?.data && typeof outcome.value.data === 'object'
+                        ? outcome.value.data
+                        : {};
+                    const url = String(payload.url || sourceUrl || '').trim();
+                    const content = trimMemoryText(payload.content || '', 6000);
+                    if (!content) return;
+                    results.push({
+                        index: results.length + 1,
+                        title: String(payload.title || getWebTitleFromUrl(url)).trim(),
                         url,
-                        content: trimMemoryText(item?.raw_content || item?.content || '', 6000),
-                        favicon: item?.favicon || '',
+                        content,
                         sourceType: 'extract'
-                    };
-                })
-                .filter(item => item.url || item.content);
-            results.tavilyMode = 'extract';
-            results.tavilyResponseTime = data.response_time || '';
-            results.tavilyFailedResults = Array.isArray(data.failed_results)
-                ? data.failed_results.map(item => ({
-                    url: String(item?.url || '').trim(),
-                    error: getTavilyErrorDetailText(item?.error ?? item?.message ?? item?.detail)
-                }))
-                : [];
+                    });
+                    return;
+                }
+                if (outcome.reason?.name === 'AbortError') return;
+                failedResults.push({
+                    url: sourceUrl,
+                    error: outcome.reason?.message || '网页读取失败'
+                });
+            });
+
+            if (results.length === 0 && failedResults.length > 0) {
+                throw new Error(failedResults[0].error);
+            }
+            results.anysearchMode = 'extract';
+            results.anysearchFailedResults = failedResults;
             return results;
         };
 
-        const searchWebByTavilyForTool = async (query, tool, signal) => {
+        const searchWebByAnysearchForTool = async (query, tool, signal) => {
             const cleanQuery = trimMemoryText(query, 800);
             if (!cleanQuery) return [];
             const extractUrls = extractWebUrlsFromToolQuery(cleanQuery);
             if (extractUrls.length > 0) {
-                return extractWebPagesByTavilyForTool(extractUrls, tool, signal);
-            }
-
-            const apiKey = String(tool?.tavilyApiKey || '').trim();
-            if (!apiKey) {
-                throw new Error('请先在工具设置里填写 Tavily API Key。');
+                return extractWebPagesByAnysearchForTool(extractUrls, tool, signal);
             }
 
             const maxResults = Math.max(ACTIVE_TOOL_MIN_RESULT_COUNT, Math.min(ACTIVE_TOOL_MAX_RESULT_COUNT, Number(tool?.resultCount) || ACTIVE_TOOL_DEFAULT_RESULT_COUNT));
-            const body = {
-                query: cleanQuery,
-                search_depth: ACTIVE_TOOL_TAVILY_SEARCH_DEPTH,
-                max_results: maxResults,
-                topic: 'general',
-                include_favicon: true
-            };
-
-            const { response, data } = await requestTavily(ACTIVE_TOOL_TAVILY_ENDPOINT, apiKey, body, signal);
-            if (!response.ok) {
-                throw new Error(buildTavilyErrorMessage(response, data));
-            }
-
+            const response = await requestAnysearchForTool(
+                'search',
+                { query: cleanQuery, max_results: maxResults },
+                tool,
+                signal
+            );
+            const data = response?.data && typeof response.data === 'object' ? response.data : {};
             const results = (Array.isArray(data.results) ? data.results : [])
                 .slice(0, maxResults)
                 .map((item, index) => ({
                     index: index + 1,
                     title: String(item?.title || '未命名网页').trim(),
                     url: String(item?.url || '').trim(),
-                    content: trimMemoryText(item?.content || '', 1800),
-                    score: Number(item?.score),
-                    publishedDate: item?.published_date || item?.publishedDate || '',
-                    favicon: item?.favicon || '',
+                    content: trimMemoryText(item?.content || item?.snippet || '', 1800),
                     sourceType: 'search'
                 }));
-            results.tavilyMode = 'search';
-            results.tavilyResponseTime = data.response_time || '';
+            results.anysearchMode = 'search';
+            results.anysearchResponseTime = data.metadata?.search_time_ms || '';
             return results;
         };
 
@@ -5850,7 +5916,7 @@ const app = createApp({
 
         const getToolCallDisplayName = (toolCall) => {
             const groupKey = getActiveToolUiGroupKey(toolCall);
-            if (groupKey === ACTIVE_TOOL_WEB_TYPE) return 'Tavily 联网搜索';
+            if (groupKey === ACTIVE_TOOL_WEB_TYPE) return 'Anysearch 联网搜索';
             if (groupKey === ACTIVE_TOOL_KEYWORD_TYPE) return '关键词检索';
             if (groupKey === ACTIVE_TOOL_RANDOM_TYPE) return '随机生成';
             return toolCall?.name || '工具调用';
@@ -6042,7 +6108,7 @@ const app = createApp({
                         const results = isRandom
                             ? [generateRandomResultForTool(toolCall)]
                             : isWebActiveTool(toolCall.tool)
-                                ? await searchWebByTavilyForTool(toolCall.query, toolCall.tool, toolAbort.signal)
+                                ? await searchWebByAnysearchForTool(toolCall.query, toolCall.tool, toolAbort.signal)
                                 : searchDialogueByKeywordForTool(toolCall.query, toolCall.tool.resultCount, { excludeMessageId: assistantMessage.id });
                         if (toolAbort.signal.aborted) throw createAbortReason();
                         payload = {
@@ -6050,8 +6116,8 @@ const app = createApp({
                             query: toolCall.query,
                             results,
                             ...(isRandom ? { operation: 'random' } : {}),
-                            ...(results.tavilyMode ? { operation: results.tavilyMode } : {}),
-                            ...(results.tavilyFailedResults?.length ? { failed_sources: results.tavilyFailedResults } : {})
+                            ...(results.anysearchMode ? { operation: results.anysearchMode } : {}),
+                            ...(results.anysearchFailedResults?.length ? { failed_sources: results.anysearchFailedResults } : {})
                         };
                         toolUi.status = 'done';
                         toolUi.resultCount = results.length;
@@ -8408,7 +8474,7 @@ const app = createApp({
                     ...previous,
                     resultCount: editingActiveTool.data.resultCount,
                     resultCountVersion: ACTIVE_TOOL_RESULT_COUNT_VERSION,
-                    tavilyApiKey: editingActiveTool.data.tavilyApiKey
+                    anysearchApiKey: editingActiveTool.data.anysearchApiKey
                 });
                 activeTools.value[index] = data;
                 normalizeActiveTools();

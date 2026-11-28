@@ -2,12 +2,36 @@
    Palette steps are "R G B" triplets so Tailwind can apply opacity (see tailwind-theme.js).
    Dark mode only swaps these variables; components never special-case the theme. */
 
+@font-face {
+    font-family: "Alibaba PuHuiTi 3.0";
+    src: url("../fonts/AlibabaPuHuiTi-3-55-Regular.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Alibaba PuHuiTi 3.0";
+    src: url("../fonts/AlibabaPuHuiTi-3-65-Medium.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Alibaba PuHuiTi 3.0";
+    src: url("../fonts/AlibabaPuHuiTi-3-85-Bold.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+}
+
 :root {
     color-scheme: light;
 
     /* Type: each context gets the face made for it.
        Sans for interface and dialogue, serif for names and titles, mono for code and figures. */
-    --font-sans: "Inter", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "OPPO Sans", "Alibaba PuHuiTi 3.0", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    --font-sans: "Alibaba PuHuiTi 3.0", "Alibaba PuHuiTi", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "OPPO Sans", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
     --font-serif: "Lora", "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, Georgia, "Times New Roman", serif;
     --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
 

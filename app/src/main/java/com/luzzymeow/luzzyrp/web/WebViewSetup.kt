@@ -23,6 +23,6 @@ object WebViewSetup {
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
         settings.mediaPlaybackRequiresUserGesture = false
-        settings.userAgentString = "${settings.userAgentString} LuzzyRP/2.0.6.1"
+        settings.userAgentString = "${settings.userAgentString} LuzzyRP/2.0.6.2"
     }
 }

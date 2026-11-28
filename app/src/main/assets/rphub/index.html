@@ -1922,9 +1922,9 @@
                                 <div class="text-xs leading-relaxed text-gray-500 mt-1 tool-description-preview">
                                     {{ getActiveToolDisplayDescription(tool) }}
                                 </div>
-                                <div v-if="isWebActiveTool(tool) && tool.enabled && !tool.tavilyApiKey"
-                                    class="mt-1 text-[11px] font-bold text-amber-600">
-                                    需要填写 Tavily API Key
+                                <div v-if="isWebActiveTool(tool) && tool.enabled && !tool.anysearchApiKey"
+                                    class="mt-1 text-[11px] font-medium text-sky-600">
+                                    匿名额度可用；填写 Anysearch API Key 可提高额度
                                 </div>
                             </div>
                         </button>
@@ -2410,7 +2410,7 @@
             :max-result-count="getActiveToolResultCountMax()"
             @close="showActiveToolEditor = false" @save="saveActiveTool"
             @update:result-count="editingActiveTool.data.resultCount = $event"
-            @update:tavily-api-key="editingActiveTool.data.tavilyApiKey = $event"></active-tool-editor-modal>
+            @update:anysearch-api-key="editingActiveTool.data.anysearchApiKey = $event"></active-tool-editor-modal>
 
         <auto-image-gen-modal :show="showAutoImageGenModal" @decide="setAutoImageGen"></auto-image-gen-modal>
         <export-selection-modal :show="showExportModal" :items="exportItems" :selected="selectedExportIndices"

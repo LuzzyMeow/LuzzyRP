@@ -31,8 +31,8 @@ android {
         minSdk = 26
         targetSdk = 37
         buildConfigField("String", "ASSET_SIGNATURE", "\"$assetSignature\"")
-        versionCode = 21
-        versionName = "2.0.6.1"
+        versionCode = 22
+        versionName = "2.0.6.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

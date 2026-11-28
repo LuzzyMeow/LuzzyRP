@@ -26,7 +26,7 @@ Download and extract the project, then double-click `index.html` to open it.
 1. Open **Settings** from the navigation menu. Choose a provider or use the single **Custom** connection.
 2. Enter your API URL and key, then select a chat model. The API must be compatible with Chat Completions. Use the service's base URL or a URL ending in `/v1`; do not include `/chat/completions`.
 3. Open **Character Card Management** to import a JSON / PNG card or create a new one. The Character Card Workshop can also generate, edit, and export cards, with one-click import and play.
-4. Configure a summary model, embedding model, image generation key, and Tavily key as needed. Features you do not use require no setup.
+4. Configure a summary model, embedding model, image generation key, and Anysearch API key as needed. Features you do not use require no setup.
 
 The API must allow requests from your browser page through CORS. A working webpage and a valid key do not necessarily mean the API permits direct browser access.
 
@@ -44,7 +44,7 @@ A message and a turn are different units: one user input followed by one AI resp
 ### Tools
 
 - **Keyword Search**: Finds original text snippets in the current conversation history. It does not search the web.
-- **Web Search**: Uses Tavily to search the web or read webpages. Requires a separately configured Tavily API key.
+- **Web Search**: Uses Anysearch to search the web or read webpages. The API key can be left blank to use the lower anonymous quota.
 - **Random Generation**: The model supplies a lower and upper bound, and the program generates a random integer including both endpoints. Alternatively, it can supply candidate names, such as items or locations, and the program selects one with equal probability. User-specified ranges or choices are preserved; duplicate names count only once.
 
 Tool usage can be set to **Adaptive** or **Forced**. Both the model and API must support `tools` / `tool_choice`. The search result count setting does not change Enhanced Memory's fixed maximum of 10 retrieved memories.

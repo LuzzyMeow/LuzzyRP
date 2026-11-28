@@ -12,6 +12,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.luzzymeow.luzzyrp.util.AssetExtractor
+import com.luzzymeow.luzzyrp.web.AnysearchBridge
 import com.luzzymeow.luzzyrp.web.DownloadHandler
 import com.luzzymeow.luzzyrp.web.FileChooserHandler
 import com.luzzymeow.luzzyrp.web.WebViewSetup
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
+        webView.addJavascriptInterface(AnysearchBridge(webView), "LuzzyAnysearchNative")
         webView.webViewClient = WebViewClient()
         DownloadHandler.attach(webView)
         webView.webChromeClient = fileChooserHandler.webChromeClient()

@@ -15,7 +15,7 @@
 
 > [!IMPORTANT]
 > 项目已重启。当前版本不再包含旧版的 `assets/ext` 扩展层、`LuzzyBridge`、独立主题或同步补丁工具链。
-> 现在它是一个尽量保持上游原貌的 Android WebView 壳：业务界面和前端逻辑来自 RP-Hub 2.0.6，Kotlin 只负责启动、资源解压、文件选择、下载和系统界面适配。
+> 现在它是一个尽量保持上游原貌的 Android WebView 壳：业务界面和前端逻辑来自 RP-Hub 2.0.6，Kotlin 负责启动、资源解压、文件选择、下载、系统界面适配，以及 Anysearch 的受限原生检索桥。
 
 ## 下载
 
@@ -23,8 +23,8 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 应用版本 | `2.0.6.1-debug` |
-| versionCode | `21` |
+| 应用版本 | `2.0.6.2-debug` |
+| versionCode | `22` |
 | Debug 包名 | `com.luzzymeow.luzzyrp.debug` |
 | Release 包名 | `com.luzzymeow.luzzyrp` |
 | 最低系统 | Android 8.0（API 26） |
@@ -43,6 +43,9 @@ LuzzyRP 将 RP-Hub 2.0.6 的静态前端打包进 APK，并在应用私有目录
 - 本地资源解压与版本签名失效机制；
 - 系统文件选择器，用于 `input[type=file]`；
 - 常规 HTTP/HTTPS 下载，保存到系统下载目录；
+- Anysearch 联网搜索与网页读取，API Key 可留空使用匿名额度；
+- 关键词检索、Anysearch 联网搜索和随机生成默认开启；
+- 全局默认字体为本地打包的阿里巴巴普惠体 3.0；
 - WebView 返回键、系统栏与刘海屏 inset 适配；
 - Debug 构建的 WebView 远程调试；
 - JavaScript Console 转发到 Logcat，标签为 `JSConsole`。
@@ -50,10 +53,10 @@ LuzzyRP 将 RP-Hub 2.0.6 的静态前端打包进 APK，并在应用私有目录
 ## 运行要求与限制
 
 - 需要 Android 8.0 或更高版本，并建议保持系统 WebView 为最新版本。
-- 应用页面、主要业务脚本和 `vendor` 下的三个运行时库随 APK 打包，但 Vue、Tailwind、字体及部分嵌入页依赖仍从 CDN 加载，因此不是完全离线应用。
+- 应用页面、主要业务脚本、普惠体与 `vendor` 下的三个运行时库随 APK 打包，但 Vue、Tailwind、部分展示字体及嵌入页依赖仍从 CDN 加载，因此不是完全离线应用。
 - 调用模型服务需要网络，并且服务端必须允许来自 WebView 页面的跨域请求（CORS）。
 - 当前下载桥只处理常规 HTTP/HTTPS URL。`blob:` URL 由 WebView 内部生成，系统 `DownloadManager` 无法消费，相关前端导出不会由原生层接管。
-- 当前没有 `addJavascriptInterface` 或旧版 `LuzzyBridge`。前端不能调用旧的 Luzzy 原生扩展接口。
+- 原生桥只开放 Anysearch `search` / `extract`，不是通用网络代理；旧版 `LuzzyBridge` 仍未恢复，前端不能调用旧的 Luzzy 原生扩展接口。
 - `presence-server` 是可选更新检测与云端备份服务，不是聊天后端，也不是运行 Android 壳的必需组件。
 
 ## 构建
@@ -108,7 +111,7 @@ app/build/outputs/apk/debug/app-debug.apk
 本机每次生成新的 Debug APK 后，会同步副本到：
 
 ```text
-C:\Users\Administrator\Desktop\LuzzyRP-2.0.6.1-debug.apk
+C:\Users\Administrator\Desktop\LuzzyRP-2.0.6.2-debug.apk
 ```
 
 ## 架构
@@ -123,6 +126,8 @@ MainActivity
 │   └── WebChromeClient.onShowFileChooser → 系统文件选择器
 ├── DownloadHandler
 │   └── DownloadListener → DownloadManager（仅 HTTP/HTTPS）
+├── AnysearchBridge
+│   └── window.LuzzyAnysearchNative → api.anysearch.com/v1/search | /v1/extract
 └── WindowInsets / OnBackPressedDispatcher
     └── 系统栏适配与 WebView 返回导航
 ```
@@ -162,7 +167,8 @@ LuzzyRP/
 │       │   └── web/
 │       │       ├── WebViewSetup.kt
 │       │       ├── FileChooserHandler.kt
-│       │       └── DownloadHandler.kt
+│       │       ├── DownloadHandler.kt
+│       │       └── AnysearchBridge.kt
 │       └── res/                          # 图标、颜色与应用名称
 ├── gradle/
 │   ├── libs.versions.toml                # 依赖版本统一入口
@@ -179,11 +185,12 @@ LuzzyRP/
 ## 开发约定
 
 - `app/src/main/assets/rphub` 视为上游原始树。升级上游时整棵替换，再补回 `vendor` 下三个本地运行时库。
-- 不要恢复已删除的 `assets/ext`、旧 JS bridge 或旧同步工具脚本。
+- 不要恢复已删除的 `assets/ext`、旧 `LuzzyBridge` 或旧同步工具脚本；`AnysearchBridge` 是唯一保留的原生 JS 桥。
 - `vendor` 下只保留 `marked.min.js`、`purify.min.js`、`Sortable.min.js`。
+- 全局字体使用本地 `assets/fonts/AlibabaPuHuiTi-3-*.woff2`；UI 模板里的字体声明仍可覆盖全局字体。
 - `built-in-content.js` 中的 `<nsfw_rules>` 规则段不可修改。
 - 升级上游后同步修改 `app/build.gradle.kts` 的 `versionCode` / `versionName`、`WebViewSetup.kt` 的 UA 后缀，并重新构建 Debug。
-- UA 后缀当前为 `LuzzyRP/2.0.6.1`。
+- UA 后缀当前为 `LuzzyRP/2.0.6.2`。
 - `local.properties`、`keystore.properties`、构建产物和 `.gradle` 均不提交。
 - Release 签名需要根目录 `keystore.properties` 和对应密钥文件；没有签名配置时 Debug 仍可正常构建。
 - 当前没有测试源码。最低验证门槛是 `:app:assembleDebug` 成功；不要声称运行了不存在的自动化测试。

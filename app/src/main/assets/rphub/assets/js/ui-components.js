@@ -1154,7 +1154,7 @@
             minResultCount: { type: Number, required: true },
             maxResultCount: { type: Number, required: true }
         },
-        emits: ['close', 'save', 'update:result-count', 'update:tavily-api-key'],
+        emits: ['close', 'save', 'update:result-count', 'update:anysearch-api-key'],
         template: `
             <modal-shell :show="show" overlay-class="z-50 p-4"
                 panel-class="bg-white rounded-2xl border border-gray-200 w-full max-w-3xl flex flex-col shadow-2xl max-h-[90vh] overflow-hidden">
@@ -1188,12 +1188,13 @@
                         </div>
                         <div v-if="webTool" class="max-w-2xl mx-auto">
                             <div class="mb-1.5 flex items-center justify-between gap-3">
-                                <label for="tavily-api-key" class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tavily API Key</label>
-                                <a href="https://www.tavily.com/" target="_blank" rel="noopener noreferrer"
+                                <label for="anysearch-api-key" class="text-xs font-bold text-gray-500 uppercase tracking-wide">Anysearch API Key（可选）</label>
+                                <a href="https://www.anysearch.com/console/api-keys" target="_blank" rel="noopener noreferrer"
                                     class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer transition-colors text-xs normal-case font-medium shrink-0">获取密钥</a>
                             </div>
-                            <input id="tavily-api-key" :value="tool.tavilyApiKey" @input="$emit('update:tavily-api-key', $event.target.value.trim())" type="password"
-                                class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:outline-none transition-all" placeholder="tvly-...">
+                            <input id="anysearch-api-key" :value="tool.anysearchApiKey" @input="$emit('update:anysearch-api-key', $event.target.value.trim())" type="password" autocomplete="off"
+                                class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:outline-none transition-all" placeholder="留空使用匿名额度">
+                            <p class="mt-1.5 text-[11px] leading-relaxed text-gray-400">留空可直接匿名使用，额度较低；填写自己的 API Key 可减少限流。</p>
                         </div>
                     </div>
                     <div class="p-4 md:p-5 border-t border-gray-100 flex justify-end space-x-3 bg-gray-50/80 backdrop-blur-sm flex-shrink-0">
